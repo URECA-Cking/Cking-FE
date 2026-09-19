@@ -178,12 +178,12 @@ export default function Home() {
                 </div>
                 <div className="min-w-0">
                   <span className="font-label-xs text-label-xs text-primary font-bold">{task.tag}</span>
-                  <p className="font-title-md text-title-md text-on-surface font-semibold truncate">{task.title}</p>
+                  <p className="font-title-md text-title-md text-on-surface font-semibold line-clamp-2">{task.title}</p>
                 </div>
               </div>
               <Link
                 to={task.to}
-                className={`flex-shrink-0 px-3.5 py-2 rounded-lg font-label-md text-label-md font-semibold active:scale-95 transition-all shadow-sm ${
+                className={`flex-shrink-0 whitespace-nowrap px-3.5 py-2 rounded-lg font-label-md text-label-md font-semibold active:scale-95 transition-all shadow-sm ${
                   task.disabled ? 'bg-surface-container-high text-outline' : 'bg-primary text-on-primary'
                 }`}
               >

@@ -83,8 +83,8 @@ export default function MyEntries() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1">
-                    <span className="font-label-xs text-label-xs text-primary font-bold truncate">{creator.name}</span>
-                    <span className="text-outline text-[10px]">·</span>
+                    <span className="font-label-xs text-label-xs text-primary font-bold shrink-0">{creator.name}</span>
+                    <span className="text-outline text-[10px] shrink-0">·</span>
                     <span className="font-label-xs text-label-xs text-on-surface-variant truncate">
                       {formatDateTime(entry.lastAt)} 응모
                     </span>

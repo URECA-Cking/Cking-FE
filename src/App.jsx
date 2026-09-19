@@ -9,6 +9,11 @@ import Signup from './pages/Signup.jsx'
 import OnboardingCreators from './pages/OnboardingCreators.jsx'
 import CreatorSpace from './pages/CreatorSpace.jsx'
 import EventDetail from './pages/EventDetail.jsx'
+import LiveHome from './pages/live/LiveHome.jsx'
+import LiveEvents from './pages/live/LiveEvents.jsx'
+import LiveEventDetail from './pages/live/LiveEventDetail.jsx'
+import LiveNotifications from './pages/live/LiveNotifications.jsx'
+import LiveCreatorApplication from './pages/live/LiveCreatorApplication.jsx'
 
 function App() {
   return (
@@ -25,6 +30,12 @@ function App() {
       <Route path="/onboarding/creators" element={<OnboardingCreators />} />
       <Route path="/creators/:creatorId" element={<CreatorSpace />} />
       <Route path="/events/:eventId" element={<EventDetail />} />
+
+      <Route path="/live" element={<LiveHome />} />
+      <Route path="/live/events" element={<LiveEvents />} />
+      <Route path="/live/events/:eventId" element={<LiveEventDetail />} />
+      <Route path="/live/notifications" element={<LiveNotifications />} />
+      <Route path="/live/creator-application" element={<LiveCreatorApplication />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

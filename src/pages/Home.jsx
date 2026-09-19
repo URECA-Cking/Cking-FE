@@ -49,6 +49,20 @@ export default function Home() {
         </h2>
       </section>
 
+      <Link
+        to="/live"
+        className="mx-margin mt-3 flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-primary to-[#e11d48] text-on-primary shadow-md active:scale-[0.98] transition-all"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <MaterialIcon name="cloud_sync" className="text-[22px]" />
+          <div className="min-w-0">
+            <p className="font-label-md text-label-md font-semibold">실시간 백엔드 기능 확인하기</p>
+            <p className="font-label-xs text-label-xs opacity-90 truncate">가상 사용자로 실제 이벤트·응모·알림 API를 테스트해보세요</p>
+          </div>
+        </div>
+        <MaterialIcon name="chevron_right" className="text-[20px] shrink-0" />
+      </Link>
+
       <section className="mt-4">
         <div className="flex items-center justify-between px-margin mb-3">
           <div className="flex items-center gap-1.5">

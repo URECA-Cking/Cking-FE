@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import { formatNumber } from '../../utils/format.js'
 
+/** 홈 상단 "내 크리에이터" 가로 목록의 아바타 항목. 응모권 잔액은 실제 API 값이다. */
 export default function CreatorAvatarItem({ creator }) {
   return (
     <Link
-      to={`/creators/${creator.id}`}
+      to={`/creators/${creator.creatorId}`}
       className="flex flex-col items-center flex-shrink-0 w-24 group cursor-pointer"
     >
       <div className="relative mb-2">
@@ -26,7 +28,7 @@ export default function CreatorAvatarItem({ creator }) {
       </span>
       <div className="mt-1.5 flex items-center gap-1 bg-surface-container px-2 py-0.5 rounded-full shadow-sm">
         <span className="text-[11px]">🎟</span>
-        <span className="font-label-xs text-label-xs text-primary font-bold">{creator.tickets}장</span>
+        <span className="font-label-xs text-label-xs text-primary font-bold">{formatNumber(creator.balance)}장</span>
       </div>
     </Link>
   )

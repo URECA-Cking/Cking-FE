@@ -10,6 +10,9 @@ import Login from './pages/Login.jsx'
 import OnboardingCreators from './pages/OnboardingCreators.jsx'
 import CreatorSpace from './pages/CreatorSpace.jsx'
 import EventDetail from './pages/EventDetail.jsx'
+import RequireRole from './components/auth/RequireRole.jsx'
+import CreatorStudio from './pages/studio/CreatorStudio.jsx'
+import StudioEventForm from './pages/studio/StudioEventForm.jsx'
 
 function App() {
   return (
@@ -51,6 +54,37 @@ function App() {
         element={
           <RequireUser>
             <EventDetail />
+          </RequireUser>
+        }
+      />
+
+      <Route
+        path="/studio"
+        element={
+          <RequireUser>
+            <RequireRole role="creator">
+              <CreatorStudio />
+            </RequireRole>
+          </RequireUser>
+        }
+      />
+      <Route
+        path="/studio/events/new"
+        element={
+          <RequireUser>
+            <RequireRole role="creator">
+              <StudioEventForm />
+            </RequireRole>
+          </RequireUser>
+        }
+      />
+      <Route
+        path="/studio/events/:eventId/edit"
+        element={
+          <RequireUser>
+            <RequireRole role="creator">
+              <StudioEventForm />
+            </RequireRole>
           </RequireUser>
         }
       />

@@ -58,20 +58,6 @@ export function formatDday(endAt, { closed = false } = {}) {
   return `D-${days}`
 }
 
-/** 남은 시간을 "14:02:09" 형태로 만든다(카운트다운용). 종료 후에는 null. */
-export function formatCountdown(target) {
-  if (!target) return null
-  const end = new Date(target)
-  if (Number.isNaN(end.getTime())) return null
-  const diff = end.getTime() - Date.now()
-  if (diff <= 0) return null
-  const totalSeconds = Math.floor(diff / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':')
-}
-
 export function formatNumber(value) {
   const num = Number(value)
   return Number.isFinite(num) ? num.toLocaleString('ko-KR') : '0'

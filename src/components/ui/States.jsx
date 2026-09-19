@@ -99,21 +99,3 @@ export function SectionHeader({ icon, title, count, action, actionTo, onAction }
   )
 }
 
-/** 로그인(가상 사용자 선택)이 안 된 상태에서 보여주는 공통 안내. */
-export function LoginGate({ message = '먼저 로그인(가상 사용자 선택)을 해주세요.' }) {
-  return (
-    <div className="mx-margin mt-space-md p-space-md rounded-2xl bg-surface-container-lowest shadow-card flex flex-col gap-space-sm items-start">
-      <div className="flex items-center gap-2">
-        <MaterialIcon name="account_circle" className="text-[22px] text-primary" />
-        <span className="font-title-md text-title-md font-bold text-on-surface">로그인이 필요해요</span>
-      </div>
-      <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">{message}</p>
-      <Link
-        to="/login"
-        className="px-4 py-2 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-bold active:scale-95 transition-all"
-      >
-        로그인하러 가기
-      </Link>
-    </div>
-  )
-}

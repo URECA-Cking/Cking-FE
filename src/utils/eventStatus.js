@@ -48,8 +48,3 @@ export function isEntryOpen(event) {
   if (!event) return false
   return event.displayStatus === 'IN_PROGRESS' && event.status === 'OPEN'
 }
-
-/** 결과가 공개된 이벤트인지(당첨자 조회 가능). */
-export function isPublished(event) {
-  return event?.status === 'PUBLISHED'
-}

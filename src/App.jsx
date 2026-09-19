@@ -13,6 +13,7 @@ import EventDetail from './pages/EventDetail.jsx'
 import RequireRole from './components/auth/RequireRole.jsx'
 import CreatorStudio from './pages/studio/CreatorStudio.jsx'
 import StudioEventForm from './pages/studio/StudioEventForm.jsx'
+import AdminConsole from './pages/admin/AdminConsole.jsx'
 
 function App() {
   return (
@@ -84,6 +85,17 @@ function App() {
           <RequireUser>
             <RequireRole role="creator">
               <StudioEventForm />
+            </RequireRole>
+          </RequireUser>
+        }
+      />
+
+      <Route
+        path="/admin"
+        element={
+          <RequireUser>
+            <RequireRole role="admin">
+              <AdminConsole />
             </RequireRole>
           </RequireUser>
         }

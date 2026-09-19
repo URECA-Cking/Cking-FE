@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import CreatorAvatarItem from '../components/creator/CreatorAvatarItem.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
@@ -9,7 +9,6 @@ import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../componen
 import { useUser } from '../context/UserContext.jsx'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorDirectory } from '../api/creators.js'
-import { getMyNotifications } from '../api/notifications.js'
 import { getFeedPosts } from '../data/posts.js'
 import { formatNumber } from '../utils/format.js'
 
@@ -25,11 +24,8 @@ export default function Home() {
   const directory = useAsync(() => loadCreatorDirectory(userId), [userId], {
     fallbackMessage: '크리에이터와 이벤트를 불러오지 못했습니다.',
   })
-  const notifications = useAsync(
-    () => getMyNotifications(userId, { size: 50 }),
-    [userId],
-    { fallbackMessage: '알림을 불러오지 못했습니다.' },
-  )
+  // 알림은 MainLayout이 이미 읽어 하단 탭 배지에 쓰고 있으므로 그 결과를 그대로 받는다.
+  const { unreadCount = 0 } = useOutletContext() ?? {}
 
   const creators = useMemo(() => {
     const list = directory.data?.creators ?? []
@@ -58,10 +54,6 @@ export default function Home() {
     return [...scoped].sort((a, b) => (order[a.displayStatus] ?? 3) - (order[b.displayStatus] ?? 3)).slice(0, 8)
   }, [events, followedCreators])
 
-  const unreadCount = useMemo(
-    () => (notifications.data?.items ?? []).filter((item) => !item.readAt).length,
-    [notifications.data],
-  )
   const openEventCount = useMemo(
     () => events.filter((event) => event.displayStatus === 'IN_PROGRESS').length,
     [events],

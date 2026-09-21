@@ -1,9 +1,12 @@
-import { apiGet, apiPost } from './http'
+import { apiClient } from './client';
 
-export function getUsers(signal) {
-  return apiGet('/users', signal)
+// GET /api/users - 가상(데모) 사용자 목록 조회
+export async function getUsers() {
+  const data = await apiClient.get('/api/users');
+  return data?.items ?? [];
 }
 
-export function selectUser(userId) {
-  return apiPost('/demo/users/select', { userId })
+// POST /api/demo/users/select - 데모 사용자 선택(로그인 대체)
+export async function selectUser(userId) {
+  return apiClient.post('/api/demo/users/select', { userId });
 }

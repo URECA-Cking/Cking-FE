@@ -1,223 +1,100 @@
-# Cking Frontend
+# Cking-FE
 
-크리에이터와 팬을 잇는 이벤트 응모·추첨 플랫폼 **Cking**의 프론트엔드입니다.
+Cking 팬덤 래플 서비스의 프론트엔드(웹앱)입니다. React + Vite + Tailwind CSS로 만들었고,
+화면 구성은 `stitch/` 시안(Fandom Editorial Luxe 디자인 시스템)을 따릅니다.
+표시되는 값은 별도로 표기한 항목을 빼고 모두 백엔드(`Cking-BE`)의 실제 응답입니다.
 
-**백엔드 저장소**: [URECA-Cking/Cking-BE](https://github.com/URECA-Cking/Cking-BE)
-
-## 목차
-
-* 기술 스택
-* 1. 사전 준비
-* 2. 처음 프로젝트를 받는 경우
-* 3. 이미 프로젝트를 받은 경우
-* 4. 백엔드 연동
-* 5. 애플리케이션 실행
-* 6. 검증 명령
-* 7. 작업 흐름
-* 8. 코드 구조
-
----
-
-## 기술 스택
-
-* React 19
-* Vite 8
-* Oxlint
-
-**로컬 포트**
-
-| 서버 | 주소 |
-|---|---|
-| 프론트 dev 서버 | http://localhost:5173 |
-| 백엔드 (프록시 대상) | http://localhost:8080 |
-
----
-
-# 1. 사전 준비
-
-로컬 실행 전에 아래 프로그램이 필요합니다.
-
-* Git
-* Node.js (LTS)
-* [Cking-BE](https://github.com/URECA-Cking/Cking-BE) 로컬 실행 환경 (Docker Desktop 포함, 백엔드 README 참고)
-
-설치 확인:
+## 실행
 
 ```bash
-git --version
-node --version
-npm --version
-```
-
-이 저장소는 화면만 담당합니다. 데이터 조회·저장은 전부 백엔드를 거치므로, 프론트를 실행하기 전에 [Cking-BE](https://github.com/URECA-Cking/Cking-BE)를 먼저 로컬에 띄워야 합니다.
-
----
-
-# 2. 처음 프로젝트를 받는 경우
-
-```bash
-git clone https://github.com/URECA-Cking/Cking-FE.git
-cd Cking-FE
-
-git switch develop
-
 npm install
-
 npm run dev
 ```
 
-브라우저에서 `http://localhost:5173`으로 접속합니다.
+- 개발 서버: http://localhost:5173
+- `/api` 요청은 vite 프록시가 백엔드로 전달합니다(기본 `http://localhost:8080`).
+  `Cking-BE`에는 CORS 설정이 없어, 브라우저에서 8080을 직접 호출하지 않고 프록시를 거칩니다.
+- 환경변수는 `.env.example`을 복사해 `.env`로 사용하세요.
 
-> Windows PowerShell에서 실행 정책 때문에 `npm.ps1`이 차단되면 다음 명령을 대신 사용합니다.
->
-> ```powershell
-> npm.cmd install
-> npm.cmd run dev
-> ```
+| 변수 | 설명 |
+| --- | --- |
+| `VITE_API_PROXY_TARGET` | 개발 서버가 `/api`를 전달할 백엔드 주소 (기본 `http://localhost:8080`) |
+| `VITE_API_BASE_URL` | API 기준 주소. 비우면 같은 출처로 요청(프록시 사용) |
+| `VITE_DEMO_CREATOR_IDS` | 이벤트가 없을 때 탐색 기준이 되는 크리에이터 ID (기본 `1,2,3`) |
 
----
+백엔드는 더미 데이터 시더(`local` + `seed` 프로필)로 사용자 15명과 크리에이터 3명을 만듭니다.
 
-# 3. 이미 프로젝트를 받은 경우
+## 웹앱(PWA)
 
-작업 시작 전에 최신 `develop`을 반영합니다.
+- `public/manifest.webmanifest` — standalone 실행, 브랜드 테마 색상, 바로가기(내 응모/알림)
+- `public/sw.js` — 앱 셸은 stale-while-revalidate, `/api`는 네트워크 우선(오프라인일 때만 마지막 성공 응답)
+- 홈 화면 설치 배너(`InstallBanner`)와 오프라인 안내 배너 제공
+- 아이콘은 `node scripts/generate-icons.mjs`로 다시 생성할 수 있습니다(추가 의존성 없음)
 
-```bash
-git switch develop
-git pull origin develop
+서비스 워커는 프로덕션 빌드에서만 등록됩니다. 설치 동작을 확인하려면 `npm run build && npm run preview`.
+
+## 화면과 연동된 API
+
+| 화면 | 경로 | 사용하는 백엔드 API |
+| --- | --- | --- |
+| 로그인 | `/login` | `GET /api/users`, `POST /api/demo/users/select`, `POST /api/creator/applications` |
+| 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/events`, `GET /api/creators/{id}/tickets` |
+| 홈 | `/` | `GET /api/events`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` |
+| 탐색 | `/explore` | `GET /api/events` (표시 상태 필터), `GET /api/creators/{id}/tickets` |
+| 크리에이터 스페이스 | `/creators/:creatorId` | `GET /api/events?creatorId=`, `GET /api/creators/{id}/tickets`, `.../tickets/history` |
+| 이벤트 상세 · 응모 | `/events/:eventId` | `GET /api/events/{id}`, `POST /api/events/{id}/entries`, `GET /api/events/{id}/winners` |
+| 내 응모 | `/my-entries` | `GET /api/creators/{id}/tickets/history`, `GET /api/events/{id}/winners` |
+| 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH /api/me/notifications/{id}/read` |
+| 마이페이지 | `/my-page` | `GET /api/creators/{id}/tickets`, `GET /api/creator/applications/me`, `POST /api/creator/applications` |
+| 크리에이터 스튜디오 | `/studio` | `GET/POST /api/creator/events`, `PATCH·DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
+| 관리자 콘솔 | `/admin` | `GET /api/admin/events/pending`, `POST .../approve·reject`, `GET /api/admin/creator-applications`, `POST .../approve·reject`, `GET .../closing-status`, `GET .../snapshot`, `POST .../drawings`, `GET /api/admin/drawings/{id}`, `GET .../result` |
+
+### 로그인과 권한
+
+백엔드에 인증 체계가 없어 `GET /api/users`의 가상 사용자 중 하나를 고르는 방식으로 로그인합니다.
+선택한 사용자는 브라우저에 저장되어 이후 모든 요청의 `userId`로 쓰입니다.
+
+사용자 응답에 역할이 없기 때문에, 권한은 역할 전용 조회 API를 한 번 호출해 성공 여부로 판정합니다.
+
+- 크리에이터: `GET /api/creator/events` (Creator가 아니면 `FORBIDDEN`)
+- 관리자: `GET /api/admin/events/pending` (ADMIN이 아니면 `FORBIDDEN`)
+
+### 응모 처리
+
+응모는 `POST /api/events/{eventId}/entries`에 UUID 멱등키(`requestId`)를 함께 보냅니다.
+같은 응모 시도에서 재시도할 때는 같은 `requestId`를 유지해 중복 차감이 생기지 않게 하고,
+백엔드가 돌려주는 결과 코드 10종(`SUCCESS`, `DUPLICATE_REPLAY`, `INSUFFICIENT_BALANCE`,
+`EVENT_NOT_OPEN`, `EVENT_CLOSED`, `INVALID_TICKET_COUNT`, `IDEMPOTENCY_CONFLICT`,
+`GATE_NOT_LOADED`, `BALANCE_NOT_LOADED`, `SYSTEM_ERROR`)을 각각의 문구로 안내합니다.
+
+## 백엔드에 대응 API가 없어 화면에서 보완한 부분
+
+| 항목 | 상황 | 프론트엔드 처리 |
+| --- | --- | --- |
+| 크리에이터 프로필 | `GET /api/creators*`가 미구현 | 이벤트 목록의 `creatorId`로 디렉터리를 만들고, 이름·카테고리·이미지는 `src/data/creatorProfiles.js`에서 결정적으로 생성 |
+| 내 응모 목록 | `GET /api/events/{id}/entries/me`가 미구현 | 응모권 원장의 `SPEND` + `eventId` 기록을 이벤트 단위로 모아 재구성 |
+| 출석·좋아요 미션 | 미션 완료 API가 미구현 | 화면에는 남기되 "준비 중"으로 표시하고 사유를 명시 |
+| 게시물 피드 | 피드 API 없음 | 화면 구성용 샘플 게시물(`src/data/posts.js`), 좋아요는 화면 내에서만 반영 |
+| 누적 응모 건수 | 공개 API가 제공하지 않음 | 대신 당첨 인원·상품 구성 등 실제 값이 있는 항목을 노출 |
+| 결과 공개(PUBLISHED 전환) | 내부 서비스 호출만 존재 | 관리자 콘솔에 외부 API가 없다는 점을 안내 |
+
+## 구조
+
+```
+src/
+  api/        백엔드 엔드포인트별 호출 모듈 (+ creators/myEntries 같은 조합 조회)
+  components/ 레이아웃·카드·시트 등 공용 UI
+  context/    로그인 세션(UserContext), 토스트
+  data/       크리에이터 표시용 프로필, 샘플 게시물, 이미지 헬퍼
+  hooks/      useAsync(조회 공통), useOnline
+  pages/      화면 (studio/, admin/ 하위 포함)
+  pwa/        서비스 워커 등록, 설치 프롬프트
+  utils/      날짜·숫자 포맷, 상태 매핑
 ```
 
-이후 작업 브랜치를 생성합니다.
-
-```bash
-git switch -c chore/이슈번호-작업내용
-```
-
-예:
-
-```bash
-git switch -c chore/1-setup-api-proxy
-```
-
-브랜치 이름 규칙은 [CONTRIBUTING.md](https://github.com/URECA-Cking/.github/blob/main/CONTRIBUTING.md)를 참고합니다.
-
----
-
-# 4. 백엔드 연동
-
-Cking-FE와 Cking-BE는 별도 저장소로 관리합니다. 프론트 코드를 백엔드에 합치지 않고, `vite.config.js`의 dev 프록시로 두 서버를 연결합니다.
-
-```js
-server: {
-  proxy: {
-    '/api': {
-      target: 'http://localhost:8080',
-      changeOrigin: true,
-    },
-  },
-}
-```
-
-* 백엔드 컨트롤러가 이미 `/api` 접두사로 매핑되어 있어 경로를 그대로 전달합니다. (예: `fetch('/api/events')` → `http://localhost:8080/api/events`)
-* 브라우저 입장에서는 프론트 서버(`5173`)와 같은 출처로 보이므로 CORS 설정 없이 개발할 수 있습니다.
-* 프록시는 `npm run dev`(dev 서버)에만 적용됩니다. 배포 빌드(`npm run build`)는 별도 정적 파일로 생성되며, 실제 서비스 환경에서는 리버스 프록시나 서버 설정으로 API 경로를 연결해야 합니다.
-
-API 호출은 `src/api/http.js`의 공통 요청 함수(`apiGet`/`apiPost`/`apiPatch`/`apiDelete`)를 통해서만 합니다. 백엔드 공통 응답 봉투(`{code, data, message}`)를 이 함수가 벗겨서 `data`만 반환하며, 실패 시 `ApiError`(비즈니스 실패)와 `NetworkError`(연결 자체 실패)를 구분해서 던집니다.
-
-백엔드가 켜져 있는지 확인:
-
-```bash
-curl http://localhost:8080/actuator/health
-```
-
-`{"status":"UP"}`이 나오지 않으면 [Cking-BE README](https://github.com/URECA-Cking/Cking-BE)를 따라 백엔드부터 띄웁니다.
-
----
-
-# 5. 애플리케이션 실행
-
-```bash
-npm run dev
-```
-
-실행을 종료하려면:
-
-```text
-Ctrl + C
-```
-
-프로덕션 빌드:
-
-```bash
-npm run build
-npm run preview
-```
-
----
-
-# 6. 검증 명령
+## 검사
 
 ```bash
 npm run lint
 npm run build
 ```
-
-* `lint`: Oxlint 정적 검사
-* `build`: Vite 번들 생성 (문법·구성 오류를 걸러냄)
-
-이 저장소에는 아직 단위 테스트 프레임워크가 없습니다. 실제 동작 검증은 백엔드를 로컬에 띄운 상태에서 `npm run dev`로 브라우저에서 직접 확인합니다.
-
----
-
-# 7. 작업 흐름
-
-기본 개발 흐름은 다음과 같습니다.
-
-```text
-Issue 생성
-↓
-develop 최신화
-↓
-작업 브랜치 생성
-↓
-개발
-↓
-Commit
-↓
-Push
-↓
-Pull Request → develop
-↓
-Review
-↓
-Squash and Merge
-```
-
-작업 완료 후:
-
-```bash
-git add .
-git commit -m "chore: 작업 내용"
-git push -u origin 현재브랜치명
-```
-
-PR의 Base Branch는 `develop`으로 지정합니다.
-
-`main`, `develop` 브랜치에는 직접 Push하지 않습니다.
-
-자세한 브랜치·커밋·PR 규칙은 [CONTRIBUTING.md](https://github.com/URECA-Cking/.github/blob/main/CONTRIBUTING.md)를 참고합니다.
-
----
-
-# 8. 코드 구조
-
-```text
-src/
-├── api/        도메인별 API 클라이언트와 공통 HTTP 래퍼(http.js)
-├── assets/     이미지 등 정적 리소스
-├── App.jsx     루트 컴포넌트
-├── App.css
-├── index.css
-└── main.jsx    엔트리 포인트
-```
-
-아직 라우팅·페이지·컴포넌트 구조가 없는 초기 단계입니다. 화면이 늘어나면 `pages/`, `components/` 등을 도메인 단위로 분리합니다.

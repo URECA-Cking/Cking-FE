@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getUsers, selectUser } from '../api/users'
 import { clearCurrentUserId, getCurrentUserId, setCurrentUserId, subscribeCurrentUserId } from '../api/currentUser'
 
@@ -6,6 +6,9 @@ export default function User() {
   const [users, setUsers] = useState([])
   const [currentUserId, setLocalCurrentUserId] = useState(() => getCurrentUserId())
   const [error, setError] = useState('')
+  // 선택 요청이 겹칠 때 응답 도착 순서가 아니라 "가장 마지막으로 누른 선택"이 이기도록
+  // 마지막 요청의 userId를 기록해두고, 응답이 왔을 때 이 값과 다르면 무시한다.
+  const latestSelectionRef = useRef(null)
 
   useEffect(() => subscribeCurrentUserId(() => setLocalCurrentUserId(getCurrentUserId())), [])
 
@@ -22,11 +25,16 @@ export default function User() {
 
   async function handleSelect(userId) {
     setError('')
+    latestSelectionRef.current = userId
     try {
       await selectUser(userId)
-      setCurrentUserId(userId)
+      if (latestSelectionRef.current === userId) {
+        setCurrentUserId(userId)
+      }
     } catch (err) {
-      setError(err.message)
+      if (latestSelectionRef.current === userId) {
+        setError(err.message)
+      }
     }
   }
 

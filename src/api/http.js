@@ -20,6 +20,19 @@ export class NetworkError extends Error {
   }
 }
 
+/**
+ * fetch는 성공했지만 백엔드 공통 응답 봉투({code, data, message})가 아닌 응답.
+ * 백엔드가 꺼져 있을 때 Vite 프록시가 돌려주는 502 Bad Gateway 등이 여기 해당한다.
+ * 이런 인프라 실패를 ApiError(비즈니스 오류)로 분류하면 안 된다.
+ */
+export class HttpError extends Error {
+  constructor(status) {
+    super(`서버에 연결할 수 없습니다. (HTTP ${status})`)
+    this.name = 'HttpError'
+    this.status = status
+  }
+}
+
 async function request(path, { method = 'GET', body, headers, signal } = {}) {
   let response
   try {
@@ -45,11 +58,12 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
   }
 
   if (!response.ok) {
-    throw new ApiError(
-      payload?.code ?? 'UNKNOWN',
-      payload?.message ?? `요청이 실패했습니다. (HTTP ${response.status})`,
-      response.status,
-    )
+    // 백엔드 봉투(code 필드)가 확인될 때만 비즈니스 오류로 분류한다.
+    // 그 외(프록시 502 등 인프라 실패)는 HttpError로 구분한다.
+    if (typeof payload?.code === 'string') {
+      throw new ApiError(payload.code, payload.message ?? `요청이 실패했습니다. (HTTP ${response.status})`, response.status)
+    }
+    throw new HttpError(response.status)
   }
 
   return payload?.data

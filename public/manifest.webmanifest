@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Cking - 크리에이터 래플",
+  "short_name": "Cking",
+  "description": "좋아하는 크리에이터의 응모권을 모아 한정판 래플에 참여하는 팬덤 웹앱",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait",
+  "background_color": "#faf8ff",
+  "theme_color": "#db2777",
+  "categories": ["entertainment", "lifestyle", "social"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "내 응모", "short_name": "내 응모", "url": "/my-entries", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "알림", "short_name": "알림", "url": "/notifications", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

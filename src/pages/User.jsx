@@ -6,9 +6,10 @@ export default function User() {
   const [users, setUsers] = useState([])
   const [currentUserId, setLocalCurrentUserId] = useState(() => getCurrentUserId())
   const [error, setError] = useState('')
-  // 선택 요청이 겹칠 때 응답 도착 순서가 아니라 "가장 마지막으로 누른 선택"이 이기도록
-  // 마지막 요청의 userId를 기록해두고, 응답이 왔을 때 이 값과 다르면 무시한다.
-  const latestSelectionRef = useRef(null)
+  // 선택/해제 동작마다 증가하는 순번. userId만으로는 "같은 사용자에게 두 번 요청"이나
+  // "선택 도중 해제"를 구분할 수 없어서, 응답이 왔을 때 자신이 시작될 당시 받은 순번이
+  // 지금 순번과 같을 때만(= 그 사이 더 최근 동작이 없었을 때만) 결과를 반영한다.
+  const selectionTokenRef = useRef(0)
 
   useEffect(() => subscribeCurrentUserId(() => setLocalCurrentUserId(getCurrentUserId())), [])
 
@@ -25,17 +26,24 @@ export default function User() {
 
   async function handleSelect(userId) {
     setError('')
-    latestSelectionRef.current = userId
+    const token = ++selectionTokenRef.current
     try {
       await selectUser(userId)
-      if (latestSelectionRef.current === userId) {
+      if (selectionTokenRef.current === token) {
         setCurrentUserId(userId)
       }
     } catch (err) {
-      if (latestSelectionRef.current === userId) {
+      if (selectionTokenRef.current === token) {
         setError(err.message)
       }
     }
+  }
+
+  function handleClear() {
+    // 진행 중인 선택 요청이 나중에 응답으로 돌아와도 반영되지 않도록 순번을 올려 무효화한다.
+    selectionTokenRef.current += 1
+    setError('')
+    clearCurrentUserId()
   }
 
   return (
@@ -46,7 +54,7 @@ export default function User() {
       <p>
         현재 사용자: {currentUserId === null ? '미설정' : currentUserId}
         {currentUserId !== null && (
-          <button type="button" onClick={clearCurrentUserId}>
+          <button type="button" onClick={handleClear}>
             해제
           </button>
         )}

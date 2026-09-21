@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
-import { useToast } from '../../context/ToastContext.jsx'
+import { useToast } from '../../context/useToast.js'
 
 /** 현재 화면 주소를 공유한다. Web Share API가 없으면 클립보드로 복사한다. */
 function useShare() {

@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom'
-import { useUser } from '../../context/UserContext.jsx'
+import { useUser } from '../../context/useUser.js'
 
 /**
  * 로그인(가상 사용자 선택)이 필요한 화면을 감싸는 라우트 가드.

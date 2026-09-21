@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/ui/States.jsx'
-import { useToast } from '../../context/ToastContext.jsx'
-import { useUser } from '../../context/UserContext.jsx'
+import { useToast } from '../../context/useToast.js'
+import { useUser } from '../../context/useUser.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { getEvents } from '../../api/events.js'
 import {

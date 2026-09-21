@@ -1,11 +1,6 @@
-import { createContext, useCallback, useContext, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
-
-const ToastContext = createContext(() => {})
-
-export function useToast() {
-  return useContext(ToastContext)
-}
+import ToastContext from './toastContext.js'
 
 export function ToastProvider({ children }) {
   const [toast, setToast] = useState(null)

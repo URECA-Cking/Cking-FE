@@ -4,8 +4,8 @@ import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/ui/States.jsx'
 import AdminDrawingPanel from './AdminDrawingPanel.jsx'
-import { useToast } from '../../context/ToastContext.jsx'
-import { useUser } from '../../context/UserContext.jsx'
+import { useToast } from '../../context/useToast.js'
+import { useUser } from '../../context/useUser.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import {
   approveCreatorApplication,

@@ -49,6 +49,9 @@ npm run dev
 | 크리에이터 스튜디오 | `/studio` | `GET/POST /api/creator/events`, `PATCH·DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
 | 관리자 콘솔 | `/admin` | `GET /api/admin/events/pending`, `POST .../approve·reject`, `GET /api/admin/creator-applications`, `POST .../approve·reject`, `GET .../closing-status`, `GET .../snapshot`, `POST .../drawings`, `GET /api/admin/drawings/{id}`, `GET .../result` |
 
+최신 백엔드 API 인덱스와의 대조 결과, 화면·API별 연동 상태와 역할별 흐름은
+[`docs/api-coverage.md`](docs/api-coverage.md)에서 관리한다.
+
 ### 로그인과 권한
 
 백엔드에 인증 체계가 없어 `GET /api/users`의 가상 사용자 중 하나를 고르는 방식으로 로그인합니다.
@@ -67,16 +70,16 @@ npm run dev
 `EVENT_NOT_OPEN`, `EVENT_CLOSED`, `INVALID_TICKET_COUNT`, `IDEMPOTENCY_CONFLICT`,
 `GATE_NOT_LOADED`, `BALANCE_NOT_LOADED`, `SYSTEM_ERROR`)을 각각의 문구로 안내합니다.
 
-## 백엔드에 대응 API가 없어 화면에서 보완한 부분
+## 백엔드 API는 있으나 아직 프론트에 연동하지 않은 부분
 
 | 항목 | 상황 | 프론트엔드 처리 |
 | --- | --- | --- |
-| 크리에이터 프로필 | `GET /api/creators*`가 미구현 | 이벤트 목록의 `creatorId`로 디렉터리를 만들고, 이름·카테고리·이미지는 `src/data/creatorProfiles.js`에서 결정적으로 생성 |
-| 내 응모 목록 | `GET /api/events/{id}/entries/me`가 미구현 | 응모권 원장의 `SPEND` + `eventId` 기록을 이벤트 단위로 모아 재구성 |
-| 출석·좋아요 미션 | 미션 완료 API가 미구현 | 화면에는 남기되 "준비 중"으로 표시하고 사유를 명시 |
+| 크리에이터 프로필 | `GET /api/creators`, `GET /api/creators/{id}` 제공됨 | 아직 이벤트 목록의 `creatorId`로 디렉터리를 만들고, 이름·카테고리·이미지는 `src/data/creatorProfiles.js`에서 생성 |
+| 내 응모 목록 | `GET /api/events/{id}/entries/me` 제공됨 | 아직 응모권 원장의 `SPEND` + `eventId` 기록을 이벤트 단위로 모아 재구성 |
+| 출석·좋아요 미션 | 조회·완료 API 제공됨 | 화면에는 남기되 아직 프론트 연동 전이라 "준비 중"으로 표시 |
 | 게시물 피드 | 피드 API 없음 | 화면 구성용 샘플 게시물(`src/data/posts.js`), 좋아요는 화면 내에서만 반영 |
 | 누적 응모 건수 | 공개 API가 제공하지 않음 | 대신 당첨 인원·상품 구성 등 실제 값이 있는 항목을 노출 |
-| 결과 공개(PUBLISHED 전환) | 내부 서비스 호출만 존재 | 관리자 콘솔에 외부 API가 없다는 점을 안내 |
+| 결과 공개(PUBLISHED 전환) | 관리자 공개 API 제공됨 | 관리자 콘솔에 아직 공개 기능이 없어 결과 공개 API를 연동해야 함 |
 
 ## 구조
 

@@ -12,7 +12,7 @@ import { formatNumber } from '../utils/format.js'
 /**
  * 관심 크리에이터 선택(온보딩 2단계).
  *
- * 백엔드에 크리에이터 목록 API가 없어 이벤트 목록의 creatorId로 디렉터리를 만들고,
+ * 백엔드는 크리에이터 목록 API를 제공하지만 아직 연동하지 않아 이벤트 목록의 creatorId로 디렉터리를 만들고,
  * 각 크리에이터의 실제 응모권 잔액(GET /api/creators/{id}/tickets)을 함께 보여준다.
  * 선택 결과는 관심 목록으로 저장되어 홈·탐색 화면의 정렬에 쓰인다.
  */

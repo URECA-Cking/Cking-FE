@@ -2,7 +2,7 @@ import { getEvents } from './events';
 import { getTicketBalance } from './tickets';
 import { getCreatorProfile } from '../data/creatorProfiles.js';
 
-// 백엔드에 크리에이터 목록 API가 없어서, 실제로 존재하는 크리에이터는
+// 백엔드는 크리에이터 목록 API를 제공하지만, 현재 화면은 아직 이를 연동하지 않아 실제로 존재하는 크리에이터를
 // "이벤트 목록에 등장하는 creatorId"로 알아낸다. 아직 이벤트가 하나도 없는 초기 상태에서도
 // 화면이 비지 않도록 .env의 VITE_DEMO_CREATOR_IDS(기본 1,2,3 - BE 더미 시더 기준)를 함께 본다.
 

@@ -75,7 +75,7 @@ export default function AdminDrawingPanel() {
     <div className="flex flex-col gap-space-md">
       <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
         마감된 이벤트를 선택하면 마감 상태와 공식 스냅샷을 확인하고 초기 추첨을 실행할 수 있어요. 결과 공개(PUBLISHED
-        전환)는 백엔드 내부 서비스에서 처리되어 외부 API가 없습니다.
+        전환) API는 제공되지만, 이 패널에는 아직 공개 기능이 없어요.
       </p>
 
       {loading && <LoadingBlock label="마감된 이벤트를 불러오는 중..." />}

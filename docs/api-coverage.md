@@ -1,13 +1,13 @@
 # 백엔드 API 기준 프론트 연동 현황
 
-> 기준일: 2026-09-21  
+> 기준일: 2026-09-21
 > 기준 문서: [Cking-BE API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md)
 
 ## 요약
 
 - 백엔드 외부 API: **50개**
 - 프론트에서 요청을 구현한 API: **29개 (58%)**
-- 주요 화면 라우트: **12개**
+- 주요 화면 라우트: **13개** (페이지 컴포넌트는 **12개**)
 - 주의: 공개 당첨자 API는 호출하지만 응답에 `userId`가 없으므로, 현재 화면의 “나의 당첨” 판별은 정확하지 않다. 개인 당첨 API로 교체가 필요하다.
 
 표시 기준은 다음과 같다.
@@ -16,6 +16,26 @@
 - △ 요청은 하지만 사용자 기능이 API 계약과 완전히 맞지 않음
 - ❌ 백엔드 제공 API이나 프론트 미연동
 - — 백엔드도 제공하지 않아 샘플/로컬 상태로 처리함
+
+## 화면별 라우트 매트릭스
+
+`src/App.jsx`의 와일드카드 경로를 제외한 13개 path 기준이다. `StudioEventForm`은 작성·수정의 두 경로가 공유한다.
+
+| 화면 | 경로 | 사용 API | 구현 상태 | 미연동/보완 사항 |
+| --- | --- | --- | --- | --- |
+| 로그인 | `/login` | `GET /api/users`, `POST /api/demo/users/select` | ✅ | - |
+| 홈 | `/` | `GET /api/events`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` | ✅ | 관심 크리에이터는 로컬 상태 |
+| 탐색 | `/explore` | `GET /api/events`, `GET /api/creators/{id}/tickets` | ✅ | Creator 목록·상세 API 미연동 |
+| 내 응모 | `/my-entries` | `GET /api/events`, `GET .../tickets/history`, `GET .../winners` | △ | `GET /api/events/{id}/entries/me`, 개인 당첨 API 미연동 |
+| 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH .../read` | ✅ | - |
+| 마이페이지 | `/my-page` | Creator 신청·내 신청, 티켓 잔액 API | ✅ | 내 당첨 관리 화면 없음 |
+| 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/events`, `GET .../tickets` | △ | Creator 목록·상세 API 미연동 |
+| 크리에이터 스페이스 | `/creators/:creatorId` | `GET /api/events?creatorId=`, 티켓 잔액·원장 API | △ | Creator 상세·미션 API 미연동, 게시물은 샘플 데이터 |
+| 이벤트 상세·응모 | `/events/:eventId` | 이벤트 상세, 응모, 공개 당첨자 API | △ | 공개 응답으로는 나의 당첨 판별 불가 |
+| 크리에이터 스튜디오 | `/studio` | 내 이벤트 목록, 삭제, 승인 요청, 수동 마감 API | ✅ | - |
+| 이벤트 작성 | `/studio/events/new` | `POST /api/creator/events` | ✅ | - |
+| 이벤트 수정 | `/studio/events/:eventId/edit` | 내 이벤트 목록, `PATCH /api/creator/events/{id}` | ✅ | - |
+| 관리자 콘솔 | `/admin` | 승인·마감·Snapshot·초기 추첨·추첨 결과 API | △ | 재시도·공개·검증·당첨/재추첨/Dead Stream 운영 화면 없음 |
 
 ## API 대조
 

@@ -37,7 +37,7 @@ npm run dev
 
 | 화면 | 경로 | 사용하는 백엔드 API |
 | --- | --- | --- |
-| 로그인 | `/login` | `GET /api/users`, `POST /api/demo/users/select`, `POST /api/creator/applications` |
+| 로그인 | `/login` | `GET /api/users`, `POST /api/demo/users/select` |
 | 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/events`, `GET /api/creators/{id}/tickets` |
 | 홈 | `/` | `GET /api/events`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` |
 | 탐색 | `/explore` | `GET /api/events` (표시 상태 필터), `GET /api/creators/{id}/tickets` |
@@ -46,7 +46,9 @@ npm run dev
 | 내 응모 | `/my-entries` | `GET /api/creators/{id}/tickets/history`, `GET /api/events/{id}/winners` |
 | 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH /api/me/notifications/{id}/read` |
 | 마이페이지 | `/my-page` | `GET /api/creators/{id}/tickets`, `GET /api/creator/applications/me`, `POST /api/creator/applications` |
-| 크리에이터 스튜디오 | `/studio` | `GET/POST /api/creator/events`, `PATCH·DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
+| 크리에이터 스튜디오 | `/studio` | `GET /api/creator/events`, `DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
+| 이벤트 작성 | `/studio/events/new` | `POST /api/creator/events` |
+| 이벤트 수정 | `/studio/events/:eventId/edit` | `GET /api/creator/events`, `PATCH /api/creator/events/{id}` |
 | 관리자 콘솔 | `/admin` | `GET /api/admin/events/pending`, `POST .../approve·reject`, `GET /api/admin/creator-applications`, `POST .../approve·reject`, `GET .../closing-status`, `GET .../snapshot`, `POST .../drawings`, `GET /api/admin/drawings/{id}`, `GET .../result` |
 
 최신 백엔드 API 인덱스와의 대조 결과, 화면·API별 연동 상태와 역할별 흐름은

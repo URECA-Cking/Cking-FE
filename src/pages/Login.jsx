@@ -15,13 +15,13 @@ const ROLES = [
     id: 'fan',
     icon: 'favorite',
     title: '팬으로 시작',
-    desc: '좋아하는 크리에이터의 게시물과 이벤트를 즐길 수 있어.',
+    desc: '좋아하는 크리에이터의 게시물과 이벤트를 즐길 수 있어요.',
   },
   {
     id: 'creator',
     icon: 'mic',
     title: '크리에이터로 시작',
-    desc: '팬 활동과 크리에이터 기능을 함께 사용할 수 있어. (크리에이터 전환 신청이 함께 접수돼)',
+    desc: '팬 활동과 크리에이터 기능을 함께 사용할 수 있어요. (크리에이터 전환 신청이 함께 접수돼요)',
   },
 ]
 
@@ -77,7 +77,7 @@ export default function Login() {
       if (role === 'creator') {
         try {
           await applyCreator(nextUser.userId)
-          showToast(`${nextUser.name}님으로 시작! 크리에이터 전환 신청도 접수했어요.`)
+          showToast(`${nextUser.name}님 계정으로 시작했어요. 크리에이터 전환 신청도 접수했어요.`)
         } catch (creatorError) {
           showToast(describeError(creatorError, '크리에이터 전환 신청에 실패했어요.'), { icon: 'error' })
         }
@@ -130,7 +130,7 @@ export default function Login() {
 
       <section className="flex flex-col gap-space-sm mb-space-lg">
         <div className="flex items-center justify-between">
-          <span className="font-label-md text-label-md text-on-surface font-semibold">어떻게 시작할래?</span>
+          <span className="font-label-md text-label-md text-on-surface font-semibold">어떻게 시작하시겠어요?</span>
           <span className="font-label-xs text-label-xs text-primary bg-berry-tint px-2 py-0.5 rounded-full font-semibold">
             맞춤 프로필 설정
           </span>

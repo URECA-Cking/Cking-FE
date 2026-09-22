@@ -4,6 +4,7 @@ import RequireUser from './components/auth/RequireUser.jsx'
 import Home from './pages/Home.jsx'
 import Explore from './pages/Explore.jsx'
 import MyEntries from './pages/MyEntries.jsx'
+import MyWinners from './pages/MyWinners.jsx'
 import Notifications from './pages/Notifications.jsx'
 import MyPage from './pages/MyPage.jsx'
 import Login from './pages/Login.jsx'
@@ -14,6 +15,9 @@ import RequireRole from './components/auth/RequireRole.jsx'
 import CreatorStudio from './pages/studio/CreatorStudio.jsx'
 import StudioEventForm from './pages/studio/StudioEventForm.jsx'
 import AdminConsole from './pages/admin/AdminConsole.jsx'
+import AdminWinnerDetail from './pages/admin/AdminWinnerDetail.jsx'
+import AdminRedraws from './pages/admin/AdminRedraws.jsx'
+import AdminDeadStreams from './pages/admin/AdminDeadStreams.jsx'
 
 function App() {
   return (
@@ -30,6 +34,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/my-entries" element={<MyEntries />} />
+        <Route path="/my-winners" element={<MyWinners />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/my-page" element={<MyPage />} />
       </Route>
@@ -96,6 +101,36 @@ function App() {
           <RequireUser>
             <RequireRole role="admin">
               <AdminConsole />
+            </RequireRole>
+          </RequireUser>
+        }
+      />
+      <Route
+        path="/admin/winners/:winnerId"
+        element={
+          <RequireUser>
+            <RequireRole role="admin">
+              <AdminWinnerDetail />
+            </RequireRole>
+          </RequireUser>
+        }
+      />
+      <Route
+        path="/admin/redraws"
+        element={
+          <RequireUser>
+            <RequireRole role="admin">
+              <AdminRedraws />
+            </RequireRole>
+          </RequireUser>
+        }
+      />
+      <Route
+        path="/admin/dead-streams"
+        element={
+          <RequireUser>
+            <RequireRole role="admin">
+              <AdminDeadStreams />
             </RequireRole>
           </RequireUser>
         }

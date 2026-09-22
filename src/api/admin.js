@@ -42,6 +42,52 @@ export async function getDrawingResult(drawingId, userId) {
   return apiClient.get(`/api/admin/drawings/${drawingId}/result`, { userId });
 }
 
+// POST /api/admin/drawings/{drawingId}/publish - 완료 Drawing 결과 공개
+export async function publishDrawing(drawingId, userId) {
+  return apiClient.post(`/api/admin/drawings/${drawingId}/publish`, { userId });
+}
+
+// POST /api/admin/drawings/{drawingId}/verify - 완료 Drawing 검증 실행
+export async function verifyDrawing(drawingId, userId) {
+  return apiClient.post(`/api/admin/drawings/${drawingId}/verify`, { userId });
+}
+
+// GET /api/admin/drawings/{drawingId}/verification-history - 검증 이력
+export async function getDrawingVerificationHistory(drawingId, userId, { page = 0, size = 20 } = {}) {
+  return apiClient.get(`/api/admin/drawings/${drawingId}/verification-history`, { userId, page, size });
+}
+
+// POST /api/admin/winners/{winnerId}/receive - 당첨자 수령 완료 처리
+export async function receiveWinner(winnerId, userId) {
+  return apiClient.post(`/api/admin/winners/${winnerId}/receive`, { userId })
+}
+
+// POST /api/admin/winners/{winnerId}/disqualify - 당첨자 자격 박탈
+export async function disqualifyWinner(winnerId, userId, reason) {
+  return apiClient.post(`/api/admin/winners/${winnerId}/disqualify`, { userId, reason })
+}
+
+// GET /api/winners/{winnerId}/history - 당첨 상태 이력
+export async function getWinnerHistory(winnerId, userId) {
+  return apiClient.get(`/api/winners/${winnerId}/history`, { userId })
+}
+
+export async function createRedrawRequest(eventId, userId, reason, idempotencyKey) {
+  return apiClient.post(`/api/admin/events/${eventId}/redraw-requests`, { userId, reason, idempotencyKey })
+}
+
+export async function getRedrawRequest(redrawRequestId, userId) {
+  return apiClient.get(`/api/admin/redraw-requests/${redrawRequestId}`, { userId })
+}
+
+export async function getDeadStreams(userId, { status = 'UNRESOLVED', page = 0, size = 20 } = {}) {
+  return apiClient.get('/api/admin/dead-streams', { userId, status, page, size })
+}
+
+export async function replayDeadStream(deadStreamId, userId) {
+  return apiClient.post(`/api/admin/dead-streams/${deadStreamId}/replay`, { userId })
+}
+
 // GET /api/admin/creator-applications - 크리에이터 전환 신청 목록
 export async function getCreatorApplications(userId, { page = 0, size = 20 } = {}) {
   return apiClient.get('/api/admin/creator-applications', { userId, page, size });

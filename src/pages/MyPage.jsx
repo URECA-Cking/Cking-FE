@@ -228,6 +228,14 @@ export default function MyPage() {
           <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
         </Link>
         <Link
+          to="/my-winners"
+          className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high"
+        >
+          <MaterialIcon name="emoji_events" className="text-primary text-[20px]" filled />
+          <span className="font-label-md text-label-md text-on-surface flex-1">내 당첨</span>
+          <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
+        </Link>
+        <Link
           to="/notifications"
           className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high"
         >

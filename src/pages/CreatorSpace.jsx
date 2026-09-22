@@ -9,6 +9,8 @@ import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorSpace } from '../api/creators.js'
+import { completeCreatorMission, getCreatorMissions } from '../api/missions.js'
+import { describeError } from '../api/client.js'
 import { getPostsByCreator } from '../data/posts.js'
 import { formatNumber } from '../utils/format.js'
 
@@ -23,7 +25,7 @@ const TABS = [
  *
  * 응모권 잔액(GET /api/creators/{id}/tickets), 응모권 내역(.../tickets/history),
  * 해당 크리에이터의 이벤트(GET /api/events?creatorId=)를 실제로 조회한다.
- * 게시물은 백엔드 API가 없어 화면 구성만 유지한다. 출석/좋아요 미션 API는 제공되지만 아직 연동하지 않았다.
+ * 게시물은 백엔드 API가 없어 화면 구성만 유지한다. 출석/좋아요 미션은 서버 API로 조회·완료 처리한다.
  */
 export default function CreatorSpace() {
   const { creatorId } = useParams()
@@ -33,11 +35,17 @@ export default function CreatorSpace() {
 
   const [tab, setTab] = useState('home')
   const [ledgerOpen, setLedgerOpen] = useState(false)
+  const [missionBusyId, setMissionBusyId] = useState(null)
 
   const { data: creator, loading, error, reload } = useAsync(
     () => loadCreatorSpace(creatorId, userId),
     [creatorId, userId],
     { fallbackMessage: '크리에이터 정보를 불러오지 못했습니다.' },
+  )
+  const { data: missions, loading: missionsLoading, error: missionsError, reload: reloadMissions, setData: setMissions } = useAsync(
+    () => getCreatorMissions(creatorId, userId),
+    [creatorId, userId],
+    { fallbackMessage: '오늘의 미션을 불러오지 못했어요.' },
   )
 
   const posts = useMemo(() => getPostsByCreator(creatorId), [creatorId])
@@ -72,6 +80,21 @@ export default function CreatorSpace() {
   function handleFollow() {
     toggleFollow(creator.creatorId)
     showToast(following ? '관심 크리에이터에서 해제되었습니다.' : `${creator.name} 관심 등록 완료! 💖`)
+  }
+
+  async function completeMission(mission) {
+    setMissionBusyId(mission.missionId)
+    try {
+      await completeCreatorMission(creatorId, mission.missionId, userId)
+      setMissions((current) => (current ?? []).map((item) => (
+        item.missionId === mission.missionId ? { ...item, completedToday: true } : item
+      )))
+      showToast(`응모권 ${mission.rewardAmount}장을 적립했어요.`)
+    } catch (missionError) {
+      showToast(describeError(missionError, '미션을 완료하지 못했어요.'), { icon: 'error' })
+    } finally {
+      setMissionBusyId(null)
+    }
   }
 
   return (
@@ -206,44 +229,36 @@ export default function CreatorSpace() {
                 </div>
                 <span className="font-label-xs text-label-xs text-on-surface-variant">매일 00:00 갱신</span>
               </div>
-              <div className="flex items-center justify-between p-space-md rounded-xl bg-surface-container-lowest shadow-card">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-secondary-container/40 flex items-center justify-center text-secondary">
-                    <MaterialIcon name="calendar_today" className="text-[22px]" />
+              {missionsLoading && <LoadingBlock label="오늘의 활동을 불러오는 중..." />}
+              {!missionsLoading && missionsError && <ErrorBlock message={missionsError} onRetry={reloadMissions} />}
+              {!missionsLoading && !missionsError && missions?.map((mission) => {
+                const attendance = mission.type === 'ATTENDANCE'
+                const completed = mission.completedToday
+                return (
+                  <div key={mission.missionId} className="flex items-center justify-between gap-3 p-space-md rounded-xl bg-surface-container-lowest shadow-card">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${attendance ? 'bg-secondary-container/40 text-secondary' : 'bg-surface-container-high text-primary'}`}>
+                        <MaterialIcon name={attendance ? 'calendar_today' : 'favorite'} filled={!attendance} className="text-[22px]" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-label-md text-label-md text-on-surface font-semibold">{attendance ? '오늘 출석하기' : '좋아요 미션'}</span>
+                        <span className="text-secondary font-label-xs text-label-xs">🎟 응모권 +{mission.rewardAmount}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={completed || missionBusyId === mission.missionId}
+                      onClick={() => completeMission(mission)}
+                      className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 ${completed ? 'bg-surface-container-high text-outline' : 'bg-berry-tint text-primary'}`}
+                    >
+                      {missionBusyId === mission.missionId ? '처리 중...' : completed ? '완료' : '참여하기'}
+                    </button>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="font-label-md text-label-md text-on-surface font-semibold">오늘 출석하기</span>
-                    <span className="text-secondary font-label-xs text-label-xs">🎟 응모권 +1</span>
-                  </div>
-                </div>
-                <span className="px-3 py-2 rounded-lg bg-surface-container-high text-outline font-label-sm text-label-sm">
-                  준비 중
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-space-md rounded-xl bg-surface-container-lowest shadow-card">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary">
-                    <MaterialIcon name="favorite" filled className="text-[22px]" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-label-md text-label-md text-on-surface font-semibold">
-                      게시물에 좋아요하기
-                    </span>
-                    <span className="text-secondary font-label-xs text-label-xs">🎟 응모권 +1</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setTab('posts')}
-                  className="px-3 py-2 rounded-lg bg-berry-tint text-primary font-label-sm text-label-sm transition-all active:scale-95"
-                >
-                  게시물 보러가기
-                </button>
-              </div>
-              <p className="font-label-xs text-label-xs text-outline leading-relaxed px-1">
-                출석·좋아요 미션 API는 제공되지만, 이 화면에는 아직 연동 중이에요.
-                응모권 잔액과 사용 내역은 실제 값입니다.
-              </p>
+                )
+              })}
+              {!missionsLoading && !missionsError && missions?.length === 0 && (
+                <p className="font-label-xs text-label-xs text-outline leading-relaxed px-1">현재 참여할 수 있는 미션이 없어요.</p>
+              )}
             </div>
 
             <div className="flex flex-col gap-space-sm -mx-margin">

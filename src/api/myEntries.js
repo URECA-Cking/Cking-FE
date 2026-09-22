@@ -4,8 +4,8 @@ import { getMyWinners } from './myWinners';
 
 const ENTRY_PAGE_SIZE = 100;
 // 이벤트 수가 늘어나도 한 번에 수백 개 요청이 동시에 나가지 않도록 동시 조회 개수를 제한한다.
-// 총 요청 수는 그대로지만(이벤트별 응모 내역 API가 없는 현재 구조의 임시 완화책),
-// 한꺼번에 열리는 연결 수만 낮춘다. 근본 해결은 사용자 기준 응모 내역 조회 API가 생기는 것.
+// 사용자 기준 통합 응모 내역 API가 없어 이벤트별 조회를 수행한다.
+// 총 요청 수는 그대로지만 한꺼번에 열리는 연결 수를 낮춘다.
 const ENTRY_FETCH_CONCURRENCY = 6;
 
 export async function getMyEventEntries(eventId, userId, { size = ENTRY_PAGE_SIZE, cursor } = {}) {

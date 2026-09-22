@@ -42,11 +42,6 @@ export async function getDrawingResult(drawingId, userId) {
   return apiClient.get(`/api/admin/drawings/${drawingId}/result`, { userId });
 }
 
-// POST /api/admin/drawings/{drawingId}/retry - 실패한 Drawing 재시도
-export async function retryDrawing(drawingId, userId) {
-  return apiClient.post(`/api/admin/drawings/${drawingId}/retry`, { userId });
-}
-
 // POST /api/admin/drawings/{drawingId}/publish - 완료 Drawing 결과 공개
 export async function publishDrawing(drawingId, userId) {
   return apiClient.post(`/api/admin/drawings/${drawingId}/publish`, { userId });

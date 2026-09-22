@@ -13,7 +13,6 @@ import {
   getDrawingVerificationHistory,
   getEventSnapshot,
   publishDrawing,
-  retryDrawing,
   runInitialDrawing,
   verifyDrawing,
 } from '../../api/admin.js'
@@ -52,13 +51,39 @@ export default function AdminDrawingPanel() {
     setHistoryOpen(false)
     setBusy(true)
     try {
-      const [closing, snapshot] = await Promise.all([
-        getClosingStatus(event.eventId, userId).catch((err) => ({ error: describeError(err) })),
+      const canQueryClosingStatus = event.status === 'CLOSING' || event.status === 'CLOSED'
+      const hasCompletedInitialDrawing = event.status === 'DRAW_COMPLETED' || event.status === 'PUBLISHED'
+      const [closing, snapshot, restored] = await Promise.all([
+        canQueryClosingStatus
+          ? getClosingStatus(event.eventId, userId).catch((err) => ({ error: describeError(err) }))
+          : Promise.resolve({ status: event.status }),
         getEventSnapshot(event.eventId, userId).catch((err) => ({ error: describeError(err) })),
+        hasCompletedInitialDrawing ? restoreInitialDrawing(event.eventId) : Promise.resolve(null),
       ])
-      setDetail({ closing, snapshot, drawing: null, result: null, verification: null })
+      setDetail({
+        closing,
+        snapshot,
+        drawing: restored?.drawing ?? null,
+        result: restored?.result ?? null,
+        verification: null,
+        drawingError: restored?.error,
+      })
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function restoreInitialDrawing(eventId) {
+    try {
+      // 완료된 INITIAL Drawing 요청은 BE에서 기존 Drawing을 반환하는 멱등 경로다.
+      const initial = await runInitialDrawing(eventId, userId)
+      const [drawing, result] = await Promise.all([
+        getDrawing(initial.drawingId, userId).catch(() => initial),
+        getDrawingResult(initial.drawingId, userId).catch(() => null),
+      ])
+      return { drawing, result }
+    } catch (err) {
+      return { error: describeError(err, '완료된 추첨 정보를 불러오지 못했어요.') }
     }
   }
 
@@ -87,20 +112,6 @@ export default function AdminDrawingPanel() {
     ])
     setDetail((prev) => ({ ...prev, drawing, result: result ?? prev?.result }))
     return drawing
-  }
-
-  async function retry() {
-    if (!detail?.drawing) return
-    setBusy(true)
-    try {
-      const retried = await retryDrawing(detail.drawing.drawingId, userId)
-      showToast('추첨 재시도를 요청했어요.')
-      await refreshDrawing(retried?.drawingId ?? detail.drawing.drawingId)
-    } catch (err) {
-      showToast(describeError(err, '추첨 재시도를 처리하지 못했어요.'), { icon: 'error' })
-    } finally {
-      setBusy(false)
-    }
   }
 
   async function publish() {
@@ -229,7 +240,9 @@ export default function AdminDrawingPanel() {
                 </div>
               )}
 
-              {!detail.drawing && (
+              {detail.drawingError && <ErrorBlock message={detail.drawingError} onRetry={() => inspect(selected)} />}
+
+              {selected.status === 'CLOSED' && !detail.drawing && (
                 <button
                   type="button"
                   onClick={executeDrawing}
@@ -266,16 +279,6 @@ export default function AdminDrawingPanel() {
 
               {detail.drawing && (
                 <div className="grid grid-cols-2 gap-2">
-                  {detail.drawing.status !== 'COMPLETED' && (
-                    <button
-                      type="button"
-                      onClick={retry}
-                      className="h-10 rounded-xl bg-error-container text-on-error-container font-label-sm text-label-sm font-bold active:scale-[0.98] transition-all"
-                    >
-                      <MaterialIcon name="replay" className="text-[17px] mr-1" />
-                      재시도
-                    </button>
-                  )}
                   {detail.drawing.status === 'COMPLETED' && (
                     <>
                       {detail.drawing.visibility !== 'PUBLIC' && (

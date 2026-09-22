@@ -9,7 +9,7 @@ export default function BottomSheet({ open, onClose, title, eyebrow, children })
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[480px] mx-auto bg-surface-container-lowest rounded-t-[28px] shadow-2xl flex flex-col px-space-md pt-space-sm pb-space-lg max-h-[85vh] overflow-y-auto"
+        className="w-full max-w-[480px] md:max-w-2xl mx-auto bg-surface-container-lowest rounded-t-[28px] shadow-2xl flex flex-col px-space-md md:px-8 pt-space-sm pb-space-lg max-h-[85vh] overflow-y-auto"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="w-full flex items-center justify-center py-space-xs mb-space-xs">

@@ -10,17 +10,23 @@ const NAV_ITEMS = [
 ]
 
 /** 시안의 프로스티드 글래스 하단 독. 알림 탭에는 읽지 않은 알림 배지를 표시한다. */
-export default function BottomNav({ unreadCount = 0 }) {
+export default function BottomNav({ unreadCount = 0, embedded = false }) {
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50 pb-safe bg-surface/84 backdrop-blur-xl border-t border-border-rose shadow-dock">
-      <div className="flex justify-around items-center h-16 px-space-xs">
+    <nav
+      className={
+        embedded
+          ? 'relative z-50 shrink-0 w-full pb-safe bg-surface/84 backdrop-blur-xl border-t border-border-rose shadow-dock'
+          : 'fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pb-safe bg-surface/84 backdrop-blur-xl border-t border-border-rose shadow-dock'
+      }
+    >
+      <div className="flex justify-around md:justify-center md:gap-10 items-center h-16 px-space-xs md:px-8">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.end}
             className={({ isActive }) =>
-              `relative flex flex-col items-center justify-center min-w-[48px] h-12 gap-0.5 transition-all active:scale-95 ${
+              `relative flex flex-col items-center justify-center min-w-[48px] md:min-w-[96px] h-12 gap-0.5 transition-all active:scale-95 ${
                 isActive ? 'text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'
               }`
             }

@@ -7,7 +7,7 @@ export default function CreatorAvatarItem({ creator }) {
   return (
     <Link
       to={`/creators/${creator.creatorId}`}
-      className="flex flex-col items-center flex-shrink-0 w-24 group cursor-pointer"
+      className="flex flex-col items-center flex-shrink-0 w-24 snap-start group cursor-pointer"
     >
       <div className="relative mb-2">
         <div className="w-[4.5rem] h-[4.5rem] p-1 rounded-full bg-gradient-to-tr from-primary via-surface-tint to-secondary-container shadow-md group-active:scale-95 transition-transform">

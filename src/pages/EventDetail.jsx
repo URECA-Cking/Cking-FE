@@ -399,7 +399,8 @@ export default function EventDetail() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-40 bg-surface-glass backdrop-blur-2xl px-space-md pt-3 pb-6 shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-40 bg-surface-glass backdrop-blur-2xl px-space-md pt-3 pb-6 shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
+        <div className="mx-auto w-full max-w-2xl">
         <div className="flex flex-col gap-2">
           <button
             type="button"
@@ -409,7 +410,8 @@ export default function EventDetail() {
           >
             <MaterialIcon name="confirmation_number" filled className="text-[20px]" />
             <span>{canApply ? `🎟️ ${selectedCount}장으로 응모하기` : '응모할 수 없는 상태예요'}</span>
-          </button>
+        </button>
+        </div>
           <p className="text-center font-label-xs text-label-xs text-slate-muted">
             당첨 발표는 앱 알림으로 개별 안내됩니다.
           </p>

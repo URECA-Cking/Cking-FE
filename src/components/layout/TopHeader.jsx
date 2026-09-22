@@ -22,12 +22,18 @@ function useShare() {
 }
 
 /** Top app bar used on the main tab screens (Home, Explore). */
-export function TopHeader({ title }) {
+export function TopHeader({ title, embedded = false }) {
   const navigate = useNavigate()
 
   return (
-    <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
-      <div className="h-14 px-margin flex items-center justify-between">
+    <header
+      className={
+        embedded
+          ? 'relative z-50 shrink-0 w-full pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]'
+          : 'fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]'
+      }
+    >
+      <div className="h-14 px-margin md:px-8 flex items-center justify-between">
         <div className="flex items-center gap-space-sm">
           <Link to="/" className="text-primary font-headline-md text-headline-md tracking-tight font-bold">
             Cking
@@ -62,8 +68,8 @@ export function BackHeader({ title, badge, onBack, right }) {
   const share = useShare()
 
   return (
-    <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
-      <div className="h-14 px-margin flex items-center justify-between gap-space-sm">
+    <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+      <div className="h-14 px-margin md:px-8 flex items-center justify-between gap-space-sm">
         <div className="flex items-center gap-space-xs min-w-0">
           <button
             aria-label="뒤로가기"

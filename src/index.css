@@ -15,7 +15,7 @@
 
   body {
     overscroll-behavior-y: none;
-    min-height: max(884px, 100dvh);
+    min-height: 100dvh;
   }
 
   #root {
@@ -26,6 +26,13 @@
     margin: 0 auto;
     position: relative;
     background-color: theme('colors.surface');
+  }
+
+  @media (min-width: 768px) {
+    #root {
+      width: 100%;
+      max-width: none;
+    }
   }
 
   .material-symbols-outlined {

@@ -390,7 +390,8 @@ function EventFormBody({ eventId, isEdit, target, userId }) {
         )}
       </form>
 
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-40 bg-surface-glass backdrop-blur-2xl px-space-md pt-3 pb-6 shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-40 bg-surface-glass backdrop-blur-2xl px-space-md pt-3 pb-6 shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
+        <div className="mx-auto w-full max-w-2xl">
         <button
           type="button"
           onClick={handleSubmit}
@@ -399,6 +400,7 @@ function EventFormBody({ eventId, isEdit, target, userId }) {
         >
           {submitting ? '저장 중...' : isEdit ? '수정 저장' : '이벤트 초안 만들기'}
         </button>
+        </div>
       </div>
     </div>
   )

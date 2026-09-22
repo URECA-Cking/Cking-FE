@@ -30,9 +30,9 @@ export default function MainLayout() {
   const unreadCount = notifications.filter((item) => !item.readAt).length
 
   return (
-    <>
-      <TopHeader title={title} />
-      <main className="flex-1 flex flex-col w-full pt-14 pb-24 bg-surface">
+    <div className="flex min-h-[100dvh] w-full flex-col overflow-hidden md:h-[100dvh] md:min-h-0">
+      <TopHeader title={title} embedded />
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface">
         {!online && (
           <div className="mx-margin mt-space-sm flex items-center gap-2 px-3 py-2 rounded-xl bg-gold-badge-bg text-gold-badge">
             <MaterialIcon name="wifi_off" className="text-[18px]" />
@@ -43,7 +43,7 @@ export default function MainLayout() {
         )}
         <Outlet context={{ notifications, unreadCount, reloadNotifications: reload }} />
       </main>
-      <BottomNav unreadCount={unreadCount} />
-    </>
+      <BottomNav unreadCount={unreadCount} embedded />
+    </div>
   )
 }

@@ -51,7 +51,7 @@ export default function AdminConsole() {
         }
       />
 
-      <div className="pt-16 px-margin flex flex-col gap-space-md">
+      <div className="pt-16 px-margin md:px-8 flex flex-col gap-space-md">
         <div className="flex items-center gap-space-xs p-1 rounded-xl bg-surface-container-low">
           {TABS.map((item) => (
             <button

@@ -72,7 +72,7 @@ export default function Notifications() {
   }
 
   return (
-    <div className="flex flex-col w-full px-margin pt-space-md pb-8 gap-space-sm">
+    <div className="flex min-h-full flex-col w-full px-margin pt-space-md pb-8 gap-space-sm md:mx-auto md:max-w-4xl md:px-8">
       <div className="flex items-center justify-between mb-1">
         <div>
           <h2 className="font-headline-md text-headline-md text-on-surface tracking-tight">알림</h2>
@@ -96,7 +96,9 @@ export default function Notifications() {
       {loading && <LoadingBlock label="알림을 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
       {!loading && !error && items.length === 0 && (
-        <EmptyBlock icon="notifications_off" message="아직 도착한 알림이 없어요. 당첨 결과가 나오면 알려드릴게요!" />
+        <div className="flex flex-1 items-center justify-center">
+          <EmptyBlock icon="notifications_off" message="아직 도착한 알림이 없어요. 당첨 결과가 나오면 알려드릴게요!" />
+        </div>
       )}
 
       {items.map((item) => {

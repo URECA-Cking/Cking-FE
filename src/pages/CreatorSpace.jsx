@@ -99,8 +99,8 @@ export default function CreatorSpace() {
 
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-24">
-      <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
-        <div className="h-14 px-margin flex items-center justify-between gap-space-xs">
+      <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+        <div className="h-14 px-margin md:px-8 flex items-center justify-between gap-space-xs">
           <div className="flex items-center gap-space-xs min-w-0">
             <button
               type="button"
@@ -297,7 +297,7 @@ export default function CreatorSpace() {
                   <MaterialIcon name="chevron_right" className="text-[14px]" />
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2 md:max-w-3xl">
                 {posts.slice(0, 3).map((post) => (
                   <button
                     type="button"
@@ -338,7 +338,7 @@ export default function CreatorSpace() {
         )}
 
         {tab === 'posts' && (
-          <div className="flex flex-col gap-space-md px-margin py-space-sm">
+          <div className="flex flex-col gap-space-md px-margin py-space-sm md:mx-auto md:w-full md:max-w-3xl md:px-8">
             <div className="p-space-sm rounded-xl bg-berry-tint flex items-center gap-space-sm shadow-sm">
               <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
                 <MaterialIcon name="confirmation_number" className="text-on-primary text-[15px]" />
@@ -357,7 +357,7 @@ export default function CreatorSpace() {
         {tab === 'events' && (
           <div className="flex flex-col gap-space-md px-margin py-space-sm">
             {events.length > 0 ? (
-              <div className="grid grid-cols-1 gap-space-md">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
                 {events.map((event) => (
                   <EventCard key={event.eventId} event={event} variant="list" ticketsOwned={creator.balance} />
                 ))}

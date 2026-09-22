@@ -4,6 +4,7 @@ import RequireUser from './components/auth/RequireUser.jsx'
 import Home from './pages/Home.jsx'
 import Explore from './pages/Explore.jsx'
 import MyEntries from './pages/MyEntries.jsx'
+import MyWinners from './pages/MyWinners.jsx'
 import Notifications from './pages/Notifications.jsx'
 import MyPage from './pages/MyPage.jsx'
 import Login from './pages/Login.jsx'
@@ -30,6 +31,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/my-entries" element={<MyEntries />} />
+        <Route path="/my-winners" element={<MyWinners />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/my-page" element={<MyPage />} />
       </Route>

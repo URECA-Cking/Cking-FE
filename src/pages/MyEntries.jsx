@@ -45,6 +45,23 @@ export default function MyEntries() {
         </section>
       )}
 
+      {!loading && !error && (data?.failedEventCount > 0 || data?.winnersFailed) && (
+        <div className="flex items-center gap-2 p-space-sm rounded-xl bg-surface-container-lowest text-on-surface-variant">
+          <MaterialIcon name="warning" className="text-[18px] text-primary shrink-0" />
+          <p className="font-label-xs text-label-xs leading-relaxed flex-1">
+            {data.failedEventCount > 0 && `이벤트 ${data.failedEventCount}개의 응모 내역을 불러오지 못했어요. `}
+            {data.winnersFailed && '일부 당첨 결과를 확인하지 못했어요.'}
+          </p>
+          <button
+            type="button"
+            onClick={reload}
+            className="shrink-0 px-2.5 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-xs text-label-xs font-semibold active:scale-95 transition-all"
+          >
+            다시 시도
+          </button>
+        </div>
+      )}
+
       {loading && <LoadingBlock label="응모 내역을 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
       {!loading && !error && entries.length === 0 && (
@@ -103,7 +120,9 @@ export default function MyEntries() {
                   <span className="text-outline"> · {entry.entryCount}회 응모</span>
                 </span>
                 {entry.published ? (
-                  won ? (
+                  entry.winUnknown ? (
+                    <span className="font-label-sm text-label-sm text-on-surface-variant">당첨 확인 불가</span>
+                  ) : won ? (
                     <span className="flex items-center gap-1 font-label-sm text-label-sm text-primary font-bold">
                       <MaterialIcon name="celebration" filled className="text-[16px]" />
                       당첨! {entry.myWin.prizeDisplayName ?? ''}

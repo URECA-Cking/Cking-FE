@@ -40,7 +40,7 @@ export function getPostsByCreator(creatorId) {
     creatorHandle: creator.handle,
     avatar: creator.avatar,
     createdAt: new Date(Date.now() - template.minutesAgo * 60 * 1000).toISOString(),
-    image: bannerImage(`post-${creator.creatorId}-${template.slot}`, 700, 700),
+    image: bannerImage(`post-${creator.creatorId}-${template.slot}`, 960, 540),
     caption: template.caption,
     tags: [`#${creator.name}`, ...template.tags],
     likes: template.likes,

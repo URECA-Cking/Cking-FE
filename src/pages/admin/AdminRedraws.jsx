@@ -90,7 +90,7 @@ export default function AdminRedraws() {
     <div className="flex flex-col w-full min-h-screen pt-safe pb-8">
       <BackHeader title="재추첨 관리" onBack={() => navigate('/admin')} />
 
-      <main className="pt-16 px-margin flex flex-col gap-space-md">
+      <main className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-5xl md:px-8">
         <section className="p-space-md rounded-2xl bg-gradient-to-br from-primary via-[#be185d] to-berry-deep text-on-primary shadow-floating relative overflow-hidden">
           <MaterialIcon name="autorenew" filled className="absolute -right-2 -bottom-4 text-[112px] text-primary-fixed/15" />
           <div className="relative flex items-start gap-space-sm">
@@ -175,7 +175,7 @@ function RedrawDetail({ redraw }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 p-space-sm rounded-xl bg-surface-container-low">
+      <div className="grid grid-cols-2 gap-2 p-space-sm rounded-xl bg-surface-container-low md:grid-cols-4">
         <Info label="결원" value={`${formatNumber(redraw.vacancyCount)}명`} />
         <Info label="최초 추첨" value={`#${redraw.originalDrawingId}`} />
         <Info label="재추첨 결과" value={redraw.redrawDrawingId ? `#${redraw.redrawDrawingId}` : '아직 없음'} />

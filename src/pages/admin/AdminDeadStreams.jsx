@@ -59,7 +59,7 @@ export default function AdminDeadStreams() {
     <div className="flex flex-col w-full min-h-screen pt-safe pb-8">
       <BackHeader title="데드 스트림 관리" onBack={() => navigate('/admin')} />
 
-      <main className="pt-16 px-margin flex flex-col gap-space-md">
+      <main className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-6xl md:px-8">
         <section className="p-space-md rounded-2xl bg-gradient-to-br from-primary via-[#be185d] to-berry-deep text-on-primary shadow-floating relative overflow-hidden">
           <MaterialIcon name="warning" filled className="absolute -right-2 -bottom-4 text-[112px] text-primary-fixed/15" />
           <div className="relative flex items-start gap-space-sm">
@@ -97,7 +97,9 @@ export default function AdminDeadStreams() {
         {!loading && !error && items.length > 0 && (
           <section className="flex flex-col gap-space-sm">
             <p className="font-label-sm text-label-sm text-on-surface-variant">총 {data.totalElements}건 · 오래된 메시지부터 표시돼요.</p>
-            {items.map((item) => <DeadStreamCard key={item.id} item={item} busy={busyId === item.id} onReplay={replay} />)}
+            <div className="grid grid-cols-1 gap-space-sm xl:grid-cols-2">
+              {items.map((item) => <DeadStreamCard key={item.id} item={item} busy={busyId === item.id} onReplay={replay} />)}
+            </div>
           </section>
         )}
 

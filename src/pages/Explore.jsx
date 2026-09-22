@@ -126,13 +126,13 @@ export default function Explore() {
           <EmptyBlock icon="person_search" message="조건에 맞는 크리에이터가 없어요." />
         )}
         {!directory.loading && !directory.error && filteredCreators.length > 0 && (
-          <div className="flex overflow-x-auto gap-space-md px-margin no-scrollbar snap-x snap-mandatory pt-1 pb-3">
+          <div className="flex overflow-x-auto md:grid md:grid-cols-2 xl:grid-cols-3 md:overflow-visible gap-space-md px-margin no-scrollbar snap-x snap-mandatory pt-1 pb-3">
             {filteredCreators.map((creator) => {
               const followed = isFollowing(creator.creatorId)
               return (
                 <div
                   key={creator.creatorId}
-                  className="min-w-[260px] max-w-[260px] snap-center rounded-2xl bg-surface-container-lowest p-3 shadow-card flex flex-col"
+                  className="min-w-[260px] max-w-[260px] md:min-w-0 md:max-w-none snap-center rounded-2xl bg-surface-container-lowest p-3 shadow-card flex flex-col"
                 >
                   <Link to={`/creators/${creator.creatorId}`} className="block">
                     <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
@@ -300,7 +300,7 @@ export default function Explore() {
           <EmptyBlock icon="event_busy" message="이 조건에 해당하는 이벤트가 없어요." />
         )}
         {!eventList.loading && !eventList.error && events.length > 0 && (
-          <div className="px-margin grid grid-cols-1 gap-space-md">
+          <div className="px-margin grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
             {events.map((event) => (
               <EventCard
                 key={event.eventId}

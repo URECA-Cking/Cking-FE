@@ -9,21 +9,19 @@ import { formatRelativeTime } from '../../utils/format.js'
  * 백엔드에 게시물/좋아요 API가 없어 좋아요는 화면 안에서만 반영된다.
  * (응모권 적립은 미션 API가 생긴 뒤에야 실제로 연결할 수 있다.)
  */
-export default function FeedPostCard({ post, onLikeToggle }) {
+export default function FeedPostCard({ post, onLikeToggle, compact = false }) {
   const [liked, setLiked] = useState(false)
   const [likes, setLikes] = useState(post.likes)
 
   function toggleLike() {
-    setLiked((prev) => {
-      const next = !prev
-      setLikes((count) => (next ? count + 1 : count - 1))
-      onLikeToggle?.(next)
-      return next
-    })
+    const next = !liked
+    setLiked(next)
+    setLikes((count) => (next ? count + 1 : count - 1))
+    onLikeToggle?.(next)
   }
 
   return (
-    <article className="bg-surface-container-lowest rounded-2xl p-4 shadow-card flex flex-col">
+    <article className={`bg-surface-container-lowest rounded-2xl shadow-card flex flex-col ${compact ? 'p-3' : 'p-4'}`}>
       <header className="flex items-center justify-between mb-3">
         <Link to={`/creators/${post.creatorId}`} className="flex items-center gap-2.5 min-w-0">
           <div className="w-10 h-10 rounded-full p-0.5 bg-gradient-to-tr from-primary to-secondary shrink-0">
@@ -49,7 +47,11 @@ export default function FeedPostCard({ post, onLikeToggle }) {
       </header>
 
       <div className="rounded-xl overflow-hidden mb-3 bg-surface-container-high">
-        <img className="w-full h-56 object-cover" src={post.image} alt="" />
+        <img
+          className="w-full aspect-video h-auto object-cover"
+          src={post.image}
+          alt=""
+        />
       </div>
 
       <div className="flex items-center justify-between mb-2">

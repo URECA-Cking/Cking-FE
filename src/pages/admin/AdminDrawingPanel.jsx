@@ -174,7 +174,7 @@ export default function AdminDrawingPanel() {
         <EmptyBlock icon="event_busy" message="마감된 이벤트가 아직 없어요." />
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
         {events.map((event) => {
           const meta = eventStatusMeta(event.status)
           const active = selected?.eventId === event.eventId

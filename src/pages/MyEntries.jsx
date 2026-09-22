@@ -24,7 +24,7 @@ export default function MyEntries() {
   const entries = data?.entries ?? []
 
   return (
-    <div className="flex flex-col w-full px-margin pt-space-md pb-8 gap-space-md">
+    <div className="flex min-h-full flex-col w-full px-margin pt-space-md pb-8 gap-space-md md:mx-auto md:max-w-5xl md:px-8">
       <div>
         <h2 className="font-headline-md text-headline-md text-on-surface tracking-tight">내 응모 현황</h2>
         <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">
@@ -65,21 +65,23 @@ export default function MyEntries() {
       {loading && <LoadingBlock label="응모 내역을 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
       {!loading && !error && entries.length === 0 && (
-        <EmptyBlock
-          icon="confirmation_number"
-          message="아직 응모한 이벤트가 없어요. 진행 중인 이벤트에 응모해보세요!"
-          action={
-            <Link
-              to="/explore"
-              className="mt-1 px-4 py-2 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-bold active:scale-95 transition-all"
-            >
-              이벤트 둘러보기
-            </Link>
-          }
-        />
+        <div className="flex flex-1 items-center justify-center">
+          <EmptyBlock
+            icon="confirmation_number"
+            message="아직 응모한 이벤트가 없어요. 진행 중인 이벤트에 응모해보세요!"
+            action={
+              <Link
+                to="/explore"
+                className="mt-1 px-4 py-2 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-bold active:scale-95 transition-all"
+              >
+                이벤트 둘러보기
+              </Link>
+            }
+          />
+        </div>
       )}
 
-      <div className="flex flex-col gap-space-sm">
+      <div className="flex flex-col md:grid md:grid-cols-2 gap-space-sm">
         {entries.map((entry) => {
           const event = entry.event
           const creator = getCreatorProfile(event?.creatorId)

@@ -129,13 +129,13 @@ export default function Home() {
           <ErrorBlock message={directory.error} onRetry={directory.reload} />
         )}
         {!directory.loading && !directory.error && (
-          <div className="flex gap-3 overflow-x-auto px-margin no-scrollbar py-1">
+          <div className="flex gap-3 overflow-x-auto overscroll-x-contain touch-pan-x snap-x snap-mandatory px-margin no-scrollbar py-1">
             {creators.map((creator) => (
               <CreatorAvatarItem key={creator.creatorId} creator={creator} />
             ))}
             <Link
               to="/onboarding/creators"
-              className="flex flex-col items-center flex-shrink-0 w-24 group cursor-pointer"
+              className="flex flex-col items-center flex-shrink-0 w-24 snap-start group cursor-pointer"
             >
               <div className="w-[4.5rem] h-[4.5rem] rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant group-hover:text-primary transition-colors mb-2 shadow-sm">
                 <MaterialIcon name="add" className="text-[28px]" />
@@ -158,7 +158,7 @@ export default function Home() {
             실시간 반영
           </span>
         </div>
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col md:grid md:grid-cols-3 gap-2.5">
           {todayActivities.map((task) => (
             <div
               key={task.id}
@@ -219,9 +219,9 @@ export default function Home() {
       {posts.length > 0 && (
         <section className="mt-7 px-margin">
           <SectionHeader icon="feed" title="최신 소식" />
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col md:grid md:grid-cols-2 xl:grid-cols-3 gap-3">
             {posts.map((post) => (
-              <FeedPostCard key={post.id} post={post} />
+              <FeedPostCard key={post.id} post={post} compact />
             ))}
           </div>
         </section>

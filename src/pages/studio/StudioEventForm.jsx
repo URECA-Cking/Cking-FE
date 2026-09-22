@@ -211,7 +211,7 @@ function EventFormBody({ eventId, isEdit, target, userId }) {
     <div className="flex flex-col w-full min-h-screen pt-safe pb-32">
       <BackHeader title={isEdit ? '이벤트 수정' : '새 이벤트 만들기'} onBack={() => navigate('/studio')} />
 
-      <form onSubmit={handleSubmit} className="pt-16 px-margin flex flex-col gap-space-md">
+      <form onSubmit={handleSubmit} className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-4xl md:px-8">
         <div className="flex flex-col gap-1.5">
           <label className={labelClass} htmlFor="event-title">
             제목 <span className="text-primary">*</span>
@@ -390,7 +390,8 @@ function EventFormBody({ eventId, isEdit, target, userId }) {
         )}
       </form>
 
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-40 bg-surface-glass backdrop-blur-2xl px-space-md pt-3 pb-6 shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-40 bg-surface-glass backdrop-blur-2xl px-space-md pt-3 pb-6 shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
+        <div className="mx-auto w-full max-w-2xl">
         <button
           type="button"
           onClick={handleSubmit}
@@ -399,6 +400,7 @@ function EventFormBody({ eventId, isEdit, target, userId }) {
         >
           {submitting ? '저장 중...' : isEdit ? '수정 저장' : '이벤트 초안 만들기'}
         </button>
+        </div>
       </div>
     </div>
   )

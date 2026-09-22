@@ -135,7 +135,8 @@ export default function OnboardingCreators() {
         </div>
       )}
 
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-30 p-space-md pb-safe bg-surface-container-lowest/90 backdrop-blur-md shadow-xl flex flex-col gap-2 rounded-t-2xl">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-30 p-space-md pb-safe bg-surface-container-lowest/90 backdrop-blur-md shadow-xl rounded-t-2xl">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-2">
         <button
           type="button"
           onClick={() => navigate('/', { replace: true })}
@@ -155,6 +156,7 @@ export default function OnboardingCreators() {
         >
           나중에 할게
         </button>
+        </div>
       </div>
     </div>
   )

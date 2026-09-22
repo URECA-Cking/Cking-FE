@@ -99,7 +99,7 @@ export default function MyWinners() {
         )}
 
         {!loading && !error && winners.length > 0 && (
-          <section className="flex flex-col gap-space-sm">
+          <section className="flex flex-col md:grid md:grid-cols-2 xl:grid-cols-3 gap-space-sm">
             {winners.map((winner) => {
               const meta = statusMeta(winner.winnerManagementStatus)
               const opened = openHistoryId === winner.winnerId

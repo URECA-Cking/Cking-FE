@@ -64,7 +64,7 @@ export default function MyPage() {
   }
 
   return (
-    <div className="flex flex-col w-full px-margin pt-space-md pb-8 gap-space-lg">
+    <div className="flex flex-col w-full px-margin pt-space-md pb-8 gap-space-lg md:mx-auto md:max-w-5xl md:px-8">
       <section className="flex items-center gap-space-md p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
         <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center shrink-0">
           <MaterialIcon name="person" className="text-on-primary text-[28px]" />
@@ -112,9 +112,9 @@ export default function MyPage() {
         {!directory.loading && directory.error && (
           <ErrorBlock message={directory.error} onRetry={directory.reload} />
         )}
-        {!directory.loading &&
-          !directory.error &&
-          creators.map((creator) => (
+        {!directory.loading && !directory.error && (
+          <div className="flex flex-col gap-space-sm md:grid md:grid-cols-2">
+          {creators.map((creator) => (
             <div
               key={creator.creatorId}
               className="flex items-center justify-between p-space-sm rounded-xl bg-surface-container-lowest shadow-card"
@@ -140,6 +140,8 @@ export default function MyPage() {
               </button>
             </div>
           ))}
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card">

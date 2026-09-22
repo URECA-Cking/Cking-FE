@@ -62,6 +62,21 @@ export async function getDrawingVerificationHistory(drawingId, userId, { page = 
   return apiClient.get(`/api/admin/drawings/${drawingId}/verification-history`, { userId, page, size });
 }
 
+// POST /api/admin/winners/{winnerId}/receive - 당첨자 수령 완료 처리
+export async function receiveWinner(winnerId, userId) {
+  return apiClient.post(`/api/admin/winners/${winnerId}/receive`, { userId })
+}
+
+// POST /api/admin/winners/{winnerId}/disqualify - 당첨자 자격 박탈
+export async function disqualifyWinner(winnerId, userId, reason) {
+  return apiClient.post(`/api/admin/winners/${winnerId}/disqualify`, { userId, reason })
+}
+
+// GET /api/winners/{winnerId}/history - 당첨 상태 이력
+export async function getWinnerHistory(winnerId, userId) {
+  return apiClient.get(`/api/winners/${winnerId}/history`, { userId })
+}
+
 // GET /api/admin/creator-applications - 크리에이터 전환 신청 목록
 export async function getCreatorApplications(userId, { page = 0, size = 20 } = {}) {
   return apiClient.get('/api/admin/creator-applications', { userId, page, size });

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
@@ -331,8 +332,10 @@ export default function AdminDrawingPanel() {
                   </span>
                   <ul className="flex flex-col gap-1.5 max-h-64 overflow-y-auto no-scrollbar">
                     {detail.result.winners.map((winner) => (
-                      <li
+                      <Link
                         key={winner.winnerId}
+                        to={`/admin/winners/${winner.winnerId}`}
+                        state={{ winner }}
                         className="p-space-sm rounded-xl bg-surface-container-lowest flex items-center gap-space-sm"
                       >
                         <span className="w-7 h-7 rounded-full bg-berry-tint text-primary flex items-center justify-center font-label-xs text-label-xs font-bold shrink-0">
@@ -347,7 +350,8 @@ export default function AdminDrawingPanel() {
                             {formatNumber(winner.appliedTicketCount)}장
                           </p>
                         </div>
-                      </li>
+                        <MaterialIcon name="chevron_right" className="text-outline text-[18px] shrink-0" />
+                      </Link>
                     ))}
                   </ul>
                 </div>

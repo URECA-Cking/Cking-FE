@@ -1,9 +1,11 @@
-name: CD
+name: CI/CD
 
 on:
+  pull_request:
+    branches: [develop, main]
+  # 기본 브랜치에서 한 번 돌아야 npm 캐시가 저장되고, 이후 모든 PR이 그걸 재사용한다.
   push:
     branches: [develop]
-  workflow_dispatch:
 
 # 기본은 읽기만 주고, 필요한 권한은 job별로 연다.
 permissions:
@@ -17,9 +19,26 @@ env:
   API_BASE_URL: https://dev-api.cking.co.kr
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
   deploy:
-    name: Build and Deploy to S3
-    # develop만 배포한다. 다른 브랜치의 수동 실행은 이 job을 건너뛴다.
+    name: Deploy to S3
+    # 검증이 끝나야 배포한다. lint가 실패한 커밋이 배포되지 않도록 한 워크플로에 묶는다.
+    needs: build
+    # develop만 배포한다. PR에서는 이 job을 건너뛴다.
     # 실제 차단은 IAM 신뢰 정책(sub = develop)이 하고, 이 조건은 실패가 아닌 skipped로 드러내기 위한 것이다.
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
@@ -44,6 +63,7 @@ jobs:
       - name: 빌드
         # Vite 환경변수는 빌드 시점에 번들에 포함된다. 배포본은 개발 프록시가 없어
         # 브라우저가 API를 직접 호출하므로 여기서 주소를 주입한다.
+        # build job의 산출물을 넘기지 않고 다시 빌드한다. 빌드가 10초대라 아티팩트 전달보다 단순하다.
         run: npm run build
         env:
           VITE_API_BASE_URL: ${{ env.API_BASE_URL }}

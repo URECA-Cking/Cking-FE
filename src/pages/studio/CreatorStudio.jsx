@@ -50,7 +50,7 @@ export default function CreatorStudio() {
     <div className="flex flex-col w-full min-h-screen pt-safe pb-28">
       <BackHeader title="크리에이터 스튜디오" onBack={() => navigate('/my-page')} />
 
-      <div className="pt-16 px-margin flex flex-col gap-space-md">
+      <div className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-6xl md:px-8">
         <div className="p-space-md rounded-2xl bg-gradient-to-br from-secondary via-[#7c3aed] to-[#5b21b6] text-on-secondary shadow-floating flex items-center justify-between">
           <div>
             <p className="font-label-sm text-label-sm uppercase tracking-wider opacity-80">내 이벤트</p>
@@ -75,7 +75,8 @@ export default function CreatorStudio() {
           <EmptyBlock icon="post_add" message="아직 만든 이벤트가 없어요. 첫 이벤트를 만들어보세요!" />
         )}
 
-        {events.map((event) => {
+        <div className="grid grid-cols-1 gap-space-md lg:grid-cols-2">
+          {events.map((event) => {
           const meta = eventStatusMeta(event.status)
           const editable = event.status === 'DRAFT' || event.status === 'REJECTED'
           const canRequestApproval = event.status === 'DRAFT'
@@ -171,7 +172,8 @@ export default function CreatorStudio() {
               </p>
             </article>
           )
-        })}
+          })}
+        </div>
       </div>
     </div>
   )

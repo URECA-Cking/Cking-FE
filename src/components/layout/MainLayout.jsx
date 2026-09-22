@@ -30,7 +30,7 @@ export default function MainLayout() {
   const unreadCount = notifications.filter((item) => !item.readAt).length
 
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col overflow-hidden md:h-[100dvh] md:min-h-0">
+    <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
       <TopHeader title={title} embedded />
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface">
         {!online && (

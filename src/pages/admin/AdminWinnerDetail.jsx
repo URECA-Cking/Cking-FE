@@ -80,7 +80,7 @@ export default function AdminWinnerDetail() {
     <div className="flex flex-col w-full min-h-screen pt-safe pb-8">
       <BackHeader title="당첨자 운영" onBack={() => navigate(-1)} />
 
-      <main className="pt-16 px-margin flex flex-col gap-space-md">
+      <main className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-5xl md:px-8">
         <section className="p-space-md rounded-2xl bg-gradient-to-br from-primary via-[#be185d] to-berry-deep text-on-primary shadow-floating relative overflow-hidden">
           <MaterialIcon name="workspace_premium" filled className="absolute -right-2 -bottom-4 text-[112px] text-primary-fixed/15" />
           <div className="relative flex items-start gap-space-sm">

@@ -51,7 +51,7 @@ export default function AdminConsole() {
         }
       />
 
-      <div className="pt-16 px-margin md:px-8 flex flex-col gap-space-md">
+      <div className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-6xl md:px-8">
         <div className="flex items-center gap-space-xs p-1 rounded-xl bg-surface-container-low">
           {TABS.map((item) => (
             <button
@@ -115,7 +115,7 @@ function PendingEvents() {
   if (items.length === 0) return <EmptyBlock icon="done_all" message="승인을 기다리는 이벤트가 없어요." />
 
   return (
-    <div className="flex flex-col gap-space-sm">
+    <div className="grid grid-cols-1 gap-space-sm xl:grid-cols-2">
       {items.map((item) => (
         <article
           key={`${item.eventId}-${item.approvalRound}`}
@@ -216,7 +216,7 @@ function CreatorApplications() {
   if (items.length === 0) return <EmptyBlock icon="how_to_reg" message="접수된 크리에이터 신청이 없어요." />
 
   return (
-    <div className="flex flex-col gap-space-sm">
+    <div className="grid grid-cols-1 gap-space-sm xl:grid-cols-2">
       {items.map((item) => {
         const meta = CREATOR_APPLICATION_STATUS_META[item.status] ?? { label: item.status }
         const pending = item.status === 'PENDING'

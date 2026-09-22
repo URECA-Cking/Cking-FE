@@ -211,7 +211,7 @@ function EventFormBody({ eventId, isEdit, target, userId }) {
     <div className="flex flex-col w-full min-h-screen pt-safe pb-32">
       <BackHeader title={isEdit ? '이벤트 수정' : '새 이벤트 만들기'} onBack={() => navigate('/studio')} />
 
-      <form onSubmit={handleSubmit} className="pt-16 px-margin flex flex-col gap-space-md">
+      <form onSubmit={handleSubmit} className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-4xl md:px-8">
         <div className="flex flex-col gap-1.5">
           <label className={labelClass} htmlFor="event-title">
             제목 <span className="text-primary">*</span>

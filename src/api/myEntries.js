@@ -2,8 +2,8 @@ import { getEvents } from './events';
 import { getTicketHistory } from './tickets';
 import { getPublicWinners } from './winners';
 
-// 백엔드에 "내 응모 목록" 단일 API가 없다(docs/api-index.md의 GET /api/events/{id}/entries/me 는
-// 아직 컨트롤러가 없다). 대신 응모할 때마다 기록되는 응모권 원장(SPEND)에 eventId가 남으므로,
+// 백엔드는 GET /api/events/{id}/entries/me를 제공하지만, 현재 이 화면은 아직 연동하지 않았다.
+// 대신 응모할 때마다 기록되는 응모권 원장(SPEND)에 eventId가 남으므로,
 // 크리에이터별 원장을 모아 이벤트 단위로 묶으면 실제 응모 내역을 그대로 재구성할 수 있다.
 
 const LEDGER_PAGE_SIZE = 100;

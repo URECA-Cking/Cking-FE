@@ -11,7 +11,7 @@ import { eventStatusMeta } from '../utils/eventStatus.js'
 /**
  * 내 응모 현황.
  *
- * 백엔드에 "내 응모 목록" API가 없어, 응모 시 기록되는 응모권 원장(SPEND + eventId)을
+ * 백엔드는 "내 응모 목록" API를 제공하지만 아직 연동하지 않아, 응모 시 기록되는 응모권 원장(SPEND + eventId)을
  * 이벤트 단위로 모아 실제 응모 내역을 보여준다. 결과가 공개된 이벤트는
  * GET /api/events/{eventId}/winners 로 내 당첨 여부까지 확인한다.
  */

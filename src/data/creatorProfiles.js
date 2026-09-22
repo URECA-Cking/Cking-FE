@@ -1,7 +1,7 @@
 import { avatarImage, bannerImage } from './images.js'
 
-// 백엔드(Cking-BE)에는 크리에이터 프로필(이름·카테고리·이미지)을 내려주는 API가 없다.
-// (docs/api-index.md의 GET /api/creators* 는 아직 컨트롤러가 구현되어 있지 않다.)
+// 백엔드(Cking-BE)는 GET /api/creators*로 크리에이터 정보를 제공한다.
+// 현재 디렉터리 화면은 아직 이 API를 연동하지 않아, 표시용 프로필을 creatorId로 결정적으로 생성한다.
 // 그래서 화면에 필요한 "보여주기용" 정보는 여기에서 creatorId로부터 결정적으로 만들어 쓰고,
 // 응모권 잔액·이벤트·응모처럼 실제 값이 있는 항목만 API에서 가져온다.
 

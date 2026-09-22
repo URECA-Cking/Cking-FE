@@ -23,7 +23,7 @@ const TABS = [
  *
  * 응모권 잔액(GET /api/creators/{id}/tickets), 응모권 내역(.../tickets/history),
  * 해당 크리에이터의 이벤트(GET /api/events?creatorId=)를 실제로 조회한다.
- * 게시물과 출석/좋아요 미션은 백엔드에 대응 API가 없어 화면 구성만 유지한다.
+ * 게시물은 백엔드 API가 없어 화면 구성만 유지한다. 출석/좋아요 미션 API는 제공되지만 아직 연동하지 않았다.
  */
 export default function CreatorSpace() {
   const { creatorId } = useParams()
@@ -241,8 +241,8 @@ export default function CreatorSpace() {
                 </button>
               </div>
               <p className="font-label-xs text-label-xs text-outline leading-relaxed px-1">
-                미션 완료 API(POST /api/creators/{'{creatorId}'}/missions/.../complete)가 백엔드에 아직 없어
-                출석·좋아요 적립은 연결되어 있지 않아요. 응모권 잔액과 사용 내역은 실제 값입니다.
+                출석·좋아요 미션 API는 제공되지만, 이 화면에는 아직 연동 중이에요.
+                응모권 잔액과 사용 내역은 실제 값입니다.
               </p>
             </div>
 

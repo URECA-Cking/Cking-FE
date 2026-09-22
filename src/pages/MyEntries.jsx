@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../components/ui/States.jsx'
-import { useUser } from '../context/UserContext.jsx'
+import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadMyEntries } from '../api/myEntries.js'
 import { getCreatorProfile, getEventBanner } from '../data/creatorProfiles.js'

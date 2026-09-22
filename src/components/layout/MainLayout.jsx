@@ -4,7 +4,7 @@ import { TopHeader } from './TopHeader.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useOnline } from '../../hooks/useOnline.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { useUser } from '../../context/UserContext.jsx'
+import { useUser } from '../../context/useUser.js'
 import { getMyNotifications } from '../../api/notifications.js'
 
 const TITLES = {

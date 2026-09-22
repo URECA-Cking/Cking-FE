@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { LoadingBlock } from '../ui/States.jsx'
-import { useUser } from '../../context/UserContext.jsx'
+import { useUser } from '../../context/useUser.js'
 
 /**
  * 크리에이터/관리자 전용 화면 가드.

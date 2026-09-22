@@ -1,9 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { probe } from '../api/client.js'
+import UserContext from './userContext.js'
 
 const STORAGE_KEY = 'cking.demoUser'
 const FOLLOW_KEY = 'cking.followedCreators'
-const UserContext = createContext(null)
 
 function readJson(key, fallback) {
   try {
@@ -13,7 +13,6 @@ function readJson(key, fallback) {
     return fallback
   }
 }
-
 function writeJson(key, value) {
   try {
     if (value === null || value === undefined) localStorage.removeItem(key)
@@ -113,12 +112,4 @@ export function UserProvider({ children }) {
   )
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>
-}
-
-export function useUser() {
-  const ctx = useContext(UserContext)
-  if (!ctx) {
-    throw new Error('useUser는 UserProvider 내부에서만 사용할 수 있습니다.')
-  }
-  return ctx
 }

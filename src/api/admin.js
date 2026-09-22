@@ -77,6 +77,14 @@ export async function getWinnerHistory(winnerId, userId) {
   return apiClient.get(`/api/winners/${winnerId}/history`, { userId })
 }
 
+export async function createRedrawRequest(eventId, userId, reason, idempotencyKey) {
+  return apiClient.post(`/api/admin/events/${eventId}/redraw-requests`, { userId, reason, idempotencyKey })
+}
+
+export async function getRedrawRequest(redrawRequestId, userId) {
+  return apiClient.get(`/api/admin/redraw-requests/${redrawRequestId}`, { userId })
+}
+
 // GET /api/admin/creator-applications - 크리에이터 전환 신청 목록
 export async function getCreatorApplications(userId, { page = 0, size = 20 } = {}) {
   return apiClient.get('/api/admin/creator-applications', { userId, page, size });

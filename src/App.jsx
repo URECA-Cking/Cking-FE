@@ -16,6 +16,7 @@ import CreatorStudio from './pages/studio/CreatorStudio.jsx'
 import StudioEventForm from './pages/studio/StudioEventForm.jsx'
 import AdminConsole from './pages/admin/AdminConsole.jsx'
 import AdminWinnerDetail from './pages/admin/AdminWinnerDetail.jsx'
+import AdminRedraws from './pages/admin/AdminRedraws.jsx'
 
 function App() {
   return (
@@ -109,6 +110,16 @@ function App() {
           <RequireUser>
             <RequireRole role="admin">
               <AdminWinnerDetail />
+            </RequireRole>
+          </RequireUser>
+        }
+      />
+      <Route
+        path="/admin/redraws"
+        element={
+          <RequireUser>
+            <RequireRole role="admin">
+              <AdminRedraws />
             </RequireRole>
           </RequireUser>
         }

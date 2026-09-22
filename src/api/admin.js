@@ -85,6 +85,14 @@ export async function getRedrawRequest(redrawRequestId, userId) {
   return apiClient.get(`/api/admin/redraw-requests/${redrawRequestId}`, { userId })
 }
 
+export async function getDeadStreams(userId, { status = 'UNRESOLVED', page = 0, size = 20 } = {}) {
+  return apiClient.get('/api/admin/dead-streams', { userId, status, page, size })
+}
+
+export async function replayDeadStream(deadStreamId, userId) {
+  return apiClient.post(`/api/admin/dead-streams/${deadStreamId}/replay`, { userId })
+}
+
 // GET /api/admin/creator-applications - 크리에이터 전환 신청 목록
 export async function getCreatorApplications(userId, { page = 0, size = 20 } = {}) {
   return apiClient.get('/api/admin/creator-applications', { userId, page, size });

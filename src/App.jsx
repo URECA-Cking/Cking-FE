@@ -17,6 +17,7 @@ import StudioEventForm from './pages/studio/StudioEventForm.jsx'
 import AdminConsole from './pages/admin/AdminConsole.jsx'
 import AdminWinnerDetail from './pages/admin/AdminWinnerDetail.jsx'
 import AdminRedraws from './pages/admin/AdminRedraws.jsx'
+import AdminDeadStreams from './pages/admin/AdminDeadStreams.jsx'
 
 function App() {
   return (
@@ -120,6 +121,16 @@ function App() {
           <RequireUser>
             <RequireRole role="admin">
               <AdminRedraws />
+            </RequireRole>
+          </RequireUser>
+        }
+      />
+      <Route
+        path="/admin/dead-streams"
+        element={
+          <RequireUser>
+            <RequireRole role="admin">
+              <AdminDeadStreams />
             </RequireRole>
           </RequireUser>
         }

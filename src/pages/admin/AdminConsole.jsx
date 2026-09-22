@@ -39,10 +39,15 @@ export default function AdminConsole() {
         title="관리자 콘솔"
         onBack={() => navigate('/my-page')}
         right={
-          <Link to="/admin/redraws" className="h-9 px-3 rounded-xl bg-berry-tint text-primary font-label-sm text-label-sm font-semibold flex items-center gap-1">
-            <MaterialIcon name="autorenew" className="text-[17px]" />
-            재추첨
-          </Link>
+          <div className="flex items-center gap-1">
+            <Link to="/admin/redraws" className="h-9 px-2.5 rounded-xl bg-berry-tint text-primary font-label-sm text-label-sm font-semibold flex items-center gap-1">
+              <MaterialIcon name="autorenew" className="text-[17px]" />
+              재추첨
+            </Link>
+            <Link to="/admin/dead-streams" aria-label="데드 스트림 관리" className="w-9 h-9 rounded-xl bg-surface-container-low text-on-surface-variant flex items-center justify-center">
+              <MaterialIcon name="warning" className="text-[18px]" />
+            </Link>
+          </div>
         }
       />
 

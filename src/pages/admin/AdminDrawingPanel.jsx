@@ -9,8 +9,12 @@ import {
   getClosingStatus,
   getDrawing,
   getDrawingResult,
+  getDrawingVerificationHistory,
   getEventSnapshot,
+  publishDrawing,
+  retryDrawing,
   runInitialDrawing,
+  verifyDrawing,
 } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
 import { getCreatorProfile } from '../../data/creatorProfiles.js'
@@ -29,6 +33,8 @@ export default function AdminDrawingPanel() {
   const [selected, setSelected] = useState(null)
   const [detail, setDetail] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [verificationHistory, setVerificationHistory] = useState([])
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const { data, loading, error, reload } = useAsync(
     () => getEvents({ status: 'CLOSED', size: 50 }),
@@ -41,13 +47,15 @@ export default function AdminDrawingPanel() {
   async function inspect(event) {
     setSelected(event)
     setDetail(null)
+    setVerificationHistory([])
+    setHistoryOpen(false)
     setBusy(true)
     try {
       const [closing, snapshot] = await Promise.all([
         getClosingStatus(event.eventId, userId).catch((err) => ({ error: describeError(err) })),
         getEventSnapshot(event.eventId, userId).catch((err) => ({ error: describeError(err) })),
       ])
-      setDetail({ closing, snapshot, drawing: null, result: null })
+      setDetail({ closing, snapshot, drawing: null, result: null, verification: null })
     } finally {
       setBusy(false)
     }
@@ -63,9 +71,80 @@ export default function AdminDrawingPanel() {
         getDrawing(drawing.drawingId, userId).catch(() => null),
         getDrawingResult(drawing.drawingId, userId).catch(() => null),
       ])
-      setDetail((prev) => ({ ...prev, drawing: meta ?? drawing, result }))
+      setDetail((prev) => ({ ...prev, drawing: meta ?? drawing, result, verification: null }))
     } catch (err) {
       showToast(describeError(err, '추첨 실행에 실패했습니다.'), { icon: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function refreshDrawing(drawingId, { includeResult = true } = {}) {
+    const [drawing, result] = await Promise.all([
+      getDrawing(drawingId, userId),
+      includeResult ? getDrawingResult(drawingId, userId).catch(() => null) : Promise.resolve(null),
+    ])
+    setDetail((prev) => ({ ...prev, drawing, result: result ?? prev?.result }))
+    return drawing
+  }
+
+  async function retry() {
+    if (!detail?.drawing) return
+    setBusy(true)
+    try {
+      const retried = await retryDrawing(detail.drawing.drawingId, userId)
+      showToast('추첨 재시도를 요청했어요.')
+      await refreshDrawing(retried?.drawingId ?? detail.drawing.drawingId)
+    } catch (err) {
+      showToast(describeError(err, '추첨 재시도를 처리하지 못했어요.'), { icon: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function publish() {
+    if (!detail?.drawing) return
+    setBusy(true)
+    try {
+      await publishDrawing(detail.drawing.drawingId, userId)
+      showToast('추첨 결과를 공개했어요.')
+      await refreshDrawing(detail.drawing.drawingId)
+    } catch (err) {
+      showToast(describeError(err, '추첨 결과를 공개하지 못했어요.'), { icon: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function verify() {
+    if (!detail?.drawing) return
+    setBusy(true)
+    try {
+      const verification = await verifyDrawing(detail.drawing.drawingId, userId)
+      setDetail((prev) => ({ ...prev, verification }))
+      setVerificationHistory((current) => [verification, ...current.filter((item) => item.verificationId !== verification.verificationId)])
+      showToast(verification.status === 'VERIFIED' ? '추첨 검증을 완료했어요.' : '검증 결과에서 확인이 필요한 항목이 있어요.')
+    } catch (err) {
+      showToast(describeError(err, '추첨 검증을 실행하지 못했어요.'), { icon: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function toggleVerificationHistory() {
+    if (!detail?.drawing) return
+    if (historyOpen) {
+      setHistoryOpen(false)
+      return
+    }
+
+    setBusy(true)
+    try {
+      const page = await getDrawingVerificationHistory(detail.drawing.drawingId, userId, { size: 20 })
+      setVerificationHistory(page?.items ?? [])
+      setHistoryOpen(true)
+    } catch (err) {
+      showToast(describeError(err, '검증 이력을 불러오지 못했어요.'), { icon: 'error' })
     } finally {
       setBusy(false)
     }
@@ -74,8 +153,7 @@ export default function AdminDrawingPanel() {
   return (
     <div className="flex flex-col gap-space-md">
       <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-        마감된 이벤트를 선택하면 마감 상태와 공식 스냅샷을 확인하고 초기 추첨을 실행할 수 있어요. 결과 공개(PUBLISHED
-        전환) API는 제공되지만, 이 패널에는 아직 공개 기능이 없어요.
+        마감된 이벤트를 선택하면 마감 상태와 공식 스냅샷을 확인하고, 초기 추첨부터 재시도·검증·결과 공개까지 처리할 수 있어요.
       </p>
 
       {loading && <LoadingBlock label="마감된 이벤트를 불러오는 중..." />}
@@ -150,13 +228,15 @@ export default function AdminDrawingPanel() {
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={executeDrawing}
-                className="h-11 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
-              >
-                초기 추첨 실행
-              </button>
+              {!detail.drawing && (
+                <button
+                  type="button"
+                  onClick={executeDrawing}
+                  className="h-11 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
+                >
+                  초기 추첨 실행
+                </button>
+              )}
 
               {detail.drawing && (
                 <div className="p-space-sm rounded-xl bg-surface-container-lowest flex flex-col gap-1">
@@ -179,6 +259,67 @@ export default function AdminDrawingPanel() {
                     <p className="font-label-xs text-label-xs text-outline">
                       {detail.drawing.algorithmVersion} / {detail.drawing.prizeAlgorithmVersion}
                     </p>
+                  )}
+                </div>
+              )}
+
+              {detail.drawing && (
+                <div className="grid grid-cols-2 gap-2">
+                  {detail.drawing.status !== 'COMPLETED' && (
+                    <button
+                      type="button"
+                      onClick={retry}
+                      className="h-10 rounded-xl bg-error-container text-on-error-container font-label-sm text-label-sm font-bold active:scale-[0.98] transition-all"
+                    >
+                      <MaterialIcon name="replay" className="text-[17px] mr-1" />
+                      재시도
+                    </button>
+                  )}
+                  {detail.drawing.status === 'COMPLETED' && (
+                    <>
+                      {detail.drawing.visibility !== 'PUBLIC' && (
+                        <button
+                          type="button"
+                          onClick={publish}
+                          className="h-10 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-bold active:scale-[0.98] transition-all"
+                        >
+                          <MaterialIcon name="public" className="text-[17px] mr-1" />
+                          결과 공개
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={verify}
+                        className="h-10 rounded-xl bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-bold active:scale-[0.98] transition-all"
+                      >
+                        <MaterialIcon name="verified" className="text-[17px] mr-1" />
+                        추첨 검증
+                      </button>
+                      <button
+                        type="button"
+                        onClick={toggleVerificationHistory}
+                        className="h-10 rounded-xl bg-surface-container text-on-surface font-label-sm text-label-sm font-semibold active:scale-[0.98] transition-all"
+                      >
+                        <MaterialIcon name="history" className="text-[17px] mr-1" />
+                        검증 이력
+                        <MaterialIcon name={historyOpen ? 'expand_less' : 'expand_more'} className="text-[17px] ml-0.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {detail.verification && <VerificationCard verification={detail.verification} title="최근 검증 결과" />}
+
+              {historyOpen && (
+                <div className="p-space-sm rounded-xl bg-surface-container-lowest flex flex-col gap-2">
+                  <span className="font-label-md text-label-md text-on-surface font-semibold">검증 이력</span>
+                  {verificationHistory.length === 0 ? (
+                    <p className="font-label-sm text-label-sm text-on-surface-variant">아직 검증 이력이 없어요.</p>
+                  ) : (
+                    verificationHistory.map((verification) => (
+                      <VerificationCard key={verification.verificationId} verification={verification} />
+                    ))
                   )}
                 </div>
               )}
@@ -215,6 +356,26 @@ export default function AdminDrawingPanel() {
           )}
         </section>
       )}
+    </div>
+  )
+}
+
+function VerificationCard({ verification, title }) {
+  const verified = verification.status === 'VERIFIED'
+  return (
+    <div className="p-space-sm rounded-xl bg-surface-container-low flex flex-col gap-1.5">
+      <div className="flex items-center gap-1.5">
+        <MaterialIcon name={verified ? 'verified' : 'warning'} className={`text-[18px] ${verified ? 'text-secondary' : 'text-error'}`} />
+        <span className="font-label-sm text-label-sm text-on-surface font-semibold flex-1">{title ?? verification.status}</span>
+        <StatusPill
+          label={verified ? '검증 완료' : '확인 필요'}
+          tone={verified ? 'bg-secondary-fixed text-on-secondary-fixed' : 'bg-error-container text-on-error-container'}
+        />
+      </div>
+      <p className="font-label-xs text-label-xs text-on-surface-variant">
+        예상 {formatNumber(verification.expectedWinnerCount)}명 · 실제 {formatNumber(verification.actualWinnerCount)}명 · {formatDateTime(verification.verifiedAt)}
+      </p>
+      {verification.failureMessage && <p className="font-label-xs text-label-xs text-error">{verification.failureMessage}</p>}
     </div>
   )
 }

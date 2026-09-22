@@ -42,6 +42,26 @@ export async function getDrawingResult(drawingId, userId) {
   return apiClient.get(`/api/admin/drawings/${drawingId}/result`, { userId });
 }
 
+// POST /api/admin/drawings/{drawingId}/retry - 실패한 Drawing 재시도
+export async function retryDrawing(drawingId, userId) {
+  return apiClient.post(`/api/admin/drawings/${drawingId}/retry`, { userId });
+}
+
+// POST /api/admin/drawings/{drawingId}/publish - 완료 Drawing 결과 공개
+export async function publishDrawing(drawingId, userId) {
+  return apiClient.post(`/api/admin/drawings/${drawingId}/publish`, { userId });
+}
+
+// POST /api/admin/drawings/{drawingId}/verify - 완료 Drawing 검증 실행
+export async function verifyDrawing(drawingId, userId) {
+  return apiClient.post(`/api/admin/drawings/${drawingId}/verify`, { userId });
+}
+
+// GET /api/admin/drawings/{drawingId}/verification-history - 검증 이력
+export async function getDrawingVerificationHistory(drawingId, userId, { page = 0, size = 20 } = {}) {
+  return apiClient.get(`/api/admin/drawings/${drawingId}/verification-history`, { userId, page, size });
+}
+
 // GET /api/admin/creator-applications - 크리에이터 전환 신청 목록
 export async function getCreatorApplications(userId, { page = 0, size = 20 } = {}) {
   return apiClient.get('/api/admin/creator-applications', { userId, page, size });

@@ -57,6 +57,11 @@ function App() {
           </RequireUser>
         }
       />
+      {/* 공유 링크. 로그인 없이 열린다(공개 API만 조회, 인증이 필요한 영역은 화면이 로그인 안내로 대신한다). */}
+      <Route
+        path="/space/:slug"
+        element={<CreatorSpace />}
+      />
       <Route
         path="/events/:eventId"
         element={

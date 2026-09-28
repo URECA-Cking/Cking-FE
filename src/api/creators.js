@@ -1,8 +1,9 @@
 import { getEvents } from './events';
 import { getTicketBalance } from './tickets';
 import { getCreatorProfile } from '../data/creatorProfiles.js';
+import { getCreatorSpace, getCreatorSpaceBySlug } from './creatorSpace';
 
-// 백엔드는 크리에이터 목록 API를 제공하지만, 현재 화면은 아직 이를 연동하지 않아 실제로 존재하는 크리에이터를
+// 백엔드에 크리에이터 목록 API(GET /api/creators)가 아직 구현되지 않아, 실제로 존재하는 크리에이터를
 // "이벤트 목록에 등장하는 creatorId"로 알아낸다. 아직 이벤트가 하나도 없는 초기 상태에서도
 // 화면이 비지 않도록 .env의 VITE_DEMO_CREATOR_IDS(기본 1,2,3 - BE 더미 시더 기준)를 함께 본다.
 
@@ -53,18 +54,18 @@ export async function loadCreatorDirectory({ size = 100 } = {}) {
   return { creators, events };
 }
 
-/** 크리에이터 한 명의 프로필 + 잔액 + 이벤트를 모은다(크리에이터 스페이스 화면용). */
-export async function loadCreatorSpace(creatorId) {
-  const [eventsPage, balance] = await Promise.all([
-    getEvents({ creatorId, size: 50 }),
-    getTicketBalance(creatorId).catch(() => null),
-  ]);
-
-  return {
-    ...getCreatorProfile(creatorId),
-    creatorId: Number(creatorId),
-    balance: balance?.balance ?? 0,
-    balanceUpdatedAt: balance?.updatedAt ?? null,
-    events: eventsPage?.items ?? [],
-  };
+/**
+ * 크리에이터 스페이스 화면의 공개 데이터를 모은다. 프로필(이름·소개·이미지·slug)은 Creator Space API,
+ * 이벤트는 이벤트 목록 API에서 가져온다. 둘 다 인증 없이 조회할 수 있어 공유 링크로 들어온 비로그인
+ * 사용자도 볼 수 있다. 응모권 잔액·미션처럼 인증이 필요한 데이터는 화면이 로그인 상태일 때만 따로 조회한다.
+ * @param {{ creatorId?: string|number, slug?: string }} key 앱 안 이동은 creatorId, 공유 링크는 slug
+ */
+export async function loadCreatorSpace({ creatorId, slug }) {
+  const space = slug ? await getCreatorSpaceBySlug(slug) : await getCreatorSpace(creatorId);
+  try {
+    const eventsPage = await getEvents({ creatorId: space.creatorId, size: 50 });
+    return { ...space, events: eventsPage?.items ?? [], eventsError: false };
+  } catch {
+    return { ...space, events: [], eventsError: true };
+  }
 }

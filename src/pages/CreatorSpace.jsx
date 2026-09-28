@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
 import SpaceEditSheet from '../components/creator/SpaceEditSheet.jsx'
@@ -12,6 +12,7 @@ import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorSpace } from '../api/creators.js'
 import { getMySpace, spaceShareUrl } from '../api/creatorSpace.js'
 import { completeCreatorMission, getCreatorMissions } from '../api/missions.js'
+import { getTicketBalance } from '../api/tickets.js'
 import { ApiError, describeError } from '../api/client.js'
 import { formatNumber } from '../utils/format.js'
 
@@ -26,22 +27,29 @@ const TABS = [
 ]
 const EMPTY_TAB_MESSAGE = '현재 열려있는 게 없습니다.'
 
-/** Space가 없는 크리에이터(RESOURCE_NOT_FOUND)는 오류가 아니라 빈 상태로 보여주기 위해 null로 바꾼다. */
-async function loadSpaceOrNull(key) {
+/** RESOURCE_NOT_FOUND는 오류가 아니라 "찾을 수 없음" 안내로 보여주기 위해 표시 값으로 바꾼다. */
+async function loadSpaceOrNotFound(key) {
   try {
     return await loadCreatorSpace(key)
   } catch (error) {
-    if (error instanceof ApiError && error.code === 'RESOURCE_NOT_FOUND') return null
+    if (error instanceof ApiError && error.code === 'RESOURCE_NOT_FOUND') return { notFound: true }
     throw error
   }
+}
+
+// 공유 링크의 slug가 없으면(바뀌었거나 잘못된 주소) 404, creatorId로 들어왔는데 없으면 Space가 아직 없는 크리에이터다.
+const NOT_FOUND_MESSAGES = {
+  slug: { icon: 'link_off', title: '존재하지 않는 공유 주소예요.', detail: '주소가 바뀌었거나 잘못 입력됐을 수 있어요.' },
+  creator: { icon: 'storefront', title: '아직 준비된 크리에이터 스페이스가 없어요.', detail: '' },
 }
 
 /**
  * 크리에이터 스페이스(시안 _5, toast).
  *
- * 경로: /creators/:creatorId(앱 안 이동), /space/:slug(공유 링크)
- * 프로필(이름·소개·이미지·slug)은 Creator Space API(GET /api/creators/{id}/space, GET /api/creator-spaces/{slug}),
- * 응모권 잔액(GET /api/creators/{id}/tickets)·내역, 이벤트(GET /api/events?creatorId=), 미션을 실제로 조회한다.
+ * 경로: /creators/:creatorId(앱 안 이동, 로그인 필요), /space/:slug(공유 링크, 로그인 없이 열람 가능)
+ * 공개 데이터: 프로필(GET /api/creators/{id}/space, GET /api/creator-spaces/{slug}), 이벤트(GET /api/events?creatorId=), 캘린더.
+ * 로그인 사용자만: 응모권 잔액(GET /api/creators/{id}/tickets)·내역, 미션(LIKE만. 출석은 크리에이터와 무관한 공용 미션이라 여기서 다루지 않는다),
+ * 관심 등록, 본인 편집. 비로그인이면 이 영역에 로그인 안내를 보여준다.
  * 캘린더 탭·홈의 다가오는 일정은 GET /api/creators/{id}/calendar/schedules(추첨 이벤트와 별개인 크리에이터 일정)를 쓴다.
  * 게시물은 백엔드 API가 아직 없어 빈 탭으로 보여준다.
  * 내 Space면(GET /api/creator/space의 creatorId가 같으면) 편집할 수 있다.
@@ -50,25 +58,38 @@ export default function CreatorSpace() {
   const { creatorId: creatorIdParam, slug: slugParam } = useParams()
   const navigate = useNavigate()
   const showToast = useToast()
-  const { isCreator, isFollowing, toggleFollow } = useUser()
+  const location = useLocation()
+  const { status, isCreator, isFollowing, toggleFollow } = useUser()
+  const authenticated = status === 'authenticated'
+  // 로그인 상태를 복원하는 동안(loading)에는 로그인 안내를 띄우지 않아 로그인 사용자에게 깜빡이지 않게 한다.
+  const anonymous = status === 'anonymous'
 
   const [tab, setTab] = useState('home')
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [missionBusyId, setMissionBusyId] = useState(null)
 
-  const { data: creator, loading, error, reload, setData: setCreator } = useAsync(
-    () => loadSpaceOrNull({ creatorId: creatorIdParam, slug: slugParam }),
+  const { data: loaded, loading, error, reload, setData: setCreator } = useAsync(
+    () => loadSpaceOrNotFound({ creatorId: creatorIdParam, slug: slugParam }),
     [creatorIdParam, slugParam],
     { fallbackMessage: '크리에이터 정보를 불러오지 못했습니다.' },
   )
+  const creator = loaded?.notFound ? null : loaded
   const creatorId = creator?.creatorId ?? null
 
+  // 인증이 필요한 데이터는 로그인 상태가 확인된 뒤에만 조회한다(비로그인 공유 링크 열람 지원).
+  const balance = useAsync(
+    () => getTicketBalance(creatorId),
+    [creatorId, authenticated],
+    { enabled: authenticated && creatorId !== null, fallbackMessage: '응모권 잔액을 불러오지 못했어요.' },
+  )
   const { data: missions, loading: missionsLoading, error: missionsError, reload: reloadMissions, setData: setMissions } = useAsync(
     () => getCreatorMissions(creatorId),
-    [creatorId],
-    { enabled: creatorId !== null, fallbackMessage: '오늘의 미션을 불러오지 못했어요.' },
+    [creatorId, authenticated],
+    { enabled: authenticated && creatorId !== null, fallbackMessage: '오늘의 미션을 불러오지 못했어요.' },
   )
+  const ticketBalance = balance.data?.balance ?? 0
+  const goLogin = () => navigate('/login', { state: { from: location.pathname + location.search } })
   // 크리에이터인 경우에만 내 Space를 조회해 지금 보는 Space가 내 것인지 판별한다.
   const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator })
   const isMine = creatorId !== null && mySpace.data?.creatorId === creatorId
@@ -91,12 +112,19 @@ export default function CreatorSpace() {
   }
 
   if (error || !creator) {
+    const notFound = NOT_FOUND_MESSAGES[slugParam ? 'slug' : 'creator']
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe justify-center">
         {error ? (
           <ErrorBlock message={error} onRetry={reload} />
         ) : (
-          <EmptyBlock icon="storefront" message="아직 준비된 크리에이터 스페이스가 없어요." />
+          <div className="flex flex-col items-center gap-2 py-space-xl px-margin text-center" role="status">
+            <MaterialIcon name={notFound.icon} className="text-[32px] text-outline" />
+            <p className="font-title-md text-title-md font-semibold text-on-surface">{notFound.title}</p>
+            {notFound.detail && (
+              <p className="font-body-sm text-body-sm text-on-surface-variant">{notFound.detail}</p>
+            )}
+          </div>
         )}
         <Link to="/" className="text-center text-primary font-label-md text-label-md font-semibold">
           홈으로 돌아가기
@@ -106,6 +134,10 @@ export default function CreatorSpace() {
   }
 
   function handleFollow() {
+    if (!authenticated) {
+      goLogin()
+      return
+    }
     toggleFollow(creator.creatorId)
     showToast(following ? '관심 크리에이터에서 해제되었습니다.' : `${creator.creatorName} 관심 등록 완료! 💖`)
   }
@@ -141,6 +173,7 @@ export default function CreatorSpace() {
       setMissions((current) => (current ?? []).map((item) => (
         item.missionId === mission.missionId ? { ...item, completedToday: true } : item
       )))
+      balance.reload()
       showToast(`응모권 ${mission.rewardAmount}장을 적립했어요.`)
     } catch (missionError) {
       showToast(describeError(missionError, '미션을 완료하지 못했어요.'), { icon: 'error' })
@@ -149,21 +182,34 @@ export default function CreatorSpace() {
     }
   }
 
-  const missionList = (
+  const loginPrompt = (message) => (
+    <div className="flex items-center justify-between gap-3 p-space-md rounded-xl bg-surface-container-low">
+      <span className="font-body-sm text-body-sm text-on-surface-variant">{message}</span>
+      <button
+        type="button"
+        onClick={goLogin}
+        className="shrink-0 px-3 py-2 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm font-semibold active:scale-95 transition-all"
+      >
+        로그인
+      </button>
+    </div>
+  )
+
+  // 크리에이터별 미션은 LIKE만 있다(출석은 공용 미션 API라 여기서 다루지 않는다).
+  const missionList = anonymous ? loginPrompt('로그인하면 미션에 참여하고 응모권을 모을 수 있어요.') : (
     <>
       {missionsLoading && <LoadingBlock label="오늘의 미션을 불러오는 중..." />}
       {!missionsLoading && missionsError && <ErrorBlock message={missionsError} onRetry={reloadMissions} />}
       {!missionsLoading && !missionsError && missions?.map((mission) => {
-        const attendance = mission.type === 'ATTENDANCE'
         const completed = mission.completedToday
         return (
           <div key={mission.missionId} className="flex items-center justify-between gap-3 p-space-md rounded-xl bg-surface-container-lowest shadow-card">
             <div className="flex items-center gap-3 min-w-0">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${attendance ? 'bg-secondary-container/40 text-secondary' : 'bg-surface-container-high text-primary'}`}>
-                <MaterialIcon name={attendance ? 'calendar_today' : 'favorite'} filled={!attendance} className="text-[22px]" />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface-container-high text-primary">
+                <MaterialIcon name="favorite" filled className="text-[22px]" />
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="font-label-md text-label-md text-on-surface font-semibold">{attendance ? '오늘 출석하기' : '좋아요 미션'}</span>
+                <span className="font-label-md text-label-md text-on-surface font-semibold">좋아요 미션</span>
                 <span className="text-secondary font-label-xs text-label-xs">🎟 응모권 +{mission.rewardAmount}</span>
               </div>
             </div>
@@ -300,6 +346,8 @@ export default function CreatorSpace() {
 
         {tab === 'home' && (
           <div className="flex flex-col gap-space-xl mt-space-lg px-margin">
+            {anonymous && loginPrompt(`로그인하면 ${creator.creatorName} 전용 응모권을 확인하고 이벤트에 응모할 수 있어요.`)}
+            {authenticated && (
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-[#be185d] to-berry-deep p-space-lg text-on-primary shadow-floating">
               <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 blur-2xl pointer-events-none" />
               <div className="flex items-start justify-between relative z-10">
@@ -320,7 +368,7 @@ export default function CreatorSpace() {
               </div>
               <div className="mt-4 flex items-baseline gap-2 relative z-10">
                 <span className="font-headline-xl text-headline-xl text-white font-bold tracking-tight">
-                  {creator.creatorName} 응모권 🎟 {formatNumber(creator.balance)}장
+                  {creator.creatorName} 응모권 🎟 {formatNumber(ticketBalance)}장
                 </span>
               </div>
               <div className="mt-3 flex items-center gap-2 pt-3 border-t border-white/20 relative z-10">
@@ -330,6 +378,7 @@ export default function CreatorSpace() {
                 </span>
               </div>
             </div>
+            )}
 
             <UpcomingSchedules creatorId={creator.creatorId} onShowAll={() => setTab('calendar')} />
 
@@ -357,7 +406,7 @@ export default function CreatorSpace() {
               {liveEvents.length > 0 ? (
                 <div className="flex gap-space-md overflow-x-auto px-margin no-scrollbar snap-x snap-mandatory py-1">
                   {liveEvents.map((event) => (
-                    <EventCard key={event.eventId} event={event} ticketsOwned={creator.balance} />
+                    <EventCard key={event.eventId} event={event} ticketsOwned={ticketBalance} />
                   ))}
                 </div>
               ) : (
@@ -404,7 +453,7 @@ export default function CreatorSpace() {
             {events.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
                 {events.map((event) => (
-                  <EventCard key={event.eventId} event={event} variant="list" ticketsOwned={creator.balance} />
+                  <EventCard key={event.eventId} event={event} variant="list" ticketsOwned={ticketBalance} />
                 ))}
               </div>
             ) : (
@@ -414,13 +463,15 @@ export default function CreatorSpace() {
         )}
       </div>
 
-      <TicketLedgerSheet
-        open={ledgerOpen}
-        onClose={() => setLedgerOpen(false)}
-        creatorId={creator.creatorId}
-        creatorName={creator.creatorName}
-        balance={creator.balance}
-      />
+      {authenticated && (
+        <TicketLedgerSheet
+          open={ledgerOpen}
+          onClose={() => setLedgerOpen(false)}
+          creatorId={creator.creatorId}
+          creatorName={creator.creatorName}
+          balance={ticketBalance}
+        />
+      )}
       {isMine && (
         <SpaceEditSheet
           open={editOpen}

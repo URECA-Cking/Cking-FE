@@ -49,10 +49,11 @@ export default function EventDetail() {
     enabled: Boolean(published),
     fallbackMessage: '내 당첨 정보를 불러오지 못했습니다.',
   })
-  const myWinnerIds = useMemo(
-    () => new Set((myWinners.data ?? []).map((winner) => winner.winnerId)),
-    [myWinners.data],
-  )
+  // 조회 중이거나 실패하면 null(판별 불가)로 두어, 본인 당첨을 다른 당첨자로 확정해 보여주지 않는다.
+  const myWinnerIds = useMemo(() => {
+    if (myWinners.loading || myWinners.error || !Array.isArray(myWinners.data)) return null
+    return new Set(myWinners.data.map((winner) => winner.winnerId))
+  }, [myWinners.loading, myWinners.error, myWinners.data])
 
   const balance = event?.myTicketBalance ?? 0
   const creator = useMemo(() => getCreatorProfile(event?.creatorId), [event?.creatorId])
@@ -375,10 +376,25 @@ export default function EventDetail() {
               {!winners.loading && !winners.error && (winners.data?.winners ?? []).length === 0 && (
                 <p className="font-body-sm text-body-sm text-on-surface-variant">아직 공개된 당첨자가 없어요.</p>
               )}
+              {!winners.loading && (winners.data?.winners ?? []).length > 0 && myWinners.loading && (
+                <p className="font-label-xs text-label-xs text-on-surface-variant">내 당첨 여부를 확인하는 중...</p>
+              )}
+              {!winners.loading && (winners.data?.winners ?? []).length > 0 && myWinners.error && (
+                <div className="flex items-center justify-between gap-2 p-space-sm rounded-xl bg-surface-container-low">
+                  <p className="font-label-xs text-label-xs text-on-surface-variant">내 당첨 여부를 확인하지 못했어요.</p>
+                  <button
+                    type="button"
+                    onClick={myWinners.reload}
+                    className="shrink-0 font-label-xs text-label-xs font-semibold text-primary"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              )}
               {!winners.loading && (winners.data?.winners ?? []).length > 0 && (
                 <ul className="flex flex-col gap-2">
                   {winners.data.winners.map((winner) => {
-                    const mine = myWinnerIds.has(winner.winnerId)
+                    const mine = myWinnerIds?.has(winner.winnerId) ?? false
                     return (
                       <li
                         key={winner.winnerId}

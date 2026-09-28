@@ -6,7 +6,6 @@ import { useUser } from '../context/useUser.js'
 import { exchangeLoginCode } from '../api/auth.js'
 import { applyCreator } from '../api/creatorApplications.js'
 import { describeError } from '../api/client.js'
-import { clearAccessToken } from '../api/authToken.js'
 import { consumeLoginIntent } from '../utils/loginIntent.js'
 
 // 백엔드가 redirect로 넘기는 error 값(Cking-BE docs/domains/auth/api.md "OAuth 로그인 시작")
@@ -25,8 +24,9 @@ export default function OAuthCallback() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const showToast = useToast()
-  // 이 화면에서는 UserProvider가 기존 세션을 복원하지 않으므로, 실패하면 직접 로그아웃 상태로 표시한다.
-  const { loadUser, markSignedOut } = useUser()
+  // 이 화면에서는 UserProvider가 기존 세션을 복원하지 않는다. 로그인을 취소·실패하면 기존 세션을 유지하는
+  // 정책이므로 restore()로 기존 세션을 되살려 화면 상태를 실제 인증 상태(토큰·Refresh Cookie)와 맞춘다.
+  const { loadUser, restore } = useUser()
   const [failure, setFailure] = useState(null)
   // Login Code는 한 번만 쓸 수 있으므로 StrictMode 등으로 effect가 두 번 돌아도 교환은 한 번만 한다.
   const started = useRef(false)
@@ -40,9 +40,8 @@ export default function OAuthCallback() {
     const intent = consumeLoginIntent()
 
     if (error || !code) {
-      markSignedOut()
       showToast(ERROR_MESSAGES[error] ?? '로그인하지 못했어요. 다시 시도해주세요.', { icon: 'error' })
-      navigate('/login', { replace: true, state: { from: intent.redirectTo } })
+      restore().finally(() => navigate('/login', { replace: true, state: { from: intent.redirectTo } }))
       return
     }
 
@@ -64,12 +63,11 @@ export default function OAuthCallback() {
         }
         navigate(intent.redirectTo || '/', { replace: true })
       } catch (err) {
-        clearAccessToken()
-        markSignedOut()
+        await restore()
         setFailure(describeError(err, '로그인을 완료하지 못했어요. 다시 시도해주세요.'))
       }
     })()
-  }, [searchParams, navigate, showToast, loadUser, markSignedOut])
+  }, [searchParams, navigate, showToast, loadUser, restore])
 
   if (failure) {
     return <ErrorBlock message={failure} onRetry={() => navigate('/login', { replace: true })} />

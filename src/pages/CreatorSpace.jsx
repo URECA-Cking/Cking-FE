@@ -48,7 +48,7 @@ const NOT_FOUND_MESSAGES = {
  *
  * 경로: /creators/:creatorId(앱 안 이동, 로그인 필요), /space/:slug(공유 링크, 로그인 없이 열람 가능)
  * 공개 데이터: 프로필(GET /api/creators/{id}/space, GET /api/creator-spaces/{slug}), 이벤트(GET /api/events?creatorId=), 캘린더.
- * 로그인 사용자만: 응모권 잔액(GET /api/creators/{id}/tickets)·내역, 미션(LIKE만. 출석은 크리에이터와 무관한 공용 미션이라 여기서 다루지 않는다),
+ * 로그인 사용자만: 응모권 잔액(GET /api/creators/{id}/tickets)·내역, LIKE 미션 참여(SHARE는 공유 UI 연동 전까지 숨긴다),
  * 관심 등록, 본인 편집. 비로그인이면 이 영역에 로그인 안내를 보여준다.
  * 캘린더 탭·홈의 다가오는 일정은 GET /api/creators/{id}/calendar/schedules(추첨 이벤트와 별개인 크리에이터 일정)를 쓴다.
  * 게시물은 백엔드 API가 아직 없어 빈 탭으로 보여준다.
@@ -61,6 +61,7 @@ export default function CreatorSpace() {
   const location = useLocation()
   const { status, isCreator, isFollowing, toggleFollow } = useUser()
   const authenticated = status === 'authenticated'
+  const sessionLoading = status === 'loading'
   // 로그인 상태를 복원하는 동안(loading)에는 로그인 안내를 띄우지 않아 로그인 사용자에게 깜빡이지 않게 한다.
   const anonymous = status === 'anonymous'
 
@@ -89,6 +90,7 @@ export default function CreatorSpace() {
     { enabled: authenticated && creatorId !== null, fallbackMessage: '오늘의 미션을 불러오지 못했어요.' },
   )
   const ticketBalance = balance.data?.balance ?? 0
+  const likeMissions = useMemo(() => (missions ?? []).filter((mission) => mission.type === 'LIKE'), [missions])
   const goLogin = () => navigate('/login', { state: { from: location.pathname + location.search } })
   // 크리에이터인 경우에만 내 Space를 조회해 지금 보는 Space가 내 것인지 판별한다.
   const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator })
@@ -167,6 +169,7 @@ export default function CreatorSpace() {
   }
 
   async function completeMission(mission) {
+    if (!authenticated || mission.type !== 'LIKE') return
     setMissionBusyId(mission.missionId)
     try {
       await completeCreatorMission(creator.creatorId, mission.missionId)
@@ -195,12 +198,12 @@ export default function CreatorSpace() {
     </div>
   )
 
-  // 크리에이터별 미션은 LIKE만 있다(출석은 공용 미션 API라 여기서 다루지 않는다).
-  const missionList = anonymous ? loginPrompt('로그인하면 미션에 참여하고 응모권을 모을 수 있어요.') : (
+  // Creator 미션 조회에 SHARE가 포함돼도, 공유 행동을 검증하는 UI가 연결되기 전에는 LIKE만 보여준다.
+  const missionList = sessionLoading ? <LoadingBlock label="로그인 상태를 확인하는 중..." /> : anonymous ? loginPrompt('로그인하면 미션에 참여하고 응모권을 모을 수 있어요.') : (
     <>
       {missionsLoading && <LoadingBlock label="오늘의 미션을 불러오는 중..." />}
       {!missionsLoading && missionsError && <ErrorBlock message={missionsError} onRetry={reloadMissions} />}
-      {!missionsLoading && !missionsError && missions?.map((mission) => {
+      {!missionsLoading && !missionsError && likeMissions.map((mission) => {
         const completed = mission.completedToday
         return (
           <div key={mission.missionId} className="flex items-center justify-between gap-3 p-space-md rounded-xl bg-surface-container-lowest shadow-card">
@@ -224,7 +227,7 @@ export default function CreatorSpace() {
           </div>
         )
       })}
-      {!missionsLoading && !missionsError && (missions?.length ?? 0) === 0 && (
+      {!missionsLoading && !missionsError && likeMissions.length === 0 && (
         <EmptyBlock icon="bolt" message={EMPTY_TAB_MESSAGE} />
       )}
     </>
@@ -399,11 +402,15 @@ export default function CreatorSpace() {
                   <MaterialIcon name="local_activity" className="text-tertiary text-[20px]" />
                   <h2 className="font-title-md text-title-md text-on-surface">진행 중 이벤트</h2>
                 </div>
-                <span className="font-label-xs text-label-xs text-primary font-semibold">
-                  총 {liveEvents.length}개 진행중
-                </span>
+                {!creator.eventsError && (
+                  <span className="font-label-xs text-label-xs text-primary font-semibold">
+                    총 {liveEvents.length}개 진행중
+                  </span>
+                )}
               </div>
-              {liveEvents.length > 0 ? (
+              {creator.eventsError ? (
+                <ErrorBlock message="이벤트를 불러오지 못했어요." onRetry={reload} />
+              ) : liveEvents.length > 0 ? (
                 <div className="flex gap-space-md overflow-x-auto px-margin no-scrollbar snap-x snap-mandatory py-1">
                   {liveEvents.map((event) => (
                     <EventCard key={event.eventId} event={event} ticketsOwned={ticketBalance} />
@@ -450,7 +457,9 @@ export default function CreatorSpace() {
 
         {tab === 'events' && (
           <div className="flex flex-col gap-space-md px-margin py-space-sm">
-            {events.length > 0 ? (
+            {creator.eventsError ? (
+              <ErrorBlock message="이벤트를 불러오지 못했어요." onRetry={reload} />
+            ) : events.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
                 {events.map((event) => (
                   <EventCard key={event.eventId} event={event} variant="list" ticketsOwned={ticketBalance} />

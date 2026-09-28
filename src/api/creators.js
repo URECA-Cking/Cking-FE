@@ -62,6 +62,10 @@ export async function loadCreatorDirectory({ size = 100 } = {}) {
  */
 export async function loadCreatorSpace({ creatorId, slug }) {
   const space = slug ? await getCreatorSpaceBySlug(slug) : await getCreatorSpace(creatorId);
-  const eventsPage = await getEvents({ creatorId: space.creatorId, size: 50 });
-  return { ...space, events: eventsPage?.items ?? [] };
+  try {
+    const eventsPage = await getEvents({ creatorId: space.creatorId, size: 50 });
+    return { ...space, events: eventsPage?.items ?? [], eventsError: false };
+  } catch {
+    return { ...space, events: [], eventsError: true };
+  }
 }

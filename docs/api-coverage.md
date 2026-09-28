@@ -49,8 +49,8 @@
 | Creator Space | `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug` | ✅ | 본인 스페이스 편집·공유 주소 변경(#21) |
 | Calendar | `GET /api/creators/{creatorId}/calendar/schedules` | ✅ | 크리에이터 스페이스 캘린더 탭·홈의 다가오는 일정(#21) |
 | Calendar | 일정 상세·크리에이터 일정 CRUD(`/api/creator/calendar/schedules`) | ❌ | 크리에이터 일정 관리 화면 없음 |
-| Mission | `GET /api/creators/{creatorId}/missions` | ✅ | 크리에이터 스페이스 홈·미션 탭 |
-| Mission | `POST /api/creators/{creatorId}/missions/{missionId}/complete` | ✅ | 크리에이터 스페이스 미션 참여 |
+| Mission | `GET /api/creators/{creatorId}/missions` | ✅ | 크리에이터 스페이스 홈·미션 탭에서 LIKE만 표시; SHARE는 공유 UI 연동 전까지 숨김 |
+| Mission | `POST /api/creators/{creatorId}/missions/{missionId}/complete` | ✅ | 크리에이터 스페이스 LIKE 미션 참여에만 사용 |
 | Ticket | `GET /api/creators/{creatorId}/tickets` | ✅ | 홈·탐색·스페이스·마이페이지 잔액 |
 | Ticket | `GET /api/creators/{creatorId}/tickets/history` | ✅ | 응모권 원장·내 응모 재구성 |
 | Event/Entry | `GET /api/events` | ✅ | 홈·탐색·크리에이터별 이벤트 목록 |

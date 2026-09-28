@@ -5,11 +5,11 @@ import BottomSheet from '../components/ui/BottomSheet.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock, StatusPill, Spinner } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
-import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { getEvent } from '../api/events.js'
 import { applyEntry, describeEntryResult } from '../api/entries.js'
 import { getPublicWinners } from '../api/winners.js'
+import { getMyWinners } from '../api/myWinners.js'
 import { newRequestId } from '../api/client.js'
 import { getCreatorProfile, getEventBanner } from '../data/creatorProfiles.js'
 import { formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '../utils/format.js'
@@ -26,7 +26,6 @@ export default function EventDetail() {
   const { eventId } = useParams()
   const navigate = useNavigate()
   const showToast = useToast()
-  const { userId } = useUser()
 
   const [ticketCount, setTicketCount] = useState(1)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -35,8 +34,8 @@ export default function EventDetail() {
   const [requestId, setRequestId] = useState(() => newRequestId())
 
   const { data: event, loading, error, reload } = useAsync(
-    () => getEvent(eventId, userId),
-    [eventId, userId],
+    () => getEvent(eventId),
+    [eventId],
     { fallbackMessage: '이벤트 상세를 불러오지 못했습니다.' },
   )
 
@@ -45,6 +44,16 @@ export default function EventDetail() {
     enabled: Boolean(published),
     fallbackMessage: '당첨자 목록을 불러오지 못했습니다.',
   })
+  // 공개 당첨자 목록에는 회원 식별자가 없어(마스킹된 이름·전화번호만), 내 당첨 목록의 winnerId로 "나의 당첨"을 판별한다.
+  const myWinners = useAsync(() => getMyWinners(), [published], {
+    enabled: Boolean(published),
+    fallbackMessage: '내 당첨 정보를 불러오지 못했습니다.',
+  })
+  // 조회 중이거나 실패하면 null(판별 불가)로 두어, 본인 당첨을 다른 당첨자로 확정해 보여주지 않는다.
+  const myWinnerIds = useMemo(() => {
+    if (myWinners.loading || myWinners.error || !Array.isArray(myWinners.data)) return null
+    return new Set(myWinners.data.map((winner) => winner.winnerId))
+  }, [myWinners.loading, myWinners.error, myWinners.data])
 
   const balance = event?.myTicketBalance ?? 0
   const creator = useMemo(() => getCreatorProfile(event?.creatorId), [event?.creatorId])
@@ -104,7 +113,7 @@ export default function EventDetail() {
   async function submitEntry() {
     setPhase('submitting')
     // 재시도해도 같은 requestId를 쓰므로 백엔드가 DUPLICATE_REPLAY로 안전하게 처리한다.
-    const envelope = await applyEntry(eventId, { userId, requestId, ticketCount: selectedCount })
+    const envelope = await applyEntry(eventId, { requestId, ticketCount: selectedCount })
     const outcome = describeEntryResult(envelope)
     setResult(outcome)
     setPhase('done')
@@ -367,10 +376,25 @@ export default function EventDetail() {
               {!winners.loading && !winners.error && (winners.data?.winners ?? []).length === 0 && (
                 <p className="font-body-sm text-body-sm text-on-surface-variant">아직 공개된 당첨자가 없어요.</p>
               )}
+              {!winners.loading && (winners.data?.winners ?? []).length > 0 && myWinners.loading && (
+                <p className="font-label-xs text-label-xs text-on-surface-variant">내 당첨 여부를 확인하는 중...</p>
+              )}
+              {!winners.loading && (winners.data?.winners ?? []).length > 0 && myWinners.error && (
+                <div className="flex items-center justify-between gap-2 p-space-sm rounded-xl bg-surface-container-low">
+                  <p className="font-label-xs text-label-xs text-on-surface-variant">내 당첨 여부를 확인하지 못했어요.</p>
+                  <button
+                    type="button"
+                    onClick={myWinners.reload}
+                    className="shrink-0 font-label-xs text-label-xs font-semibold text-primary"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              )}
               {!winners.loading && (winners.data?.winners ?? []).length > 0 && (
                 <ul className="flex flex-col gap-2">
                   {winners.data.winners.map((winner) => {
-                    const mine = winner.userId === userId
+                    const mine = myWinnerIds?.has(winner.winnerId) ?? false
                     return (
                       <li
                         key={winner.winnerId}
@@ -383,7 +407,7 @@ export default function EventDetail() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="font-label-md text-label-md font-semibold text-on-surface truncate">
-                            {mine ? '나의 당첨 🎉' : `당첨자 #${winner.userId}`}
+                            {mine ? '나의 당첨 🎉' : winner.name}
                           </p>
                           <p className="font-label-xs text-label-xs text-on-surface-variant truncate">
                             {winner.prizeDisplayName ?? '상품 미지정'}

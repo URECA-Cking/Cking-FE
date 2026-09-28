@@ -7,10 +7,10 @@ import { requestEnvelope } from './client';
  * 200을 돌려준다). 그래서 apiClient가 아닌 requestEnvelope를 직접 써서 envelope 전체를
  * 그대로 반환하고, 결과 코드 해석은 화면에서 ENTRY_RESULT로 처리한다.
  */
-export async function applyEntry(eventId, { userId, requestId, ticketCount }) {
+export async function applyEntry(eventId, { requestId, ticketCount }) {
   return requestEnvelope(`/api/events/${eventId}/entries`, {
     method: 'POST',
-    body: { userId, requestId, ticketCount },
+    body: { requestId, ticketCount },
   });
 }
 

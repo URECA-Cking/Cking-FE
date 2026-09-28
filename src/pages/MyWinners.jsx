@@ -5,7 +5,6 @@ import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../components/
 import { describeError } from '../api/client.js'
 import { declineMyWinner, getMyWinners, getWinnerHistory } from '../api/myWinners.js'
 import { useToast } from '../context/useToast.js'
-import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { formatDateTime, formatNumber } from '../utils/format.js'
 
@@ -21,14 +20,13 @@ function statusMeta(status) {
 }
 
 export default function MyWinners() {
-  const { userId } = useUser()
   const showToast = useToast()
   const [historyByWinner, setHistoryByWinner] = useState({})
   const [openHistoryId, setOpenHistoryId] = useState(null)
   const [historyLoadingId, setHistoryLoadingId] = useState(null)
   const [decliningId, setDecliningId] = useState(null)
 
-  const { data, loading, error, reload } = useAsync(() => getMyWinners(userId), [userId], {
+  const { data, loading, error, reload } = useAsync(() => getMyWinners(), [], {
     fallbackMessage: '당첨 내역을 불러오지 못했어요.',
   })
 
@@ -46,7 +44,7 @@ export default function MyWinners() {
 
     setHistoryLoadingId(winnerId)
     try {
-      const history = await getWinnerHistory(winnerId, userId)
+      const history = await getWinnerHistory(winnerId)
       setHistoryByWinner((current) => ({ ...current, [winnerId]: history ?? [] }))
     } catch (historyError) {
       showToast(describeError(historyError, '상태 이력을 불러오지 못했어요.'), { icon: 'error' })
@@ -61,7 +59,7 @@ export default function MyWinners() {
 
     setDecliningId(winner.winnerId)
     try {
-      await declineMyWinner(winner.winnerId, userId)
+      await declineMyWinner(winner.winnerId)
       showToast('당첨 포기가 완료됐어요.')
       setHistoryByWinner((current) => {
         const next = { ...current }

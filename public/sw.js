@@ -2,9 +2,12 @@
  * - 앱 셸(정적 자산): stale-while-revalidate 로 즉시 띄우고 백그라운드에서 갱신한다.
  * - API(/api/*): 항상 네트워크 우선. 응모/잔액처럼 값이 바로 바뀌는 데이터라 캐시를 신뢰할 수 없다.
  *   네트워크가 끊겼을 때만 마지막으로 성공한 GET 응답을 돌려준다.
+ *   단, Access JWT(Authorization 헤더)가 붙은 요청은 캐시에 넣지도 꺼내지도 않는다. 요청 URL에 사용자
+ *   식별자가 없어서, 캐시하면 같은 브라우저에서 계정을 바꾼 뒤 이전 계정의 응답이 보일 수 있다.
  * - 네비게이션: 네트워크 우선, 실패하면 캐시된 app shell(SPA 진입점)로 폴백한다.
  */
-const VERSION = 'v1'
+// v2: 인증 응답을 캐시하던 v1의 API 캐시를 activate 단계에서 지운다.
+const VERSION = 'v2'
 const SHELL_CACHE = `cking-shell-${VERSION}`
 const API_CACHE = `cking-api-${VERSION}`
 const SHELL_URL = '/index.html'
@@ -36,13 +39,14 @@ self.addEventListener('message', (event) => {
 })
 
 async function networkFirstApi(request) {
+  const cacheable = !request.headers.has('Authorization')
   const cache = await caches.open(API_CACHE)
   try {
     const response = await fetch(request)
-    if (response.ok) cache.put(request, response.clone())
+    if (cacheable && response.ok) cache.put(request, response.clone())
     return response
   } catch {
-    const cached = await cache.match(request)
+    const cached = cacheable ? await cache.match(request) : undefined
     if (cached) return cached
     return new Response(
       JSON.stringify({ code: 'OFFLINE', message: '오프라인 상태예요. 네트워크 연결을 확인해주세요.' }),

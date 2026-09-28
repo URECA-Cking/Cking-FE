@@ -6,7 +6,6 @@ import { BackHeader } from '../../components/layout/TopHeader.jsx'
 import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
-import { useUser } from '../../context/useUser.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime } from '../../utils/format.js'
 
@@ -22,15 +21,14 @@ const STREAM_META = {
 
 export default function AdminDeadStreams() {
   const navigate = useNavigate()
-  const { userId } = useUser()
   const showToast = useToast()
   const [status, setStatus] = useState('UNRESOLVED')
   const [page, setPage] = useState(0)
   const [busyId, setBusyId] = useState(null)
 
   const { data, loading, error, reload } = useAsync(
-    () => getDeadStreams(userId, { status, page, size: 20 }),
-    [userId, status, page],
+    () => getDeadStreams({ status, page, size: 20 }),
+    [status, page],
     { fallbackMessage: '데드 스트림 목록을 불러오지 못했어요.' },
   )
 
@@ -45,7 +43,7 @@ export default function AdminDeadStreams() {
     if (!window.confirm(`데드 메시지 #${item.id}을 다시 처리할까요? 원인을 해결한 뒤 실행해주세요.`)) return
     setBusyId(item.id)
     try {
-      await replayDeadStream(item.id, userId)
+      await replayDeadStream(item.id)
       showToast(`데드 메시지 #${item.id}을 다시 처리했어요.`)
       await reload()
     } catch (replayError) {

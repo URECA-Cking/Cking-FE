@@ -1,14 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
-import { LoadingBlock, ErrorBlock } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
-import { useAsync } from '../hooks/useAsync.js'
-import { getUsers, selectUser as selectUserApi } from '../api/users.js'
-import { applyCreator } from '../api/creatorApplications.js'
-import { describeError } from '../api/client.js'
+import { oauthLoginUrl } from '../api/auth.js'
 import { bannerImage } from '../data/images.js'
+import { saveLoginIntent } from '../utils/loginIntent.js'
 
 const ROLES = [
   {
@@ -25,73 +22,37 @@ const ROLES = [
   },
 ]
 
+const PROVIDERS = [
+  { id: 'google', label: 'Google로 계속하기', className: 'bg-surface-container-lowest text-on-surface border border-outline-variant/60' },
+  { id: 'kakao', label: '카카오로 계속하기', className: 'bg-[#FEE500] text-[#191919] border border-transparent' },
+]
+
 /**
  * 로그인 화면.
  *
- * 백엔드에 회원가입/인증 API가 없고 가상 사용자 선택만 제공하므로
- * (GET /api/users, POST /api/demo/users/select), 이 화면은 시안의 가입 화면 구성을
- * 유지하면서 "계정 선택"으로 동작한다. 크리에이터로 시작을 고르면 로그인 직후
- * POST /api/creator/applications 로 전환 신청까지 접수한다.
+ * Google·Kakao OAuth 로그인을 시작한다(GET /oauth2/authorization/{provider}, Cking-BE docs/domains/auth/api.md).
+ * 로그인이 끝나면 백엔드가 /oauth/callback으로 돌려보내고, OAuthCallback 화면이 Access JWT를 발급받는다.
+ * 크리에이터로 시작을 고르면 로그인 직후 POST /api/creator/applications로 전환 신청까지 접수한다.
  */
 export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const showToast = useToast()
-  const { user, selectUser, refreshCapabilities } = useUser()
+  const { user, status } = useUser()
 
   const [role, setRole] = useState('fan')
-  const [query, setQuery] = useState('')
   const [agreed, setAgreed] = useState(false)
-  const [starting, setStarting] = useState(false)
-  const [selectedId, setSelectedId] = useState(() => user?.userId ?? null)
-
-  const { data: users, loading, error, reload } = useAsync(() => getUsers(), [], {
-    fallbackMessage: '가상 사용자 목록을 불러오지 못했습니다.',
-  })
-
-  const filtered = useMemo(() => {
-    const list = users ?? []
-    const keyword = query.trim().toLowerCase()
-    if (!keyword) return list
-    return list.filter(
-      (candidate) =>
-        candidate.name?.toLowerCase().includes(keyword) || String(candidate.userId).includes(keyword),
-    )
-  }, [users, query])
 
   const redirectTo = location.state?.from ?? '/'
-  const alreadySignedIn = Boolean(user)
+  const alreadySignedIn = status === 'authenticated' && Boolean(user)
 
-  async function handleStart() {
-    const candidate = (users ?? []).find((item) => item.userId === selectedId)
-    if (!candidate) {
-      showToast('시작할 계정을 먼저 선택해주세요.', { icon: 'error' })
+  function handleLogin(provider) {
+    if (!agreed) {
+      showToast('이용약관에 먼저 동의해주세요.', { icon: 'error' })
       return
     }
-    setStarting(true)
-    try {
-      const result = await selectUserApi(candidate.userId)
-      const nextUser = { userId: result?.userId ?? candidate.userId, name: result?.name ?? candidate.name }
-      selectUser(nextUser)
-
-      if (role === 'creator') {
-        try {
-          await applyCreator(nextUser.userId)
-          showToast(`${nextUser.name}님 계정으로 시작했어요. 크리에이터 전환 신청도 접수했어요.`)
-        } catch (creatorError) {
-          showToast(describeError(creatorError, '크리에이터 전환 신청에 실패했어요.'), { icon: 'error' })
-        }
-      } else {
-        showToast(`${nextUser.name}님으로 시작합니다.`)
-      }
-
-      await refreshCapabilities(nextUser)
-      navigate(alreadySignedIn ? redirectTo : '/onboarding/creators', { replace: true })
-    } catch (err) {
-      showToast(describeError(err, '계정 선택에 실패했습니다.'), { icon: 'error' })
-    } finally {
-      setStarting(false)
-    }
+    saveLoginIntent({ role, redirectTo })
+    window.location.assign(oauthLoginUrl(provider))
   }
 
   return (
@@ -122,7 +83,7 @@ export default function Login() {
           <div className="min-w-0">
             <p className="font-label-md text-label-md font-bold truncate">Cking Live Drop</p>
             <p className="font-label-xs text-label-xs text-white/85 truncate">
-              계정을 고르면 바로 이벤트 응모를 시작할 수 있어요
+              로그인하면 바로 이벤트 응모를 시작할 수 있어요
             </p>
           </div>
         </div>
@@ -183,73 +144,6 @@ export default function Login() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-space-sm mb-space-lg">
-        <div className="flex items-center justify-between">
-          <span className="font-label-md text-label-md text-on-surface font-semibold">계정 선택</span>
-          <span className="font-label-xs text-label-xs text-on-surface-variant">GET /api/users</span>
-        </div>
-        <p className="font-label-xs text-label-xs text-on-surface-variant leading-relaxed -mt-1">
-          아직 회원가입·인증 API가 없어서, 백엔드가 제공하는 가상 사용자 중 하나로 로그인합니다.
-        </p>
-
-        <div className="relative flex items-center">
-          <MaterialIcon name="search" className="absolute left-3.5 text-outline text-[20px] pointer-events-none" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="w-full h-11 pl-11 pr-4 rounded-xl bg-surface-container text-on-surface font-body-md text-body-md placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none shadow-sm transition-all"
-            placeholder="이름 또는 userId로 검색"
-            type="search"
-          />
-        </div>
-
-        {loading && <LoadingBlock label="계정 목록을 불러오는 중..." />}
-        {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
-        {!loading && !error && (
-          <div className="flex flex-col gap-2 max-h-72 overflow-y-auto no-scrollbar">
-            {filtered.map((candidate) => {
-              const isSelected = selectedId === candidate.userId
-              return (
-                <button
-                  key={candidate.userId}
-                  type="button"
-                  onClick={() => setSelectedId(candidate.userId)}
-                  className={`flex items-center justify-between gap-space-sm p-space-sm rounded-xl border transition-all active:scale-[0.98] ${
-                    isSelected
-                      ? 'bg-berry-tint border-primary shadow-sm'
-                      : 'bg-surface-container-lowest border-transparent hover:border-outline-variant/40'
-                  }`}
-                >
-                  <div className="flex items-center gap-space-sm min-w-0">
-                    <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                        isSelected ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'
-                      }`}
-                    >
-                      <MaterialIcon name="person" className="text-[18px]" />
-                    </div>
-                    <div className="min-w-0 text-left">
-                      <p className="font-label-md text-label-md font-semibold text-on-surface truncate">
-                        {candidate.name}
-                      </p>
-                      <p className="font-label-xs text-label-xs text-on-surface-variant">userId: {candidate.userId}</p>
-                    </div>
-                  </div>
-                  {isSelected && (
-                    <MaterialIcon name="check_circle" filled className="text-primary text-[20px] shrink-0" />
-                  )}
-                </button>
-              )
-            })}
-            {filtered.length === 0 && (
-              <p className="text-center font-body-sm text-body-sm text-on-surface-variant py-6">
-                조건에 맞는 계정이 없어요.
-              </p>
-            )}
-          </div>
-        )}
-      </section>
-
       <div className="flex items-center gap-2 mb-space-md px-1">
         <input
           id="terms-agree"
@@ -267,15 +161,17 @@ export default function Login() {
       </div>
 
       <div className="flex flex-col gap-space-sm">
-        <button
-          type="button"
-          disabled={!agreed || selectedId === null || starting}
-          onClick={handleStart}
-          className="w-full h-12 rounded-xl bg-primary hover:bg-[#be185d] disabled:opacity-50 disabled:cursor-not-allowed text-on-primary font-label-md text-label-md flex items-center justify-center gap-space-xs shadow-md active:scale-[0.98] transition-all"
-        >
-          <span>{starting ? '시작하는 중...' : '시작하기'}</span>
-          <MaterialIcon name="arrow_forward" className="text-title-md" />
-        </button>
+        {PROVIDERS.map((provider) => (
+          <button
+            key={provider.id}
+            type="button"
+            disabled={!agreed}
+            onClick={() => handleLogin(provider.id)}
+            className={`w-full h-12 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed font-label-md text-label-md font-semibold flex items-center justify-center gap-space-xs shadow-sm active:scale-[0.98] transition-all ${provider.className}`}
+          >
+            {provider.label}
+          </button>
+        ))}
         {alreadySignedIn && (
           <button
             type="button"

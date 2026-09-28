@@ -19,9 +19,9 @@ import { formatNumber } from '../utils/format.js'
  * (게시물 피드만 백엔드에 대응 API가 없어 화면 구성용 샘플을 쓴다.)
  */
 export default function Home() {
-  const { user, userId, isCreator, isAdmin, followedCreators } = useUser()
+  const { user, isCreator, isAdmin, followedCreators } = useUser()
 
-  const directory = useAsync(() => loadCreatorDirectory(userId), [userId], {
+  const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터와 이벤트를 불러오지 못했습니다.',
   })
   // 알림은 MainLayout이 이미 읽어 하단 탭 배지에 쓰고 있으므로 그 결과를 그대로 받는다.

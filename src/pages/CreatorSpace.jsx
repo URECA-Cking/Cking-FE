@@ -31,20 +31,20 @@ export default function CreatorSpace() {
   const { creatorId } = useParams()
   const navigate = useNavigate()
   const showToast = useToast()
-  const { userId, isFollowing, toggleFollow } = useUser()
+  const { isFollowing, toggleFollow } = useUser()
 
   const [tab, setTab] = useState('home')
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const [missionBusyId, setMissionBusyId] = useState(null)
 
   const { data: creator, loading, error, reload } = useAsync(
-    () => loadCreatorSpace(creatorId, userId),
-    [creatorId, userId],
+    () => loadCreatorSpace(creatorId),
+    [creatorId],
     { fallbackMessage: '크리에이터 정보를 불러오지 못했습니다.' },
   )
   const { data: missions, loading: missionsLoading, error: missionsError, reload: reloadMissions, setData: setMissions } = useAsync(
-    () => getCreatorMissions(creatorId, userId),
-    [creatorId, userId],
+    () => getCreatorMissions(creatorId),
+    [creatorId],
     { fallbackMessage: '오늘의 미션을 불러오지 못했어요.' },
   )
 
@@ -85,7 +85,7 @@ export default function CreatorSpace() {
   async function completeMission(mission) {
     setMissionBusyId(mission.missionId)
     try {
-      await completeCreatorMission(creatorId, mission.missionId, userId)
+      await completeCreatorMission(creatorId, mission.missionId)
       setMissions((current) => (current ?? []).map((item) => (
         item.missionId === mission.missionId ? { ...item, completedToday: true } : item
       )))
@@ -374,7 +374,6 @@ export default function CreatorSpace() {
         onClose={() => setLedgerOpen(false)}
         creatorId={creator.creatorId}
         creatorName={creator.name}
-        userId={userId}
         balance={creator.balance}
       />
     </div>

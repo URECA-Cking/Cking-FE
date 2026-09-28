@@ -8,6 +8,7 @@ import MyWinners from './pages/MyWinners.jsx'
 import Notifications from './pages/Notifications.jsx'
 import MyPage from './pages/MyPage.jsx'
 import Login from './pages/Login.jsx'
+import OAuthCallback from './pages/OAuthCallback.jsx'
 import OnboardingCreators from './pages/OnboardingCreators.jsx'
 import CreatorSpace from './pages/CreatorSpace.jsx'
 import EventDetail from './pages/EventDetail.jsx'
@@ -23,6 +24,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/oauth/callback" element={<OAuthCallback />} />
 
       <Route
         element={

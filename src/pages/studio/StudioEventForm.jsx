@@ -4,7 +4,6 @@ import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
-import { useUser } from '../../context/useUser.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { createCreatorEvent, getMyCreatorEvents, updateCreatorEvent } from '../../api/creatorEvents.js'
 import { describeError, newRequestId } from '../../api/client.js'
@@ -49,11 +48,10 @@ export default function StudioEventForm() {
   const { eventId } = useParams()
   const isEdit = Boolean(eventId)
   const navigate = useNavigate()
-  const { userId } = useUser()
 
   // 수정 모드에서는 내 이벤트 목록에서 해당 이벤트를 찾아 초기값으로 쓴다.
   // (크리에이터 이벤트 목록 응답에는 description이 없어 설명은 새로 입력해야 한다.)
-  const existing = useAsync(() => getMyCreatorEvents(userId, { size: 100 }), [userId], {
+  const existing = useAsync(() => getMyCreatorEvents({ size: 100 }), [], {
     enabled: isEdit,
     fallbackMessage: '이벤트 정보를 불러오지 못했습니다.',
   })
@@ -80,10 +78,10 @@ export default function StudioEventForm() {
     )
   }
 
-  return <EventFormBody eventId={eventId} isEdit={isEdit} target={target} userId={userId} />
+  return <EventFormBody eventId={eventId} isEdit={isEdit} target={target} />
 }
 
-function EventFormBody({ eventId, isEdit, target, userId }) {
+function EventFormBody({ eventId, isEdit, target }) {
   const navigate = useNavigate()
   const showToast = useToast()
 
@@ -171,7 +169,6 @@ function EventFormBody({ eventId, isEdit, target, userId }) {
     setSubmitting(true)
 
     const payload = {
-      userId,
       title: form.title.trim(),
       description: form.description.trim() || null,
       startAt: toInstant(form.startAt),

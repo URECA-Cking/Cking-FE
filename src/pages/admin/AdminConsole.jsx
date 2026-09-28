@@ -5,7 +5,6 @@ import { BackHeader } from '../../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/ui/States.jsx'
 import AdminDrawingPanel from './AdminDrawingPanel.jsx'
 import { useToast } from '../../context/useToast.js'
-import { useUser } from '../../context/useUser.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import {
   approveCreatorApplication,
@@ -80,12 +79,11 @@ export default function AdminConsole() {
 
 function PendingEvents() {
   const showToast = useToast()
-  const { userId } = useUser()
   const [busyId, setBusyId] = useState(null)
 
   const { data, loading, error, reload } = useAsync(
-    () => getPendingEvents(userId, { size: 50 }),
-    [userId],
+    () => getPendingEvents({ size: 50 }),
+    [],
     { fallbackMessage: '승인 대기 목록을 불러오지 못했습니다.' },
   )
 
@@ -99,8 +97,8 @@ function PendingEvents() {
     }
     setBusyId(eventId)
     try {
-      if (approve) await approveEvent(eventId, userId)
-      else await rejectEvent(eventId, userId, reason.trim())
+      if (approve) await approveEvent(eventId)
+      else await rejectEvent(eventId, reason.trim())
       showToast(approve ? '이벤트를 승인했어요.' : '이벤트를 거절했어요.')
       await reload()
     } catch (err) {
@@ -181,12 +179,11 @@ function PendingEvents() {
 
 function CreatorApplications() {
   const showToast = useToast()
-  const { userId } = useUser()
   const [busyId, setBusyId] = useState(null)
 
   const { data, loading, error, reload } = useAsync(
-    () => getCreatorApplications(userId, { size: 50 }),
-    [userId],
+    () => getCreatorApplications({ size: 50 }),
+    [],
     { fallbackMessage: '크리에이터 신청 목록을 불러오지 못했습니다.' },
   )
 
@@ -200,8 +197,8 @@ function CreatorApplications() {
     }
     setBusyId(applicationId)
     try {
-      if (approve) await approveCreatorApplication(applicationId, userId)
-      else await rejectCreatorApplication(applicationId, userId, reason.trim())
+      if (approve) await approveCreatorApplication(applicationId)
+      else await rejectCreatorApplication(applicationId, reason.trim())
       showToast(approve ? '크리에이터 신청을 승인했어요.' : '신청을 거절했어요.')
       await reload()
     } catch (err) {

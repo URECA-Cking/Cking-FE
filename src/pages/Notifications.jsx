@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
-import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { getMyNotifications, readNotification } from '../api/notifications.js'
 import { describeError } from '../api/client.js'
@@ -18,13 +17,12 @@ import { NOTIFICATION_TYPE_META } from '../utils/eventStatus.js'
 export default function Notifications() {
   const navigate = useNavigate()
   const showToast = useToast()
-  const { userId } = useUser()
   const [page, setPage] = useState(0)
   const [readingId, setReadingId] = useState(null)
 
   const { data, loading, error, reload, setData } = useAsync(
-    () => getMyNotifications(userId, { page, size: 20 }),
-    [userId, page],
+    () => getMyNotifications({ page, size: 20 }),
+    [page],
     { fallbackMessage: '알림을 불러오지 못했습니다.' },
   )
 
@@ -36,7 +34,7 @@ export default function Notifications() {
     if (!notification.readAt) {
       setReadingId(notification.notificationId)
       try {
-        const result = await readNotification(notification.notificationId, userId)
+        const result = await readNotification(notification.notificationId)
         // 목록 전체를 다시 읽지 않고 해당 항목만 갱신한다.
         setData((prev) =>
           prev
@@ -63,7 +61,7 @@ export default function Notifications() {
     const unread = items.filter((item) => !item.readAt)
     if (unread.length === 0) return
     try {
-      await Promise.all(unread.map((item) => readNotification(item.notificationId, userId)))
+      await Promise.all(unread.map((item) => readNotification(item.notificationId)))
       showToast(`${unread.length}개의 알림을 읽음 처리했어요.`)
       await reload()
     } catch (err) {

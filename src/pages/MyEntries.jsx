@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../components/ui/States.jsx'
-import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadMyEntries } from '../api/myEntries.js'
 import { getCreatorProfile, getEventBanner } from '../data/creatorProfiles.js'
@@ -16,8 +15,7 @@ import { eventStatusMeta } from '../utils/eventStatus.js'
  * GET /api/events/{eventId}/winners 로 내 당첨 여부까지 확인한다.
  */
 export default function MyEntries() {
-  const { userId } = useUser()
-  const { data, loading, error, reload } = useAsync(() => loadMyEntries(userId), [userId], {
+  const { data, loading, error, reload } = useAsync(() => loadMyEntries(), [], {
     fallbackMessage: '응모 내역을 불러오지 못했습니다.',
   })
 

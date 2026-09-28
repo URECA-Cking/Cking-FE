@@ -57,6 +57,15 @@ function App() {
           </RequireUser>
         }
       />
+      {/* 공유 링크. 같은 화면을 slug로 연다(GET /api/creator-spaces/{slug}). */}
+      <Route
+        path="/space/:slug"
+        element={
+          <RequireUser>
+            <CreatorSpace />
+          </RequireUser>
+        }
+      />
       <Route
         path="/events/:eventId"
         element={

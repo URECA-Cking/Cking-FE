@@ -44,7 +44,7 @@ npm run dev
 | 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/events`, `GET /api/creators/{id}/tickets` |
 | 홈 | `/` | `GET /api/events`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` |
 | 탐색 | `/explore` | `GET /api/events` (표시 상태 필터), `GET /api/creators/{id}/tickets` |
-| 크리에이터 스페이스 | `/creators/:creatorId` | `GET /api/events?creatorId=`, `GET /api/creators/{id}/tickets`, `.../tickets/history` |
+| 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}`, (본인) `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug`, `GET /api/events?creatorId=`, `GET /api/creators/{id}/tickets`, `.../tickets/history`, `GET·POST .../missions`, `GET /api/creators/{id}/calendar/schedules` |
 | 이벤트 상세 · 응모 | `/events/:eventId` | `GET /api/events/{id}`, `POST /api/events/{id}/entries`, `GET /api/events/{id}/winners` |
 | 내 응모 | `/my-entries` | `GET /api/creators/{id}/tickets/history`, `GET /api/events/{id}/winners` |
 | 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH /api/me/notifications/{id}/read` |
@@ -88,7 +88,7 @@ Google·Kakao OAuth로 로그인하고 Access JWT로 호출자를 식별합니�
 | 크리에이터 프로필 | `GET /api/creators`, `GET /api/creators/{id}`는 백엔드 API 인덱스에만 있고 아직 구현되지 않음. Space 조회(`GET /api/creators/{id}/space`)는 제공됨 | 이벤트 목록의 `creatorId`로 디렉터리를 만들고, 이름·카테고리·이미지는 `src/data/creatorProfiles.js`에서 생성 |
 | 내 응모 목록 | `GET /api/events/{id}/entries/me` 제공됨 | 아직 응모권 원장의 `SPEND` + `eventId` 기록을 이벤트 단위로 모아 재구성 |
 | 출석·좋아요 미션 | 조회·완료 API 제공됨 | 화면에는 남기되 아직 프론트 연동 전이라 "준비 중"으로 표시 |
-| 게시물 피드 | 피드 API 없음 | 화면 구성용 샘플 게시물(`src/data/posts.js`), 좋아요는 화면 내에서만 반영 |
+| 게시물 피드 | 피드 API 없음 | 홈 피드는 샘플 게시물(`src/data/posts.js`), 크리에이터 스페이스 게시물 탭은 빈 상태로 표시 |
 | 누적 응모 건수 | 공개 API가 제공하지 않음 | 대신 당첨 인원·상품 구성 등 실제 값이 있는 항목을 노출 |
 | 결과 공개(PUBLISHED 전환) | 관리자 공개 API 제공됨 | 관리자 콘솔에 아직 공개 기능이 없어 결과 공개 API를 연동해야 함 |
 

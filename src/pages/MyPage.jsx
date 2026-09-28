@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import TicketLedgerSheet from '../components/ticket/TicketLedgerSheet.jsx'
+import MySpaceLink from '../components/creator/MySpaceLink.jsx'
 import { LoadingBlock, ErrorBlock, StatusPill } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
@@ -201,6 +202,7 @@ export default function MyPage() {
       </section>
 
       <section className="flex flex-col rounded-2xl bg-surface-container-lowest shadow-card overflow-hidden">
+        {isCreator && <MySpaceLink />}
         {isCreator && (
           <Link
             to="/studio"

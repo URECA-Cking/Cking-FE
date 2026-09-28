@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../../components/layout/TopHeader.jsx'
+import MySpaceLink from '../../components/creator/MySpaceLink.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
@@ -66,6 +67,7 @@ export default function CreatorStudio() {
         >
           <MaterialIcon name="add" className="text-[20px]" />새 이벤트 만들기
         </Link>
+        <MySpaceLink variant="button" />
 
         {loading && <LoadingBlock label="내 이벤트를 불러오는 중..." />}
         {!loading && error && <ErrorBlock message={error} onRetry={reload} />}

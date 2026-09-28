@@ -30,7 +30,7 @@
 | 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH .../read` | ✅ | - |
 | 마이페이지 | `/my-page` | Creator 신청·내 신청, 티켓 잔액 API | ✅ | 내 당첨 관리 화면 없음 |
 | 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/events`, `GET .../tickets` | △ | Creator 목록·상세 API 미연동 |
-| 크리에이터 스페이스 | `/creators/:creatorId` | `GET /api/events?creatorId=`, 티켓 잔액·원장 API | △ | Creator 상세·미션 API 미연동, 게시물은 샘플 데이터 |
+| 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | Creator Space 조회·본인 수정·slug 변경, 이벤트, 티켓 잔액·원장, 미션 API | ✅ | 게시물은 백엔드 API가 없어 빈 탭(#21) |
 | 이벤트 상세·응모 | `/events/:eventId` | 이벤트 상세, 응모, 공개 당첨자·내 당첨 API | ✅ | 나의 당첨은 `GET /api/me/winners`의 `winnerId`로 판별 |
 | 크리에이터 스튜디오 | `/studio` | 내 이벤트 목록, 삭제, 승인 요청, 수동 마감 API | ✅ | - |
 | 이벤트 작성 | `/studio/events/new` | `POST /api/creator/events` | ✅ | - |
@@ -43,10 +43,14 @@
 | --- | --- | --- | --- |
 | Auth | `POST /api/auth/token`, `refresh`, `logout` | ✅ | Login Code 교환, 401 시 자동 갱신, 로그아웃 |
 | Auth | `GET /api/me` | ✅ | 사용자 정보·Creator 여부·ADMIN 권한 판정 |
-| Creator 조회 | `GET /api/creators` | ❌ | 이벤트 목록과 로컬 프로필로 디렉터리 구성 중 |
-| Creator 조회 | `GET /api/creators/{creatorId}` | ❌ | 로컬 프로필 사용 중 |
-| Mission | `GET /api/creators/{creatorId}/missions` | ❌ | 크리에이터 스페이스의 미션 UI 미연동 |
-| Mission | `POST /api/creators/{creatorId}/missions/{missionId}/complete` | ❌ | 출석·좋아요 보상 루프 미연동 |
+| Creator 조회 | `GET /api/creators` | — | 백엔드 미구현. 이벤트 목록과 로컬 프로필로 디렉터리 구성 중 |
+| Creator 조회 | `GET /api/creators/{creatorId}` | — | 백엔드 미구현. 크리에이터 스페이스는 Space API로 대체 |
+| Creator Space | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}` | ✅ | 크리에이터 스페이스 공개 조회(#21) |
+| Creator Space | `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug` | ✅ | 본인 스페이스 편집·공유 주소 변경(#21) |
+| Calendar | `GET /api/creators/{creatorId}/calendar/schedules` | ✅ | 크리에이터 스페이스 캘린더 탭·홈의 다가오는 일정(#21) |
+| Calendar | 일정 상세·크리에이터 일정 CRUD(`/api/creator/calendar/schedules`) | ❌ | 크리에이터 일정 관리 화면 없음 |
+| Mission | `GET /api/creators/{creatorId}/missions` | ✅ | 크리에이터 스페이스 홈·미션 탭 |
+| Mission | `POST /api/creators/{creatorId}/missions/{missionId}/complete` | ✅ | 크리에이터 스페이스 미션 참여 |
 | Ticket | `GET /api/creators/{creatorId}/tickets` | ✅ | 홈·탐색·스페이스·마이페이지 잔액 |
 | Ticket | `GET /api/creators/{creatorId}/tickets/history` | ✅ | 응모권 원장·내 응모 재구성 |
 | Event/Entry | `GET /api/events` | ✅ | 홈·탐색·크리에이터별 이벤트 목록 |

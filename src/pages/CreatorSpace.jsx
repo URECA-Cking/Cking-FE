@@ -2,53 +2,77 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
-import FeedPostCard from '../components/feed/FeedPostCard.jsx'
+import SpaceEditSheet from '../components/creator/SpaceEditSheet.jsx'
+import CreatorCalendar, { UpcomingSchedules } from '../components/creator/CreatorCalendar.jsx'
 import TicketLedgerSheet from '../components/ticket/TicketLedgerSheet.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorSpace } from '../api/creators.js'
+import { getMySpace, spaceShareUrl } from '../api/creatorSpace.js'
 import { completeCreatorMission, getCreatorMissions } from '../api/missions.js'
-import { describeError } from '../api/client.js'
-import { getPostsByCreator } from '../data/posts.js'
+import { ApiError, describeError } from '../api/client.js'
 import { formatNumber } from '../utils/format.js'
 
+// 탭은 항상 노출하고, 내용이 없으면 EMPTY_TAB_MESSAGE를 보여준다(Cking-BE #290).
+// 순서: 응모권을 모으는 미션과 응모하는 이벤트를 앞에, 캘린더 일정(추첨 이벤트와 별개)과 게시물을 뒤에 둔다.
 const TABS = [
-  { id: 'home', label: '홈', icon: 'home' },
-  { id: 'posts', label: '게시물', icon: 'grid_view' },
-  { id: 'events', label: '이벤트', icon: 'confirmation_number' },
+  { id: 'home', label: '홈' },
+  { id: 'missions', label: '미션' },
+  { id: 'events', label: '이벤트' },
+  { id: 'calendar', label: '캘린더' },
+  { id: 'posts', label: '게시물' },
 ]
+const EMPTY_TAB_MESSAGE = '현재 열려있는 게 없습니다.'
+
+/** Space가 없는 크리에이터(RESOURCE_NOT_FOUND)는 오류가 아니라 빈 상태로 보여주기 위해 null로 바꾼다. */
+async function loadSpaceOrNull(key) {
+  try {
+    return await loadCreatorSpace(key)
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 'RESOURCE_NOT_FOUND') return null
+    throw error
+  }
+}
 
 /**
  * 크리에이터 스페이스(시안 _5, toast).
  *
- * 응모권 잔액(GET /api/creators/{id}/tickets), 응모권 내역(.../tickets/history),
- * 해당 크리에이터의 이벤트(GET /api/events?creatorId=)를 실제로 조회한다.
- * 게시물은 백엔드 API가 없어 화면 구성만 유지한다. 출석/좋아요 미션은 서버 API로 조회·완료 처리한다.
+ * 경로: /creators/:creatorId(앱 안 이동), /space/:slug(공유 링크)
+ * 프로필(이름·소개·이미지·slug)은 Creator Space API(GET /api/creators/{id}/space, GET /api/creator-spaces/{slug}),
+ * 응모권 잔액(GET /api/creators/{id}/tickets)·내역, 이벤트(GET /api/events?creatorId=), 미션을 실제로 조회한다.
+ * 캘린더 탭·홈의 다가오는 일정은 GET /api/creators/{id}/calendar/schedules(추첨 이벤트와 별개인 크리에이터 일정)를 쓴다.
+ * 게시물은 백엔드 API가 아직 없어 빈 탭으로 보여준다.
+ * 내 Space면(GET /api/creator/space의 creatorId가 같으면) 편집할 수 있다.
  */
 export default function CreatorSpace() {
-  const { creatorId } = useParams()
+  const { creatorId: creatorIdParam, slug: slugParam } = useParams()
   const navigate = useNavigate()
   const showToast = useToast()
-  const { isFollowing, toggleFollow } = useUser()
+  const { isCreator, isFollowing, toggleFollow } = useUser()
 
   const [tab, setTab] = useState('home')
   const [ledgerOpen, setLedgerOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const [missionBusyId, setMissionBusyId] = useState(null)
 
-  const { data: creator, loading, error, reload } = useAsync(
-    () => loadCreatorSpace(creatorId),
-    [creatorId],
+  const { data: creator, loading, error, reload, setData: setCreator } = useAsync(
+    () => loadSpaceOrNull({ creatorId: creatorIdParam, slug: slugParam }),
+    [creatorIdParam, slugParam],
     { fallbackMessage: '크리에이터 정보를 불러오지 못했습니다.' },
   )
+  const creatorId = creator?.creatorId ?? null
+
   const { data: missions, loading: missionsLoading, error: missionsError, reload: reloadMissions, setData: setMissions } = useAsync(
     () => getCreatorMissions(creatorId),
     [creatorId],
-    { fallbackMessage: '오늘의 미션을 불러오지 못했어요.' },
+    { enabled: creatorId !== null, fallbackMessage: '오늘의 미션을 불러오지 못했어요.' },
   )
+  // 크리에이터인 경우에만 내 Space를 조회해 지금 보는 Space가 내 것인지 판별한다.
+  const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator })
+  const isMine = creatorId !== null && mySpace.data?.creatorId === creatorId
 
-  const posts = useMemo(() => getPostsByCreator(creatorId), [creatorId])
   const events = useMemo(() => creator?.events ?? [], [creator])
   const liveEvents = useMemo(
     () => events.filter((event) => event.displayStatus !== 'CLOSED'),
@@ -56,7 +80,7 @@ export default function CreatorSpace() {
   )
   const publishedEvent = useMemo(() => events.find((event) => event.status === 'PUBLISHED'), [events])
 
-  const following = isFollowing(creatorId)
+  const following = creatorId !== null && isFollowing(creatorId)
 
   if (loading) {
     return (
@@ -69,7 +93,11 @@ export default function CreatorSpace() {
   if (error || !creator) {
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe justify-center">
-        <ErrorBlock message={error ?? '크리에이터를 찾을 수 없어요.'} onRetry={reload} />
+        {error ? (
+          <ErrorBlock message={error} onRetry={reload} />
+        ) : (
+          <EmptyBlock icon="storefront" message="아직 준비된 크리에이터 스페이스가 없어요." />
+        )}
         <Link to="/" className="text-center text-primary font-label-md text-label-md font-semibold">
           홈으로 돌아가기
         </Link>
@@ -79,13 +107,37 @@ export default function CreatorSpace() {
 
   function handleFollow() {
     toggleFollow(creator.creatorId)
-    showToast(following ? '관심 크리에이터에서 해제되었습니다.' : `${creator.name} 관심 등록 완료! 💖`)
+    showToast(following ? '관심 크리에이터에서 해제되었습니다.' : `${creator.creatorName} 관심 등록 완료! 💖`)
+  }
+
+  async function handleShare() {
+    const url = spaceShareUrl(creator.slug)
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `${creator.creatorName} | Cking`, url })
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      showToast('공유 링크를 복사했어요.')
+    } catch (shareError) {
+      // 사용자가 공유 시트를 닫은 경우(AbortError)는 알림을 띄우지 않는다.
+      if (shareError?.name !== 'AbortError') showToast('공유할 수 없는 환경이에요.', { icon: 'error' })
+    }
+  }
+
+  function handleSpaceSaved(updated) {
+    mySpace.setData(updated)
+    setCreator((current) => (current ? { ...current, ...updated } : current))
+    // 공유 링크로 들어온 화면에서 slug를 바꾸면 이전 주소는 더 이상 열리지 않으므로 새 주소로 옮긴다.
+    if (slugParam && updated.slug !== slugParam) {
+      navigate(`/space/${encodeURIComponent(updated.slug)}`, { replace: true })
+    }
   }
 
   async function completeMission(mission) {
     setMissionBusyId(mission.missionId)
     try {
-      await completeCreatorMission(creatorId, mission.missionId)
+      await completeCreatorMission(creator.creatorId, mission.missionId)
       setMissions((current) => (current ?? []).map((item) => (
         item.missionId === mission.missionId ? { ...item, completedToday: true } : item
       )))
@@ -96,6 +148,41 @@ export default function CreatorSpace() {
       setMissionBusyId(null)
     }
   }
+
+  const missionList = (
+    <>
+      {missionsLoading && <LoadingBlock label="오늘의 미션을 불러오는 중..." />}
+      {!missionsLoading && missionsError && <ErrorBlock message={missionsError} onRetry={reloadMissions} />}
+      {!missionsLoading && !missionsError && missions?.map((mission) => {
+        const attendance = mission.type === 'ATTENDANCE'
+        const completed = mission.completedToday
+        return (
+          <div key={mission.missionId} className="flex items-center justify-between gap-3 p-space-md rounded-xl bg-surface-container-lowest shadow-card">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${attendance ? 'bg-secondary-container/40 text-secondary' : 'bg-surface-container-high text-primary'}`}>
+                <MaterialIcon name={attendance ? 'calendar_today' : 'favorite'} filled={!attendance} className="text-[22px]" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="font-label-md text-label-md text-on-surface font-semibold">{attendance ? '오늘 출석하기' : '좋아요 미션'}</span>
+                <span className="text-secondary font-label-xs text-label-xs">🎟 응모권 +{mission.rewardAmount}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={completed || missionBusyId === mission.missionId}
+              onClick={() => completeMission(mission)}
+              className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 ${completed ? 'bg-surface-container-high text-outline' : 'bg-berry-tint text-primary'}`}
+            >
+              {missionBusyId === mission.missionId ? '처리 중...' : completed ? '완료' : '참여하기'}
+            </button>
+          </div>
+        )
+      })}
+      {!missionsLoading && !missionsError && (missions?.length ?? 0) === 0 && (
+        <EmptyBlock icon="bolt" message={EMPTY_TAB_MESSAGE} />
+      )}
+    </>
+  )
 
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-24">
@@ -113,6 +200,14 @@ export default function CreatorSpace() {
             <h1 className="font-title-md text-title-md text-on-surface font-semibold truncate">Cking Creator</h1>
           </div>
           <div className="flex items-center gap-space-xs shrink-0">
+            <button
+              type="button"
+              aria-label="공유하기"
+              onClick={handleShare}
+              className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+            >
+              <MaterialIcon name="share" className="text-[20px]" />
+            </button>
             <Link
               to="/notifications"
               aria-label="알림"
@@ -134,54 +229,69 @@ export default function CreatorSpace() {
       <div className="pt-14 flex flex-col w-full">
         <section className="relative w-full">
           <div className="relative w-full h-44 overflow-hidden">
-            <img className="w-full h-full object-cover" src={creator.banner} alt="" />
+            <img className="w-full h-full object-cover" src={creator.bannerImageUrl} alt="" />
             <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/30 to-transparent" />
           </div>
           <div className="px-margin relative -mt-12 flex flex-col gap-space-sm">
             <div className="flex items-end justify-between">
               <div className="relative w-20 h-20 rounded-full p-1 bg-surface shadow-md">
-                <img className="w-full h-full rounded-full object-cover" src={creator.avatar} alt={creator.name} />
+                <img className="w-full h-full rounded-full object-cover" src={creator.profileImageUrl} alt={creator.creatorName} />
                 <div className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-sm">
                   <MaterialIcon name="verified" filled className="text-[16px]" />
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleFollow}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm transition-all active:scale-95 mb-1 ${
-                  following ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface-variant'
-                }`}
-              >
-                <MaterialIcon name={following ? 'check' : 'add'} filled={following} className="text-[18px]" />
-                <span className="font-label-sm text-label-sm">{following ? '관심 중' : '관심 등록'}</span>
-              </button>
+              <div className="flex items-center gap-space-xs mb-1">
+                {isMine && (
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm transition-all active:scale-95 bg-surface-container-highest text-on-surface"
+                  >
+                    <MaterialIcon name="edit" className="text-[18px]" />
+                    <span className="font-label-sm text-label-sm">스페이스 편집</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleFollow}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm transition-all active:scale-95 ${
+                    following ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface-variant'
+                  }`}
+                >
+                  <MaterialIcon name={following ? 'check' : 'add'} filled={following} className="text-[18px]" />
+                  <span className="font-label-sm text-label-sm">{following ? '관심 중' : '관심 등록'}</span>
+                </button>
+              </div>
             </div>
             <div className="flex flex-col gap-0.5">
               <div className="flex items-center gap-1.5">
-                <span className="font-headline-md text-headline-md text-on-surface">{creator.name}</span>
+                <span className="font-headline-md text-headline-md text-on-surface">{creator.creatorName}</span>
                 <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-xs text-label-xs">
                   Official Creator
                 </span>
               </div>
-              <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">{creator.bio}</p>
+              <span className="font-label-xs text-label-xs text-outline">@{creator.slug}</span>
+              <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">{creator.introText}</p>
             </div>
           </div>
         </section>
 
-        <div className="mt-space-md px-margin">
-          <div className="flex items-center gap-space-xs p-1 rounded-xl bg-surface-container-low">
+        {/* 탭이 늘어나도 좁은 화면에서 가로로 스크롤되는 밑줄 탭(유튜브 채널·위버스 방식). */}
+        <div className="mt-space-md sticky top-14 z-40 bg-surface/95 backdrop-blur-xl border-b border-surface-container-high">
+          <div role="tablist" aria-label="스페이스 탭" className="flex gap-6 px-margin overflow-x-auto no-scrollbar">
             {TABS.map((item) => (
               <button
                 key={item.id}
                 type="button"
+                role="tab"
+                aria-selected={tab === item.id}
                 onClick={() => setTab(item.id)}
-                className={`flex-1 py-2 rounded-lg font-label-md text-label-md flex items-center justify-center gap-1 transition-colors ${
+                className={`shrink-0 min-h-[44px] pt-3 pb-2.5 border-b-2 font-title-md text-title-md transition-colors ${
                   tab === item.id
-                    ? 'bg-surface shadow-sm text-primary font-semibold'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                    ? 'border-primary text-on-surface font-bold'
+                    : 'border-transparent text-on-surface-variant hover:text-on-surface'
                 }`}
               >
-                <MaterialIcon name={item.icon} className="text-[18px]" />
                 {item.label}
               </button>
             ))}
@@ -196,7 +306,7 @@ export default function CreatorSpace() {
                 <div className="flex items-center gap-1.5">
                   <MaterialIcon name="stars" filled className="text-primary-fixed text-[20px]" />
                   <span className="font-label-sm text-label-sm text-primary-fixed uppercase tracking-wider">
-                    {creator.name} Dedicated Drops
+                    {creator.creatorName} Dedicated Drops
                   </span>
                 </div>
                 <button
@@ -210,7 +320,7 @@ export default function CreatorSpace() {
               </div>
               <div className="mt-4 flex items-baseline gap-2 relative z-10">
                 <span className="font-headline-xl text-headline-xl text-white font-bold tracking-tight">
-                  {creator.name} 응모권 🎟 {formatNumber(creator.balance)}장
+                  {creator.creatorName} 응모권 🎟 {formatNumber(creator.balance)}장
                 </span>
               </div>
               <div className="mt-3 flex items-center gap-2 pt-3 border-t border-white/20 relative z-10">
@@ -221,44 +331,17 @@ export default function CreatorSpace() {
               </div>
             </div>
 
+            <UpcomingSchedules creatorId={creator.creatorId} onShowAll={() => setTab('calendar')} />
+
             <div className="flex flex-col gap-space-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <MaterialIcon name="bolt" className="text-primary text-[20px]" />
-                  <h2 className="font-title-md text-title-md text-on-surface">오늘의 활동</h2>
+                  <h2 className="font-title-md text-title-md text-on-surface">오늘의 미션</h2>
                 </div>
                 <span className="font-label-xs text-label-xs text-on-surface-variant">매일 00:00 갱신</span>
               </div>
-              {missionsLoading && <LoadingBlock label="오늘의 활동을 불러오는 중..." />}
-              {!missionsLoading && missionsError && <ErrorBlock message={missionsError} onRetry={reloadMissions} />}
-              {!missionsLoading && !missionsError && missions?.map((mission) => {
-                const attendance = mission.type === 'ATTENDANCE'
-                const completed = mission.completedToday
-                return (
-                  <div key={mission.missionId} className="flex items-center justify-between gap-3 p-space-md rounded-xl bg-surface-container-lowest shadow-card">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${attendance ? 'bg-secondary-container/40 text-secondary' : 'bg-surface-container-high text-primary'}`}>
-                        <MaterialIcon name={attendance ? 'calendar_today' : 'favorite'} filled={!attendance} className="text-[22px]" />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-label-md text-label-md text-on-surface font-semibold">{attendance ? '오늘 출석하기' : '좋아요 미션'}</span>
-                        <span className="text-secondary font-label-xs text-label-xs">🎟 응모권 +{mission.rewardAmount}</span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={completed || missionBusyId === mission.missionId}
-                      onClick={() => completeMission(mission)}
-                      className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 ${completed ? 'bg-surface-container-high text-outline' : 'bg-berry-tint text-primary'}`}
-                    >
-                      {missionBusyId === mission.missionId ? '처리 중...' : completed ? '완료' : '참여하기'}
-                    </button>
-                  </div>
-                )
-              })}
-              {!missionsLoading && !missionsError && missions?.length === 0 && (
-                <p className="font-label-xs text-label-xs text-outline leading-relaxed px-1">현재 참여할 수 있는 미션이 없어요.</p>
-              )}
+              {missionList}
             </div>
 
             <div className="flex flex-col gap-space-sm -mx-margin">
@@ -278,41 +361,8 @@ export default function CreatorSpace() {
                   ))}
                 </div>
               ) : (
-                <EmptyBlock icon="event_busy" message="진행 중인 이벤트가 없어요." />
+                <EmptyBlock icon="event_busy" message={EMPTY_TAB_MESSAGE} />
               )}
-            </div>
-
-            <div className="flex flex-col gap-space-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <MaterialIcon name="photo_library" className="text-primary text-[20px]" />
-                  <h2 className="font-title-md text-title-md text-on-surface">최신 게시물 미리보기</h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setTab('posts')}
-                  className="flex items-center gap-0.5 font-label-xs text-label-xs text-on-surface-variant hover:text-primary transition-colors"
-                >
-                  전체보기
-                  <MaterialIcon name="chevron_right" className="text-[14px]" />
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-2 md:max-w-3xl">
-                {posts.slice(0, 3).map((post) => (
-                  <button
-                    type="button"
-                    key={post.id}
-                    onClick={() => setTab('posts')}
-                    className="relative aspect-square rounded-xl overflow-hidden shadow-sm group"
-                  >
-                    <img
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      src={post.image}
-                      alt=""
-                    />
-                  </button>
-                ))}
-              </div>
             </div>
 
             {publishedEvent && (
@@ -337,20 +387,15 @@ export default function CreatorSpace() {
           </div>
         )}
 
+        {tab === 'missions' && (
+          <div className="flex flex-col gap-space-sm px-margin py-space-sm">{missionList}</div>
+        )}
+
+        {tab === 'calendar' && <CreatorCalendar creatorId={creator.creatorId} />}
+
         {tab === 'posts' && (
-          <div className="flex flex-col gap-space-md px-margin py-space-sm md:mx-auto md:w-full md:max-w-3xl md:px-8">
-            <div className="p-space-sm rounded-xl bg-berry-tint flex items-center gap-space-sm shadow-sm">
-              <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
-                <MaterialIcon name="confirmation_number" className="text-on-primary text-[15px]" />
-              </div>
-              <p className="font-body-sm text-body-sm text-berry-deep flex-1 leading-snug">
-                게시물에 공감(좋아요)을 남기면 오늘 하루{' '}
-                <strong className="font-bold">1회 {creator.name} 전용 응모권 1장</strong>이 지급될 예정이에요.
-              </p>
-            </div>
-            {posts.map((post) => (
-              <FeedPostCard key={post.id} post={post} />
-            ))}
+          <div className="flex flex-col gap-space-md px-margin py-space-sm">
+            <EmptyBlock icon="grid_view" message={EMPTY_TAB_MESSAGE} />
           </div>
         )}
 
@@ -363,7 +408,7 @@ export default function CreatorSpace() {
                 ))}
               </div>
             ) : (
-              <EmptyBlock icon="event_busy" message="아직 등록된 이벤트가 없어요." />
+              <EmptyBlock icon="event_busy" message={EMPTY_TAB_MESSAGE} />
             )}
           </div>
         )}
@@ -373,9 +418,17 @@ export default function CreatorSpace() {
         open={ledgerOpen}
         onClose={() => setLedgerOpen(false)}
         creatorId={creator.creatorId}
-        creatorName={creator.name}
+        creatorName={creator.creatorName}
         balance={creator.balance}
       />
+      {isMine && (
+        <SpaceEditSheet
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          space={mySpace.data}
+          onSaved={handleSpaceSaved}
+        />
+      )}
     </div>
   )
 }

@@ -21,17 +21,17 @@ import { CREATOR_APPLICATION_STATUS_META } from '../utils/eventStatus.js'
 export default function MyPage() {
   const navigate = useNavigate()
   const showToast = useToast()
-  const { user, userId, isCreator, isAdmin, capabilities, clearUser, refreshCapabilities, followedCreators } = useUser()
+  const { user, isCreator, isAdmin, capabilities, clearUser, refreshCapabilities, followedCreators } = useUser()
 
   const [applying, setApplying] = useState(false)
   const [ledgerTarget, setLedgerTarget] = useState(null)
 
-  const directory = useAsync(() => loadCreatorDirectory(userId), [userId], {
+  const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '응모권 정보를 불러오지 못했습니다.',
   })
   const applications = useAsync(
-    () => getMyCreatorApplications(userId, { size: 5 }),
-    [userId],
+    () => getMyCreatorApplications({ size: 5 }),
+    [],
     { fallbackMessage: '크리에이터 신청 내역을 불러오지 못했습니다.' },
   )
 
@@ -43,7 +43,7 @@ export default function MyPage() {
   async function handleApplyCreator() {
     setApplying(true)
     try {
-      const result = await applyCreator(userId)
+      const result = await applyCreator()
       showToast(
         result?.status === 'PENDING'
           ? '크리에이터 전환 신청이 접수됐어요. 관리자 승인을 기다려주세요.'
@@ -57,8 +57,8 @@ export default function MyPage() {
     }
   }
 
-  function handleLogout() {
-    clearUser()
+  async function handleLogout() {
+    await clearUser()
     showToast('로그아웃되었습니다.')
     navigate('/login', { replace: true })
   }
@@ -71,7 +71,7 @@ export default function MyPage() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-title-lg text-title-lg text-on-surface font-bold truncate">{user?.name} 님</p>
-          <p className="font-label-sm text-label-sm text-on-surface-variant">userId: {userId}</p>
+          <p className="font-label-sm text-label-sm text-on-surface-variant">{user?.email}</p>
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             <StatusPill label="팬" tone="bg-berry-tint text-primary" icon="favorite" />
             {isCreator && <StatusPill label="크리에이터" tone="bg-secondary-fixed text-on-secondary-fixed" icon="mic" />}
@@ -260,7 +260,6 @@ export default function MyPage() {
         onClose={() => setLedgerTarget(null)}
         creatorId={ledgerTarget?.creatorId}
         creatorName={ledgerTarget?.name}
-        userId={userId}
         balance={ledgerTarget?.balance ?? 0}
       />
     </div>

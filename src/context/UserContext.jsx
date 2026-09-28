@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { probe } from '../api/client.js'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { onUnauthorized } from '../api/client.js'
+import { getMe, logout, restoreSession } from '../api/auth.js'
 import UserContext from './userContext.js'
+import { OAUTH_CALLBACK_PATH } from '../utils/loginIntent.js'
 
-const STORAGE_KEY = 'cking.demoUser'
 const FOLLOW_KEY = 'cking.followedCreators'
 
 function readJson(key, fallback) {
@@ -25,60 +26,76 @@ function writeJson(key, value) {
 /**
  * 로그인/세션 컨텍스트.
  *
- * 백엔드에 인증 체계가 아직 없어(GET /api/users + POST /api/demo/users/select),
- * 가상 사용자 중 하나를 골라 userId를 모든 요청에 실어 보내는 방식으로 "로그인"을 대신한다.
+ * OAuth 로그인으로 받은 Access JWT로 호출자를 식별한다(Cking-BE docs/domains/auth/api.md).
+ * 앱 시작 시 저장된 토큰이 없으면 Refresh Cookie로 재발급을 시도하고, GET /api/me로
+ * 사용자 정보({ memberId, name, email, role, creator })를 그대로 가져온다.
+ *  - 크리에이터: /api/me 응답의 creator
+ *  - 관리자:     /api/me 응답의 role === 'ADMIN'
  *
- * 선택된 사용자의 권한(크리에이터/관리자)도 백엔드가 응답에 담아주지 않으므로,
- * 권한이 필요한 조회 API를 한 번씩 호출해 성공 여부로 판정한다.
- *  - 크리에이터: GET /api/creator/events (Creator가 아니면 FORBIDDEN)
- *  - 관리자:     GET /api/admin/events/pending (ADMIN이 아니면 FORBIDDEN)
+ * status: 'loading'(복원 중) | 'authenticated' | 'anonymous'
  */
 export function UserProvider({ children }) {
-  const [user, setUser] = useState(() => readJson(STORAGE_KEY, null))
+  const [user, setUser] = useState(null)
+  const [status, setStatus] = useState('loading')
   const [followedCreators, setFollowedCreators] = useState(() => readJson(FOLLOW_KEY, []))
-  // 권한 판정 결과는 어떤 userId에 대한 것인지까지 같이 들고 있어야,
-  // 사용자를 바꾼 직후 이전 사용자의 권한이 잠시 남아 보이는 일이 없다.
-  const [probed, setProbed] = useState(null)
 
-  const selectUser = useCallback((nextUser) => {
-    setUser(nextUser)
-    writeJson(STORAGE_KEY, nextUser)
-  }, [])
+  // 사용자 상태를 바꾸는 요청마다 순번을 올려, 늦게 끝난 이전 요청(예: 이전 계정의 /api/me)이
+  // 최신 결과를 덮지 못하게 한다.
+  const sessionSeq = useRef(0)
 
-  const clearUser = useCallback(() => {
+  const markSignedOut = useCallback(() => {
+    sessionSeq.current += 1
     setUser(null)
-    writeJson(STORAGE_KEY, null)
+    setStatus('anonymous')
   }, [])
 
-  const refreshCapabilities = useCallback(async (targetUser) => {
-    const current = targetUser ?? user
-    if (!current) return
-    const [isCreator, isAdmin] = await Promise.all([
-      probe('/api/creator/events', { userId: current.userId, page: 0, size: 1 }),
-      probe('/api/admin/events/pending', { userId: current.userId, page: 0, size: 1 }),
-    ])
-    setProbed({ userId: current.userId, isCreator, isAdmin })
-  }, [user])
+  const loadUser = useCallback(async () => {
+    const seq = ++sessionSeq.current
+    try {
+      const me = await getMe()
+      if (sessionSeq.current !== seq) return null
+      setUser(me)
+      setStatus('authenticated')
+      return me
+    } catch {
+      if (sessionSeq.current === seq) {
+        setUser(null)
+        setStatus('anonymous')
+      }
+      return null
+    }
+  }, [])
 
   useEffect(() => {
-    if (!user) return undefined
+    // OAuth 콜백 화면은 새 계정의 Login Code를 직접 교환하므로 기존 세션을 복원하지 않는다.
+    // 복원하면 이전 계정의 Refresh Cookie로 받은 토큰·쿠키가 새 계정 것을 덮을 수 있다.
+    if (window.location.pathname === OAUTH_CALLBACK_PATH) return undefined
     let cancelled = false
-    Promise.all([
-      probe('/api/creator/events', { userId: user.userId, page: 0, size: 1 }),
-      probe('/api/admin/events/pending', { userId: user.userId, page: 0, size: 1 }),
-    ]).then(([isCreator, isAdmin]) => {
-      if (!cancelled) setProbed({ userId: user.userId, isCreator, isAdmin })
+    restoreSession().then((authenticated) => {
+      if (cancelled) return
+      if (authenticated) loadUser()
+      else markSignedOut()
     })
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [loadUser, markSignedOut])
+
+  // Access JWT 갱신까지 실패하면 로그아웃 상태로 돌려 RequireUser가 로그인 화면으로 보내게 한다.
+  useEffect(() => onUnauthorized(markSignedOut), [markSignedOut])
+
+  const clearUser = useCallback(async () => {
+    try {
+      await logout()
+    } finally {
+      markSignedOut()
+    }
+  }, [markSignedOut])
 
   const capabilities = useMemo(() => {
-    if (!user) return { isCreator: false, isAdmin: false, checked: true }
-    if (probed?.userId !== user.userId) return { isCreator: false, isAdmin: false, checked: false }
-    return { isCreator: probed.isCreator, isAdmin: probed.isAdmin, checked: true }
-  }, [user, probed])
+    if (status === 'loading') return { isCreator: false, isAdmin: false, checked: false }
+    return { isCreator: Boolean(user?.creator), isAdmin: user?.role === 'ADMIN', checked: true }
+  }, [user, status])
 
   const toggleFollow = useCallback((creatorId) => {
     setFollowedCreators((prev) => {
@@ -97,18 +114,20 @@ export function UserProvider({ children }) {
   const value = useMemo(
     () => ({
       user,
-      userId: user?.userId ?? null,
+      status,
       capabilities,
       isCreator: capabilities.isCreator,
       isAdmin: capabilities.isAdmin,
-      selectUser,
+      loadUser,
       clearUser,
-      refreshCapabilities,
+      markSignedOut,
+      // 크리에이터 승인처럼 권한이 바뀌었을 수 있을 때 /api/me를 다시 읽는다.
+      refreshCapabilities: loadUser,
       followedCreators,
       toggleFollow,
       isFollowing,
     }),
-    [user, capabilities, selectUser, clearUser, refreshCapabilities, followedCreators, toggleFollow, isFollowing]
+    [user, status, capabilities, loadUser, clearUser, markSignedOut, followedCreators, toggleFollow, isFollowing]
   )
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>

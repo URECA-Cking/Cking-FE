@@ -8,15 +8,15 @@ const ENTRY_PAGE_SIZE = 100;
 // 총 요청 수는 그대로지만 한꺼번에 열리는 연결 수를 낮춘다.
 const ENTRY_FETCH_CONCURRENCY = 6;
 
-export async function getMyEventEntries(eventId, userId, { size = ENTRY_PAGE_SIZE, cursor } = {}) {
-  return apiClient.get(`/api/events/${eventId}/entries/me`, { userId, size, cursor });
+export async function getMyEventEntries(eventId, { size = ENTRY_PAGE_SIZE, cursor } = {}) {
+  return apiClient.get(`/api/events/${eventId}/entries/me`, { size, cursor });
 }
 
-async function collectEntries(eventId, userId, maxPages = 3) {
+async function collectEntries(eventId, maxPages = 3) {
   const items = [];
   let cursor;
   for (let page = 0; page < maxPages; page += 1) {
-    const result = await getMyEventEntries(eventId, userId, { size: ENTRY_PAGE_SIZE, cursor });
+    const result = await getMyEventEntries(eventId, { size: ENTRY_PAGE_SIZE, cursor });
     items.push(...(result.items ?? []));
     if (!result.hasNext || !result.nextCursor) break;
     cursor = result.nextCursor;
@@ -39,7 +39,7 @@ async function mapWithConcurrency(items, concurrency, mapper) {
   return results;
 }
 
-export async function loadMyEntries(userId) {
+export async function loadMyEntries() {
   const eventPage = await getEvents({ size: 100 });
   const events = eventPage?.items ?? [];
 
@@ -47,13 +47,13 @@ export async function loadMyEntries(userId) {
   const [entryGroups, winnerResult] = await Promise.all([
     mapWithConcurrency(events, ENTRY_FETCH_CONCURRENCY, async (event) => {
       try {
-        return { event, items: await collectEntries(event.eventId, userId), failed: false };
+        return { event, items: await collectEntries(event.eventId), failed: false };
       } catch {
         // 조회 실패를 "응모 없음"과 구분해서, 실제 실패 건수를 화면에 알릴 수 있게 한다.
         return { event, items: [], failed: true };
       }
     }),
-    getMyWinners(userId).catch(() => {
+    getMyWinners().catch(() => {
       winnersFailed = true;
       return [];
     }),

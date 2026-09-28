@@ -13,9 +13,8 @@ const FALLBACK_IDS = String(import.meta.env.VITE_DEMO_CREATOR_IDS ?? '1,2,3')
 
 /**
  * 이벤트 목록을 한 번 읽어 크리에이터별로 묶고, 로그인한 사용자의 응모권 잔액을 붙인다.
- * @param {number|null} userId 잔액 조회에 쓸 사용자. 없으면 잔액은 null로 둔다.
  */
-export async function loadCreatorDirectory(userId, { size = 100 } = {}) {
+export async function loadCreatorDirectory({ size = 100 } = {}) {
   const page = await getEvents({ size });
   const events = page?.items ?? [];
 
@@ -30,9 +29,8 @@ export async function loadCreatorDirectory(userId, { size = 100 } = {}) {
   const creatorIds = [...byCreator.keys()].sort((a, b) => a - b);
   const balances = await Promise.all(
     creatorIds.map(async (creatorId) => {
-      if (!userId) return null;
       try {
-        return await getTicketBalance(creatorId, userId);
+        return await getTicketBalance(creatorId);
       } catch {
         // 잔액 조회 실패가 목록 전체를 막지 않게 한다.
         return null;
@@ -56,10 +54,10 @@ export async function loadCreatorDirectory(userId, { size = 100 } = {}) {
 }
 
 /** 크리에이터 한 명의 프로필 + 잔액 + 이벤트를 모은다(크리에이터 스페이스 화면용). */
-export async function loadCreatorSpace(creatorId, userId) {
+export async function loadCreatorSpace(creatorId) {
   const [eventsPage, balance] = await Promise.all([
     getEvents({ creatorId, size: 50 }),
-    userId ? getTicketBalance(creatorId, userId).catch(() => null) : Promise.resolve(null),
+    getTicketBalance(creatorId).catch(() => null),
   ]);
 
   return {

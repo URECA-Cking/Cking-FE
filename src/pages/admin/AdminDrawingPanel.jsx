@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
-import { useUser } from '../../context/useUser.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { getEvents } from '../../api/events.js'
 import {
@@ -29,7 +28,6 @@ import { eventStatusMeta } from '../../utils/eventStatus.js'
  */
 export default function AdminDrawingPanel() {
   const showToast = useToast()
-  const { userId } = useUser()
   const [selected, setSelected] = useState(null)
   const [detail, setDetail] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -55,9 +53,9 @@ export default function AdminDrawingPanel() {
       const hasCompletedInitialDrawing = event.status === 'DRAW_COMPLETED' || event.status === 'PUBLISHED'
       const [closing, snapshot, restored] = await Promise.all([
         canQueryClosingStatus
-          ? getClosingStatus(event.eventId, userId).catch((err) => ({ error: describeError(err) }))
+          ? getClosingStatus(event.eventId).catch((err) => ({ error: describeError(err) }))
           : Promise.resolve({ status: event.status }),
-        getEventSnapshot(event.eventId, userId).catch((err) => ({ error: describeError(err) })),
+        getEventSnapshot(event.eventId).catch((err) => ({ error: describeError(err) })),
         hasCompletedInitialDrawing ? restoreInitialDrawing(event.eventId) : Promise.resolve(null),
       ])
       setDetail({
@@ -76,10 +74,10 @@ export default function AdminDrawingPanel() {
   async function restoreInitialDrawing(eventId) {
     try {
       // 완료된 INITIAL Drawing 요청은 BE에서 기존 Drawing을 반환하는 멱등 경로다.
-      const initial = await runInitialDrawing(eventId, userId)
+      const initial = await runInitialDrawing(eventId)
       const [drawing, result] = await Promise.all([
-        getDrawing(initial.drawingId, userId).catch(() => initial),
-        getDrawingResult(initial.drawingId, userId).catch(() => null),
+        getDrawing(initial.drawingId).catch(() => initial),
+        getDrawingResult(initial.drawingId).catch(() => null),
       ])
       return { drawing, result }
     } catch (err) {
@@ -91,11 +89,11 @@ export default function AdminDrawingPanel() {
     if (!selected) return
     setBusy(true)
     try {
-      const drawing = await runInitialDrawing(selected.eventId, userId)
+      const drawing = await runInitialDrawing(selected.eventId)
       showToast(`추첨을 실행했어요. (drawingId ${drawing.drawingId}, ${drawing.status})`)
       const [meta, result] = await Promise.all([
-        getDrawing(drawing.drawingId, userId).catch(() => null),
-        getDrawingResult(drawing.drawingId, userId).catch(() => null),
+        getDrawing(drawing.drawingId).catch(() => null),
+        getDrawingResult(drawing.drawingId).catch(() => null),
       ])
       setDetail((prev) => ({ ...prev, drawing: meta ?? drawing, result, verification: null }))
     } catch (err) {
@@ -107,8 +105,8 @@ export default function AdminDrawingPanel() {
 
   async function refreshDrawing(drawingId, { includeResult = true } = {}) {
     const [drawing, result] = await Promise.all([
-      getDrawing(drawingId, userId),
-      includeResult ? getDrawingResult(drawingId, userId).catch(() => null) : Promise.resolve(null),
+      getDrawing(drawingId),
+      includeResult ? getDrawingResult(drawingId).catch(() => null) : Promise.resolve(null),
     ])
     setDetail((prev) => ({ ...prev, drawing, result: result ?? prev?.result }))
     return drawing
@@ -118,7 +116,7 @@ export default function AdminDrawingPanel() {
     if (!detail?.drawing) return
     setBusy(true)
     try {
-      await publishDrawing(detail.drawing.drawingId, userId)
+      await publishDrawing(detail.drawing.drawingId)
       showToast('추첨 결과를 공개했어요.')
       await refreshDrawing(detail.drawing.drawingId)
     } catch (err) {
@@ -132,7 +130,7 @@ export default function AdminDrawingPanel() {
     if (!detail?.drawing) return
     setBusy(true)
     try {
-      const verification = await verifyDrawing(detail.drawing.drawingId, userId)
+      const verification = await verifyDrawing(detail.drawing.drawingId)
       setDetail((prev) => ({ ...prev, verification }))
       setVerificationHistory((current) => [verification, ...current.filter((item) => item.verificationId !== verification.verificationId)])
       showToast(verification.status === 'VERIFIED' ? '추첨 검증을 완료했어요.' : '검증 결과에서 확인이 필요한 항목이 있어요.')
@@ -152,7 +150,7 @@ export default function AdminDrawingPanel() {
 
     setBusy(true)
     try {
-      const page = await getDrawingVerificationHistory(detail.drawing.drawingId, userId, { size: 20 })
+      const page = await getDrawingVerificationHistory(detail.drawing.drawingId, { size: 20 })
       setVerificationHistory(page?.items ?? [])
       setHistoryOpen(true)
     } catch (err) {

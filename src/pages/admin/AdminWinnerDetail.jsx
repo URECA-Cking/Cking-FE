@@ -6,7 +6,6 @@ import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../componen
 import { describeError } from '../../api/client.js'
 import { disqualifyWinner, getWinnerHistory, receiveWinner } from '../../api/admin.js'
 import { useToast } from '../../context/useToast.js'
-import { useUser } from '../../context/useUser.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 
@@ -26,14 +25,13 @@ export default function AdminWinnerDetail() {
   const { winnerId } = useParams()
   const { state } = useLocation()
   const winner = state?.winner
-  const { userId } = useUser()
   const showToast = useToast()
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
 
   const { data: history, loading, error, reload } = useAsync(
-    () => getWinnerHistory(winnerId, userId),
-    [winnerId, userId],
+    () => getWinnerHistory(winnerId),
+    [winnerId],
     { fallbackMessage: '당첨 상태 이력을 불러오지 못했어요.' },
   )
 
@@ -45,7 +43,7 @@ export default function AdminWinnerDetail() {
     if (!window.confirm('이 당첨자의 수령을 완료 처리할까요? 완료 후에는 되돌릴 수 없어요.')) return
     setBusy(true)
     try {
-      await receiveWinner(winnerId, userId)
+      await receiveWinner(winnerId)
       showToast('수령 완료로 처리했어요.')
       await reload()
     } catch (receiveError) {
@@ -65,7 +63,7 @@ export default function AdminWinnerDetail() {
 
     setBusy(true)
     try {
-      await disqualifyWinner(winnerId, userId, trimmedReason)
+      await disqualifyWinner(winnerId, trimmedReason)
       showToast('당첨을 취소했어요.')
       setReason('')
       await reload()

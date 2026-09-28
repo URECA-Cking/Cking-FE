@@ -26,12 +26,12 @@ const EVENT_FILTERS = [
  */
 export default function Explore() {
   const showToast = useToast()
-  const { userId, followedCreators, toggleFollow, isFollowing } = useUser()
+  const { followedCreators, toggleFollow, isFollowing } = useUser()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('전체')
   const [eventFilter, setEventFilter] = useState('IN_PROGRESS')
 
-  const directory = useAsync(() => loadCreatorDirectory(userId), [userId], {
+  const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터를 불러오지 못했습니다.',
   })
   const eventList = useAsync(

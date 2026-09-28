@@ -18,13 +18,13 @@ import { formatNumber } from '../utils/format.js'
  */
 export default function OnboardingCreators() {
   const navigate = useNavigate()
-  const { userId, followedCreators, toggleFollow } = useUser()
+  const { followedCreators, toggleFollow } = useUser()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('전체')
 
   const { data, loading, error, reload } = useAsync(
-    () => loadCreatorDirectory(userId),
-    [userId],
+    () => loadCreatorDirectory(),
+    [],
     { fallbackMessage: '크리에이터 목록을 불러오지 못했습니다.' },
   )
 

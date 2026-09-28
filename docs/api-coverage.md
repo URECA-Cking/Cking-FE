@@ -1,6 +1,6 @@
 # 백엔드 API 기준 프론트 연동 현황
 
-> 기준일: 2026-09-21
+> 기준일: 2026-09-21 (인증·"나의 당첨" 판별 항목만 #19에서 2026-09-28 기준으로 갱신)
 > 기준 문서: [Cking-BE API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md)
 
 ## 요약
@@ -8,7 +8,7 @@
 - 백엔드 외부 API: **50개**
 - 프론트에서 요청을 구현한 API: **29개 (58%)**
 - 주요 화면 라우트: **13개** (페이지 컴포넌트는 **12개**)
-- 주의: 공개 당첨자 API는 호출하지만 응답에 `userId`가 없으므로, 현재 화면의 “나의 당첨” 판별은 정확하지 않다. 개인 당첨 API로 교체가 필요하다.
+- 인증: 데모 사용자 선택이 OAuth 로그인 + Access JWT로 바뀌었다(#19). 요청에 `userId`를 보내지 않는다.
 
 표시 기준은 다음과 같다.
 
@@ -23,7 +23,7 @@
 
 | 화면 | 경로 | 사용 API | 구현 상태 | 미연동/보완 사항 |
 | --- | --- | --- | --- | --- |
-| 로그인 | `/login` | `GET /api/users`, `POST /api/demo/users/select` | ✅ | - |
+| 로그인 | `/login`, `/oauth/callback` | OAuth 로그인 시작, `POST /api/auth/token`, `GET /api/me` | ✅ | - |
 | 홈 | `/` | `GET /api/events`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` | ✅ | 관심 크리에이터는 로컬 상태 |
 | 탐색 | `/explore` | `GET /api/events`, `GET /api/creators/{id}/tickets` | ✅ | Creator 목록·상세 API 미연동 |
 | 내 응모 | `/my-entries` | `GET /api/events`, `GET .../tickets/history`, `GET .../winners` | △ | `GET /api/events/{id}/entries/me`, 개인 당첨 API 미연동 |
@@ -31,7 +31,7 @@
 | 마이페이지 | `/my-page` | Creator 신청·내 신청, 티켓 잔액 API | ✅ | 내 당첨 관리 화면 없음 |
 | 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/events`, `GET .../tickets` | △ | Creator 목록·상세 API 미연동 |
 | 크리에이터 스페이스 | `/creators/:creatorId` | `GET /api/events?creatorId=`, 티켓 잔액·원장 API | △ | Creator 상세·미션 API 미연동, 게시물은 샘플 데이터 |
-| 이벤트 상세·응모 | `/events/:eventId` | 이벤트 상세, 응모, 공개 당첨자 API | △ | 공개 응답으로는 나의 당첨 판별 불가 |
+| 이벤트 상세·응모 | `/events/:eventId` | 이벤트 상세, 응모, 공개 당첨자·내 당첨 API | ✅ | 나의 당첨은 `GET /api/me/winners`의 `winnerId`로 판별 |
 | 크리에이터 스튜디오 | `/studio` | 내 이벤트 목록, 삭제, 승인 요청, 수동 마감 API | ✅ | - |
 | 이벤트 작성 | `/studio/events/new` | `POST /api/creator/events` | ✅ | - |
 | 이벤트 수정 | `/studio/events/:eventId/edit` | 내 이벤트 목록, `PATCH /api/creator/events/{id}` | ✅ | - |
@@ -41,8 +41,8 @@
 
 | 도메인 | API | 상태 | 현재 처리 또는 미연동 사유 |
 | --- | --- | --- | --- |
-| 공통 | `GET /api/users` | ✅ | 로그인 화면의 테스트 사용자 목록 |
-| 공통 | `POST /api/demo/users/select` | ✅ | 사용자 선택 및 세션 시작 |
+| Auth | `POST /api/auth/token`, `refresh`, `logout` | ✅ | Login Code 교환, 401 시 자동 갱신, 로그아웃 |
+| Auth | `GET /api/me` | ✅ | 사용자 정보·Creator 여부·ADMIN 권한 판정 |
 | Creator 조회 | `GET /api/creators` | ❌ | 이벤트 목록과 로컬 프로필로 디렉터리 구성 중 |
 | Creator 조회 | `GET /api/creators/{creatorId}` | ❌ | 로컬 프로필 사용 중 |
 | Mission | `GET /api/creators/{creatorId}/missions` | ❌ | 크리에이터 스페이스의 미션 UI 미연동 |
@@ -64,7 +64,7 @@
 | Drawing | `GET /api/admin/drawings/{drawingId}`, `result` | ✅ | 추첨 메타·관리자 결과 조회 |
 | Drawing | `POST /api/admin/drawings/{drawingId}/retry` | ❌ | 실패 추첨 재시도 UI 없음 |
 | Drawing | `POST /api/admin/drawings/{drawingId}/publish` | ❌ | 결과 공개 UI 없음 |
-| Winner | `GET /api/events/{eventId}/winners` | △ | 공개 결과 표시는 가능하나 본인 당첨 판별에 사용할 `userId`는 응답에 없음 |
+| Winner | `GET /api/events/{eventId}/winners` | ✅ | 공개 결과(마스킹된 이름) 표시, 나의 당첨은 `GET /api/me/winners`로 판별 |
 | Creator 승인 | 신청·내 신청·관리자 목록·승인·반려 API | ✅ | 로그인·마이페이지·관리자 콘솔 |
 | Winner 관리 | `GET /api/me/winners`, `POST .../decline` | ❌ | 내 당첨 및 당첨 포기 화면 없음 |
 | Winner 관리 | 관리자 수령·자격 박탈·상태 이력 API | ❌ | 관리자 운영 화면 없음 |
@@ -79,7 +79,7 @@
 
 ```mermaid
 flowchart TD
-  A[테스트 사용자 선택] --> B[크리에이터 탐색·관심 등록]
+  A[OAuth 로그인] --> B[크리에이터 탐색·관심 등록]
   B --> C[이벤트 목록·상세]
   C --> D[응모권으로 응모]
   D --> E[내 응모·알림 확인]
@@ -107,7 +107,7 @@ flowchart LR
 
 1. **미션 조회·완료**: 응모권 획득 수단이 없어 사용자 핵심 순환이 닫히지 않는다.
 2. **Creator 목록·상세**: 현재 로컬 프로필/이벤트 역추론을 서버 데이터로 교체한다.
-3. **내 응모·내 당첨**: 원장 재구성과 공개 당첨자 `userId` 비교를 전용 API로 교체한다.
+3. **내 응모·내 당첨**: 원장 재구성을 전용 API(`GET /api/events/{id}/entries/me`)로 교체한다.
 4. **Drawing 공개·검증·재시도**: 초기 추첨 이후의 관리자 운영 흐름을 완성한다.
 5. **당첨 운영·재추첨·Dead Stream**: 운영자용 고급 예외 처리 기능을 추가한다.
 

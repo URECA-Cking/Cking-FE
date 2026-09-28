@@ -4,7 +4,6 @@ import { TopHeader } from './TopHeader.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useOnline } from '../../hooks/useOnline.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { useUser } from '../../context/useUser.js'
 import { getMyNotifications } from '../../api/notifications.js'
 
 const TITLES = {
@@ -17,15 +16,13 @@ const TITLES = {
 
 export default function MainLayout() {
   const { pathname } = useLocation()
-  const { userId } = useUser()
   const online = useOnline()
   const title = TITLES[pathname] ?? 'Cking'
 
   // 하단 탭의 읽지 않은 알림 배지는 실제 알림 목록에서 계산한다.
   // 같은 결과를 홈 화면도 쓰기 때문에 Outlet context로 내려보내 중복 호출을 막는다.
-  const { data, reload } = useAsync(() => getMyNotifications(userId, { size: 50 }), [userId, pathname], {
-    enabled: Boolean(userId),
-  })
+  // 이 레이아웃은 RequireUser 안에서만 렌더링되므로 항상 로그인된 상태에서 조회한다.
+  const { data, reload } = useAsync(() => getMyNotifications({ size: 50 }), [pathname])
   const notifications = data?.items ?? []
   const unreadCount = notifications.filter((item) => !item.readAt).length
 

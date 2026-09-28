@@ -4,7 +4,6 @@ import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
-import { useUser } from '../../context/useUser.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { deleteCreatorEvent, getMyCreatorEvents, requestEventApproval } from '../../api/creatorEvents.js'
 import { closeEvent } from '../../api/events.js'
@@ -22,12 +21,11 @@ import { eventStatusMeta } from '../../utils/eventStatus.js'
 export default function CreatorStudio() {
   const navigate = useNavigate()
   const showToast = useToast()
-  const { userId } = useUser()
   const [busyId, setBusyId] = useState(null)
 
   const { data, loading, error, reload } = useAsync(
-    () => getMyCreatorEvents(userId, { size: 50 }),
-    [userId],
+    () => getMyCreatorEvents({ size: 50 }),
+    [],
     { fallbackMessage: '내 이벤트를 불러오지 못했습니다.' },
   )
 
@@ -139,7 +137,7 @@ export default function CreatorStudio() {
                   type="button"
                   disabled={!canRequestApproval || busy}
                   onClick={() =>
-                    run(event.eventId, () => requestEventApproval(event.eventId, userId), '승인 요청을 보냈어요.')
+                    run(event.eventId, () => requestEventApproval(event.eventId), '승인 요청을 보냈어요.')
                   }
                   className="h-10 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-bold active:scale-[0.98] transition-all disabled:opacity-40"
                 >
@@ -148,7 +146,7 @@ export default function CreatorStudio() {
                 <button
                   type="button"
                   disabled={!canClose || busy}
-                  onClick={() => run(event.eventId, () => closeEvent(event.eventId, userId), '마감 처리를 시작했어요.')}
+                  onClick={() => run(event.eventId, () => closeEvent(event.eventId), '마감 처리를 시작했어요.')}
                   className="h-10 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-40"
                 >
                   수동 마감
@@ -158,7 +156,7 @@ export default function CreatorStudio() {
                   disabled={!editable || busy}
                   onClick={() => {
                     if (!window.confirm(`"${event.title}" 이벤트를 삭제할까요?`)) return
-                    run(event.eventId, () => deleteCreatorEvent(event.eventId, userId), '이벤트를 삭제했어요.')
+                    run(event.eventId, () => deleteCreatorEvent(event.eventId), '이벤트를 삭제했어요.')
                   }}
                   className="h-10 rounded-xl bg-error-container text-on-error-container font-label-sm text-label-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-40"
                 >

@@ -6,7 +6,6 @@ import { BackHeader } from '../../components/layout/TopHeader.jsx'
 import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
 import { ErrorBlock, LoadingBlock, StatusPill } from '../../components/ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
-import { useUser } from '../../context/useUser.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 
@@ -34,7 +33,6 @@ function createIdempotencyKey() {
 
 export default function AdminRedraws() {
   const navigate = useNavigate()
-  const { userId } = useUser()
   const showToast = useToast()
   const [eventId, setEventId] = useState('')
   const [reason, setReason] = useState('')
@@ -43,8 +41,8 @@ export default function AdminRedraws() {
   const [busy, setBusy] = useState(false)
 
   const { data: redraw, loading, error, reload } = useAsync(
-    () => getRedrawRequest(selectedId, userId),
-    [selectedId, userId],
+    () => getRedrawRequest(selectedId),
+    [selectedId],
     { enabled: Boolean(selectedId), fallbackMessage: '재추첨 요청 정보를 불러오지 못했어요.' },
   )
 
@@ -63,7 +61,7 @@ export default function AdminRedraws() {
 
     setBusy(true)
     try {
-      const created = await createRedrawRequest(numericEventId, userId, trimmedReason, createIdempotencyKey())
+      const created = await createRedrawRequest(numericEventId, trimmedReason, createIdempotencyKey())
       setSelectedId(created.redrawRequestId)
       setLookupId(String(created.redrawRequestId))
       setReason('')

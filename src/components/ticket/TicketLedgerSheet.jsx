@@ -14,7 +14,7 @@ import { TICKET_LEDGER_TYPE_META } from '../../utils/eventStatus.js'
  * GET /api/creators/{creatorId}/tickets/history 는 커서 페이지네이션이라
  * 첫 페이지는 시트가 열릴 때 한 번 읽고, nextCursor가 있는 동안 "더 보기"로 이어 붙인다.
  */
-export default function TicketLedgerSheet({ open, onClose, creatorId, creatorName, userId, balance }) {
+export default function TicketLedgerSheet({ open, onClose, creatorId, creatorName, balance }) {
   return (
     <BottomSheet open={open} onClose={onClose} eyebrow="Ticket Ledger" title="응모권 내역">
       <div className="flex items-center justify-between p-space-md rounded-xl bg-berry-tint mb-space-md">
@@ -28,20 +28,20 @@ export default function TicketLedgerSheet({ open, onClose, creatorId, creatorNam
       </div>
 
       {/* 시트가 열릴 때마다 새로 마운트되어 항상 첫 페이지부터 다시 읽는다. */}
-      <LedgerList creatorId={creatorId} userId={userId} />
+      <LedgerList creatorId={creatorId} />
     </BottomSheet>
   )
 }
 
-function LedgerList({ creatorId, userId }) {
+function LedgerList({ creatorId }) {
   const [extraPages, setExtraPages] = useState([])
   const [loadingMore, setLoadingMore] = useState(false)
   const [moreError, setMoreError] = useState(null)
 
   const { data, loading, error, reload } = useAsync(
-    () => getTicketHistory(creatorId, userId, { size: 20 }),
-    [creatorId, userId],
-    { enabled: Boolean(creatorId && userId), fallbackMessage: '응모권 내역을 불러오지 못했습니다.' },
+    () => getTicketHistory(creatorId, { size: 20 }),
+    [creatorId],
+    { enabled: Boolean(creatorId), fallbackMessage: '응모권 내역을 불러오지 못했습니다.' },
   )
 
   const items = [...(data?.items ?? []), ...extraPages.flatMap((page) => page.items ?? [])]
@@ -52,7 +52,7 @@ function LedgerList({ creatorId, userId }) {
     setLoadingMore(true)
     setMoreError(null)
     try {
-      const page = await getTicketHistory(creatorId, userId, { size: 20, cursor: last.nextCursor })
+      const page = await getTicketHistory(creatorId, { size: 20, cursor: last.nextCursor })
       setExtraPages((prev) => [...prev, page])
     } catch (err) {
       setMoreError(describeError(err, '다음 내역을 불러오지 못했습니다.'))

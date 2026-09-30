@@ -28,7 +28,7 @@
 | 탐색 | `/explore` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE .../follow` | ✅ | 공개 Creator 전체 목록과 서버 팔로우 사용 |
 | 내 응모 | `/my-entries` | `GET /api/events`, `GET .../tickets/history`, `GET .../winners` | △ | `GET /api/events/{id}/entries/me`, 개인 당첨 API 미연동 |
 | 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH .../read` | ✅ | - |
-| 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, Creator 신청·내 신청, 티켓 잔액 API | ✅ | 내 당첨 관리 화면 없음 |
+| 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, Creator 신청·내 신청, 티켓 잔액 API | ✅ | 내 당첨은 `/my-winners`에서 확인·관리 |
 | 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/events`, `PUT·DELETE .../follow` | ✅ | 공개 Creator 전체 목록과 서버 팔로우 사용 |
 | 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | Creator Space 조회·본인 수정·slug 변경, 이벤트, 티켓 잔액·원장, 미션 API | ✅ | 게시물은 백엔드 API가 없어 빈 탭(#21) |
 | 이벤트 상세·응모 | `/events/:eventId` | 이벤트 상세, 응모, 공개 당첨자·내 당첨 API | ✅ | 나의 당첨은 `GET /api/me/winners`의 `winnerId`로 판별 |

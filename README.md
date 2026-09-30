@@ -22,7 +22,6 @@ npm run dev
 | --- | --- |
 | `VITE_API_PROXY_TARGET` | 개발 서버가 `/api`를 전달할 백엔드 주소 (기본 `http://localhost:8080`). `VITE_API_BASE_URL`이 비어 있으면 OAuth 로그인도 이 주소로 이동 |
 | `VITE_API_BASE_URL` | API 기준 주소. 비우면 같은 출처로 요청(프록시 사용). 값이 있으면 OAuth 로그인도 이 주소로 이동 |
-| `VITE_DEMO_CREATOR_IDS` | 이벤트가 없을 때 탐색 기준이 되는 크리에이터 ID (기본 `1,2,3`) |
 
 백엔드는 더미 데이터 시더(`local` + `seed` 프로필)로 사용자 15명과 크리에이터 3명을 만듭니다.
 
@@ -40,15 +39,15 @@ npm run dev
 | 화면 | 경로 | 사용하는 백엔드 API |
 | --- | --- | --- |
 | 로그인 | `/login` | `GET /oauth2/authorization/{google\|kakao}` (페이지 이동) |
-| 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`, (크리에이터로 시작 시) `POST /api/creator/applications` |
-| 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/events`, `GET /api/creators/{id}/tickets` |
-| 홈 | `/` | `GET /api/events`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` |
-| 탐색 | `/explore` | `GET /api/events` (표시 상태 필터), `GET /api/creators/{id}/tickets` |
+| 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`, `GET /api/me/follows` (모든 페이지), (크리에이터로 시작 시) `POST /api/creator/applications` |
+| 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
+| 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` |
+| 탐색 | `/explore` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
 | 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}`, (본인) `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug`, `GET /api/events?creatorId=`, `GET /api/creators/{id}/tickets`, `.../tickets/history`, `GET·POST .../missions`, `GET /api/creators/{id}/calendar/schedules` |
 | 이벤트 상세 · 응모 | `/events/:eventId` | `GET /api/events/{id}`, `POST /api/events/{id}/entries`, `GET /api/events/{id}/winners` |
 | 내 응모 | `/my-entries` | `GET /api/creators/{id}/tickets/history`, `GET /api/events/{id}/winners` |
 | 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH /api/me/notifications/{id}/read` |
-| 마이페이지 | `/my-page` | `GET /api/creators/{id}/tickets`, `GET /api/creator/applications/me`, `POST /api/creator/applications` |
+| 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/creator/applications/me`, `POST /api/creator/applications` |
 | 크리에이터 스튜디오 | `/studio` | `GET /api/creator/events`, `DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
 | 이벤트 작성 | `/studio/events/new` | `POST /api/creator/events` |
 | 이벤트 수정 | `/studio/events/:eventId/edit` | `GET /api/creator/events`, `PATCH /api/creator/events/{id}` |
@@ -85,7 +84,6 @@ Google·Kakao OAuth로 로그인하고 Access JWT로 호출자를 식별합니�
 
 | 항목 | 상황 | 프론트엔드 처리 |
 | --- | --- | --- |
-| 크리에이터 프로필 | `GET /api/creators`, `GET /api/creators/{id}`는 백엔드 API 인덱스에만 있고 아직 구현되지 않음. Space 조회(`GET /api/creators/{id}/space`)는 제공됨 | 이벤트 목록의 `creatorId`로 디렉터리를 만들고, 이름·카테고리·이미지는 `src/data/creatorProfiles.js`에서 생성 |
 | 내 응모 목록 | `GET /api/events/{id}/entries/me` 제공됨 | 아직 응모권 원장의 `SPEND` + `eventId` 기록을 이벤트 단위로 모아 재구성 |
 | 출석·좋아요 미션 | 조회·완료 API 제공됨 | 화면에는 남기되 아직 프론트 연동 전이라 "준비 중"으로 표시 |
 | 게시물 피드 | 피드 API 없음 | 홈 피드는 샘플 게시물(`src/data/posts.js`), 크리에이터 스페이스 게시물 탭은 빈 상태로 표시 |

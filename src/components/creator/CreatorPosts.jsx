@@ -199,7 +199,7 @@ function PostImages({ post, creatorName, onRestricted }) {
   const [refreshing, setRefreshing] = useState(false)
   const pending = useRef(false)
   const attemptedNull = useRef(false)
-  const failedUrls = useRef(new Map())
+  const failedAttempts = useRef(new Map())
 
   const refresh = useCallback(async () => {
     if (pending.current) return
@@ -212,15 +212,10 @@ function PostImages({ post, creatorName, onRestricted }) {
         return
       }
       const latestImages = latest.images ?? []
-      for (const image of latestImages) {
-        if (images.find((previous) => previous.imageKey === image.imageKey)?.url !== image.url) {
-          failedUrls.current.delete(image.imageKey)
-        }
-      }
       setImages(latestImages)
       setUnavailable(new Set(latestImages.filter((image) =>
         !image.url || (
-          failedUrls.current.has(image.imageKey)
+          failedAttempts.current.has(image.imageKey)
           && images.find((previous) => previous.imageKey === image.imageKey)?.url === image.url
         )
       ).map((image) => image.imageKey)))
@@ -241,12 +236,12 @@ function PostImages({ post, creatorName, onRestricted }) {
   }, [images, refresh])
 
   function handleError(image) {
-    const attempts = failedUrls.current.get(image.imageKey) ?? 0
+    const attempts = failedAttempts.current.get(image.imageKey) ?? 0
     if (attempts >= 1) {
       setUnavailable((current) => new Set([...current, image.imageKey]))
       return
     }
-    failedUrls.current.set(image.imageKey, attempts + 1)
+    failedAttempts.current.set(image.imageKey, attempts + 1)
     refresh()
   }
 
@@ -265,7 +260,7 @@ function PostImages({ post, creatorName, onRestricted }) {
           ) : (
             <div className="flex aspect-video flex-col items-center justify-center gap-2 text-on-surface-variant">
               <MaterialIcon name="broken_image" className="text-[24px]" />
-              <button type="button" onClick={() => { attemptedNull.current = true; failedUrls.current.delete(image.imageKey); refresh() }} disabled={refreshing} className="font-label-sm text-label-sm text-primary disabled:opacity-60">
+              <button type="button" onClick={() => { attemptedNull.current = true; failedAttempts.current.delete(image.imageKey); refresh() }} disabled={refreshing} className="font-label-sm text-label-sm text-primary disabled:opacity-60">
                 이미지 다시 불러오기
               </button>
             </div>

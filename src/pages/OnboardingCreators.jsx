@@ -1,26 +1,40 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
 import { useUser } from '../context/useUser.js'
+import { useToast } from '../context/useToast.js'
+import FollowStatus from '../components/creator/FollowStatus.jsx'
+import { describeError } from '../api/client.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorDirectory } from '../api/creators.js'
-import { CREATOR_CATEGORIES } from '../data/creatorProfiles.js'
+import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
+import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
+import { getMySpace } from '../api/creatorSpace.js'
 import { formatNumber } from '../utils/format.js'
 
 /**
  * 관심 크리에이터 선택(온보딩 2단계).
  *
- * 백엔드는 크리에이터 목록 API를 제공하지만 아직 연동하지 않아 이벤트 목록의 creatorId로 디렉터리를 만들고,
- * 각 크리에이터의 실제 응모권 잔액(GET /api/creators/{id}/tickets)을 함께 보여준다.
- * 선택 결과는 관심 목록으로 저장되어 홈·탐색 화면의 정렬에 쓰인다.
+ * 공개 Creator 목록 API에서 전체 크리에이터의 실제 프로필을 읽는다.
+ * 선택 결과는 서버에 저장되어 홈·탐색 화면에도 반영된다.
  */
 export default function OnboardingCreators() {
+  const pageRef = useRef(null)
   const navigate = useNavigate()
-  const { followedCreators, toggleFollow } = useUser()
+  const { user, followedCreators, toggleFollow, followsReady, pendingFollowIds, isCreator } = useUser()
+  const mySpace = useAsync(
+    () => getMySpace().then((space) => ({ ...space, memberId: user.memberId })),
+    [isCreator, user?.memberId],
+    { enabled: isCreator },
+  )
+  const ownSpaceReady = isCreator && !mySpace.loading && mySpace.data?.memberId === user?.memberId
+  const ownCreatorId = ownSpaceReady ? mySpace.data.creatorId : null
+  const ownSpacePending = isCreator && !ownSpaceReady
+  const showToast = useToast()
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('전체')
+  const [filter, setFilter] = useState('전체')
 
   const { data, loading, error, reload } = useAsync(
     () => loadCreatorDirectory(),
@@ -33,19 +47,29 @@ export default function OnboardingCreators() {
   const visibleCreators = useMemo(() => {
     const keyword = query.trim().toLowerCase()
     return creators.filter((creator) => {
-      const matchesCategory = category === '전체' || creator.category === category
+      const matchesCategory = filter === '전체' || followedCreators.includes(creator.creatorId)
       const matchesQuery =
         !keyword ||
-        creator.name.toLowerCase().includes(keyword) ||
-        creator.category.toLowerCase().includes(keyword)
+        creator.name.toLowerCase().includes(keyword)
       return matchesCategory && matchesQuery
     })
-  }, [creators, category, query])
+  }, [creators, filter, query, followedCreators])
+  const visibleBalanceIds = useVisibleCreatorIds(pageRef, visibleCreators.map((creator) => creator.creatorId))
+  const { balances, failedIds, retry: retryBalances, loading: balancesLoading } = useCreatorBalances(visibleBalanceIds, user?.memberId)
 
   const selectedCount = followedCreators.length
 
+  async function handleToggleFollow(creator) {
+    try {
+      const result = await toggleFollow(creator.creatorId)
+      if (result) showToast(result.following ? `${creator.name} 관심 등록 완료!` : '관심 크리에이터에서 해제되었습니다.')
+    } catch (error) {
+      showToast(describeError(error, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
+    }
+  }
+
   return (
-    <div className="flex flex-col w-full min-h-screen pt-safe pb-36">
+    <div ref={pageRef} className="flex flex-col w-full min-h-screen pt-safe pb-36">
       <BackHeader title="" badge="Cking 단계 2/2" onBack={() => navigate(-1)} />
       <div className="pt-16 px-space-md flex flex-col gap-1">
         <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">관심 크리에이터 선택</h1>
@@ -53,6 +77,8 @@ export default function OnboardingCreators() {
           좋아하는 크리에이터를 선택해줘 (언제든 변경할 수 있어)
         </p>
       </div>
+
+      <FollowStatus />
 
       <div className="px-space-md mt-4 mb-4">
         <div className="relative flex items-center w-full">
@@ -68,24 +94,29 @@ export default function OnboardingCreators() {
       </div>
 
       <div className="flex items-center gap-2 px-space-md overflow-x-auto no-scrollbar mb-4">
-        {CREATOR_CATEGORIES.map((filter) => (
+        {['전체', '관심'].map((item) => (
           <button
-            key={filter}
+            key={item}
             type="button"
-            onClick={() => setCategory(filter)}
+            onClick={() => setFilter(item)}
             className={`font-label-xs text-label-xs px-3.5 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all active:scale-95 ${
-              category === filter
+              filter === item
                 ? 'bg-primary text-on-primary shadow-sm'
                 : 'bg-surface-container text-on-surface-variant'
             }`}
           >
-            {filter === '전체' ? '전체 추천' : filter}
+            {item === '전체' ? '전체 보기' : '관심 중'}
           </button>
         ))}
       </div>
 
       {loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
+      {failedIds.size > 0 && !error && (
+        <button type="button" onClick={retryBalances} disabled={balancesLoading} className="mx-space-md self-start font-label-sm text-label-sm text-primary disabled:opacity-50">
+          응모권 잔액 다시 조회
+        </button>
+      )}
       {!loading && !error && visibleCreators.length === 0 && (
         <EmptyBlock icon="person_search" message="조건에 맞는 크리에이터가 없어요." />
       )}
@@ -98,9 +129,11 @@ export default function OnboardingCreators() {
               <button
                 type="button"
                 key={creator.creatorId}
-                onClick={() => toggleFollow(creator.creatorId)}
+                data-balance-creator-id={creator.creatorId}
+                onClick={() => handleToggleFollow(creator)}
+                disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
                 aria-pressed={isSelected}
-                className={`relative flex flex-col p-3.5 rounded-xl bg-surface-container-lowest shadow-sm transition-all duration-200 cursor-pointer select-none active:scale-[0.98] text-left border ${
+                className={`relative flex flex-col p-3.5 rounded-xl bg-surface-container-lowest shadow-sm transition-all duration-200 cursor-pointer select-none active:scale-[0.98] text-left border disabled:opacity-60 disabled:cursor-not-allowed ${
                   isSelected ? 'border-primary' : 'border-transparent'
                 }`}
               >
@@ -121,12 +154,14 @@ export default function OnboardingCreators() {
                   <MaterialIcon name="verified" filled className="text-xs text-primary" />
                 </div>
                 <span className="font-label-xs text-label-xs text-on-surface-variant">
-                  {creator.category} · 이벤트 {formatNumber(creator.events.length)}개
+                  이벤트 {formatNumber(creator.events.length)}개
                 </span>
                 <span className="mt-1.5 inline-flex items-center gap-1 self-start bg-surface-container px-2 py-0.5 rounded-full">
                   <span className="text-[11px]">🎟</span>
                   <span className="font-label-xs text-label-xs text-primary font-bold">
-                    보유 {formatNumber(creator.balance)}장
+                    {balances.has(creator.creatorId)
+                      ? `보유 ${formatNumber(balances.get(creator.creatorId).balance)}장`
+                      : failedIds.has(creator.creatorId) ? '잔액 조회 실패' : '잔액 조회 중'}
                   </span>
                 </span>
               </button>

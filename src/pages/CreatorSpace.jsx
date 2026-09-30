@@ -15,6 +15,7 @@ import { completeCreatorMission, getCreatorMissions } from '../api/missions.js'
 import { getTicketBalance } from '../api/tickets.js'
 import { ApiError, describeError } from '../api/client.js'
 import { formatNumber } from '../utils/format.js'
+import FollowStatus from '../components/creator/FollowStatus.jsx'
 
 // 탭은 항상 노출하고, 내용이 없으면 EMPTY_TAB_MESSAGE를 보여준다(Cking-BE #290).
 // 순서: 응모권을 모으는 미션과 응모하는 이벤트를 앞에, 캘린더 일정(추첨 이벤트와 별개)과 게시물을 뒤에 둔다.
@@ -59,7 +60,7 @@ export default function CreatorSpace() {
   const navigate = useNavigate()
   const showToast = useToast()
   const location = useLocation()
-  const { status, isCreator, isFollowing, toggleFollow } = useUser()
+  const { status, isCreator, isFollowing, toggleFollow, followsReady, pendingFollowIds } = useUser()
   const authenticated = status === 'authenticated'
   const sessionLoading = status === 'loading'
   // 로그인 상태를 복원하는 동안(loading)에는 로그인 안내를 띄우지 않아 로그인 사용자에게 깜빡이지 않게 한다.
@@ -135,13 +136,18 @@ export default function CreatorSpace() {
     )
   }
 
-  function handleFollow() {
+  async function handleFollow() {
     if (!authenticated) {
       goLogin()
       return
     }
-    toggleFollow(creator.creatorId)
-    showToast(following ? '관심 크리에이터에서 해제되었습니다.' : `${creator.creatorName} 관심 등록 완료! 💖`)
+    if (isMine) return
+    try {
+      const result = await toggleFollow(creator.creatorId)
+      if (result) showToast(result.following ? `${creator.creatorName} 관심 등록 완료! 💖` : '관심 크리에이터에서 해제되었습니다.')
+    } catch (followError) {
+      showToast(describeError(followError, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
+    }
   }
 
   async function handleShare() {
@@ -276,6 +282,7 @@ export default function CreatorSpace() {
       </header>
 
       <div className="pt-14 flex flex-col w-full">
+        <FollowStatus />
         <section className="relative w-full">
           <div className="relative w-full h-44 overflow-hidden">
             <img className="w-full h-full object-cover" src={creator.bannerImageUrl} alt="" />
@@ -303,12 +310,13 @@ export default function CreatorSpace() {
                 <button
                   type="button"
                   onClick={handleFollow}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm transition-all active:scale-95 ${
+                  disabled={isMine || (authenticated && (!followsReady || pendingFollowIds.has(creator.creatorId) || (isCreator && !mySpace.data)))}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${
                     following ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface-variant'
                   }`}
                 >
                   <MaterialIcon name={following ? 'check' : 'add'} filled={following} className="text-[18px]" />
-                  <span className="font-label-sm text-label-sm">{following ? '관심 중' : '관심 등록'}</span>
+                  <span className="font-label-sm text-label-sm">{isMine ? '내 스페이스' : pendingFollowIds.has(creator.creatorId) ? '처리 중...' : following ? '관심 중' : '관심 등록'}</span>
                 </button>
               </div>
             </div>

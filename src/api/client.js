@@ -110,6 +110,7 @@ async function requestOrThrow(path, options) {
 export const apiClient = {
   get: (path, params, options) => requestOrThrow(path, { ...options, method: 'GET', params }),
   post: (path, body, params, options) => requestOrThrow(path, { ...options, method: 'POST', body, params }),
+  put: (path, body, params, options) => requestOrThrow(path, { ...options, method: 'PUT', body, params }),
   patch: (path, body, params) => requestOrThrow(path, { method: 'PATCH', body, params }),
   delete: (path, params) => requestOrThrow(path, { method: 'DELETE', params }),
 };

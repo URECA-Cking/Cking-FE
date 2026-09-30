@@ -28,7 +28,9 @@ export default function CreatorAvatarItem({ creator }) {
       </span>
       <div className="mt-1.5 flex items-center gap-1 bg-surface-container px-2 py-0.5 rounded-full shadow-sm">
         <span className="text-[11px]">🎟</span>
-        <span className="font-label-xs text-label-xs text-primary font-bold">{formatNumber(creator.balance)}장</span>
+        <span className="font-label-xs text-label-xs text-primary font-bold">
+          {typeof creator.balance === 'number' ? `${formatNumber(creator.balance)}장` : creator.balanceError ? '조회 실패' : '조회 중'}
+        </span>
       </div>
     </Link>
   )

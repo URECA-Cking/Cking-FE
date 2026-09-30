@@ -24,12 +24,12 @@
 | 화면 | 경로 | 사용 API | 구현 상태 | 미연동/보완 사항 |
 | --- | --- | --- | --- | --- |
 | 로그인 | `/login`, `/oauth/callback` | OAuth 로그인 시작, `POST /api/auth/token`, `GET /api/me` | ✅ | - |
-| 홈 | `/` | `GET /api/events`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` | ✅ | 관심 크리에이터는 로컬 상태 |
-| 탐색 | `/explore` | `GET /api/events`, `GET /api/creators/{id}/tickets` | ✅ | Creator 목록·상세 API 미연동 |
+| 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications`, `GET /api/me/follows` | ✅ | - |
+| 탐색 | `/explore` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE .../follow` | ✅ | 공개 Creator 전체 목록과 서버 팔로우 사용 |
 | 내 응모 | `/my-entries` | `GET /api/events`, `GET .../tickets/history`, `GET .../winners` | △ | `GET /api/events/{id}/entries/me`, 개인 당첨 API 미연동 |
 | 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH .../read` | ✅ | - |
-| 마이페이지 | `/my-page` | Creator 신청·내 신청, 티켓 잔액 API | ✅ | 내 당첨 관리 화면 없음 |
-| 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/events`, `GET .../tickets` | △ | Creator 목록·상세 API 미연동 |
+| 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, Creator 신청·내 신청, 티켓 잔액 API | ✅ | 내 당첨은 `/my-winners`에서 확인·관리 |
+| 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/events`, `PUT·DELETE .../follow` | ✅ | 공개 Creator 전체 목록과 서버 팔로우 사용 |
 | 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | Creator Space 조회·본인 수정·slug 변경, 이벤트, 티켓 잔액·원장, 미션 API | ✅ | 게시물은 백엔드 API가 없어 빈 탭(#21) |
 | 이벤트 상세·응모 | `/events/:eventId` | 이벤트 상세, 응모, 공개 당첨자·내 당첨 API | ✅ | 나의 당첨은 `GET /api/me/winners`의 `winnerId`로 판별 |
 | 크리에이터 스튜디오 | `/studio` | 내 이벤트 목록, 삭제, 승인 요청, 수동 마감 API | ✅ | - |
@@ -43,7 +43,7 @@
 | --- | --- | --- | --- |
 | Auth | `POST /api/auth/token`, `refresh`, `logout` | ✅ | Login Code 교환, 401 시 자동 갱신, 로그아웃 |
 | Auth | `GET /api/me` | ✅ | 사용자 정보·Creator 여부·ADMIN 권한 판정 |
-| Creator 조회 | `GET /api/creators` | — | 백엔드 미구현. 이벤트 목록과 로컬 프로필로 디렉터리 구성 중 |
+| Creator 조회 | `GET /api/creators` | ✅ | 전체 페이지 조회 후 홈·탐색·관심 선택·마이페이지 및 이벤트 프로필에 사용 |
 | Creator 조회 | `GET /api/creators/{creatorId}` | — | 백엔드 미구현. 크리에이터 스페이스는 Space API로 대체 |
 | Creator Space | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}` | ✅ | 크리에이터 스페이스 공개 조회(#21) |
 | Creator Space | `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug` | ✅ | 본인 스페이스 편집·공유 주소 변경(#21) |
@@ -110,13 +110,11 @@ flowchart LR
 ## 우선 연동 순서
 
 1. **미션 조회·완료**: 응모권 획득 수단이 없어 사용자 핵심 순환이 닫히지 않는다.
-2. **Creator 목록·상세**: 현재 로컬 프로필/이벤트 역추론을 서버 데이터로 교체한다.
-3. **내 응모·내 당첨**: 원장 재구성을 전용 API(`GET /api/events/{id}/entries/me`)로 교체한다.
-4. **Drawing 공개·검증·재시도**: 초기 추첨 이후의 관리자 운영 흐름을 완성한다.
-5. **당첨 운영·재추첨·Dead Stream**: 운영자용 고급 예외 처리 기능을 추가한다.
+2. **내 응모·내 당첨**: 원장 재구성을 전용 API(`GET /api/events/{id}/entries/me`)로 교체한다.
+3. **Drawing 공개·검증·재시도**: 초기 추첨 이후의 관리자 운영 흐름을 완성한다.
+4. **당첨 운영·재추첨·Dead Stream**: 운영자용 고급 예외 처리 기능을 추가한다.
 
 ## 백엔드에 없는 화면 기능
 
 - 게시물 피드와 좋아요: `src/data/posts.js` 및 로컬 상태 사용
-- 관심 크리에이터: 브라우저 로컬 상태 사용
 - 실시간 인기·누적 응모 수: 공개 조회 API 없음

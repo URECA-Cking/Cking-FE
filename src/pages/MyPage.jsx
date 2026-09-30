@@ -31,7 +31,7 @@ export default function MyPage() {
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '응모권 정보를 불러오지 못했습니다.',
   })
-  const balances = useCreatorBalances(followedCreators, user?.memberId)
+  const { balances, failedIds, retry: retryBalances, loading: balancesLoading } = useCreatorBalances(followedCreators, user?.memberId)
   const applications = useAsync(
     () => getMyCreatorApplications({ size: 5 }),
     [],
@@ -45,8 +45,9 @@ export default function MyPage() {
         ...creator,
         balance: balances.get(creator.creatorId)?.balance,
         balanceUpdatedAt: balances.get(creator.creatorId)?.updatedAt,
+        balanceError: failedIds.has(creator.creatorId),
       })),
-    [directory.data, followedCreators, balances],
+    [directory.data, followedCreators, balances, failedIds],
   )
   const latestApplication = applications.data?.items?.[0] ?? null
   const hasPending = latestApplication?.status === 'PENDING'
@@ -112,6 +113,11 @@ export default function MyPage() {
         {!directory.loading && directory.error && (
           <ErrorBlock message={directory.error} onRetry={directory.reload} />
         )}
+        {failedIds.size > 0 && !directory.error && (
+          <button type="button" onClick={retryBalances} disabled={balancesLoading} className="self-start font-label-sm text-label-sm text-primary disabled:opacity-50">
+            응모권 잔액 다시 조회
+          </button>
+        )}
         {!directory.loading && !directory.error && (
           <div className="flex flex-col gap-space-sm md:grid md:grid-cols-2">
           {creators.map((creator) => (
@@ -127,7 +133,7 @@ export default function MyPage() {
                   </span>
                   <span className="font-label-xs text-label-xs text-outline">
                     {typeof creator.balance !== 'number'
-                      ? '잔액 확인 중'
+                      ? creator.balanceError ? '잔액 조회 실패' : '잔액 확인 중'
                       : creator.balanceUpdatedAt
                         ? `${formatDateTime(creator.balanceUpdatedAt)} 기준`
                         : '변동 내역 없음'}
@@ -140,7 +146,7 @@ export default function MyPage() {
                 disabled={typeof creator.balance !== 'number'}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-berry-tint text-primary font-label-xs text-label-xs font-bold active:scale-95 transition-all shrink-0"
               >
-                🎟 {typeof creator.balance === 'number' ? `${formatNumber(creator.balance)}장` : '조회 중'}
+                🎟 {typeof creator.balance === 'number' ? `${formatNumber(creator.balance)}장` : creator.balanceError ? '조회 실패' : '조회 중'}
                 <MaterialIcon name="chevron_right" className="text-[14px]" />
               </button>
             </div>

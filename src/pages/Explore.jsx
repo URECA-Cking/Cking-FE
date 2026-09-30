@@ -81,7 +81,7 @@ export default function Explore() {
     ...trending.map((creator) => creator.creatorId),
   ]
   const visibleBalanceIds = useVisibleCreatorIds(pageRef, renderedBalanceIds)
-  const balances = useCreatorBalances(visibleBalanceIds, user?.memberId)
+  const { balances, failedIds, retry: retryBalances, loading: balancesLoading } = useCreatorBalances(visibleBalanceIds, user?.memberId)
 
   async function handleToggleFollow(creator) {
     try {
@@ -135,6 +135,11 @@ export default function Explore() {
         {!directory.loading && directory.error && (
           <ErrorBlock message={directory.error} onRetry={directory.reload} />
         )}
+        {failedIds.size > 0 && !directory.error && (
+          <button type="button" onClick={retryBalances} disabled={balancesLoading} className="mx-margin mb-2 self-start font-label-sm text-label-sm text-primary disabled:opacity-50">
+            응모권 잔액 다시 조회
+          </button>
+        )}
         {!directory.loading && !directory.error && filteredCreators.length === 0 && (
           <EmptyBlock icon="person_search" message="조건에 맞는 크리에이터가 없어요." />
         )}
@@ -162,7 +167,7 @@ export default function Explore() {
                         <span className="font-label-xs text-label-xs bg-black/40 px-2 py-0.5 rounded-md backdrop-blur-sm">
                           🎟 {balances.has(creator.creatorId)
                             ? `${formatNumber(balances.get(creator.creatorId).balance)}장`
-                            : '조회 중'}
+                            : failedIds.has(creator.creatorId) ? '조회 실패' : '조회 중'}
                         </span>
                       </div>
                     </div>

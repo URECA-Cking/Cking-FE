@@ -55,7 +55,7 @@ export default function OnboardingCreators() {
     })
   }, [creators, filter, query, followedCreators])
   const visibleBalanceIds = useVisibleCreatorIds(pageRef, visibleCreators.map((creator) => creator.creatorId))
-  const balances = useCreatorBalances(visibleBalanceIds, user?.memberId)
+  const { balances, failedIds, retry: retryBalances, loading: balancesLoading } = useCreatorBalances(visibleBalanceIds, user?.memberId)
 
   const selectedCount = followedCreators.length
 
@@ -112,6 +112,11 @@ export default function OnboardingCreators() {
 
       {loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
+      {failedIds.size > 0 && !error && (
+        <button type="button" onClick={retryBalances} disabled={balancesLoading} className="mx-space-md self-start font-label-sm text-label-sm text-primary disabled:opacity-50">
+          응모권 잔액 다시 조회
+        </button>
+      )}
       {!loading && !error && visibleCreators.length === 0 && (
         <EmptyBlock icon="person_search" message="조건에 맞는 크리에이터가 없어요." />
       )}
@@ -156,7 +161,7 @@ export default function OnboardingCreators() {
                   <span className="font-label-xs text-label-xs text-primary font-bold">
                     {balances.has(creator.creatorId)
                       ? `보유 ${formatNumber(balances.get(creator.creatorId).balance)}장`
-                      : '잔액 조회 중'}
+                      : failedIds.has(creator.creatorId) ? '잔액 조회 실패' : '잔액 조회 중'}
                   </span>
                 </span>
               </button>

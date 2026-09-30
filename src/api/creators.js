@@ -16,7 +16,7 @@ function toProfile(space) {
 
 let creatorCatalogPromise = null;
 
-/** 공개 Creator 목록의 모든 페이지를 읽고 요청 결과를 화면 간에 공유한다. */
+/** 공개 Creator 목록의 모든 페이지를 읽는다. 동시에 시작된 요청만 공유한다. */
 export function getCreatorCatalog() {
   if (!creatorCatalogPromise) {
     creatorCatalogPromise = (async () => {
@@ -28,9 +28,8 @@ export function getCreatorCatalog() {
         if (!result.hasNext) return [...creators.values()];
         page += 1;
       }
-    })().catch((error) => {
+    })().finally(() => {
       creatorCatalogPromise = null;
-      throw error;
     });
   }
   return creatorCatalogPromise;

@@ -25,7 +25,7 @@ export default function Home() {
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터와 이벤트를 불러오지 못했습니다.',
   })
-  const balances = useCreatorBalances(followedCreators, user?.memberId)
+  const { balances, failedIds, retry: retryBalances, loading: balancesLoading } = useCreatorBalances(followedCreators, user?.memberId)
   // 알림은 MainLayout이 이미 읽어 하단 탭 배지에 쓰고 있으므로 그 결과를 그대로 받는다.
   const { unreadCount = 0 } = useOutletContext() ?? {}
 
@@ -41,8 +41,12 @@ export default function Home() {
   }, [directory.data, followedCreators])
   const myCreators = useMemo(
     () => creators.filter((creator) => followedCreators.includes(creator.creatorId))
-      .map((creator) => ({ ...creator, balance: balances.get(creator.creatorId)?.balance })),
-    [creators, followedCreators, balances],
+      .map((creator) => ({
+        ...creator,
+        balance: balances.get(creator.creatorId)?.balance,
+        balanceError: failedIds.has(creator.creatorId),
+      })),
+    [creators, followedCreators, balances, failedIds],
   )
 
   const events = useMemo(() => directory.data?.events ?? [], [directory.data])
@@ -151,6 +155,11 @@ export default function Home() {
               </span>
             </Link>
           </div>
+        )}
+        {failedIds.size > 0 && !directory.error && (
+          <button type="button" onClick={retryBalances} disabled={balancesLoading} className="mx-margin mt-2 font-label-sm text-label-sm text-primary disabled:opacity-50">
+            응모권 잔액 다시 조회
+          </button>
         )}
       </section>
 

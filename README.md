@@ -43,7 +43,7 @@ npm run dev
 | 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
 | 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` |
 | 탐색 | `/explore` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
-| 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}`, (본인) `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug`, `GET /api/events?creatorId=`, `GET /api/creators/{id}/tickets`, `.../tickets/history`, `GET·POST .../missions`, `GET /api/creators/{id}/calendar/schedules` |
+| 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}`, `GET /api/creators/{id}/posts`, `GET /api/creators/{id}/posts/{postId}`, (본인) `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug`, `GET /api/events?creatorId=`, `GET /api/creators/{id}/tickets`, `.../tickets/history`, `GET·POST .../missions`, `GET /api/creators/{id}/calendar/schedules` |
 | 이벤트 상세 · 응모 | `/events/:eventId` | `GET /api/events/{id}`, `POST /api/events/{id}/entries`, `GET /api/events/{id}/winners` |
 | 내 응모 | `/my-entries` | `GET /api/creators/{id}/tickets/history`, `GET /api/events/{id}/winners` |
 | 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH /api/me/notifications/{id}/read` |
@@ -86,7 +86,7 @@ Google·Kakao OAuth로 로그인하고 Access JWT로 호출자를 식별합니�
 | --- | --- | --- |
 | 내 응모 목록 | `GET /api/events/{id}/entries/me` 제공됨 | 아직 응모권 원장의 `SPEND` + `eventId` 기록을 이벤트 단위로 모아 재구성 |
 | 출석·좋아요 미션 | 조회·완료 API 제공됨 | 화면에는 남기되 아직 프론트 연동 전이라 "준비 중"으로 표시 |
-| 게시물 피드 | 피드 API 없음 | 홈 피드는 샘플 게시물(`src/data/posts.js`), 크리에이터 스페이스 게시물 탭은 빈 상태로 표시 |
+| 전체 게시물 피드 | 전체 피드 API 없음 | 홈의 샘플 피드를 제거하고 크리에이터 스페이스 게시물 탭에서 공개 Post API를 조회 |
 | 누적 응모 건수 | 공개 API가 제공하지 않음 | 대신 당첨 인원·상품 구성 등 실제 값이 있는 항목을 노출 |
 | 결과 공개(PUBLISHED 전환) | 관리자 공개 API 제공됨 | 관리자 콘솔에 아직 공개 기능이 없어 결과 공개 API를 연동해야 함 |
 
@@ -97,7 +97,7 @@ src/
   api/        백엔드 엔드포인트별 호출 모듈 (+ creators/myEntries 같은 조합 조회)
   components/ 레이아웃·카드·시트 등 공용 UI
   context/    로그인 세션(UserContext), 토스트
-  data/       크리에이터 표시용 프로필, 샘플 게시물, 이미지 헬퍼
+  data/       이벤트 배너·이미지 헬퍼
   hooks/      useAsync(조회 공통), useOnline
   pages/      화면 (studio/, admin/ 하위 포함)
   pwa/        서비스 워커 등록, 설치 프롬프트

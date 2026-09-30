@@ -20,7 +20,7 @@ import { formatNumber } from '../utils/format.js'
  * (게시물 피드만 백엔드에 대응 API가 없어 화면 구성용 샘플을 쓴다.)
  */
 export default function Home() {
-  const { user, followedCreators } = useUser()
+  const { user, isCreator, isAdmin, followedCreators } = useUser()
 
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터와 이벤트를 불러오지 못했습니다.',
@@ -103,6 +103,16 @@ export default function Home() {
   return (
     <div className="flex flex-col w-full pb-8">
       <section className="px-margin pt-4 pb-2">
+        {(isCreator || isAdmin) && (
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <p className="font-label-sm text-label-sm text-primary font-semibold">
+              {isCreator && '크리에이터'}
+              {isCreator && isAdmin && ' · '}
+              {isAdmin && '관리자'}
+            </p>
+          </div>
+        )}
         <h2 className="font-headline-md text-headline-md text-on-surface tracking-tight">
           {user?.name ?? '팬'}님, 오늘도 좋아하는 크리에이터와 함께해봐 ✨
         </h2>

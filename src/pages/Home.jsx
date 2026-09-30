@@ -3,21 +3,18 @@ import { Link, useOutletContext } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import CreatorAvatarItem from '../components/creator/CreatorAvatarItem.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
-import FeedPostCard from '../components/feed/FeedPostCard.jsx'
 import InstallBanner from '../components/pwa/InstallBanner.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../components/ui/States.jsx'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorDirectory } from '../api/creators.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
-import { getFeedPosts } from '../data/posts.js'
 import { formatNumber } from '../utils/format.js'
 
 /**
  * 홈 피드.
  *
  * 내 크리에이터/응모권 잔액/진행 중 이벤트/읽지 않은 알림을 모두 실제 API에서 가져온다.
- * (게시물 피드만 백엔드에 대응 API가 없어 화면 구성용 샘플을 쓴다.)
  */
 export default function Home() {
   const { user, isCreator, isAdmin, followedCreators } = useUser()
@@ -70,9 +67,6 @@ export default function Home() {
     [events],
   )
   const publishedCount = useMemo(() => events.filter((event) => event.status === 'PUBLISHED').length, [events])
-  const posts = useMemo(() => {
-    return getFeedPosts(creators.slice(0, 3), 2)
-  }, [creators])
 
   const todayActivities = [
     {
@@ -231,16 +225,6 @@ export default function Home() {
         )}
       </section>
 
-      {posts.length > 0 && (
-        <section className="mt-7 px-margin">
-          <SectionHeader icon="feed" title="최신 소식" />
-          <div className="flex flex-col md:grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {posts.map((post) => (
-              <FeedPostCard key={post.id} post={post} compact />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   )
 }

@@ -30,7 +30,7 @@
 | 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH .../read` | ✅ | - |
 | 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, Creator 신청·내 신청, 티켓 잔액 API | ✅ | 내 당첨은 `/my-winners`에서 확인·관리 |
 | 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/events`, `PUT·DELETE .../follow` | ✅ | 공개 Creator 전체 목록과 서버 팔로우 사용 |
-| 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | Creator Space 조회·본인 수정·slug 변경, 이벤트, 티켓 잔액·원장, 미션 API | ✅ | 게시물은 백엔드 API가 없어 빈 탭(#21) |
+| 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | Creator Space 조회·본인 수정·slug 변경, 이벤트, 티켓 잔액·원장, 미션, `GET /api/creators/{id}/posts` | ✅ | 게시물 목록·잠금 카드·상세 조회 연동(#25) |
 | 이벤트 상세·응모 | `/events/:eventId` | 이벤트 상세, 응모, 공개 당첨자·내 당첨 API | ✅ | 나의 당첨은 `GET /api/me/winners`의 `winnerId`로 판별 |
 | 크리에이터 스튜디오 | `/studio` | 내 이벤트 목록, 삭제, 승인 요청, 수동 마감 API | ✅ | - |
 | 이벤트 작성 | `/studio/events/new` | `POST /api/creator/events` | ✅ | - |
@@ -46,6 +46,7 @@
 | Creator 조회 | `GET /api/creators` | ✅ | 전체 페이지 조회 후 홈·탐색·관심 선택·마이페이지 및 이벤트 프로필에 사용 |
 | Creator 조회 | `GET /api/creators/{creatorId}` | — | 백엔드 미구현. 크리에이터 스페이스는 Space API로 대체 |
 | Creator Space | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}` | ✅ | 크리에이터 스페이스 공개 조회(#21) |
+| Post | `GET /api/creators/{id}/posts`, `GET /api/creators/{id}/posts/{postId}` | ✅ | 스페이스 게시물 목록·상세, 팔로워 전용 잠금 상태(#25) |
 | Creator Space | `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug` | ✅ | 본인 스페이스 편집·공유 주소 변경(#21) |
 | Calendar | `GET /api/creators/{creatorId}/calendar/schedules` | ✅ | 크리에이터 스페이스 캘린더 탭·홈의 다가오는 일정(#21) |
 | Calendar | 일정 상세·크리에이터 일정 CRUD(`/api/creator/calendar/schedules`) | ❌ | 크리에이터 일정 관리 화면 없음 |
@@ -116,5 +117,5 @@ flowchart LR
 
 ## 백엔드에 없는 화면 기능
 
-- 게시물 피드와 좋아요: `src/data/posts.js` 및 로컬 상태 사용
+- 전체 게시물 피드와 좋아요: 전체 피드 API가 없어 홈 샘플 피드는 제거; 스페이스에서는 크리에이터별 게시글만 조회
 - 실시간 인기·누적 응모 수: 공개 조회 API 없음

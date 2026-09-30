@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
+import CreatorPosts from '../components/creator/CreatorPosts.jsx'
 import SpaceEditSheet from '../components/creator/SpaceEditSheet.jsx'
 import CreatorCalendar, { UpcomingSchedules } from '../components/creator/CreatorCalendar.jsx'
 import TicketLedgerSheet from '../components/ticket/TicketLedgerSheet.jsx'
@@ -52,7 +53,7 @@ const NOT_FOUND_MESSAGES = {
  * 로그인 사용자만: 응모권 잔액(GET /api/creators/{id}/tickets)·내역, LIKE 미션 참여(SHARE는 공유 UI 연동 전까지 숨긴다),
  * 관심 등록, 본인 편집. 비로그인이면 이 영역에 로그인 안내를 보여준다.
  * 캘린더 탭·홈의 다가오는 일정은 GET /api/creators/{id}/calendar/schedules(추첨 이벤트와 별개인 크리에이터 일정)를 쓴다.
- * 게시물은 백엔드 API가 아직 없어 빈 탭으로 보여준다.
+ * 게시물 탭은 공개 Post API로 조회하며 팔로워 공개 게시글은 권한에 따라 잠금 상태로 표시한다.
  * 내 Space면(GET /api/creator/space의 creatorId가 같으면) 편집할 수 있다.
  */
 export default function CreatorSpace() {
@@ -60,7 +61,7 @@ export default function CreatorSpace() {
   const navigate = useNavigate()
   const showToast = useToast()
   const location = useLocation()
-  const { status, isCreator, isFollowing, toggleFollow, followsReady, pendingFollowIds } = useUser()
+  const { user, status, isCreator, isFollowing, toggleFollow, followsReady, pendingFollowIds } = useUser()
   const authenticated = status === 'authenticated'
   const sessionLoading = status === 'loading'
   // 로그인 상태를 복원하는 동안(loading)에는 로그인 안내를 띄우지 않아 로그인 사용자에게 깜빡이지 않게 한다.
@@ -457,10 +458,20 @@ export default function CreatorSpace() {
 
         {tab === 'calendar' && <CreatorCalendar creatorId={creator.creatorId} />}
 
-        {tab === 'posts' && (
-          <div className="flex flex-col gap-space-md px-margin py-space-sm">
-            <EmptyBlock icon="grid_view" message={EMPTY_TAB_MESSAGE} />
-          </div>
+        {tab === 'posts' && sessionLoading && <LoadingBlock label="로그인 상태를 확인하는 중..." />}
+
+        {tab === 'posts' && !sessionLoading && (
+          <CreatorPosts
+            key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}:${authenticated}:${following}:${isMine}`}
+            creatorId={creator.creatorId}
+            creatorName={creator.creatorName}
+            authenticated={authenticated}
+            following={following}
+            isMine={isMine}
+            followDisabled={authenticated && !following && (!followsReady || pendingFollowIds.has(creator.creatorId) || (isCreator && !mySpace.data))}
+            onFollow={handleFollow}
+            onLogin={goLogin}
+          />
         )}
 
         {tab === 'events' && (

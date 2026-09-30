@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
-import { getCreatorProfile, getEventBanner } from '../../data/creatorProfiles.js'
+import { getEventBanner } from '../../data/eventBanners.js'
+import { useCreatorProfile } from '../../hooks/useCreatorProfile.js'
 import { formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '../../utils/format.js'
 import { displayStatusMeta } from '../../utils/eventStatus.js'
 
@@ -13,7 +14,7 @@ import { displayStatusMeta } from '../../utils/eventStatus.js'
  */
 export default function EventCard({ event, ticketsOwned, showCreatorTag = false, variant = 'carousel' }) {
   const navigate = useNavigate()
-  const creator = getCreatorProfile(event.creatorId)
+  const creator = useCreatorProfile(event.creatorId)
   const status = displayStatusMeta(event.displayStatus)
   const closed = event.displayStatus === 'CLOSED'
   const dday = formatDday(event.endAt, { closed })

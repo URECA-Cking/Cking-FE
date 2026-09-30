@@ -16,7 +16,7 @@ import {
   verifyDrawing,
 } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
-import { getCreatorProfile } from '../../data/creatorProfiles.js'
+import { useCreatorCatalog } from '../../hooks/useCreatorProfile.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 import { eventStatusMeta } from '../../utils/eventStatus.js'
 
@@ -27,6 +27,7 @@ import { eventStatusMeta } from '../../utils/eventStatus.js'
  * 추첨 메타데이터와 당첨자 결과를 조회한다.
  */
 export default function AdminDrawingPanel() {
+  const creatorCatalog = useCreatorCatalog()
   const showToast = useToast()
   const [selected, setSelected] = useState(null)
   const [detail, setDetail] = useState(null)
@@ -188,7 +189,7 @@ export default function AdminDrawingPanel() {
               <div className="min-w-0">
                 <p className="font-label-md text-label-md text-on-surface font-semibold truncate">{event.title}</p>
                 <p className="font-label-xs text-label-xs text-on-surface-variant">
-                  #{event.eventId} · {getCreatorProfile(event.creatorId).name} · 당첨{' '}
+                  #{event.eventId} · {creatorCatalog.get(event.creatorId)?.name ?? '크리에이터'} · 당첨{' '}
                   {formatNumber(event.winnerCount)}명
                 </p>
               </div>

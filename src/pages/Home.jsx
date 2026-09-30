@@ -9,6 +9,7 @@ import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../componen
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorDirectory } from '../api/creators.js'
+import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { getFeedPosts } from '../data/posts.js'
 import { formatNumber } from '../utils/format.js'
 
@@ -19,32 +20,38 @@ import { formatNumber } from '../utils/format.js'
  * (게시물 피드만 백엔드에 대응 API가 없어 화면 구성용 샘플을 쓴다.)
  */
 export default function Home() {
-  const { user, isCreator, isAdmin, followedCreators } = useUser()
+  const { user, followedCreators } = useUser()
 
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터와 이벤트를 불러오지 못했습니다.',
   })
+  const balances = useCreatorBalances(followedCreators, user?.memberId)
   // 알림은 MainLayout이 이미 읽어 하단 탭 배지에 쓰고 있으므로 그 결과를 그대로 받는다.
   const { unreadCount = 0 } = useOutletContext() ?? {}
 
   const creators = useMemo(() => {
     const list = directory.data?.creators ?? []
-    // 관심 등록한 크리에이터를 앞에, 그다음은 보유 응모권이 많은 순서로 보여준다.
+    // 관심 등록한 크리에이터를 앞에 보여준다.
     return [...list].sort((a, b) => {
       const aFollowed = followedCreators.includes(a.creatorId) ? 1 : 0
       const bFollowed = followedCreators.includes(b.creatorId) ? 1 : 0
       if (aFollowed !== bFollowed) return bFollowed - aFollowed
-      return b.balance - a.balance
+      return a.name.localeCompare(b.name)
     })
   }, [directory.data, followedCreators])
+  const myCreators = useMemo(
+    () => creators.filter((creator) => followedCreators.includes(creator.creatorId))
+      .map((creator) => ({ ...creator, balance: balances.get(creator.creatorId)?.balance })),
+    [creators, followedCreators, balances],
+  )
 
   const events = useMemo(() => directory.data?.events ?? [], [directory.data])
 
   const balanceByCreator = useMemo(() => {
     const map = new Map()
-    creators.forEach((creator) => map.set(creator.creatorId, creator.balance))
+    balances.forEach((balance, creatorId) => map.set(creatorId, balance.balance))
     return map
-  }, [creators])
+  }, [balances])
 
   const followedEvents = useMemo(() => {
     const scoped = followedCreators.length
@@ -59,12 +66,9 @@ export default function Home() {
     [events],
   )
   const publishedCount = useMemo(() => events.filter((event) => event.status === 'PUBLISHED').length, [events])
-  const totalTickets = useMemo(() => creators.reduce((sum, creator) => sum + creator.balance, 0), [creators])
-
   const posts = useMemo(() => {
-    const ids = (followedCreators.length ? followedCreators : creators.map((creator) => creator.creatorId)).slice(0, 3)
-    return getFeedPosts(ids, 2)
-  }, [followedCreators, creators])
+    return getFeedPosts(creators.slice(0, 3), 2)
+  }, [creators])
 
   const todayActivities = [
     {
@@ -99,14 +103,6 @@ export default function Home() {
   return (
     <div className="flex flex-col w-full pb-8">
       <section className="px-margin pt-4 pb-2">
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
-          <p className="font-label-sm text-label-sm text-primary font-semibold">
-            🎟 보유 응모권 {formatNumber(totalTickets)}장
-            {isCreator && ' · 크리에이터'}
-            {isAdmin && ' · 관리자'}
-          </p>
-        </div>
         <h2 className="font-headline-md text-headline-md text-on-surface tracking-tight">
           {user?.name ?? '팬'}님, 오늘도 좋아하는 크리에이터와 함께해봐 ✨
         </h2>
@@ -119,7 +115,7 @@ export default function Home() {
           <SectionHeader
             icon="favorite"
             title="내 크리에이터"
-            count={creators.length}
+            count={followedCreators.length}
             action="전체보기"
             actionTo="/explore"
           />
@@ -130,7 +126,7 @@ export default function Home() {
         )}
         {!directory.loading && !directory.error && (
           <div className="flex gap-3 overflow-x-auto overscroll-x-contain touch-pan-x snap-x snap-mandatory px-margin no-scrollbar py-1">
-            {creators.map((creator) => (
+            {myCreators.map((creator) => (
               <CreatorAvatarItem key={creator.creatorId} creator={creator} />
             ))}
             <Link

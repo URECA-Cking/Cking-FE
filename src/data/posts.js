@@ -1,5 +1,4 @@
 import { bannerImage } from './images.js'
-import { getCreatorProfile } from './creatorProfiles.js'
 
 // 백엔드에 게시물(피드) API가 없어 화면 구성용 샘플 게시물을 creatorId 기준으로 만들어 둔다.
 // 응모권 적립 같은 실제 값이 걸린 동작은 여기에 의존하지 않는다.
@@ -32,8 +31,7 @@ const TEMPLATES = [
 ]
 
 /** 크리에이터 한 명의 샘플 게시물 목록을 결정적으로 만든다. */
-export function getPostsByCreator(creatorId) {
-  const creator = getCreatorProfile(creatorId)
+export function getPostsByCreator(creator) {
   return TEMPLATES.map((template) => ({
     id: `creator-${creator.creatorId}-post-${template.slot}`,
     creatorId: creator.creatorId,
@@ -49,9 +47,9 @@ export function getPostsByCreator(creatorId) {
 }
 
 /** 여러 크리에이터의 게시물을 최신순으로 섞어 홈 피드에 쓴다. */
-export function getFeedPosts(creatorIds, limit = 4) {
-  return creatorIds
-    .flatMap((creatorId) => getPostsByCreator(creatorId))
+export function getFeedPosts(creators, limit = 4) {
+  return creators
+    .flatMap((creator) => getPostsByCreator(creator))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, limit)
 }

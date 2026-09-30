@@ -1,51 +1,69 @@
 import { getEvents } from './events';
-import { getTicketBalance } from './tickets';
-import { getCreatorProfile } from '../data/creatorProfiles.js';
+import { apiClient } from './client';
 import { getCreatorSpace, getCreatorSpaceBySlug } from './creatorSpace';
 
-// 백엔드에 크리에이터 목록 API(GET /api/creators)가 아직 구현되지 않아, 실제로 존재하는 크리에이터를
-// "이벤트 목록에 등장하는 creatorId"로 알아낸다. 아직 이벤트가 하나도 없는 초기 상태에서도
-// 화면이 비지 않도록 .env의 VITE_DEMO_CREATOR_IDS(기본 1,2,3 - BE 더미 시더 기준)를 함께 본다.
+function toProfile(space) {
+  return {
+    creatorId: space.creatorId,
+    name: space.creatorName,
+    handle: space.slug,
+    avatar: space.profileImageUrl,
+    banner: space.bannerImageUrl,
+    bio: space.introText,
+    verified: true,
+  };
+}
 
-const FALLBACK_IDS = String(import.meta.env.VITE_DEMO_CREATOR_IDS ?? '1,2,3')
-  .split(',')
-  .map((value) => Number(value.trim()))
-  .filter((value) => Number.isInteger(value) && value > 0);
+let creatorCatalogPromise = null;
 
-/**
- * 이벤트 목록을 한 번 읽어 크리에이터별로 묶고, 로그인한 사용자의 응모권 잔액을 붙인다.
- */
+/** 공개 Creator 목록의 모든 페이지를 읽고 요청 결과를 화면 간에 공유한다. */
+export function getCreatorCatalog() {
+  if (!creatorCatalogPromise) {
+    creatorCatalogPromise = (async () => {
+      const creators = new Map();
+      let page = 0;
+      while (true) {
+        const result = await apiClient.get('/api/creators', { page, size: 100 });
+        result.items.forEach((item) => creators.set(item.creatorId, toProfile(item)));
+        if (!result.hasNext) return [...creators.values()];
+        page += 1;
+      }
+    })().catch((error) => {
+      creatorCatalogPromise = null;
+      throw error;
+    });
+  }
+  return creatorCatalogPromise;
+}
+
+export async function getCreatorProfileById(creatorId) {
+  const id = Number(creatorId);
+  try {
+    const creators = await getCreatorCatalog();
+    const profile = creators.find((creator) => creator.creatorId === id);
+    if (profile) return profile;
+  } catch {
+    // 목록 조회가 실패해도 이벤트 카드에서는 공개 Space로 프로필을 조회한다.
+  }
+  return toProfile(await getCreatorSpace(id));
+}
+
+/** 공개 Creator 목록과 이벤트만 조합한다. 응모권 잔액은 화면에서 필요한 ID만 조회한다. */
 export async function loadCreatorDirectory({ size = 100 } = {}) {
+  const profiles = await getCreatorCatalog();
   const page = await getEvents({ size });
   const events = page?.items ?? [];
-
   const byCreator = new Map();
-  FALLBACK_IDS.forEach((creatorId) => byCreator.set(creatorId, []));
   events.forEach((event) => {
     const list = byCreator.get(event.creatorId) ?? [];
     list.push(event);
     byCreator.set(event.creatorId, list);
   });
 
-  const creatorIds = [...byCreator.keys()].sort((a, b) => a - b);
-  const balances = await Promise.all(
-    creatorIds.map(async (creatorId) => {
-      try {
-        return await getTicketBalance(creatorId);
-      } catch {
-        // 잔액 조회 실패가 목록 전체를 막지 않게 한다.
-        return null;
-      }
-    })
-  );
-
-  const creators = creatorIds.map((creatorId, index) => {
-    const creatorEvents = byCreator.get(creatorId) ?? [];
+  const creators = profiles.map((profile) => {
+    const creatorEvents = byCreator.get(profile.creatorId) ?? [];
     return {
-      ...getCreatorProfile(creatorId),
-      creatorId,
-      balance: balances[index]?.balance ?? 0,
-      balanceUpdatedAt: balances[index]?.updatedAt ?? null,
+      ...profile,
       events: creatorEvents,
       openEventCount: creatorEvents.filter((event) => event.displayStatus === 'IN_PROGRESS').length,
     };

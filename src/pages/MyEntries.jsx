@@ -3,7 +3,8 @@ import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../components/ui/States.jsx'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadMyEntries } from '../api/myEntries.js'
-import { getCreatorProfile, getEventBanner } from '../data/creatorProfiles.js'
+import { getEventBanner } from '../data/eventBanners.js'
+import { useCreatorCatalog } from '../hooks/useCreatorProfile.js'
 import { formatDateTime, formatNumber } from '../utils/format.js'
 import { eventStatusMeta } from '../utils/eventStatus.js'
 
@@ -15,6 +16,7 @@ import { eventStatusMeta } from '../utils/eventStatus.js'
  * GET /api/events/{eventId}/winners 로 내 당첨 여부까지 확인한다.
  */
 export default function MyEntries() {
+  const creatorCatalog = useCreatorCatalog()
   const { data, loading, error, reload } = useAsync(() => loadMyEntries(), [], {
     fallbackMessage: '응모 내역을 불러오지 못했습니다.',
   })
@@ -82,7 +84,7 @@ export default function MyEntries() {
       <div className="flex flex-col md:grid md:grid-cols-2 gap-space-sm">
         {entries.map((entry) => {
           const event = entry.event
-          const creator = getCreatorProfile(event?.creatorId)
+          const creator = creatorCatalog.get(event?.creatorId) ?? { name: '크리에이터' }
           const statusMeta = event ? eventStatusMeta(event.status) : null
           const won = Boolean(entry.myWin)
 

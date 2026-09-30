@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import TicketLedgerSheet from '../components/ticket/TicketLedgerSheet.jsx'
@@ -8,6 +8,7 @@ import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorDirectory } from '../api/creators.js'
+import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { applyCreator, getMyCreatorApplications } from '../api/creatorApplications.js'
 import { describeError } from '../api/client.js'
 import { formatDateTime, formatNumber } from '../utils/format.js'
@@ -30,14 +31,23 @@ export default function MyPage() {
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '응모권 정보를 불러오지 못했습니다.',
   })
+  const balances = useCreatorBalances(followedCreators, user?.memberId)
   const applications = useAsync(
     () => getMyCreatorApplications({ size: 5 }),
     [],
     { fallbackMessage: '크리에이터 신청 내역을 불러오지 못했습니다.' },
   )
 
-  const creators = directory.data?.creators ?? []
-  const totalTickets = creators.reduce((sum, creator) => sum + creator.balance, 0)
+  const creators = useMemo(
+    () => (directory.data?.creators ?? [])
+      .filter((creator) => followedCreators.includes(creator.creatorId))
+      .map((creator) => ({
+        ...creator,
+        balance: balances.get(creator.creatorId)?.balance,
+        balanceUpdatedAt: balances.get(creator.creatorId)?.updatedAt,
+      })),
+    [directory.data, followedCreators, balances],
+  )
   const latestApplication = applications.data?.items?.[0] ?? null
   const hasPending = latestApplication?.status === 'PENDING'
 
@@ -91,20 +101,9 @@ export default function MyPage() {
         </button>
       </section>
 
-      <section className="p-space-md rounded-2xl bg-gradient-to-br from-primary via-[#be185d] to-berry-deep text-on-primary shadow-floating flex items-center justify-between">
-        <div>
-          <p className="font-label-sm text-label-sm text-primary-fixed uppercase tracking-wider">보유 응모권 합계</p>
-          <p className="font-headline-lg text-headline-lg font-bold mt-1">🎟 {formatNumber(totalTickets)}장</p>
-          <p className="font-label-xs text-label-xs text-primary-fixed mt-1">
-            관심 크리에이터 {followedCreators.length}명
-          </p>
-        </div>
-        <MaterialIcon name="local_activity" className="text-[36px] text-primary-fixed" />
-      </section>
-
       <section className="flex flex-col gap-space-sm">
         <div className="flex items-center justify-between">
-          <h3 className="font-title-md text-title-md text-on-surface font-bold">크리에이터별 응모권</h3>
+          <h3 className="font-title-md text-title-md text-on-surface font-bold">관심 크리에이터별 응모권</h3>
           <Link to="/onboarding/creators" className="font-label-sm text-label-sm text-primary font-semibold">
             관심 관리
           </Link>
@@ -127,16 +126,21 @@ export default function MyPage() {
                     {creator.name}
                   </span>
                   <span className="font-label-xs text-label-xs text-outline">
-                    {creator.balanceUpdatedAt ? `${formatDateTime(creator.balanceUpdatedAt)} 기준` : '변동 내역 없음'}
+                    {typeof creator.balance !== 'number'
+                      ? '잔액 확인 중'
+                      : creator.balanceUpdatedAt
+                        ? `${formatDateTime(creator.balanceUpdatedAt)} 기준`
+                        : '변동 내역 없음'}
                   </span>
                 </div>
               </Link>
               <button
                 type="button"
                 onClick={() => setLedgerTarget(creator)}
+                disabled={typeof creator.balance !== 'number'}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-berry-tint text-primary font-label-xs text-label-xs font-bold active:scale-95 transition-all shrink-0"
               >
-                🎟 {formatNumber(creator.balance)}장
+                🎟 {typeof creator.balance === 'number' ? `${formatNumber(creator.balance)}장` : '조회 중'}
                 <MaterialIcon name="chevron_right" className="text-[14px]" />
               </button>
             </div>

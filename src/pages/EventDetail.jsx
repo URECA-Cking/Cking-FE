@@ -11,7 +11,8 @@ import { applyEntry, describeEntryResult } from '../api/entries.js'
 import { getPublicWinners } from '../api/winners.js'
 import { getMyWinners } from '../api/myWinners.js'
 import { newRequestId } from '../api/client.js'
-import { getCreatorProfile, getEventBanner } from '../data/creatorProfiles.js'
+import { getEventBanner } from '../data/eventBanners.js'
+import { useCreatorProfile } from '../hooks/useCreatorProfile.js'
 import { formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '../utils/format.js'
 import { displayStatusMeta, eventStatusMeta, isEntryOpen } from '../utils/eventStatus.js'
 
@@ -56,7 +57,7 @@ export default function EventDetail() {
   }, [myWinners.loading, myWinners.error, myWinners.data])
 
   const balance = event?.myTicketBalance ?? 0
-  const creator = useMemo(() => getCreatorProfile(event?.creatorId), [event?.creatorId])
+  const creator = useCreatorProfile(event?.creatorId)
   const prizeCount = totalPrizeQuantity(event?.prizes)
   const canApply = isEntryOpen(event) && balance > 0
   // 응모 성공으로 잔액이 줄어들 수 있으므로, 실제로 쓸 수량은 렌더 시점에 잔액 범위로 맞춘다.

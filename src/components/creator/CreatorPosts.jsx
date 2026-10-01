@@ -1,15 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
-import { EmptyBlock, ErrorBlock, LoadingBlock } from '../ui/States.jsx'
+import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../ui/States.jsx'
+import PostEditorSheet from './PostEditorSheet.jsx'
+import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError } from '../../api/client.js'
-import { getCreatorPost, getCreatorPosts } from '../../api/posts.js'
+import { POST_ERROR_MESSAGES, deletePost, getCreatorPost, getCreatorPosts } from '../../api/posts.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime } from '../../utils/format.js'
+
+// 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
+const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 export default function CreatorPosts({ creatorId, creatorName, authenticated, following, isMine, followDisabled, onFollow, onLogin }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
+  const showToast = useToast()
+  // editor: null(닫힘) | { post: null }(작성) | { post }(수정)
+  const [editor, setEditor] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
+  const [local, setLocal] = useState(NO_LOCAL_CHANGES)
+  // 저장·삭제 뒤 서버 목록과 맞추는 상태: 'synced' | 'refreshing' | 'failed'.
+  // 삭제로 서버의 페이지 경계가 당겨지므로 맞춰지기 전에는 기존 페이지 번호로 '더 보기'를 하지 않는다.
+  const [sync, setSync] = useState('synced')
   const loadingMore = useRef(false)
+  // 첫 페이지를 다시 읽을 때마다 올려서, 그 전에 시작한 '더 보기' 응답이 늦게 와도 버린다.
+  const listGeneration = useRef(0)
   const detailSeq = useRef(0)
   // 로그인·팔로우 권한이 바뀌면 CreatorSpace의 key가 이 컴포넌트를 다시 마운트한다.
   const first = useAsync(
@@ -22,28 +37,76 @@ export default function CreatorPosts({ creatorId, creatorName, authenticated, fo
   const extraPages = extraState.pages
   const lastPage = extraPages.at(-1) ?? page
   const seenPostIds = new Set()
-  const posts = page ? [page, ...extraPages].flatMap((item) => item.items ?? []).filter((post) => {
+  const loadedPosts = page ? [page, ...extraPages].flatMap((item) => item.items ?? []).filter((post) => {
     if (seenPostIds.has(post.postId)) return false
     seenPostIds.add(post.postId)
     return true
   }) : []
+  const deletedIds = new Set(local.deleted)
+  const posts = [...local.created.filter((post) => !seenPostIds.has(post.postId)), ...loadedPosts]
+    .filter((post) => !deletedIds.has(post.postId))
+    .map((post) => local.updated[post.postId] ?? post)
 
-  function reloadFirst() {
-    setExtraState({ pages: [], loading: false, error: '' })
-    first.reload()
+  // 로컬 변경분과 이어 붙인 페이지는 새 조회가 성공한 뒤에만 지운다. 실패하면 방금 저장·삭제한 결과를 그대로 둔다.
+  async function reloadFirst() {
+    const generation = ++listGeneration.current
+    loadingMore.current = false
+    setExtraState((current) => ({ ...current, loading: false }))
+    const fresh = await first.reload()
+    if (fresh && listGeneration.current === generation) {
+      setExtraState({ pages: [], loading: false, error: '' })
+      setLocal(NO_LOCAL_CHANGES)
+      setSync('synced')
+    }
+  }
+
+  // 저장·삭제 성공 뒤 서버 순서로 보정한다. 실패해도 이미 반영한 목록은 그대로 두고 알림만 띄운다.
+  async function refreshQuietly() {
+    const generation = ++listGeneration.current
+    loadingMore.current = false
+    setExtraState((current) => ({ ...current, loading: false }))
+    setSync('refreshing')
+    try {
+      const fresh = await getCreatorPosts(creatorId)
+      if (listGeneration.current !== generation) return
+      first.setData(fresh)
+      setExtraState({ pages: [], loading: false, error: '' })
+      setLocal(NO_LOCAL_CHANGES)
+      setSync('synced')
+    } catch {
+      if (listGeneration.current === generation) {
+        setSync('failed')
+        showToast('목록을 새로 고치지 못했어요. 방금 변경한 내용은 반영되어 있어요.', { icon: 'error' })
+      }
+    }
+  }
+
+  function handleSaved(saved, edited) {
+    setLocal((current) => edited
+      ? { ...current, updated: { ...current.updated, [saved.postId]: saved } }
+      : { ...current, created: [saved, ...current.created] })
+    refreshQuietly()
+  }
+
+  function markDeleted(postId) {
+    setLocal((current) => ({ ...current, deleted: [...current.deleted, postId] }))
+    refreshQuietly()
   }
 
   async function loadMore() {
-    if (!lastPage?.hasNext || loadingMore.current) return
+    if (!lastPage?.hasNext || loadingMore.current || sync !== 'synced') return
     loadingMore.current = true
+    const generation = listGeneration.current
     setExtraState({ pages: extraPages, loading: true, error: '' })
     try {
       const next = await getCreatorPosts(creatorId, { page: lastPage.page + 1 })
+      if (listGeneration.current !== generation) return
       setExtraState({ pages: [...extraPages, next], loading: false, error: '' })
     } catch (error) {
+      if (listGeneration.current !== generation) return
       setExtraState({ pages: extraPages, loading: false, error: describeError(error, '다음 게시글을 불러오지 못했어요.') })
     } finally {
-      loadingMore.current = false
+      if (listGeneration.current === generation) loadingMore.current = false
     }
   }
 
@@ -67,6 +130,23 @@ export default function CreatorPosts({ creatorId, creatorName, authenticated, fo
     }
   }
 
+  async function handleDelete(post) {
+    if (deletingId != null) return
+    if (!window.confirm('이 게시글을 삭제할까요? 삭제하면 이미지와 댓글도 함께 사라지고 되돌릴 수 없어요.')) return
+    setDeletingId(post.postId)
+    try {
+      await deletePost(post.postId)
+      showToast('게시글을 삭제했어요.')
+      markDeleted(post.postId)
+    } catch (error) {
+      const notFound = error instanceof ApiError && error.code === 'RESOURCE_NOT_FOUND'
+      showToast(notFound ? POST_ERROR_MESSAGES.RESOURCE_NOT_FOUND : describeError(error, '게시글을 삭제하지 못했어요.'), { icon: 'error' })
+      if (notFound) markDeleted(post.postId)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   const closeDetail = () => {
     detailSeq.current += 1
     setDetail(null)
@@ -80,6 +160,17 @@ export default function CreatorPosts({ creatorId, creatorName, authenticated, fo
 
   return (
     <div className="flex flex-col gap-space-md px-margin py-space-sm">
+      {/* 목록이 보일 때만 쓰기를 열어, 저장한 글이 화면에 반영되지 못하는 상태를 만들지 않는다. */}
+      {isMine && !first.loading && !first.error && page && (
+        <button
+          type="button"
+          onClick={() => setEditor({ post: null })}
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary py-3 font-label-md text-label-md font-semibold text-on-primary active:scale-[0.98]"
+        >
+          <MaterialIcon name="edit" className="text-[18px]" />
+          게시글 쓰기
+        </button>
+      )}
       {(first.loading || (!page && !first.error)) && <LoadingBlock label="게시글을 불러오는 중..." />}
       {!first.loading && first.error && <ErrorBlock message={first.error} onRetry={reloadFirst} />}
       {!first.loading && !first.error && page && posts.length === 0 && (
@@ -94,20 +185,43 @@ export default function CreatorPosts({ creatorId, creatorName, authenticated, fo
           onLockedAction={lockedAction}
           lockedLabel={lockedLabel}
           lockedDisabled={followDisabled}
+          isMine={isMine}
+          onEdit={() => setEditor({ post })}
+          onDelete={() => handleDelete(post)}
+          deleting={deletingId === post.postId}
         />
       ))}
       {!first.loading && !first.error && lastPage?.hasNext && (
-        <button
-          type="button"
-          onClick={loadMore}
-          disabled={extraState.loading}
-          className="w-full rounded-xl bg-surface-container py-3 font-label-md text-label-md text-on-surface disabled:opacity-60"
-        >
-          {extraState.loading ? '불러오는 중...' : '게시글 더 보기'}
-        </button>
+        // 재시도도 refreshQuietly로 한다: 실패해도 first.error를 세우지 않아, 방금 저장·삭제한 결과가 계속 보인다.
+        sync === 'failed' ? (
+          <button
+            type="button"
+            onClick={refreshQuietly}
+            className="w-full rounded-xl bg-surface-container py-3 font-label-md text-label-md text-on-surface"
+          >
+            목록을 새로 고쳐야 이어서 볼 수 있어요
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={loadMore}
+            disabled={extraState.loading || sync === 'refreshing'}
+            className="w-full rounded-xl bg-surface-container py-3 font-label-md text-label-md text-on-surface disabled:opacity-60"
+          >
+            {extraState.loading || sync === 'refreshing' ? '불러오는 중...' : '게시글 더 보기'}
+          </button>
+        )
       )}
       {extraState.error && (
         <ErrorBlock message={extraState.error} onRetry={loadMore} />
+      )}
+      {isMine && (
+        <PostEditorSheet
+          open={editor !== null}
+          onClose={() => setEditor(null)}
+          post={editor?.post ?? null}
+          onSaved={(saved) => handleSaved(saved, editor?.post != null)}
+        />
       )}
       {detail && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 md:items-center" onClick={closeDetail}>
@@ -152,7 +266,7 @@ export default function CreatorPosts({ creatorId, creatorName, authenticated, fo
   )
 }
 
-function CreatorPostCard({ post, creatorName, onOpen, onLockedAction, lockedLabel, lockedDisabled, showOpen = true }) {
+function CreatorPostCard({ post, creatorName, onOpen, onLockedAction, lockedLabel, lockedDisabled, showOpen = true, isMine = false, onEdit, onDelete, deleting = false }) {
   const [restricted, setRestricted] = useState(false)
   const handleRestricted = useCallback(() => setRestricted(true), [])
   const locked = post.locked || restricted
@@ -164,6 +278,20 @@ function CreatorPostCard({ post, creatorName, onOpen, onLockedAction, lockedLabe
           {formatDateTime(post.createdAt)}
         </time>
       </div>
+      {isMine && onEdit && (
+        <div className="mb-3 flex items-center gap-2">
+          <StatusPill
+            label={post.visibility === 'FOLLOWERS' ? '팔로워 공개' : '전체 공개'}
+            icon={post.visibility === 'FOLLOWERS' ? 'lock' : 'public'}
+          />
+          <button type="button" onClick={onEdit} disabled={deleting} className="ml-auto font-label-sm text-label-sm text-primary disabled:opacity-50">
+            수정
+          </button>
+          <button type="button" onClick={onDelete} disabled={deleting} className="font-label-sm text-label-sm text-error disabled:opacity-50">
+            {deleting ? '삭제하는 중...' : '삭제'}
+          </button>
+        </div>
+      )}
       {locked ? (
         <div className="flex flex-col items-center gap-3 rounded-xl bg-surface-container-low px-4 py-7 text-center">
           <MaterialIcon name="lock" className="text-[28px] text-primary" />

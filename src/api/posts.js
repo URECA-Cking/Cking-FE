@@ -49,3 +49,33 @@ export const POST_ERROR_MESSAGES = {
   RESOURCE_NOT_FOUND: '게시글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
   VALIDATION_FAILED: '입력한 내용을 확인해주세요. 본문(2000자 이하)이나 이미지가 하나는 있어야 해요.',
 }
+
+// 게시글 댓글 API(Cking-BE docs/domains/post/comment-api.md). 목록은 작성 순(오래된 순)이다.
+export const COMMENT_MAX_LENGTH = 500
+
+const commentPath = (creatorId, postId) => `/api/creators/${creatorId}/posts/${postId}/comments`
+
+export function getPostComments(creatorId, postId, { page = 0, size = 20 } = {}) {
+  return apiClient.get(commentPath(creatorId, postId), { page, size })
+}
+
+export function createComment(creatorId, postId, content) {
+  return apiClient.post(commentPath(creatorId, postId), { content })
+}
+
+export function updateComment(creatorId, postId, commentId, content) {
+  return apiClient.patch(`${commentPath(creatorId, postId)}/${commentId}`, { content })
+}
+
+export function deleteComment(creatorId, postId, commentId) {
+  return apiClient.delete(`${commentPath(creatorId, postId)}/${commentId}`)
+}
+
+/** 댓글 오류 코드별 사용자 문구. FORBIDDEN은 공통 문구(크리에이터 계정 안내)가 맞지 않아 따로 둔다. */
+export const COMMENT_ERROR_MESSAGES = {
+  COMMENT_FOLLOWERS_ONLY: '팔로워만 댓글을 쓸 수 있어요. 관심 크리에이터로 등록해주세요.',
+  POST_FOLLOWERS_ONLY: '팔로워에게만 공개된 게시글이에요.',
+  FORBIDDEN: '이 댓글을 수정하거나 삭제할 권한이 없어요.',
+  RESOURCE_NOT_FOUND: '댓글이나 게시글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
+  VALIDATION_FAILED: '댓글은 1자 이상 500자 이하로 입력해주세요.',
+}

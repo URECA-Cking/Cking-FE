@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../ui/States.jsx'
+import PostComments from './PostComments.jsx'
 import PostEditorSheet from './PostEditorSheet.jsx'
 import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError } from '../../api/client.js'
@@ -11,7 +12,7 @@ import { formatDateTime } from '../../utils/format.js'
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
-export default function CreatorPosts({ creatorId, creatorName, authenticated, following, isMine, followDisabled, onFollow, onLogin }) {
+export default function CreatorPosts({ creatorId, creatorName, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const showToast = useToast()
@@ -257,6 +258,20 @@ export default function CreatorPosts({ creatorId, creatorName, authenticated, fo
                 lockedLabel={lockedLabel}
                 lockedDisabled={followDisabled}
                 showOpen={false}
+              />
+            )}
+            {!detail.loading && detail.post && !detail.post.locked && (
+              <PostComments
+                key={detail.post.postId}
+                creatorId={creatorId}
+                postId={detail.post.postId}
+                authenticated={authenticated}
+                following={following}
+                isMine={isMine}
+                memberId={memberId}
+                followDisabled={followDisabled}
+                onFollow={onFollow}
+                onLogin={onLogin}
               />
             )}
           </section>

@@ -468,6 +468,7 @@ export default function CreatorSpace() {
             authenticated={authenticated}
             following={following}
             isMine={isMine}
+            memberId={user?.memberId ?? null}
             followDisabled={authenticated && !following && (!followsReady || pendingFollowIds.has(creator.creatorId) || (isCreator && !mySpace.data))}
             onFollow={handleFollow}
             onLogin={goLogin}

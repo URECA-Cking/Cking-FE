@@ -60,7 +60,9 @@ export async function requestEnvelope(path, options = {}) {
 async function send(path, { method = 'GET', body, params, signal } = {}) {
   const url = buildUrl(path, params);
   const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+  // FormData는 브라우저가 multipart boundary를 붙이도록 Content-Type을 직접 지정하지 않는다.
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   const token = getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -69,7 +71,7 @@ async function send(path, { method = 'GET', body, params, signal } = {}) {
     response = await fetch(url, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       credentials: 'include',
       signal,
     });

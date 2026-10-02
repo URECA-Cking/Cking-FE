@@ -107,6 +107,9 @@ function isZonedInputValueValid(value, timeZone) {
  *   isZonedInputValueValid로 걸러 저장을 막는다 — 안 걸러내면 zonedInputValueToDate가
  *   가장 가까운 유효한 시각으로 조용히 미끄러져, 저장 후 다시 열었을 때 입력과 다른
  *   시각으로 보인다.
+ * - DST 전환으로 겹치는 wall-clock(예: 미국 가을 전환일의 01:30, 같은 지역 시각이 서로 다른
+ *   두 Instant를 가리킴)은 반대로 재변환 시 원래 Instant를 잃을 수 있어, resolveInstant가
+ *   시각·시간대를 이번에 건드리지 않은 필드는 저장된 Instant를 그대로 돌려준다.
  */
 export default function ScheduleEditorSheet({ open, onClose, schedule, onSaved }) {
   const closeGuard = useRef(() => true)
@@ -171,6 +174,17 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
     endAtValid &&
     !saving
 
+  // DST 전환으로 겹치는 시각(예: 가을 전환일의 01:30)은 같은 wall-clock이 서로 다른 두 Instant를
+  // 가리킬 수 있어, 바뀌지 않은 시각·시간대를 다시 변환하면 원래 Instant를 잃을 수 있다(zonedInputValueToDate는
+  // 입력마다 독립적으로 추정하므로 어느 쪽이었는지 기억하지 못한다). 그래서 시각·시간대 필드를
+  // 이번에 건드리지 않았으면 재변환하지 않고 저장된 Instant를 그대로 보존한다.
+  function resolveInstant(currentValue, originalValue, originalInstant) {
+    if (schedule && currentValue === originalValue && timeZone === initial.current.timeZone) {
+      return new Date(originalInstant)
+    }
+    return zonedInputValueToDate(currentValue, timeZone)
+  }
+
   async function submit() {
     setSaving(true)
     setSubmitError('')
@@ -178,8 +192,8 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
       scheduleType,
       title: title.trim(),
       description: description.trim(),
-      startAt: zonedInputValueToDate(startAt, timeZone),
-      endAt: zonedInputValueToDate(endAt, timeZone),
+      startAt: resolveInstant(startAt, initial.current.startAt, schedule?.startAt),
+      endAt: resolveInstant(endAt, initial.current.endAt, schedule?.endAt),
       timeZone,
       location: location.trim(),
       imageUrl: imageUrl.trim(),

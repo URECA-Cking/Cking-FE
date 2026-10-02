@@ -86,6 +86,16 @@ function zonedInputValueToDate(value, timeZone) {
 }
 
 /**
+ * DST 전환으로 존재하지 않는 wall-clock(예: 미국 봄철 전환일의 02:00~03:00)을 입력하면
+ * zonedInputValueToDate가 가장 가까운 유효한 시각으로 조용히 미끄러진다. 변환 결과를 같은
+ * timeZone으로 되돌려 입력값과 글자 그대로 일치하는지 검사해 그런 입력을 걸러낸다.
+ */
+function isZonedInputValueValid(value, timeZone) {
+  if (!value) return true
+  return toZonedInputValue(zonedInputValueToDate(value, timeZone), timeZone) === value
+}
+
+/**
  * 크리에이터 일정 생성·수정(Cking-BE docs/domains/calendar/api.md).
  * - PATCH는 전체 필드 교체라서 수정 시에도 항상 모든 필드를 다시 보낸다.
  * - 시작·종료 시각 입력(datetime-local)은 사용자가 고른 timeZone 기준의 wall-clock 시각으로
@@ -93,6 +103,10 @@ function zonedInputValueToDate(value, timeZone) {
  *   입력한 시각과 timeZone의 의미가 어긋나면 안 된다 — 브라우저 로컬 시각으로 해석하면
  *   크리에이터의 시간대와 조회자(CreatorCalendar.jsx)의 시간대가 다를 때 실제 Instant가
  *   의도와 달라진다.
+ * - DST 전환으로 존재하지 않는 wall-clock(예: 미국 봄철 전환일의 02:00~03:00)은
+ *   isZonedInputValueValid로 걸러 저장을 막는다 — 안 걸러내면 zonedInputValueToDate가
+ *   가장 가까운 유효한 시각으로 조용히 미끄러져, 저장 후 다시 열었을 때 입력과 다른
+ *   시각으로 보인다.
  */
 export default function ScheduleEditorSheet({ open, onClose, schedule, onSaved }) {
   const closeGuard = useRef(() => true)
@@ -145,8 +159,17 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registerGuard, saving, dirty])
 
+  const startAtValid = isZonedInputValueValid(startAt, timeZone)
+  const endAtValid = isZonedInputValueValid(endAt, timeZone)
+
   const canSubmit =
-    title.trim().length > 0 && startAt && endAt && new Date(startAt) < new Date(endAt) && !saving
+    title.trim().length > 0 &&
+    startAt &&
+    endAt &&
+    new Date(startAt) < new Date(endAt) &&
+    startAtValid &&
+    endAtValid &&
+    !saving
 
   async function submit() {
     setSaving(true)
@@ -229,6 +252,16 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
           />
         </label>
       </div>
+      {!startAtValid && (
+        <p className="font-label-xs text-label-xs text-error">
+          시작 시각은 선택한 시간대의 서머타임 전환으로 존재하지 않는 시각이에요. 다른 시각을 입력해주세요.
+        </p>
+      )}
+      {!endAtValid && (
+        <p className="font-label-xs text-label-xs text-error">
+          종료 시각은 선택한 시간대의 서머타임 전환으로 존재하지 않는 시각이에요. 다른 시각을 입력해주세요.
+        </p>
+      )}
       {startAt && endAt && new Date(startAt) >= new Date(endAt) && (
         <p className="font-label-xs text-label-xs text-error">종료 시각은 시작 시각보다 늦어야 해요.</p>
       )}

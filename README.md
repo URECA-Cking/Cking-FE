@@ -51,6 +51,7 @@ npm run dev
 | 크리에이터 스튜디오 | `/studio` | `GET /api/creator/events`, `DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
 | 이벤트 작성 | `/studio/events/new` | `POST /api/creator/events` |
 | 이벤트 수정 | `/studio/events/:eventId/edit` | `GET /api/creator/events`, `PATCH /api/creator/events/{id}` |
+| 캘린더 관리 | `/studio/calendar` | `GET /api/creator/calendar/schedules`, `POST·PATCH·DELETE /api/creator/calendar/schedules(/{id})` |
 | 관리자 콘솔 | `/admin` | `GET /api/admin/events/pending`, `POST .../approve·reject`, `GET /api/admin/creator-applications`, `POST .../approve·reject`, `GET .../closing-status`, `GET .../snapshot`, `POST .../drawings`, `GET /api/admin/drawings/{id}`, `GET .../result` |
 
 최신 백엔드 API 인덱스와의 대조 결과, 화면·API별 연동 상태와 역할별 흐름은

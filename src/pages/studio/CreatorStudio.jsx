@@ -67,6 +67,12 @@ export default function CreatorStudio() {
         >
           <MaterialIcon name="add" className="text-[20px]" />새 이벤트 만들기
         </Link>
+        <Link
+          to="/studio/calendar"
+          className="w-full h-12 rounded-xl bg-surface-container text-on-surface font-label-md text-label-md font-bold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all"
+        >
+          <MaterialIcon name="calendar_month" className="text-[20px]" />내 캘린더 관리
+        </Link>
         <MySpaceLink variant="button" />
 
         {loading && <LoadingBlock label="내 이벤트를 불러오는 중..." />}

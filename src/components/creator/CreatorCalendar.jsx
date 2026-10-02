@@ -3,13 +3,10 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
 import { getCreatorSchedules, scheduleTypeMeta } from '../../api/calendar.js'
+import { WEEKDAYS, dayKey, coveredDayKeys, buildMonthCells, moveMonthSelection } from '../../utils/calendarGrid.js'
 
-const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 const UPCOMING_DAYS = 60
 const EMPTY_MESSAGE = '현재 열려있는 게 없습니다.'
-
-// 날짜 구분·표시는 사용자 브라우저 시간대 기준이다(일정의 startAt·endAt은 UTC Instant).
-const dayKey = (date) => `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
 
 function formatTime(iso) {
   return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
@@ -23,19 +20,6 @@ function formatRange(schedule) {
   }
   const date = (d) => `${d.getMonth() + 1}/${d.getDate()}`
   return `${date(start)} ${formatTime(schedule.startAt)} – ${date(end)} ${formatTime(schedule.endAt)}`
-}
-
-/** 일정이 걸친 날짜 키 목록(endAt은 포함하지 않는다). */
-function coveredDayKeys(schedule, rangeStart, rangeEnd) {
-  const keys = []
-  const start = new Date(Math.max(new Date(schedule.startAt).getTime(), rangeStart.getTime()))
-  const lastMoment = new Date(Math.min(new Date(schedule.endAt).getTime() - 1, rangeEnd.getTime() - 1))
-  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate())
-  while (cursor <= lastMoment) {
-    keys.push(dayKey(cursor))
-    cursor.setDate(cursor.getDate() + 1)
-  }
-  return keys
 }
 
 function ScheduleCard({ schedule }) {
@@ -95,21 +79,12 @@ export default function CreatorCalendar({ creatorId }) {
     return map
   }, [data, monthStart, monthEnd])
 
-  const cells = useMemo(() => {
-    const blanks = Array.from({ length: month.getDay() }, (_, index) => ({ blank: true, key: `blank-${index}` }))
-    const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
-    const days = Array.from({ length: daysInMonth }, (_, index) => {
-      const date = new Date(month.getFullYear(), month.getMonth(), index + 1)
-      return { blank: false, key: dayKey(date), day: index + 1, weekday: date.getDay() }
-    })
-    return [...blanks, ...days]
-  }, [month])
+  const cells = useMemo(() => buildMonthCells(month), [month])
 
   function moveMonth(offset) {
-    const next = new Date(month.getFullYear(), month.getMonth() + offset, 1)
+    const { month: next, selectedKey: nextSelectedKey } = moveMonthSelection(month, offset, today)
     setMonth(next)
-    const isCurrentMonth = next.getFullYear() === today.getFullYear() && next.getMonth() === today.getMonth()
-    setSelectedKey(dayKey(isCurrentMonth ? today : next))
+    setSelectedKey(nextSelectedKey)
   }
 
   const selectedSchedules = schedulesByDay.get(selectedKey) ?? []

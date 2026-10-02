@@ -120,7 +120,9 @@ export default function StudioCalendar() {
   }, [data, selectedSchedules, selectedDate, month])
 
   function selectSchedule(schedule) {
-    setSelectedKey(dayKey(new Date(schedule.startAt)))
+    const target = new Date(schedule.startAt)
+    setMonth(new Date(target.getFullYear(), target.getMonth(), 1))
+    setSelectedKey(dayKey(target))
   }
 
   return (

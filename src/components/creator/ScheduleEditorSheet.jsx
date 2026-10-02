@@ -29,19 +29,70 @@ function describeCalendarError(error, fallback) {
   return describeError(error, fallback)
 }
 
-/** Date → <input type="datetime-local"> 값(초 단위 생략). */
-function toLocalInputValue(date) {
+/** UTC Instant → timeZone 기준 wall-clock의 <input type="datetime-local"> 값(초 단위 생략). */
+function toZonedInputValue(date, timeZone) {
   if (!date) return ''
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const parts = Object.fromEntries(formatter.formatToParts(date).map((part) => [part.type, part.value]))
+  const hour = parts.hour === '24' ? '00' : parts.hour
+  return `${parts.year}-${parts.month}-${parts.day}T${hour}:${parts.minute}`
+}
+
+/**
+ * timeZone 기준 wall-clock(<input type="datetime-local"> 값) → UTC Instant.
+ * Intl로 "이 UTC 추정값이 timeZone에서 몇 시인지"를 되짚어 오차를 보정한다(최대 2회 반복이면
+ * 실무에서 쓰는 모든 지역의 DST 전환을 포함해 수렴한다).
+ */
+function zonedInputValueToDate(value, timeZone) {
+  const [datePart, timePart] = value.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hour, minute] = timePart.split(':').map(Number)
+  const target = Date.UTC(year, month - 1, day, hour, minute)
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+
+  let guess = target
+  for (let i = 0; i < 2; i += 1) {
+    const parts = Object.fromEntries(formatter.formatToParts(guess).map((part) => [part.type, part.value]))
+    const hourPart = parts.hour === '24' ? 0 : Number(parts.hour)
+    const asUtcIfSameWallClock = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      hourPart,
+      Number(parts.minute),
+      Number(parts.second),
+    )
+    guess += target - asUtcIfSameWallClock
+  }
+  return new Date(guess)
 }
 
 /**
  * 크리에이터 일정 생성·수정(Cking-BE docs/domains/calendar/api.md).
  * - PATCH는 전체 필드 교체라서 수정 시에도 항상 모든 필드를 다시 보낸다.
- * - 시작·종료 시각 입력(datetime-local)은 "브라우저 로컬 시각"으로 해석해 UTC로 변환한다.
- *   timeZone 필드는 표시용 메타데이터일 뿐 이 변환에 쓰지 않는다 — 공개 캘린더 화면도 조회자의
- *   로컬 시각으로 보여주므로(CreatorCalendar.jsx) 등록 쪽도 같은 기준으로 맞춘 것이다.
+ * - 시작·종료 시각 입력(datetime-local)은 사용자가 고른 timeZone 기준의 wall-clock 시각으로
+ *   해석해 UTC Instant로 변환한다(zonedInputValueToDate). 시간대를 직접 고르는 UI이므로
+ *   입력한 시각과 timeZone의 의미가 어긋나면 안 된다 — 브라우저 로컬 시각으로 해석하면
+ *   크리에이터의 시간대와 조회자(CreatorCalendar.jsx)의 시간대가 다를 때 실제 Instant가
+ *   의도와 달라진다.
  */
 export default function ScheduleEditorSheet({ open, onClose, schedule, onSaved }) {
   const closeGuard = useRef(() => true)
@@ -69,9 +120,12 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
   const [scheduleType, setScheduleType] = useState(schedule?.scheduleType ?? 'FAN_SIGN')
   const [title, setTitle] = useState(schedule?.title ?? '')
   const [description, setDescription] = useState(schedule?.description ?? '')
-  const [startAt, setStartAt] = useState(() => toLocalInputValue(schedule ? new Date(schedule.startAt) : null))
-  const [endAt, setEndAt] = useState(() => toLocalInputValue(schedule ? new Date(schedule.endAt) : null))
-  const [timeZone, setTimeZone] = useState(schedule?.timeZone ?? 'Asia/Seoul')
+  const initialTimeZone = schedule?.timeZone ?? 'Asia/Seoul'
+  const [startAt, setStartAt] = useState(() =>
+    toZonedInputValue(schedule ? new Date(schedule.startAt) : null, initialTimeZone),
+  )
+  const [endAt, setEndAt] = useState(() => toZonedInputValue(schedule ? new Date(schedule.endAt) : null, initialTimeZone))
+  const [timeZone, setTimeZone] = useState(initialTimeZone)
   const [location, setLocation] = useState(schedule?.location ?? '')
   const [imageUrl, setImageUrl] = useState(schedule?.imageUrl ?? '')
   const [externalUrl, setExternalUrl] = useState(schedule?.externalUrl ?? '')
@@ -101,8 +155,8 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
       scheduleType,
       title: title.trim(),
       description: description.trim(),
-      startAt: new Date(startAt),
-      endAt: new Date(endAt),
+      startAt: zonedInputValueToDate(startAt, timeZone),
+      endAt: zonedInputValueToDate(endAt, timeZone),
       timeZone,
       location: location.trim(),
       imageUrl: imageUrl.trim(),

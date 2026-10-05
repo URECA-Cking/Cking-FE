@@ -6,8 +6,8 @@
 ## 요약
 
 - 백엔드 외부 API: **50개**
-- 프론트에서 요청을 구현한 API: **33개 (66%)**
-- 주요 화면 라우트: **14개** (페이지 컴포넌트는 **13개**)
+- 프론트에서 요청을 구현한 API: **36개 (72%)**
+- 주요 화면 라우트: **15개** (페이지 컴포넌트는 **14개**)
 - 인증: 데모 사용자 선택이 OAuth 로그인 + Access JWT로 바뀌었다(#19). 요청에 `userId`를 보내지 않는다.
 
 표시 기준은 다음과 같다.
@@ -19,7 +19,7 @@
 
 ## 화면별 라우트 매트릭스
 
-`src/App.jsx`의 와일드카드 경로를 제외한 14개 path 기준이다. `StudioEventForm`은 작성·수정의 두 경로가 공유한다.
+`src/App.jsx`의 와일드카드 경로를 제외한 15개 path 기준이다. `StudioEventForm`은 작성·수정의 두 경로가 공유한다.
 
 | 화면 | 경로 | 사용 API | 구현 상태 | 미연동/보완 사항 |
 | --- | --- | --- | --- | --- |
@@ -36,6 +36,7 @@
 | 이벤트 작성 | `/studio/events/new` | `POST /api/creator/events` | ✅ | - |
 | 이벤트 수정 | `/studio/events/:eventId/edit` | 내 이벤트 목록, `PATCH /api/creator/events/{id}` | ✅ | - |
 | 캘린더 관리 | `/studio/calendar` | 내 일정 기간 조회, `POST·PATCH·DELETE /api/creator/calendar/schedules(/{id})` | ✅ | - |
+| 내 캘린더 | `/my-calendar` | `GET /api/me/calendar/schedules`, `PUT·DELETE /api/me/calendar/schedules/{id}` | ✅ | 담기·빼기는 크리에이터 스페이스 캘린더 탭에서도 가능 |
 | 관리자 콘솔 | `/admin` | 승인·마감·Snapshot·초기 추첨·추첨 결과 API | △ | 재시도·공개·검증·당첨/재추첨/Dead Stream 운영 화면 없음 |
 
 ## API 대조
@@ -51,6 +52,7 @@
 | Creator Space | `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug` | ✅ | 본인 스페이스 편집·공유 주소 변경(#21) |
 | Calendar | `GET /api/creators/{creatorId}/calendar/schedules` | ✅ | 크리에이터 스페이스 캘린더 탭·홈의 다가오는 일정(#21) |
 | Calendar | 크리에이터 본인 일정 CRUD·기간 조회(`/api/creator/calendar/schedules`) | ✅ | 크리에이터 일정 관리 화면(#34) |
+| Calendar | 개인 캘린더 담기·제거·기간 조회(`/api/me/calendar/schedules`) | ✅ | 내 캘린더 화면과 스페이스 캘린더 탭의 담기·빼기(#37) |
 | Calendar | 크리에이터 일정 상세 조회(`GET /api/creators/{creatorId}/calendar/schedules/{scheduleId}`) | ❌ | 목록 조회로 충분해 상세 단건 조회 화면 없음 |
 | Mission | `GET /api/creators/{creatorId}/missions` | ✅ | 크리에이터 스페이스 홈·미션 탭에서 LIKE만 표시; SHARE는 공유 UI 연동 전까지 숨김 |
 | Mission | `POST /api/creators/{creatorId}/missions/{missionId}/complete` | ✅ | 크리에이터 스페이스 LIKE 미션 참여에만 사용 |

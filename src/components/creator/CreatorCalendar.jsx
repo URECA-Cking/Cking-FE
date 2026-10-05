@@ -1,29 +1,30 @@
 import { useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
+import { useUser } from '../../context/useUser.js'
 import { useAsync } from '../../hooks/useAsync.js'
+import { useMyCalendarEntries } from '../../hooks/useMyCalendarEntries.js'
 import { getCreatorSchedules, scheduleTypeMeta } from '../../api/calendar.js'
-import { WEEKDAYS, dayKey, coveredDayKeys, buildMonthCells, moveMonthSelection } from '../../utils/calendarGrid.js'
+import { toSafeHttpUrl } from '../../utils/safeUrl.js'
+import {
+  WEEKDAYS,
+  buildMonthCells,
+  coveredDayKeys,
+  dayKey,
+  formatScheduleRange,
+  formatScheduleTime,
+  moveMonthSelection,
+} from '../../utils/calendarGrid.js'
 
 const UPCOMING_DAYS = 60
 const EMPTY_MESSAGE = '현재 열려있는 게 없습니다.'
 
-function formatTime(iso) {
-  return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-}
-
-function formatRange(schedule) {
-  const start = new Date(schedule.startAt)
-  const end = new Date(schedule.endAt)
-  if (dayKey(start) === dayKey(new Date(end.getTime() - 1))) {
-    return `${formatTime(schedule.startAt)} – ${formatTime(schedule.endAt)}`
-  }
-  const date = (d) => `${d.getMonth() + 1}/${d.getDate()}`
-  return `${date(start)} ${formatTime(schedule.startAt)} – ${date(end)} ${formatTime(schedule.endAt)}`
-}
-
-function ScheduleCard({ schedule }) {
+/** calendar: 로그인 사용자의 "내 캘린더 담기" 상태({ ready, added, busy, onToggle }), 비로그인이면 null. */
+function ScheduleCard({ schedule, calendar }) {
   const meta = scheduleTypeMeta(schedule.scheduleType)
+  // 크리에이터가 입력한 값이라 javascript: 같은 스킴이 들어올 수 있어 http(s)일 때만 링크로 그린다.
+  const externalUrl = toSafeHttpUrl(schedule.externalUrl)
   return (
     <div className="flex gap-3 p-space-md rounded-xl bg-surface-container-lowest shadow-card">
       <div className="w-1 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
@@ -31,21 +32,36 @@ function ScheduleCard({ schedule }) {
         <span className="font-label-xs text-label-xs font-semibold" style={{ color: meta.color }}>{meta.label}</span>
         <span className="font-title-md text-title-md font-bold text-on-surface">{schedule.title}</span>
         <span className="font-label-xs text-label-xs text-on-surface-variant">
-          {formatRange(schedule)}
+          {formatScheduleRange(schedule)}
           {schedule.location ? ` · ${schedule.location}` : ''}
         </span>
         {schedule.description && (
           <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed mt-1">{schedule.description}</p>
         )}
-        {schedule.externalUrl && (
+        {externalUrl && (
           <a
-            href={schedule.externalUrl}
+            href={externalUrl}
             target="_blank"
             rel="noreferrer"
             className="font-label-xs text-label-xs font-semibold text-primary mt-1 self-start"
           >
             자세히 보기
           </a>
+        )}
+        {calendar && (
+          <button
+            type="button"
+            disabled={!calendar.ready || calendar.busy}
+            aria-label="내 캘린더에 담기"
+            aria-pressed={calendar.added}
+            onClick={calendar.onToggle}
+            className={`mt-2 self-start flex items-center gap-1 px-3 h-9 rounded-full font-label-xs text-label-xs font-semibold active:scale-95 transition-all disabled:opacity-50 ${
+              calendar.added ? 'bg-berry-tint text-primary' : 'bg-surface-container text-on-surface-variant'
+            }`}
+          >
+            <MaterialIcon name={calendar.added ? 'bookmark_added' : 'bookmark_add'} filled={calendar.added} className="text-[16px]" />
+            {calendar.added ? '내 캘린더에 담음' : '내 캘린더에 담기'}
+          </button>
         )}
       </div>
     </div>
@@ -57,6 +73,12 @@ function ScheduleCard({ schedule }) {
  * 일정이 있는 날에 점을 찍어 고른 날의 일정을 보여준다.
  */
 export default function CreatorCalendar({ creatorId }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { status } = useUser()
+  const authenticated = status === 'authenticated'
+  // 로그인 상태를 복원하는 동안(loading)에는 로그인 안내를 띄우지 않아 로그인 사용자에게 깜빡이지 않게 한다.
+  const anonymous = status === 'anonymous'
   const today = new Date()
   const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
   const [selectedKey, setSelectedKey] = useState(() => dayKey(today))
@@ -68,6 +90,12 @@ export default function CreatorCalendar({ creatorId }) {
     [creatorId, monthStart.getTime()],
     { fallbackMessage: '일정을 불러오지 못했어요.' },
   )
+  const myCalendar = useMyCalendarEntries({
+    from: monthStart,
+    to: monthEnd,
+    enabled: authenticated,
+    onScheduleGone: reload,
+  })
 
   const schedulesByDay = useMemo(() => {
     const map = new Map()
@@ -168,8 +196,54 @@ export default function CreatorCalendar({ creatorId }) {
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
       {!loading && !error && selectedSchedules.length === 0 && <EmptyBlock icon="calendar_month" message={EMPTY_MESSAGE} />}
       {!loading && !error && selectedSchedules.map((schedule) => (
-        <ScheduleCard key={schedule.scheduleId} schedule={schedule} />
+        <ScheduleCard
+          key={schedule.scheduleId}
+          schedule={schedule}
+          calendar={
+            authenticated
+              ? {
+                  ready: myCalendar.ready,
+                  added: myCalendar.isAdded(schedule.scheduleId),
+                  busy: myCalendar.isBusy(schedule.scheduleId),
+                  onToggle: () => myCalendar.toggle(schedule.scheduleId),
+                }
+              : null
+          }
+        />
       ))}
+
+      {anonymous && (
+        <div className="flex items-center justify-between gap-3 p-space-md rounded-xl bg-surface-container-low">
+          <span className="font-body-sm text-body-sm text-on-surface-variant">로그인하면 일정을 내 캘린더에 담을 수 있어요.</span>
+          <button
+            type="button"
+            onClick={() => navigate('/login', { state: { from: location.pathname + location.search } })}
+            className="shrink-0 px-3 py-2 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm font-semibold active:scale-95 transition-all"
+          >
+            로그인
+          </button>
+        </div>
+      )}
+      {authenticated && myCalendar.error && (
+        <div className="flex items-center justify-between gap-3 p-space-md rounded-xl bg-surface-container-low">
+          <span className="font-body-sm text-body-sm text-on-surface-variant">
+            내 캘린더에 담았는지 확인하지 못해 담기 버튼을 잠시 쓸 수 없어요.
+          </span>
+          <button
+            type="button"
+            onClick={myCalendar.reload}
+            className="shrink-0 px-3 py-2 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm font-semibold active:scale-95 transition-all"
+          >
+            다시 시도
+          </button>
+        </div>
+      )}
+      {authenticated && (
+        <Link to="/my-calendar" className="self-start flex items-center gap-0.5 font-label-xs text-label-xs text-on-surface-variant hover:text-primary transition-colors">
+          내 캘린더 보기
+          <MaterialIcon name="chevron_right" className="text-[14px]" />
+        </Link>
+      )}
 
       <div className="flex items-center gap-2 p-space-sm rounded-xl bg-surface-container-low">
         <MaterialIcon name="info" className="text-secondary text-[18px]" />
@@ -230,7 +304,7 @@ export function UpcomingSchedules({ creatorId, onShowAll }) {
                 <span className="flex flex-col min-w-0">
                   <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{schedule.title}</span>
                   <span className="font-label-xs text-label-xs text-on-surface-variant">
-                    {meta.label} · {formatTime(schedule.startAt)}
+                    {meta.label} · {formatScheduleTime(schedule.startAt)}
                   </span>
                 </span>
               </button>

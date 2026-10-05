@@ -83,6 +83,33 @@ export function deleteSchedule(scheduleId) {
   return apiClient.delete(`/api/creator/calendar/schedules/${scheduleId}`);
 }
 
+// 개인 캘린더 API(Cking-BE 이슈 #319). 사용자 본인의 Access JWT가 필요하다.
+// CreatorSchedule을 참조만 하므로(내용 복사 없음) 크리에이터가 일정을 수정·삭제하면
+// 이미 담은 사용자의 조회 결과에도 즉시 반영된다.
+
+/** PUT /api/me/calendar/schedules/{scheduleId} - 담기. 이미 담겨 있어도 성공(멱등). */
+export function addToMyCalendar(scheduleId) {
+  return apiClient.put(`/api/me/calendar/schedules/${scheduleId}`);
+}
+
+/** DELETE /api/me/calendar/schedules/{scheduleId} - 제거. 담겨 있지 않아도 성공(멱등). */
+export function removeFromMyCalendar(scheduleId) {
+  return apiClient.delete(`/api/me/calendar/schedules/${scheduleId}`);
+}
+
+/** GET /api/me/calendar/schedules - 담은 일정 통합 조회. 각 항목에 creatorName이 포함된다(조회 기간 365일 이하). */
+export async function getMyCalendar(from, to) {
+  return apiClient.get('/api/me/calendar/schedules', {
+    from: from.toISOString(),
+    to: to.toISOString(),
+  });
+}
+
+/** 개인 캘린더 담기 오류 코드별 사용자 문구(제거는 멱등이라 오류 코드가 없다). */
+export const MY_CALENDAR_ERROR_MESSAGES = {
+  RESOURCE_NOT_FOUND: '크리에이터가 이미 삭제한 일정이에요.',
+};
+
 /** 캘린더 CRUD 오류 코드별 사용자 문구. */
 export const CALENDAR_ERROR_MESSAGES = {
   VALIDATION_FAILED: '입력한 내용을 확인해주세요. 시작 시각은 종료 시각보다 빨라야 하고, 수정 시 모든 필드를 채워야 해요.',

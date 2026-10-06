@@ -16,6 +16,7 @@ import RequireRole from './components/auth/RequireRole.jsx'
 import CreatorStudio from './pages/studio/CreatorStudio.jsx'
 import StudioEventForm from './pages/studio/StudioEventForm.jsx'
 import StudioCalendar from './pages/studio/StudioCalendar.jsx'
+import MyCalendar from './pages/MyCalendar.jsx'
 import AdminConsole from './pages/admin/AdminConsole.jsx'
 import AdminWinnerDetail from './pages/admin/AdminWinnerDetail.jsx'
 import AdminRedraws from './pages/admin/AdminRedraws.jsx'
@@ -68,6 +69,14 @@ function App() {
         element={
           <RequireUser>
             <EventDetail />
+          </RequireUser>
+        }
+      />
+      <Route
+        path="/my-calendar"
+        element={
+          <RequireUser>
+            <MyCalendar />
           </RequireUser>
         }
       />

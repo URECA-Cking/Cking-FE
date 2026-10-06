@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
@@ -22,6 +22,14 @@ export default function MyCalendar() {
   // 일정마다 따로 잠가야 해서(같은 날 여러 개) 진행 중인 id를 모은다. ref는 연타로 같은 요청이 겹치는 것을 막는다.
   const inFlight = useRef(new Set())
   const [removingIds, setRemovingIds] = useState(() => new Set())
+  // 이 화면에서 뺀 일정. 빼는 중에 월을 옮겨 시작된 조회가 삭제 반영 전에 서버를 읽고 삭제 성공 뒤에 도착하면
+  // 그 결과가 목록을 통째로 교체해 뺀 일정이 되살아나므로, 조회 응답이 도착한 시점에 뺀 일정을 걸러낸다.
+  // (useAsync의 requestSeq는 조회끼리의 순서만 막고 삭제와의 순서는 막지 못한다.)
+  const removedIds = useRef(new Set())
+  const fetchMyCalendar = useCallback(
+    (from, to) => getMyCalendar(from, to).then((list) => list.filter((entry) => !removedIds.current.has(entry.scheduleId))),
+    [],
+  )
 
   const {
     month,
@@ -40,7 +48,7 @@ export default function MyCalendar() {
     error,
     reload,
     setData,
-  } = useMonthCalendar(getMyCalendar, { fallbackMessage: '내 캘린더를 불러오지 못했어요.' })
+  } = useMonthCalendar(fetchMyCalendar, { fallbackMessage: '내 캘린더를 불러오지 못했어요.' })
 
   async function handleRemove(schedule) {
     const { scheduleId } = schedule
@@ -49,6 +57,7 @@ export default function MyCalendar() {
     setRemovingIds(new Set(inFlight.current))
     try {
       await removeFromMyCalendar(scheduleId)
+      removedIds.current.add(scheduleId)
       // 다시 조회하면 화면 전체가 로딩으로 바뀌어 스크롤을 잃으므로, 뺀 항목만 목록에서 지운다.
       setData((current) => (current ?? []).filter((entry) => entry.scheduleId !== scheduleId))
       showToast('내 캘린더에서 뺐어요.')

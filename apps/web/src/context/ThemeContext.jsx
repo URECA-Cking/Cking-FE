@@ -13,9 +13,13 @@ function readStoredTheme() {
   }
 }
 
+// 브라우저 주소창·상태바 색. 각 모드의 surface 배경색과 맞춘다(index.css의 --color-surface).
+const THEME_COLORS = { dark: '#1a1a1e', light: '#faf8ff' }
+
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme)
   document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', theme)
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[theme])
 }
 
 /**
@@ -32,7 +36,8 @@ export function ThemeProvider({ children }) {
   // 다른 탭에서 모드를 바꾸면 이 탭도 따라 바뀐다(storage 이벤트는 값을 쓴 탭 자신에게는 오지 않는다).
   useEffect(() => {
     const onStorage = (e) => {
-      if (e.key === STORAGE_KEY) setThemeState(e.newValue === 'light' ? 'light' : 'dark')
+      // localStorage.clear()는 key가 null로 오고, 이때는 저장값이 없으니 기본(다크)으로 돌아간다.
+      if (e.key === STORAGE_KEY || e.key === null) setThemeState(e.newValue === 'light' ? 'light' : 'dark')
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)

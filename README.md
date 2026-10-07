@@ -46,7 +46,7 @@ npm run dev:admin
 
 ## 웹앱(PWA)
 
-- `apps/web/public/manifest.webmanifest` — standalone 실행, 브랜드 테마 색상, 바로가기(내 응모/알림)
+- `apps/web/public/manifest.webmanifest` — standalone 실행, 기본(다크) 테마·배경 색상(실행 중에는 선택한 모드에 맞춰 `theme-color` 갱신), 바로가기(내 응모/알림)
 - `apps/web/public/sw.js` — 앱 셸은 stale-while-revalidate, `/api`는 네트워크 우선(오프라인일 때만 마지막 성공 응답). Access JWT가 붙은 요청은 캐시하지 않음
 - 홈 화면 설치 배너(`InstallBanner`)와 오프라인 안내 배너 제공
 - 아이콘은 `node apps/web/scripts/generate-icons.mjs`로 다시 생성할 수 있습니다(추가 의존성 없음)

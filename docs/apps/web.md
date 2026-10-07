@@ -2,7 +2,7 @@
 
 ## 현재 구조
 
-현재 Web과 Creator 기능은 `apps/web/src/`에 있으며, Admin과 같은 Web workspace에서 빌드·실행한다. Web 화면은 `apps/web/src/pages/`, Creator 운영 화면은 `apps/web/src/pages/studio/`와 `apps/web/src/components/creator/`에 있다. 루트에서는 `npm run dev:web`, `npm run build:web`, `npm run lint`로 Web workspace를 실행·검증한다.
+Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서 빌드·실행한다. Web 화면은 `apps/web/src/pages/`, Creator 운영 화면은 `apps/web/src/pages/studio/`와 `apps/web/src/components/creator/`에 있다. 루트에서는 `npm run dev:web`, `npm run build:web`, `npm run lint:web`로 Web workspace를 실행·검증한다.
 
 ### 책임과 라우트
 
@@ -19,8 +19,6 @@
 
 `UserContext`가 `/api/me`, 세션 상태, 역할, 팔로우 상태를 관리한다. Access JWT는 `sessionStorage`에 두며, `apps/web/src/api/client.js`가 `Authorization`과 Refresh Cookie를 처리한다. Toast는 `ToastContext`가 담당한다. Web 전용 상태·Context·페이지는 Admin과 공유하지 않는다.
 
-### B-01 이후 목표
-
-현재 `apps/web` 코드는 B-01 이후에도 PUBLIC, USER, CREATOR API를 소유한다. 공통화 후보는 앱 독립적인 UI·HTTP 클라이언트·유틸·실제 공통 타입뿐이며, `UserContext`, 팔로우 상태, Web/Creator 화면은 shared에 두지 않는다.
+`apps/web`은 PUBLIC, USER, CREATOR API를 소유한다. 공통화 후보는 앱 독립적인 UI·HTTP 클라이언트·유틸·실제 공통 타입뿐이며, `UserContext`, 팔로우 상태, Web/Creator 화면은 shared에 두지 않는다. 관리자 콘솔은 `VITE_ADMIN_BASE_URL`로 독립 Admin 앱에 진입한다.
 
 API 사용 범위와 정본 링크는 [api-coverage.md](../api-coverage.md)를 따른다.

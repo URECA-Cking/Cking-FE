@@ -20,7 +20,7 @@ Admin은 `/admin`, `/admin/winners/:winnerId`, `/admin/redraws`, `/admin/dead-st
 | `api/events.js`의 `getEvents` | Admin API 모듈에 `getClosedEvents`로 명시 구현 | 사용자 이벤트 API 전체를 가져오지 않고 추첨 운영에 필요한 마감 이벤트 조회만 둔다. |
 | `useCreatorCatalog`, `api/creators.js` | Admin에서 제거 | 카드에 필요한 `creatorName`은 관리자 이벤트 응답을 사용한다. Creator·follow 상태를 조회하지 않는다. |
 | `UserContext`, `RequireUser`, `RequireRole`, OAuth 콜백 | Admin 전용 세션/가드/로그인 화면으로 교체 | 관리자 refresh cookie와 endpoint가 사용자 Web 세션과 분리되어 있다. |
-| `Toast`, `useAsync`, `MaterialIcon`, `States`, format/status utility | `packages/shared`로 승격 | 앱 정책 없이 동일하게 재사용하는 UI·비동기·표시 코드다. |
+| `Toast`, `useAsync`, `MaterialIcon`, `States`, format/status utility | Admin 내부에 필요한 최소 구현을 둔다 | 현재 Web 구현은 Web API client·라우터·화면 정책에 결합돼 있다. 이름이나 모양만 같다는 이유로 shared로 옮기지 않는다. |
 | `TopHeader` | Admin 내부 컴포넌트로 이동 | Web의 내비게이션·사용자 화면 구조에 결합되어 있다. |
 | `index.css`, Tailwind theme | Admin에 독립 복사 | 동일한 시각 토큰을 쓰지만 빌드 설정과 앱 진입점은 독립적이어야 한다. |
 

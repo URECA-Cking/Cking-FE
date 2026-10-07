@@ -109,6 +109,16 @@
     animation: splash-bar-sweep 320ms cubic-bezier(0.65, 0, 0.35, 1) 180ms forwards;
   }
 
+  .splash {
+    transition: background-color 200ms ease-out;
+  }
+
+  /* 로그인된 사용자: 아래 페이지(홈 등)는 그대로 보이고 그 위에 CKing만 떠 있다. 클릭을 막지 않는다. */
+  .splash.is-over {
+    background-color: transparent;
+    pointer-events: none;
+  }
+
   .splash.is-dock {
     animation: splash-bg-clear 440ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
@@ -169,7 +179,7 @@
     }
   }
 
-  /* 배경은 끝까지 불투명하게 둔다. 흐려지며 아래 페이지가 비치지 않고 CKing이 사라진 뒤에 페이지가 나타난다. */
+  /* 배경은 건드리지 않는다. 비로그인은 불투명한 채 CKing만 사라지고, 로그인(is-over)은 이미 투명해 페이지 위에서 사라진다. */
   @keyframes splash-out {
     to {
       visibility: hidden;

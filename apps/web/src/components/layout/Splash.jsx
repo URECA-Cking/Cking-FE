@@ -17,7 +17,8 @@ function shouldShowSplash() {
 /**
  * 임시 첫 화면: CKing 워드마크가 글자별로 떠오른 뒤(intro),
  * 로그인 상태 확인이 끝나 아래 화면이 정해지면 `data-splash-target` 로고가 있을 때 그 자리로 옮겨 가며 배경이 걷히고(dock),
- * 없으면(로그인된 사용자의 새로고침 등) CKing만 흐려지며 사라지고 그 뒤에 페이지가 나타난다(out). 키프레임은 index.css의 splash-*.
+ * 없으면(로그인된 사용자의 새로고침 등) CKing만 흐려지며 사라진다(out).
+ * 로그인이 확인되면(is-over) 배경을 투명하게 풀어, 홈은 그대로 보이고 그 위에 CKing만 떠 있다 사라진다. 키프레임은 index.css의 splash-*.
  */
 export default function Splash() {
   const [phase, setPhase] = useState(() => (shouldShowSplash() ? 'intro' : 'done'))
@@ -69,7 +70,9 @@ export default function Splash() {
   return (
     <div
       aria-hidden="true"
-      className={`splash fixed inset-0 z-[100] flex items-center justify-center bg-background is-${phase}`}
+      className={`splash fixed inset-0 z-[100] flex items-center justify-center bg-background is-${phase}${
+        status === 'authenticated' ? ' is-over' : ''
+      }`}
       onAnimationEnd={handleAnimationEnd}
     >
       <div ref={wordmarkRef} className="splash-wordmark inline-flex flex-col items-center">

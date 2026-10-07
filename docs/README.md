@@ -1,6 +1,6 @@
 # Cking-FE 문서
 
-이 디렉터리는 현재 `apps/web` 하나로 운영하는 npm workspace 구조와 B-01 이후 모노레포 목표를 분리해 기록한다. 구현 사실은 현재 구조로, 계획은 **B-01 이후 목표**로 표기한다.
+이 디렉터리는 `apps/web`과 `apps/admin`을 각각 실행하는 npm workspace 구조를 기록한다. 구현 사실은 현재 구조로 관리한다.
 
 | 문서 | 책임 |
 | --- | --- |
@@ -9,6 +9,7 @@
 | [apps/admin.md](apps/admin.md) | 관리자 앱의 책임과 규칙 |
 | [api-coverage.md](api-coverage.md) | BE API의 FE 사용·구현 범위 추적 |
 | [workflows/development.md](workflows/development.md) | Issue, 브랜치, 검증, PR 절차 |
+| [verification/a-03-web-regression.md](verification/a-03-web-regression.md) | Web 앱 설정·라우트·빌드 회귀 검증 결과 |
 
 ## 작업별 읽기 순서
 

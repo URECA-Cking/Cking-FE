@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getDeadStreams, replayDeadStream } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
-import { BackHeader } from '../../components/layout/TopHeader.jsx'
-import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
-import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/ui/States.jsx'
+import BackHeader from '../../components/BackHeader.jsx'
+import MaterialIcon from '../../components/MaterialIcon.jsx'
+import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime } from '../../utils/format.js'
@@ -34,10 +34,14 @@ export default function AdminDeadStreams() {
 
   const items = data?.items ?? []
 
+  /** 관리자 운영 화면에서 selectStatus 동작을 처리한다. */
+
   function selectStatus(nextStatus) {
     setStatus(nextStatus)
     setPage(0)
   }
+
+  /** 관리자 운영 화면에서 replay 동작을 처리한다. */
 
   async function replay(item) {
     if (!window.confirm(`데드 메시지 #${item.id}을 다시 처리할까요? 원인을 해결한 뒤 실행해주세요.`)) return
@@ -113,6 +117,8 @@ export default function AdminDeadStreams() {
   )
 }
 
+/** 관리자 운영 화면에서 DeadStreamCard 동작을 처리한다. */
+
 function DeadStreamCard({ item, busy, onReplay }) {
   const statusMeta = STATUS_META[item.resolutionStatus] ?? STATUS_META.UNRESOLVED
   const streamMeta = STREAM_META[item.streamType] ?? { label: item.streamType, icon: 'stream', tone: 'bg-surface-container-high text-on-surface-variant' }
@@ -153,6 +159,8 @@ function DeadStreamCard({ item, busy, onReplay }) {
     </article>
   )
 }
+
+/** 관리자 운영 화면에서 Info 동작을 처리한다. */
 
 function Info({ label, value }) {
   return (

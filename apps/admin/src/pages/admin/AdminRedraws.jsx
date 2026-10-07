@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createRedrawRequest, getRedrawRequest } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
-import { BackHeader } from '../../components/layout/TopHeader.jsx'
-import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
-import { ErrorBlock, LoadingBlock, StatusPill } from '../../components/ui/States.jsx'
+import BackHeader from '../../components/BackHeader.jsx'
+import MaterialIcon from '../../components/MaterialIcon.jsx'
+import { ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
@@ -22,9 +22,13 @@ const EXECUTION_STATUS = {
   FAILED: { label: '실행 실패', tone: 'bg-error-container text-on-error-container', icon: 'error' },
 }
 
+/** 관리자 운영 화면에서 metaOf 동작을 처리한다. */
+
 function metaOf(map, value) {
   return map[value] ?? { label: value ?? '상태 확인 중', tone: 'bg-surface-container-high text-on-surface-variant' }
 }
+
+/** 관리자 운영 화면에서 createIdempotencyKey 동작을 처리한다. */
 
 function createIdempotencyKey() {
   if (typeof crypto?.randomUUID === 'function') return crypto.randomUUID()
@@ -45,6 +49,8 @@ export default function AdminRedraws() {
     [selectedId],
     { enabled: Boolean(selectedId), fallbackMessage: '재추첨 요청 정보를 불러오지 못했어요.' },
   )
+
+  /** 관리자 운영 화면에서 createRequest 동작을 처리한다. */
 
   async function createRequest(event) {
     event.preventDefault()
@@ -72,6 +78,8 @@ export default function AdminRedraws() {
       setBusy(false)
     }
   }
+
+  /** 관리자 운영 화면에서 lookup 동작을 처리한다. */
 
   function lookup(event) {
     event.preventDefault()
@@ -142,15 +150,21 @@ export default function AdminRedraws() {
   )
 }
 
+/** 관리자 운영 화면에서 RedrawDetail 동작을 처리한다. */
+
 function RedrawDetail({ redraw }) {
   const showToast = useToast()
   const requestMeta = metaOf(REQUEST_STATUS, redraw.status)
   const executionMeta = metaOf(EXECUTION_STATUS, redraw.executionStatus)
   const [rejectReason, setRejectReason] = useState('')
 
+  /** 관리자 운영 화면에서 notifyPendingApi 동작을 처리한다. */
+
   function notifyPendingApi(action) {
     showToast(`${action} API가 준비되면 바로 처리할 수 있어요.`, { icon: 'info' })
   }
+
+  /** 관리자 운영 화면에서 reject 동작을 처리한다. */
 
   function reject() {
     if (!rejectReason.trim()) {
@@ -241,6 +255,8 @@ function RedrawDetail({ redraw }) {
     </section>
   )
 }
+
+/** 관리자 운영 화면에서 Info 동작을 처리한다. */
 
 function Info({ label, value }) {
   return (

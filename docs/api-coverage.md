@@ -2,7 +2,7 @@
 
 이 문서는 **FE가 실제로 호출하는 API와 화면의 매핑**만 관리한다. 요청/응답 필드, 오류 코드, 인가 규칙의 정본은 Cking-BE `develop`의 [API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md)와 각 행의 계약 문서다. 계약 상세를 이 문서에 복사하지 않는다.
 
-표기의 `연동`은 현재 `apps/web/src/api/` 모듈과 화면/컴포넌트에서 호출하는 항목, `미연동`은 BE에 있으나 현재 화면이 없는 항목이다. Admin API도 독립 분리 전까지 같은 Web workspace에 남는다. `사용 앱`은 B-01 이후 소유 앱을 표시한다.
+표기의 `연동`은 각 앱의 `src/api/` 모듈과 화면/컴포넌트에서 호출하는 항목, `미연동`은 BE에 있으나 현재 화면이 없는 항목이다. Admin API는 `apps/admin`이 소유한다.
 
 ## Common
 
@@ -32,7 +32,14 @@
 | GET | `/api/creators/{creatorId}/calendar/schedules` | Creator Space 공개 캘린더 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
 | GET/PUT/DELETE | `/api/me/calendar/schedules`, `/api/me/calendar/schedules/{scheduleId}` | 내 캘린더 조회·담기·빼기 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
 | GET | `/api/creators/{creatorId}/posts`, `/api/creators/{creatorId}/posts/{postId}` | Space 게시물 목록·상세 | 연동 | [Post](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/api.md) |
+<<<<<<< HEAD
 | GET/POST/PATCH/DELETE | `/api/creators/{creatorId}/posts/{postId}/comments`, `/api/creators/{creatorId}/posts/{postId}/comments/{commentId}/original` | 게시물 댓글 조회·작성·수정·삭제, 필터링된 댓글 원문 보기 | 연동 | [Comment](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/comment-api.md) |
+=======
+| GET/POST/PATCH/DELETE | `/api/creators/{creatorId}/posts/{postId}/comments` | 게시물 댓글 조회·작성·수정·삭제 | 연동 | [Comment](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/comment-api.md) |
+| GET | `/api/interests`, `/api/me/interests` | 온보딩 관심 분야 조회 | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
+| PUT | `/api/me/interests` | 온보딩 관심 분야 저장(0~3개) | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
+| GET | `/api/me/creator-recommendations` | 온보딩 AI 크리에이터 추천 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
+>>>>>>> origin/develop
 
 ## Web — CREATOR
 
@@ -51,8 +58,9 @@
 
 | Method | Endpoint | 화면/기능 | FE 상태 | BE 계약 |
 | --- | --- | --- | --- | --- |
-| POST | `/api/auth/admin/login` | 관리자 ID/PW 로그인, ADMIN JWT·`ADMIN_WEB` Refresh Cookie 발급 | B-01 이후 연동 예정 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
-| POST | `/api/admin/auth/refresh`, `/api/admin/auth/logout` | `ADMIN_WEB` Refresh Cookie 갱신·로그아웃 | B-01 이후 연동 예정 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
+| POST | `/api/auth/admin/login` | 관리자 ID/PW 로그인, ADMIN JWT·`admin_refresh_token` Cookie 발급 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
+| POST | `/api/admin/auth/refresh`, `/api/admin/auth/logout` | `admin_refresh_token` Cookie 갱신·로그아웃 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
+| - | 공통 HTTP·오류 규약 | `apps/admin/src/api/client.js`: Admin Bearer JWT·`credentials: include`, 401 관리자 refresh 후 1회 재시도, 실패 시 Admin 세션 제거, 403은 권한 오류 | 연동 | [API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md) |
 | GET/POST | `/api/admin/events/pending`, `/api/admin/events/{eventId}/approve`, `/reject` | 이벤트 승인·반려 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | GET/POST | `/api/admin/creator-applications`, `/api/admin/creator-applications/{id}/approve`, `/reject` | Creator 신청 승인·반려 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
 | GET | `/api/admin/events/{eventId}/closing-status`, `/snapshot` | 마감·스냅샷 확인 | 연동 | [Drawing Admin Query](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/drawing/admin-query-api.md) |

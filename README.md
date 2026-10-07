@@ -32,7 +32,7 @@ npm run dev:admin
   로컬 백엔드는 `local,oauth` 프로필과 `JWT_SECRET`, OAuth Client 환경변수로 실행해야 합니다(`Cking-BE` README 참고).
 - 환경변수는 `apps/web/.env.example`을 `apps/web/.env`로 복사해 사용하세요.
 
-루트에서 `npm run lint`(shared/Web/Admin), `npm run test:shared`, `npm run build`(Web/Admin)를 실행합니다.
+루트에서 `npm run lint`(shared/Web/Admin), `npm run test`(shared/Admin), `npm run build`(Web/Admin)를 실행합니다.
 `develop`에 머지되면 Web(`apps/web/dist`)은 `dev.cking.co.kr`, Admin(`apps/admin/dist`)은 `dev-admin.cking.co.kr`로 배포됩니다.
 기존 `npm run dev`와 `npm run preview`도 Web 앱을 실행합니다.
 

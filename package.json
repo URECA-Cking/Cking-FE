@@ -19,6 +19,8 @@
     "lint:web": "npm run lint --workspace @cking/web",
     "lint:admin": "npm run lint --workspace @cking/admin",
     "test:shared": "npm run test --workspace @cking/shared",
+    "test:admin": "npm run test --workspace @cking/admin",
+    "test": "npm run test:shared && npm run test:admin",
     "preview": "npm run preview --workspace @cking/web"
   }
 }

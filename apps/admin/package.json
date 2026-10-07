@@ -1,5 +1,5 @@
 {
-  "name": "@cking/web",
+  "name": "@cking/admin",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -15,8 +15,6 @@
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.6.1",
     "oxlint": "^1.81.0",

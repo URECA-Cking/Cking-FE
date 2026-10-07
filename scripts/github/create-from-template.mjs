@@ -140,10 +140,18 @@ function createPullRequest() {
   const issueNumber = requireOption('--issue');
   const reviewer = requireOption('--reviewer');
   const base = getOption('--base') ?? 'develop';
-  const headings = prTemplate();
 
+  if (!/^\d+$/.test(issueNumber)) {
+    throw new Error('--issue 값은 숫자여야 합니다.');
+  }
+
+  const headings = prTemplate();
   requireHeadings(body, headings);
-  if (!new RegExp(`\\bCloses\\s+#${issueNumber}\\b`, 'i').test(body)) {
+  const closingIssueNumbers = [
+    ...body.matchAll(/\bCloses\s+#(\d+)\b/gi),
+  ].map((match) => match[1]);
+
+  if (!closingIssueNumbers.includes(issueNumber)) {
     throw new Error(`PR 본문에 'Closes #${issueNumber}'를 넣어야 합니다.`);
   }
 

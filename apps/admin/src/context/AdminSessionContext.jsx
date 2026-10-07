@@ -13,7 +13,13 @@ export function AdminSessionProvider({ children }) {
   const loadUser = useCallback(async () => {
     try {
       const me = await getMe()
-      if (me.role !== 'ADMIN') throw new Error('FORBIDDEN')
+      if (me.role !== 'ADMIN') {
+        clearAccessToken()
+        setUser(null)
+        setStatus('anonymous')
+        void logout().catch(() => {})
+        return null
+      }
       setUser(me)
       setStatus('authenticated')
       return me

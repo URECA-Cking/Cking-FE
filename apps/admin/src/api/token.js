@@ -15,7 +15,6 @@ function readToken() {
     }
     return stored
   } catch {
-    sessionStorage.removeItem(STORAGE_KEY)
     return null
   }
 }
@@ -30,11 +29,19 @@ export function getAccessToken() {
 /** 로그인·갱신 응답의 관리자 Access JWT를 탭 세션에 저장한다. */
 export function setAccessToken(token, expiresIn) {
   current = { token, expiresAt: Date.now() + Number(expiresIn) * 1000 }
-  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(current))
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(current))
+  } catch {
+    // sessionStorage를 쓸 수 없는 환경에서도 메모리 토큰으로 계속 동작한다.
+  }
 }
 
 /** 메모리와 sessionStorage의 관리자 Access JWT를 함께 제거한다. */
 export function clearAccessToken() {
   current = null
-  sessionStorage.removeItem(STORAGE_KEY)
+  try {
+    sessionStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // sessionStorage를 쓸 수 없는 환경에서는 메모리 토큰만 제거한다.
+  }
 }

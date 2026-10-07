@@ -37,6 +37,11 @@ export async function getDrawing(drawingId) {
   return get(`/api/admin/drawings/${drawingId}`);
 }
 
+/** Event에 연결된 INITIAL Drawing의 실행 상태를 조회한다. */
+export async function getInitialDrawing(eventId) {
+  return get(`/api/admin/events/${eventId}/drawings/initial`)
+}
+
 /** 완료된 추첨의 관리자용 당첨자 결과를 조회한다. */
 export async function getDrawingResult(drawingId) {
   return get(`/api/admin/drawings/${drawingId}/result`);

@@ -9,6 +9,7 @@ import {
   closeEvent,
   getDrawingEvents,
   getDrawing,
+  getInitialDrawing,
   getDrawingResult,
   getDrawingVerificationHistory,
   getEventSnapshot,
@@ -17,7 +18,7 @@ import {
   retryDrawing,
   verifyDrawing,
 } from '../../api/admin.js'
-import { describeError } from '../../api/client.js'
+import { ApiError, describeError } from '../../api/client.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 import { eventStatusMeta } from '../../utils/eventStatus.js'
 
@@ -53,42 +54,42 @@ export default function AdminDrawingPanel() {
     setBusy(true)
     try {
       const canQueryClosingStatus = event.status === 'CLOSING' || event.status === 'CLOSED'
-      const hasCompletedInitialDrawing = event.status === 'DRAW_COMPLETED' || event.status === 'PUBLISHED'
-      const [closing, snapshot, restored] = await Promise.all([
+      const canQueryInitialDrawing = event.status === 'CLOSED'
+        || event.status === 'DRAW_COMPLETED'
+        || event.status === 'PUBLISHED'
+      const [closing, snapshot, initial] = await Promise.all([
         canQueryClosingStatus
           ? getClosingStatus(event.eventId).catch((err) => ({ error: describeError(err) }))
           : Promise.resolve({ status: event.status }),
-        event.status === 'CLOSED' || hasCompletedInitialDrawing
+        canQueryInitialDrawing
           ? getEventSnapshot(event.eventId).catch((err) => ({ error: describeError(err) }))
           : Promise.resolve(null),
-        hasCompletedInitialDrawing ? restoreInitialDrawing(event.eventId) : Promise.resolve(null),
+        canQueryInitialDrawing ? loadInitialDrawing(event.eventId) : Promise.resolve(null),
       ])
       setDetail({
         closing,
         snapshot,
-        drawing: restored?.drawing ?? null,
-        result: restored?.result ?? null,
+        drawing: initial?.drawing ?? null,
+        result: initial?.result ?? null,
         verification: null,
-        drawingError: restored?.error,
+        drawingError: initial?.error,
       })
     } finally {
       setBusy(false)
     }
   }
 
-  /** 관리자 운영 화면에서 restoreInitialDrawing 동작을 처리한다. */
-
-  async function restoreInitialDrawing(eventId) {
+  /** Event에 연결된 INITIAL Drawing을 조회하고 완료된 경우에만 결과를 함께 불러온다. */
+  async function loadInitialDrawing(eventId) {
     try {
-      // 완료된 INITIAL Drawing 요청은 BE에서 기존 Drawing을 반환하는 멱등 경로다.
-      const initial = await runInitialDrawing(eventId)
-      const [drawing, result] = await Promise.all([
-        getDrawing(initial.drawingId).catch(() => initial),
-        getDrawingResult(initial.drawingId).catch(() => null),
-      ])
+      const drawing = await getInitialDrawing(eventId)
+      const result = drawing.status === 'COMPLETED'
+        ? await getDrawingResult(drawing.drawingId).catch(() => null)
+        : null
       return { drawing, result }
     } catch (err) {
-      return { error: describeError(err, '완료된 추첨 정보를 불러오지 못했어요.') }
+      if (err instanceof ApiError && err.code === 'DRAWING_NOT_FOUND') return null
+      return { error: describeError(err, '초기 추첨 정보를 불러오지 못했어요.') }
     }
   }
 
@@ -139,8 +140,17 @@ export default function AdminDrawingPanel() {
       setSelected(next)
       setDetail((prev) => ({ ...prev, closing }))
       if (closing.status === 'CLOSED') {
-        const snapshot = await getEventSnapshot(selected.eventId).catch((err) => ({ error: describeError(err) }))
-        setDetail((prev) => ({ ...prev, snapshot }))
+        const [snapshot, initial] = await Promise.all([
+          getEventSnapshot(selected.eventId).catch((err) => ({ error: describeError(err) })),
+          loadInitialDrawing(selected.eventId),
+        ])
+        setDetail((prev) => ({
+          ...prev,
+          snapshot,
+          drawing: initial?.drawing ?? null,
+          result: initial?.result ?? null,
+          drawingError: initial?.error,
+        }))
         showToast('이벤트 마감이 완료되어 초기 추첨을 진행할 수 있어요.')
       } else {
         showToast('이벤트 마감이 아직 진행 중이에요.', { icon: 'info' })

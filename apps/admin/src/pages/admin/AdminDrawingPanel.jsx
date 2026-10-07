@@ -6,6 +6,7 @@ import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import {
   getClosingStatus,
+  closeEvent,
   getDrawingEvents,
   getDrawing,
   getDrawingResult,
@@ -13,6 +14,7 @@ import {
   getEventSnapshot,
   publishDrawing,
   runInitialDrawing,
+  retryDrawing,
   verifyDrawing,
 } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
@@ -56,7 +58,9 @@ export default function AdminDrawingPanel() {
         canQueryClosingStatus
           ? getClosingStatus(event.eventId).catch((err) => ({ error: describeError(err) }))
           : Promise.resolve({ status: event.status }),
-        getEventSnapshot(event.eventId).catch((err) => ({ error: describeError(err) })),
+        canQueryClosingStatus || hasCompletedInitialDrawing
+          ? getEventSnapshot(event.eventId).catch((err) => ({ error: describeError(err) }))
+          : Promise.resolve(null),
         hasCompletedInitialDrawing ? restoreInitialDrawing(event.eventId) : Promise.resolve(null),
       ])
       setDetail({
@@ -103,6 +107,42 @@ export default function AdminDrawingPanel() {
       setDetail((prev) => ({ ...prev, drawing: meta ?? drawing, result, verification: null }))
     } catch (err) {
       showToast(describeError(err, '추첨 실행에 실패했습니다.'), { icon: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** 열려 있는 이벤트의 비동기 마감을 시작하고 화면 상태를 갱신한다. */
+  async function startClosing() {
+    if (!selected) return
+    setBusy(true)
+    try {
+      const closing = await closeEvent(selected.eventId)
+      const next = { ...selected, status: closing.status }
+      showToast(closing.status === 'CLOSED' ? '이벤트가 이미 마감되어 있어요.' : '이벤트 마감을 시작했어요.')
+      await reload()
+      await inspect(next)
+    } catch (err) {
+      showToast(describeError(err, '이벤트 마감을 시작하지 못했어요.'), { icon: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** 실패한 Drawing을 같은 Drawing과 Seed로 다시 실행한다. */
+  async function retryFailedDrawing() {
+    if (!detail?.drawing) return
+    setBusy(true)
+    try {
+      const drawing = await retryDrawing(detail.drawing.drawingId)
+      const [meta, result] = await Promise.all([
+        getDrawing(drawing.drawingId).catch(() => drawing),
+        getDrawingResult(drawing.drawingId).catch(() => null),
+      ])
+      setDetail((prev) => ({ ...prev, drawing: meta, result, verification: null }))
+      showToast('기존 추첨 입력과 Seed를 재사용해 다시 실행했어요.')
+    } catch (err) {
+      showToast(describeError(err, '추첨을 다시 실행하지 못했어요.'), { icon: 'error' })
     } finally {
       setBusy(false)
     }
@@ -231,7 +271,7 @@ export default function AdminDrawingPanel() {
 
               {detail.snapshot?.error ? (
                 <InfoRow icon="photo_camera" label="공식 스냅샷" value={detail.snapshot.error} tone="text-error" />
-              ) : (
+              ) : detail.snapshot ? (
                 <div className="p-space-sm rounded-xl bg-surface-container-lowest flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
                     <MaterialIcon name="photo_camera" className="text-primary text-[18px]" />
@@ -249,9 +289,19 @@ export default function AdminDrawingPanel() {
                     {formatDateTime(detail.snapshot?.createdAt)} 생성 · {detail.snapshot?.algorithmVersion}
                   </p>
                 </div>
-              )}
+              ) : null}
 
               {detail.drawingError && <ErrorBlock message={detail.drawingError} onRetry={() => inspect(selected)} />}
+
+              {selected.status === 'OPEN' && (
+                <button
+                  type="button"
+                  onClick={startClosing}
+                  className="h-11 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
+                >
+                  수동 마감 시작
+                </button>
+              )}
 
               {selected.status === 'CLOSED' && !detail.drawing && (
                 <button
@@ -290,6 +340,15 @@ export default function AdminDrawingPanel() {
 
               {detail.drawing && (
                 <div className="grid grid-cols-2 gap-2">
+                  {detail.drawing.status === 'FAILED' && (
+                    <button
+                      type="button"
+                      onClick={retryFailedDrawing}
+                      className="col-span-2 h-10 rounded-xl bg-error text-on-error font-label-sm text-label-sm font-bold active:scale-[0.98] transition-all"
+                    >
+                      실패한 추첨 다시 실행
+                    </button>
+                  )}
                   {detail.drawing.status === 'COMPLETED' && (
                     <>
                       {detail.drawing.visibility !== 'PUBLIC' && (

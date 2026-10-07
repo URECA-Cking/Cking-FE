@@ -55,12 +55,13 @@
 | POST | `/api/admin/auth/refresh`, `/api/admin/auth/logout` | `admin_refresh_token` Cookie 갱신·로그아웃 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
 | - | 공통 HTTP·오류 규약 | `apps/admin/src/api/client.js`: Admin Bearer JWT·`credentials: include`, 401 관리자 refresh 후 1회 재시도, 실패 시 Admin 세션 제거, 403은 권한 오류 | 연동 | [API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md) |
 | GET/POST | `/api/admin/events/pending`, `/api/admin/events/{eventId}/approve`, `/reject` | 이벤트 승인·반려 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
+| GET/POST | `/api/admin/events`, `/api/events/{eventId}/close` | 상태별 운영 이벤트 조회·수동 마감 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | GET/POST | `/api/admin/creator-applications`, `/api/admin/creator-applications/{id}/approve`, `/reject` | Creator 신청 승인·반려 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
 | GET | `/api/admin/events/{eventId}/closing-status`, `/snapshot` | 마감·스냅샷 확인 | 연동 | [Drawing Admin Query](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/drawing/admin-query-api.md) |
-| POST/GET | `/api/admin/events/{eventId}/drawings`, `/api/admin/drawings/{drawingId}`, `/result`, `/publish` | 초기 추첨·결과 확인·공개 | 연동 | [Drawing](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/drawing/api.md) |
+| POST/GET | `/api/admin/events/{eventId}/drawings`, `/api/admin/drawings/{drawingId}`, `/result`, `/publish`, `/retry` | 초기 추첨·실패 추첨 재시도·결과 확인·공개 | 연동 | [Drawing](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/drawing/api.md) |
 | POST/GET | `/api/admin/drawings/{drawingId}/verify`, `/verification-history` | 추첨 검증·이력 | 연동 | [Verification](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/drawing/verification-api.md) |
 | POST/GET | `/api/admin/winners/{winnerId}/receive`, `/disqualify`, `/api/winners/{winnerId}/history` | 당첨자 수령·자격·이력 | 연동 | [Winner](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/winner/api.md) |
-| POST/GET | `/api/admin/events/{eventId}/redraw-requests`, `/api/admin/redraw-requests/{id}` | 재추첨 요청·조회 | 연동 | [Redraw](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/redraw/api.md) |
+| GET/POST | `/api/admin/events/{eventId}/redraw-requests`, `/api/admin/redraw-requests`, `/{id}`, `/{id}/approve`, `/{id}/reject`, `/{id}/execute` | 재추첨 요청 생성·목록·상세·심사·실행 | 연동 | [Redraw](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/redraw/api.md) |
 | GET/POST | `/api/admin/dead-streams`, `/api/admin/dead-streams/{id}/replay` | Dead Stream 조회·replay | 연동 | [Stream](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/stream/api.md) |
 
 ## 미연동 또는 확인이 필요한 BE 기능

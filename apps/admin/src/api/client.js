@@ -20,7 +20,7 @@ function buildUrl(path, params) {
   return url
 }
 
-/** 관리자 토큰과 Refresh Cookie를 포함해 API 요청을 보내고 공통 응답 봉투를 읽는다. */
+/** 관리자 Access Token과 Refresh Cookie를 담아 단일 HTTP 요청을 보낸다. */
 async function send(path, { method = 'GET', body, params } = {}) {
   let response
   try {
@@ -54,6 +54,7 @@ async function send(path, { method = 'GET', body, params } = {}) {
 }
 
 let refreshing = null
+const unauthorizedListeners = new Set()
 
 /** admin_refresh_token Cookie로 Access JWT를 한 번만 갱신한다. */
 export function refreshAccessToken() {
@@ -67,7 +68,10 @@ export function refreshAccessToken() {
         clearAccessToken()
         return false
       })
-      .catch(() => false)
+      .catch(() => {
+        clearAccessToken()
+        return false
+      })
       .finally(() => {
         refreshing = null
       })
@@ -75,16 +79,31 @@ export function refreshAccessToken() {
   return refreshing
 }
 
-/** 401 발생 시 관리자 refresh를 한 번만 시도하고 실패하면 호출자에게 오류를 전달한다. */
+/** 401 갱신·한 번 재시도와 공통 오류 변환을 적용해 관리자 응답 데이터를 반환한다. */
 async function request(path, options = {}) {
   let result = await send(path, options)
   if (result.status === 401 && !options.skipRefresh && (await refreshAccessToken())) {
     result = await send(path, options)
   }
+  if (result.status === 401) {
+    clearAccessToken()
+    notifyUnauthorized()
+  }
   if (!result.ok || (result.code && result.code !== 'SUCCESS')) {
     throw new ApiError(result.code, result.message, result.status)
   }
   return result.data
+}
+
+/** 관리자 인증이 복구되지 않았을 때 세션 Context에 익명 전환을 알린다. */
+function notifyUnauthorized() {
+  unauthorizedListeners.forEach((listener) => listener())
+}
+
+/** 관리자 Access Token 갱신 실패를 구독하고 해제 함수를 반환한다. */
+export function onUnauthorized(listener) {
+  unauthorizedListeners.add(listener)
+  return () => unauthorizedListeners.delete(listener)
 }
 
 /** 관리자 화면이 사용하는 GET 요청을 실행한다. */

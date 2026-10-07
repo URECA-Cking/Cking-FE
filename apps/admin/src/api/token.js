@@ -4,8 +4,18 @@ const EXPIRY_MARGIN_MS = 30_000
 /** 관리자 Access JWT를 sessionStorage에서 읽는다. */
 function readToken() {
   try {
-    return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null')
+    const stored = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null')
+    if (!stored?.token || !Number.isFinite(stored.expiresAt)) {
+      sessionStorage.removeItem(STORAGE_KEY)
+      return null
+    }
+    if (Date.now() >= stored.expiresAt - EXPIRY_MARGIN_MS) {
+      sessionStorage.removeItem(STORAGE_KEY)
+      return null
+    }
+    return stored
   } catch {
+    sessionStorage.removeItem(STORAGE_KEY)
     return null
   }
 }
@@ -19,7 +29,7 @@ export function getAccessToken() {
 
 /** 로그인·갱신 응답의 관리자 Access JWT를 탭 세션에 저장한다. */
 export function setAccessToken(token, expiresIn) {
-  current = { token, expiresAt: Date.now() + expiresIn * 1000 }
+  current = { token, expiresAt: Date.now() + Number(expiresIn) * 1000 }
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(current))
 }
 

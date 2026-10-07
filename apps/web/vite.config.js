@@ -4,9 +4,8 @@ import { defineConfig, loadEnv } from 'vite'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  // Cking-BE에는 CORS 설정이 없어 브라우저에서 http://localhost:8080 을 직접 호출하면
-  // preflight/Origin 검사에서 막힌다. 백엔드를 수정하지 않고 해결하기 위해 개발 서버가
-  // /api 요청을 그대로 백엔드로 넘겨주는 프록시를 둔다(같은 출처 요청이 되어 CORS 불필요).
+  // 로컬에서는 /api를 같은 출처로 요청해 Refresh Cookie와 개발 환경을 단순하게 유지한다.
+  // Vite가 요청을 백엔드로 전달하며, 직접 API origin을 쓰는 배포 환경은 백엔드 CORS 설정을 따른다.
   const target = env.VITE_API_PROXY_TARGET || 'http://localhost:8080'
 
   return {

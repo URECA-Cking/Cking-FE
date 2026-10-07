@@ -1,5 +1,5 @@
-import { clearAccessToken, getAccessToken, setAccessToken } from './token.js'
-import { get, post, refreshAccessToken } from './client.js'
+import { getAccessToken, setAccessToken } from './token.js'
+import { get, logoutAdminSession, post, refreshAccessToken } from './client.js'
 
 /** 관리자 ID와 비밀번호로 전용 세션을 시작한다. */
 export async function login(loginId, password) {
@@ -20,9 +20,5 @@ export function restoreSession() {
 
 /** 관리자 Refresh Cookie를 폐기하고 로컬 Access JWT를 지운다. */
 export async function logout() {
-  try {
-    await post('/api/admin/auth/logout', undefined, undefined, { skipRefresh: true })
-  } finally {
-    clearAccessToken()
-  }
+  await logoutAdminSession()
 }

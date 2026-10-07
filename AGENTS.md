@@ -15,7 +15,7 @@
 
 ## 앱 경계
 
-현재 `develop`은 `apps/web` workspace 하나를 실행하며, 기존 관리자 화면도 이 workspace에 포함한다. B-01 이후 목표 경계는 `apps/web`, `apps/admin`, `packages/shared`이며, 상세 책임과 의존 방향은 [architecture.md](docs/architecture.md)를 따른다.
+현재 구조는 `apps/web`, `apps/admin`, `packages/shared` workspace로 구성된다. 상세 책임과 의존 방향은 [architecture.md](docs/architecture.md)를 따른다.
 
 ## 작업 방식
 

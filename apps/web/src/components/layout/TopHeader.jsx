@@ -22,18 +22,26 @@ function useShare() {
 }
 
 /** Top app bar used on the main tab screens (Home, Explore). */
-export function TopHeader({ title, embedded = false }) {
+export function TopHeader({ title, embedded = false, hidden = false }) {
   const navigate = useNavigate()
 
   return (
     <header
       className={
         embedded
-          ? 'relative z-50 shrink-0 w-full pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]'
+          ? `fixed top-0 left-1/2 z-50 w-full max-w-[480px] -translate-x-1/2 px-3 pt-safe transition-[transform,opacity] duration-300 ease-out md:max-w-none md:px-6 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[calc(env(safe-area-inset-top,0px)+3.5rem)] before:bg-gradient-to-b before:from-surface/22 before:via-surface/8 before:to-transparent before:backdrop-blur-[2px] before:content-[''] ${
+              hidden ? '-translate-y-[calc(100%+1rem)] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+            }`
           : 'fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]'
       }
     >
-      <div className="h-14 px-margin md:px-8 flex items-center justify-between">
+      <div
+        className={
+          embedded
+            ? 'relative h-14 px-margin flex items-center justify-between md:px-8'
+            : 'h-14 px-margin md:px-8 flex items-center justify-between'
+        }
+      >
         <div className="flex items-center gap-space-sm">
           <Link to="/" className="text-primary font-headline-md text-headline-md tracking-tight font-bold">
             Cking

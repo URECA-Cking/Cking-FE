@@ -1,4 +1,5 @@
 import { Outlet, useLocation } from 'react-router-dom'
+import { useRef } from 'react'
 import BottomNav from './BottomNav.jsx'
 import { TopHeader } from './TopHeader.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
@@ -6,6 +7,7 @@ import { useOnline } from '../../hooks/useOnline.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { getMyNotifications } from '../../api/notifications.js'
 import FollowStatus from '../creator/FollowStatus.jsx'
+import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 
 const TITLES = {
   '/': 'Home',
@@ -17,6 +19,8 @@ const TITLES = {
 
 export default function MainLayout() {
   const { pathname } = useLocation()
+  const scrollRef = useRef(null)
+  const { headerVisible, bottomCompact } = useScrollChrome(scrollRef)
   const online = useOnline()
   const title = TITLES[pathname] ?? 'Cking'
 
@@ -29,8 +33,11 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
-      <TopHeader title={title} embedded />
-      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface">
+      <TopHeader title={title} embedded hidden={!headerVisible} />
+      <main
+        ref={scrollRef}
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)]"
+      >
         <FollowStatus />
         {!online && (
           <div className="mx-margin mt-space-sm flex items-center gap-2 px-3 py-2 rounded-xl bg-gold-badge-bg text-gold-badge">
@@ -42,7 +49,7 @@ export default function MainLayout() {
         )}
         <Outlet context={{ notifications, unreadCount, reloadNotifications: reload }} />
       </main>
-      <BottomNav unreadCount={unreadCount} embedded />
+      <BottomNav unreadCount={unreadCount} embedded compact={bottomCompact} />
     </div>
   )
 }

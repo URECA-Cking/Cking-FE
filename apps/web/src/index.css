@@ -1,0 +1,188 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: theme('colors.surface');
+    color: theme('colors.on-surface');
+    font-family: 'Inter', sans-serif;
+  }
+
+  body {
+    overscroll-behavior-y: none;
+    min-height: 100dvh;
+  }
+
+  #root {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+    background-color: theme('colors.surface');
+  }
+
+  @media (min-width: 768px) {
+    #root {
+      width: 100%;
+      max-width: none;
+    }
+  }
+
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings:
+      'FILL' 0,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24;
+  }
+
+  .material-symbols-outlined.icon-fill {
+    font-variation-settings:
+      'FILL' 1,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+@layer base {
+  /* 웹앱(standalone)으로 실행될 때는 브라우저 UI가 없으므로 상태바 영역만큼 여백을 확보한다. */
+  @media (display-mode: standalone) {
+    body {
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+  }
+
+  /* 홈 화면에서 실행된 앱에서 링크/버튼을 눌렀을 때 생기는 하이라이트를 없앤다. */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* 임시 첫 화면(Splash.jsx). intro 0~500ms → dock(로고 자리로 이동) 또는 out(사라짐) ~440ms, 총 1초 미만. */
+@layer components {
+  .splash-letter {
+    opacity: 0;
+    animation: splash-letter-in 340ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+
+  .splash-bar {
+    transform: scaleX(0);
+    transform-origin: left;
+    animation: splash-bar-sweep 320ms cubic-bezier(0.65, 0, 0.35, 1) 180ms forwards;
+  }
+
+  .splash {
+    transition: background-color 200ms ease-out;
+  }
+
+  /* 로그인된 사용자: 아래 페이지(홈 등)는 그대로 보이고 그 위에 CKing만 떠 있다. 클릭을 막지 않는다. */
+  .splash.is-over {
+    background-color: transparent;
+    pointer-events: none;
+  }
+
+  .splash.is-dock {
+    animation: splash-bg-clear 440ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .splash.is-dock .splash-wordmark {
+    animation: splash-dock 440ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  }
+
+  .splash.is-out {
+    animation: splash-out 300ms ease-in forwards;
+  }
+
+  .splash.is-out .splash-wordmark {
+    animation: splash-wordmark-out 300ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+
+  /* 스플래시가 옮겨 올 자리의 실제 로고는 스플래시가 끝날 때까지 숨겨 둔다. */
+  .splash-active [data-splash-target] {
+    visibility: hidden;
+  }
+
+  @keyframes splash-letter-in {
+    from {
+      opacity: 0;
+      transform: translateY(60%) rotateX(-70deg);
+      filter: blur(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+      filter: blur(0);
+    }
+  }
+
+  @keyframes splash-bar-sweep {
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes splash-dock {
+    to {
+      transform: translate(var(--dock-x), var(--dock-y));
+    }
+  }
+
+  @keyframes splash-bg-clear {
+    to {
+      background-color: transparent;
+    }
+  }
+
+  @keyframes splash-wordmark-out {
+    to {
+      opacity: 0;
+      transform: scale(1.08);
+      filter: blur(8px);
+    }
+  }
+
+  /* 배경은 건드리지 않는다. 비로그인은 불투명한 채 CKing만 사라지고, 로그인(is-over)은 이미 투명해 페이지 위에서 사라진다. */
+  @keyframes splash-out {
+    to {
+      visibility: hidden;
+    }
+  }
+}

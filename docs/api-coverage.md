@@ -1,125 +1,72 @@
-# 백엔드 API 기준 프론트 연동 현황
+# FE API 사용 현황
 
-> 기준일: 2026-09-21 (인증·"나의 당첨" 판별 항목만 #19에서 2026-09-28 기준으로 갱신)
-> 기준 문서: [Cking-BE API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md)
+이 문서는 **FE가 실제로 호출하는 API와 화면의 매핑**만 관리한다. 요청/응답 필드, 오류 코드, 인가 규칙의 정본은 Cking-BE `develop`의 [API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md)와 각 행의 계약 문서다. 계약 상세를 이 문서에 복사하지 않는다.
 
-## 요약
+표기의 `연동`은 각 앱의 `src/api/` 모듈과 화면/컴포넌트에서 호출하는 항목, `미연동`은 BE에 있으나 현재 화면이 없는 항목이다. Admin API는 `apps/admin`이 소유한다.
 
-- 백엔드 외부 API: **50개**
-- 프론트에서 요청을 구현한 API: **36개 (72%)**
-- 주요 화면 라우트: **15개** (페이지 컴포넌트는 **14개**)
-- 인증: 데모 사용자 선택이 OAuth 로그인 + Access JWT로 바뀌었다(#19). 요청에 `userId`를 보내지 않는다.
+## Common
 
-표시 기준은 다음과 같다.
+| Method | Endpoint | 사용 앱 | 화면/기능 | FE 상태 | BE 계약 |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/me` | Web | 세션 복원·역할 판정 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
+| POST | `/api/auth/token`, `/api/auth/refresh`, `/api/auth/logout` | Web | OAuth Login Code 교환·갱신·로그아웃 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
+| GET | `/oauth2/authorization/{provider}` | Web | OAuth 로그인 시작 페이지 이동 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
+| - | 공통 HTTP·오류 규약 | Web | `apps/web/src/api/client.js`: Bearer JWT, `credentials: include`, 401 1회 갱신 | 연동 | [API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md) |
 
-- ✅ 화면에서 실제 요청·처리함
-- △ 요청은 하지만 사용자 기능이 API 계약과 완전히 맞지 않음
-- ❌ 백엔드 제공 API이나 프론트 미연동
-- — 백엔드도 제공하지 않아 샘플/로컬 상태로 처리함
+## Web — PUBLIC / USER
 
-## 화면별 라우트 매트릭스
-
-`src/App.jsx`의 와일드카드 경로를 제외한 15개 path 기준이다. `StudioEventForm`은 작성·수정의 두 경로가 공유한다.
-
-| 화면 | 경로 | 사용 API | 구현 상태 | 미연동/보완 사항 |
+| Method | Endpoint | 화면/기능 | FE 상태 | BE 계약 |
 | --- | --- | --- | --- | --- |
-| 로그인 | `/login`, `/oauth/callback` | OAuth 로그인 시작, `POST /api/auth/token`, `GET /api/me` | ✅ | - |
-| 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications`, `GET /api/me/follows` | ✅ | - |
-| 탐색 | `/explore` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE .../follow` | ✅ | 공개 Creator 전체 목록과 서버 팔로우 사용 |
-| 내 응모 | `/my-entries` | `GET /api/events`, `GET .../tickets/history`, `GET .../winners` | △ | `GET /api/events/{id}/entries/me`, 개인 당첨 API 미연동 |
-| 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH .../read` | ✅ | - |
-| 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, Creator 신청·내 신청, 티켓 잔액 API | ✅ | 내 당첨은 `/my-winners`에서 확인·관리 |
-| 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/events`, `PUT·DELETE .../follow` | ✅ | 공개 Creator 전체 목록과 서버 팔로우 사용 |
-| 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | Creator Space 조회·본인 수정·slug 변경, 이벤트, 티켓 잔액·원장, 미션, `GET /api/creators/{id}/posts` | ✅ | 게시물 목록·잠금 카드·상세 조회 연동(#25) |
-| 이벤트 상세·응모 | `/events/:eventId` | 이벤트 상세, 응모, 공개 당첨자·내 당첨 API | ✅ | 나의 당첨은 `GET /api/me/winners`의 `winnerId`로 판별 |
-| 크리에이터 스튜디오 | `/studio` | 내 이벤트 목록, 삭제, 승인 요청, 수동 마감 API | ✅ | - |
-| 이벤트 작성 | `/studio/events/new` | `POST /api/creator/events` | ✅ | - |
-| 이벤트 수정 | `/studio/events/:eventId/edit` | 내 이벤트 목록, `PATCH /api/creator/events/{id}` | ✅ | - |
-| 캘린더 관리 | `/studio/calendar` | 내 일정 기간 조회, `POST·PATCH·DELETE /api/creator/calendar/schedules(/{id})` | ✅ | - |
-| 내 캘린더 | `/my-calendar` | `GET /api/me/calendar/schedules`, `PUT·DELETE /api/me/calendar/schedules/{id}` | ✅ | 담기·빼기는 크리에이터 스페이스 캘린더 탭에서도 가능 |
-| 관리자 콘솔 | `/admin` | 승인·마감·Snapshot·초기 추첨·추첨 결과 API | △ | 재시도·공개·검증·당첨/재추첨/Dead Stream 운영 화면 없음 |
+| GET | `/api/creators` | 홈·탐색·온보딩·마이페이지의 Creator 목록/프로필 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
+| GET | `/api/creators/{id}/space`, `/api/creator-spaces/{slug}` | Creator Space·공유 링크 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| GET | `/api/events`, `/api/events/{eventId}` | 홈·탐색·이벤트 상세 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
+| POST | `/api/events/{eventId}/entries` | 이벤트 응모(멱등 키) | 연동 | [Entry](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/entry-api.md) |
+| GET | `/api/events/{eventId}/entries/me` | 내 응모 조회 | 연동 | [Entry](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/entry-api.md) |
+| GET | `/api/events/{eventId}/winners`, `/api/me/winners` | 이벤트 상세·내 당첨 | 연동 | [Winner](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/winner/api.md) |
+| POST | `/api/me/winners/{winnerId}/decline` | 내 당첨 포기 | 연동 | [Winner](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/winner/api.md) |
+| GET | `/api/winners/{winnerId}/history` | 내 당첨 상태 이력 | 연동 | [Winner](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/winner/api.md) |
+| GET/PUT/DELETE | `/api/me/follows`, `/api/creators/{creatorId}/follow` | 팔로우 목록·등록·해제 | 연동 | [Follow](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/follow/api.md) |
+| GET/PATCH | `/api/me/notifications`, `/api/me/notifications/{id}/read` | 알림 목록·읽음 | 연동 | [Notification](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/notification/api.md) |
+| GET | `/api/creators/{creatorId}/tickets`, `/api/creators/{creatorId}/tickets/history` | 잔액·응모권 원장 | 연동 | [Ticket](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/ticket/api.md) |
+| GET/POST | `/api/creators/{creatorId}/missions`, `/api/creators/{creatorId}/missions/{missionId}/complete` | Creator Space 미션 조회·완료 | 연동 | [Mission](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/mission/api.md) |
+| GET | `/api/creators/{creatorId}/calendar/schedules` | Creator Space 공개 캘린더 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
+| GET/PUT/DELETE | `/api/me/calendar/schedules`, `/api/me/calendar/schedules/{scheduleId}` | 내 캘린더 조회·담기·빼기 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
+| GET | `/api/creators/{creatorId}/posts`, `/api/creators/{creatorId}/posts/{postId}` | Space 게시물 목록·상세 | 연동 | [Post](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/api.md) |
+| GET/POST/PATCH/DELETE | `/api/creators/{creatorId}/posts/{postId}/comments` | 게시물 댓글 조회·작성·수정·삭제 | 연동 | [Comment](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/comment-api.md) |
+| GET | `/api/interests`, `/api/me/interests` | 온보딩 관심 분야 조회 | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
+| PUT | `/api/me/interests` | 온보딩 관심 분야 저장(0~3개) | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
+| GET | `/api/me/creator-recommendations` | 온보딩 AI 크리에이터 추천 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
 
-## API 대조
+## Web — CREATOR
 
-| 도메인 | API | 상태 | 현재 처리 또는 미연동 사유 |
-| --- | --- | --- | --- |
-| Auth | `POST /api/auth/token`, `refresh`, `logout` | ✅ | Login Code 교환, 401 시 자동 갱신, 로그아웃 |
-| Auth | `GET /api/me` | ✅ | 사용자 정보·Creator 여부·ADMIN 권한 판정 |
-| Creator 조회 | `GET /api/creators` | ✅ | 전체 페이지 조회 후 홈·탐색·관심 선택·마이페이지 및 이벤트 프로필에 사용 |
-| Creator 조회 | `GET /api/creators/{creatorId}` | — | 백엔드 미구현. 크리에이터 스페이스는 Space API로 대체 |
-| Creator Space | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}` | ✅ | 크리에이터 스페이스 공개 조회(#21) |
-| Post | `GET /api/creators/{id}/posts`, `GET /api/creators/{id}/posts/{postId}` | ✅ | 스페이스 게시물 목록·상세, 팔로워 전용 잠금 상태(#25) |
-| Creator Space | `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug` | ✅ | 본인 스페이스 편집·공유 주소 변경(#21) |
-| Calendar | `GET /api/creators/{creatorId}/calendar/schedules` | ✅ | 크리에이터 스페이스 캘린더 탭·홈의 다가오는 일정(#21) |
-| Calendar | 크리에이터 본인 일정 CRUD·기간 조회(`/api/creator/calendar/schedules`) | ✅ | 크리에이터 일정 관리 화면(#34) |
-| Calendar | 개인 캘린더 담기·제거·기간 조회(`/api/me/calendar/schedules`) | ✅ | 내 캘린더 화면과 스페이스 캘린더 탭의 담기·빼기(#37) |
-| Calendar | 크리에이터 일정 상세 조회(`GET /api/creators/{creatorId}/calendar/schedules/{scheduleId}`) | ❌ | 목록 조회로 충분해 상세 단건 조회 화면 없음 |
-| Mission | `GET /api/creators/{creatorId}/missions` | ✅ | 크리에이터 스페이스 홈·미션 탭에서 LIKE만 표시; SHARE는 공유 UI 연동 전까지 숨김 |
-| Mission | `POST /api/creators/{creatorId}/missions/{missionId}/complete` | ✅ | 크리에이터 스페이스 LIKE 미션 참여에만 사용 |
-| Ticket | `GET /api/creators/{creatorId}/tickets` | ✅ | 홈·탐색·스페이스·마이페이지 잔액 |
-| Ticket | `GET /api/creators/{creatorId}/tickets/history` | ✅ | 응모권 원장·내 응모 재구성 |
-| Event/Entry | `GET /api/events` | ✅ | 홈·탐색·크리에이터별 이벤트 목록 |
-| Event/Entry | `GET /api/events/{eventId}` | ✅ | 이벤트 상세 |
-| Event/Entry | `POST /api/events/{eventId}/entries` | ✅ | UUID 멱등 키를 포함한 응모 |
-| Event/Entry | `GET /api/events/{eventId}/entries/me` | ❌ | 현재는 원장 `SPEND` 기록으로 내 응모를 재구성 |
-| Creator 운영 | `GET/POST /api/creator/events` | ✅ | 스튜디오 목록·생성 |
-| Creator 운영 | `PATCH/DELETE /api/creator/events/{eventId}` | ✅ | 이벤트 수정·삭제 |
-| Creator 운영 | `POST /api/creator/events/{eventId}/approval-request` | ✅ | 관리자 승인 요청 |
-| Event 마감 | `POST /api/events/{eventId}/close` | ✅ | 크리에이터 스튜디오 수동 마감 |
-| 관리자 승인 | `GET /api/admin/events/pending` | ✅ | 승인 대기 목록 |
-| 관리자 승인 | `POST /api/admin/events/{eventId}/approve`, `reject` | ✅ | 승인·반려 |
-| 마감/스냅샷 | `GET .../closing-status`, `GET .../snapshot` | ✅ | 추첨 운영 패널 사전 확인 |
-| Drawing | `POST /api/admin/events/{eventId}/drawings` | ✅ | 초기 추첨 실행 |
-| Drawing | `GET /api/admin/drawings/{drawingId}`, `result` | ✅ | 추첨 메타·관리자 결과 조회 |
-| Drawing | `POST /api/admin/drawings/{drawingId}/retry` | ❌ | 실패 추첨 재시도 UI 없음 |
-| Drawing | `POST /api/admin/drawings/{drawingId}/publish` | ❌ | 결과 공개 UI 없음 |
-| Winner | `GET /api/events/{eventId}/winners` | ✅ | 공개 결과(마스킹된 이름) 표시, 나의 당첨은 `GET /api/me/winners`로 판별 |
-| Creator 승인 | 신청·내 신청·관리자 목록·승인·반려 API | ✅ | 로그인·마이페이지·관리자 콘솔 |
-| Winner 관리 | `GET /api/me/winners`, `POST .../decline` | ❌ | 내 당첨 및 당첨 포기 화면 없음 |
-| Winner 관리 | 관리자 수령·자격 박탈·상태 이력 API | ❌ | 관리자 운영 화면 없음 |
-| Redraw | 생성·상세·승인·반려·실행 API | ❌ | 재추첨 운영 화면 없음 |
-| Notification | `GET /api/me/notifications`, `PATCH .../read` | ✅ | 알림 목록·읽음·이벤트 이동 |
-| Verification | 검증 실행·검증 이력 API | ❌ | 추첨 검증 화면 없음 |
-| Stream | Dead Stream 조회·replay API | ❌ | 장애 복구 운영 화면 없음 |
+| Method | Endpoint | 화면/기능 | FE 상태 | BE 계약 |
+| --- | --- | --- | --- | --- |
+| POST/GET | `/api/creator/applications`, `/api/creator/applications/me` | Creator 전환 신청·내 신청 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
+| GET/PATCH | `/api/creator/space`, `/api/creator/space/slug` | 내 Space 편집·slug 변경 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| GET/POST/PATCH/DELETE | `/api/creator/events`, `/api/creator/events/{eventId}` | Creator Studio 이벤트 CRUD | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
+| POST | `/api/creator/events/{eventId}/approval-request` | 이벤트 승인 요청 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
+| POST | `/api/events/{eventId}/close` | 이벤트 수동 마감 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
+| GET/POST/PATCH/DELETE | `/api/creator/calendar/schedules`, `/api/creator/calendar/schedules/{scheduleId}` | Creator 일정 관리 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
+| POST | `/api/creator/posts/images` | 게시물 이미지 업로드 | 연동 | [Post](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/api.md) |
+| POST/PATCH/DELETE | `/api/creator/posts`, `/api/creator/posts/{postId}` | 게시물 작성·수정·삭제 | 연동 | [Post](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/api.md) |
 
-## 역할별 흐름
+## Admin — ADMIN
 
-### 사용자
+| Method | Endpoint | 화면/기능 | FE 상태 | BE 계약 |
+| --- | --- | --- | --- | --- |
+| POST | `/api/auth/admin/login` | 관리자 ID/PW 로그인, ADMIN JWT·`admin_refresh_token` Cookie 발급 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
+| POST | `/api/admin/auth/refresh`, `/api/admin/auth/logout` | `admin_refresh_token` Cookie 갱신·로그아웃 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
+| - | 공통 HTTP·오류 규약 | `apps/admin/src/api/client.js`: Admin Bearer JWT·`credentials: include`, 401 관리자 refresh 후 1회 재시도, 실패 시 Admin 세션 제거, 403은 권한 오류 | 연동 | [API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md) |
+| GET/POST | `/api/admin/events/pending`, `/api/admin/events/{eventId}/approve`, `/reject` | 이벤트 승인·반려 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
+| GET/POST | `/api/admin/events`, `/api/events/{eventId}/close` | 상태별 운영 이벤트 조회·수동 마감 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
+| GET/POST | `/api/admin/creator-applications`, `/api/admin/creator-applications/{id}/approve`, `/reject` | Creator 신청 승인·반려 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
+| GET | `/api/admin/events/{eventId}/closing-status`, `/snapshot` | 마감·스냅샷 확인 | 연동 | [Drawing Admin Query](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/drawing/admin-query-api.md) |
+| POST/GET | `/api/admin/events/{eventId}/drawings`, `/api/admin/drawings/{drawingId}`, `/result`, `/publish`, `/retry` | 초기 추첨·실패 추첨 재시도·결과 확인·공개 | 연동 | [Drawing](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/drawing/api.md) |
+| POST/GET | `/api/admin/drawings/{drawingId}/verify`, `/verification-history` | 추첨 검증·이력 | 연동 | [Verification](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/drawing/verification-api.md) |
+| POST/GET | `/api/admin/winners/{winnerId}/receive`, `/disqualify`, `/api/winners/{winnerId}/history` | 당첨자 수령·자격·이력 | 연동 | [Winner](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/winner/api.md) |
+| GET/POST | `/api/admin/events/{eventId}/redraw-requests`, `/api/admin/redraw-requests`, `/{id}`, `/{id}/approve`, `/{id}/reject`, `/{id}/execute` | 재추첨 요청 생성·목록·상세·심사·실행 | 연동 | [Redraw](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/redraw/api.md) |
+| GET/POST | `/api/admin/dead-streams`, `/api/admin/dead-streams/{id}/replay` | Dead Stream 조회·replay | 연동 | [Stream](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/stream/api.md) |
 
-```mermaid
-flowchart TD
-  A[OAuth 로그인] --> B[크리에이터 탐색·관심 등록]
-  B --> C[이벤트 목록·상세]
-  C --> D[응모권으로 응모]
-  D --> E[내 응모·알림 확인]
-  E --> F[공개 당첨 결과 확인]
-  B -. 미연동: 미션 조회·완료 .-> G[출석·좋아요로 응모권 적립]
-  E -. 미연동: 개인 당첨 조회·포기 .-> H[내 당첨 관리]
-```
+## 미연동 또는 확인이 필요한 BE 기능
 
-### 크리에이터와 관리자
-
-```mermaid
-flowchart LR
-  A[크리에이터 신청] --> B[관리자 승인]
-  B --> C[이벤트 작성·수정]
-  C --> D[승인 요청]
-  D --> E[관리자 승인·반려]
-  E --> F[이벤트 진행]
-  F --> G[수동 마감]
-  G --> H[스냅샷 확인·초기 추첨]
-  H -. 미연동 .-> I[재시도·검증·결과 공개]
-  I -. 미연동 .-> J[당첨 관리·재추첨]
-```
-
-## 우선 연동 순서
-
-1. **미션 조회·완료**: 응모권 획득 수단이 없어 사용자 핵심 순환이 닫히지 않는다.
-2. **내 응모·내 당첨**: 원장 재구성을 전용 API(`GET /api/events/{id}/entries/me`)로 교체한다.
-3. **Drawing 공개·검증·재시도**: 초기 추첨 이후의 관리자 운영 흐름을 완성한다.
-4. **당첨 운영·재추첨·Dead Stream**: 운영자용 고급 예외 처리 기능을 추가한다.
-
-## 백엔드에 없는 화면 기능
-
-- 전체 게시물 피드와 좋아요: 전체 피드 API가 없어 홈 샘플 피드는 제거; 스페이스에서는 크리에이터별 게시글만 조회
-- 실시간 인기·누적 응모 수: 공개 조회 API 없음
+현재 UI/API 모듈에서 사용하지 않는 API를 새로 연동할 때는 먼저 API 인덱스에서 역할과 계약 문서를 확인하고, 해당 행을 이 문서에 추가한다. 예: Creator Space 템플릿, 관심사, Abuse Detection, Subscription Verification, Ticket/Lua 내부 처리 API는 현재 FE 화면 사용 범위가 아니다.

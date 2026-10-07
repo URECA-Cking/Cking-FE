@@ -1,36 +1,67 @@
 # Cking-FE
 
-Cking 팬덤 래플 서비스의 프론트엔드(웹앱)입니다. React + Vite + Tailwind CSS로 만들었고,
+Cking 팬덤 래플 서비스의 프론트엔드입니다. npm workspaces로 앱을 관리하며,
+Web 앱은 `apps/web`, 관리자 앱은 `apps/admin`에 있습니다. React + Vite + Tailwind CSS로 만들었고,
 화면 구성은 `stitch/` 시안(Fandom Editorial Luxe 디자인 시스템)을 따릅니다.
 표시되는 값은 별도로 표기한 항목을 빼고 모두 백엔드(`Cking-BE`)의 실제 응답입니다.
+
+## Workspace 구조
+
+```text
+apps/web/      사용자·Creator Web 앱
+apps/admin/    독립 관리자 앱
+packages/shared/  두 앱이 사용하는 HTTP 전송·토큰 저장소·아이콘·포맷터·비동기 조회 훅
+package.json   npm workspaces 및 루트 명령
+```
+
+`npm run build`는 Web과 Admin을 함께 빌드합니다.
 
 ## 실행
 
 ```bash
-npm install
-npm run dev
+npm ci
+npm run dev:web
+npm run dev:admin
 ```
 
-- 개발 서버: http://localhost:5173
+- Web 개발 서버: http://localhost:5173
+- Admin 개발 서버: http://localhost:5174
 - `/api` 요청은 vite 프록시가 백엔드로 전달합니다(기본 `http://localhost:8080`).
   같은 출처 요청이 되어 Refresh Cookie(`Path=/api/auth`)도 그대로 오갑니다.
 - 로그인(OAuth)은 API 호출이 아니라 백엔드 주소로의 페이지 이동이라 프록시를 거치지 않습니다.
   로컬 백엔드는 `local,oauth` 프로필과 `JWT_SECRET`, OAuth Client 환경변수로 실행해야 합니다(`Cking-BE` README 참고).
-- 환경변수는 `.env.example`을 복사해 `.env`로 사용하세요.
+- 환경변수는 `apps/web/.env.example`을 `apps/web/.env`로 복사해 사용하세요.
+
+루트에서 `npm run lint`(shared/Web/Admin), `npm run test`(shared/Admin), `npm run build`(Web/Admin)를 실행합니다.
+`develop`에 머지되면 Web(`apps/web/dist`)은 `dev.cking.co.kr`, Admin(`apps/admin/dist`)은 `dev-admin.cking.co.kr`로 배포됩니다.
+기존 `npm run dev`와 `npm run preview`도 Web 앱을 실행합니다.
+
+### 로컬 Admin E2E
+
+실제 개발 배포 환경의 관리자 인증 흐름은 필요할 때만 Playwright로 확인한다. 이 테스트는 CI나 `npm run test`에 포함하지 않는다.
+
+```powershell
+$env:E2E_ADMIN_LOGIN_ID='<관리자 로그인 ID>'
+$env:E2E_ADMIN_PASSWORD='<관리자 비밀번호>'
+npm run test:e2e:admin
+```
+
+최초 한 번은 `npx playwright install chromium`으로 로컬 브라우저를 설치한다. 기본 대상은 `https://dev-admin.cking.co.kr`이며, `E2E_ADMIN_BASE_URL`과 `E2E_ADMIN_API_BASE_URL`로 다른 개발 환경을 지정할 수 있다.
 
 | 변수 | 설명 |
 | --- | --- |
 | `VITE_API_PROXY_TARGET` | 개발 서버가 `/api`를 전달할 백엔드 주소 (기본 `http://localhost:8080`). `VITE_API_BASE_URL`이 비어 있으면 OAuth 로그인도 이 주소로 이동 |
 | `VITE_API_BASE_URL` | API 기준 주소. 비우면 같은 출처로 요청(프록시 사용). 값이 있으면 OAuth 로그인도 이 주소로 이동 |
+| `VITE_ADMIN_BASE_URL` | Web의 관리자 콘솔 진입 주소. 로컬 기본값은 `http://localhost:5174` |
 
 백엔드는 더미 데이터 시더(`local` + `seed` 프로필)로 사용자 15명과 크리에이터 3명을 만듭니다.
 
 ## 웹앱(PWA)
 
-- `public/manifest.webmanifest` — standalone 실행, 브랜드 테마 색상, 바로가기(내 응모/알림)
-- `public/sw.js` — 앱 셸은 stale-while-revalidate, `/api`는 네트워크 우선(오프라인일 때만 마지막 성공 응답). Access JWT가 붙은 요청은 캐시하지 않음
+- `apps/web/public/manifest.webmanifest` — standalone 실행, 브랜드 테마 색상, 바로가기(내 응모/알림)
+- `apps/web/public/sw.js` — 앱 셸은 stale-while-revalidate, `/api`는 네트워크 우선(오프라인일 때만 마지막 성공 응답). Access JWT가 붙은 요청은 캐시하지 않음
 - 홈 화면 설치 배너(`InstallBanner`)와 오프라인 안내 배너 제공
-- 아이콘은 `node scripts/generate-icons.mjs`로 다시 생성할 수 있습니다(추가 의존성 없음)
+- 아이콘은 `node apps/web/scripts/generate-icons.mjs`로 다시 생성할 수 있습니다(추가 의존성 없음)
 
 서비스 워커는 프로덕션 빌드에서만 등록됩니다. 설치 동작을 확인하려면 `npm run build && npm run preview`.
 
@@ -39,8 +70,9 @@ npm run dev
 | 화면 | 경로 | 사용하는 백엔드 API |
 | --- | --- | --- |
 | 로그인 | `/login` | `GET /oauth2/authorization/{google\|kakao}` (페이지 이동) |
-| 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`, `GET /api/me/follows` (모든 페이지), (크리에이터로 시작 시) `POST /api/creator/applications` |
-| 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
+| 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`, `GET /api/me/follows` (모든 페이지) |
+| 온보딩(관심 분야 → 크리에이터 추천) | `/onboarding` | `GET /api/interests`, `GET·PUT /api/me/interests`, `GET /api/me/creator-recommendations`, `GET /api/creators?keyword`, `GET /api/me/follows`, `PUT·DELETE /api/creators/{id}/follow` (가입 직후 자동 이동은 BE `onboardingCompleted` 대기, #64) |
+| 관심 크리에이터 관리 | `/onboarding/creators` | 위 온보딩의 크리에이터 단계만 다시 연다 |
 | 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` |
 | 탐색 | `/explore` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
 | 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}`, `GET /api/creators/{id}/posts`, `GET /api/creators/{id}/posts/{postId}`, (본인) `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug`, `GET /api/events?creatorId=`, `GET /api/creators/{id}/tickets`, `.../tickets/history`, `GET·POST .../missions`, `GET /api/creators/{id}/calendar/schedules`, (로그인 시) `GET /api/me/calendar/schedules`, `PUT·DELETE /api/me/calendar/schedules/{id}` |
@@ -63,7 +95,7 @@ npm run dev
 Google·Kakao OAuth로 로그인하고 Access JWT로 호출자를 식별합니다(`Cking-BE` `docs/domains/auth/api.md`).
 요청에 `userId`를 보내지 않습니다.
 
-1. 로그인 화면에서 `/oauth2/authorization/{provider}`로 이동합니다. "크리에이터로 시작"과 돌아갈 화면은 `sessionStorage`에 잠시 맡겨 둡니다.
+1. 로그인 화면에서 `/oauth2/authorization/{provider}`로 이동합니다. 돌아갈 화면은 `sessionStorage`에 잠시 맡겨 둡니다. 크리에이터 전환 신청은 로그인 후 마이페이지에서 합니다.
 2. 백엔드가 `/oauth/callback?code=...`(실패 시 `?error=...`)로 돌려보내면, Login Code를 `POST /api/auth/token`으로 Access JWT와 교환합니다.
 3. Access JWT는 `sessionStorage`에 두고 모든 요청에 `Authorization: Bearer`로 붙입니다(`credentials: 'include'`).
 4. 401을 받으면 `POST /api/auth/refresh`(HttpOnly Refresh Cookie)로 한 번 갱신 후 재시도하고, 실패하면 로그인 화면으로 보냅니다. 동시에 여러 요청이 401을 받아도 갱신은 한 번만 합니다.
@@ -95,7 +127,7 @@ Google·Kakao OAuth로 로그인하고 Access JWT로 호출자를 식별합니�
 ## 구조
 
 ```
-src/
+apps/web/src/
   api/        백엔드 엔드포인트별 호출 모듈 (+ creators/myEntries 같은 조합 조회)
   components/ 레이아웃·카드·시트 등 공용 UI
   context/    로그인 세션(UserContext), 토스트
@@ -110,5 +142,6 @@ src/
 
 ```bash
 npm run lint
+npm run build:web
 npm run build
 ```

@@ -3,25 +3,29 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.4"
+    "dev": "npm run dev:web",
+    "dev:web": "npm run dev --workspace @cking/web",
+    "dev:admin": "npm run dev --workspace @cking/admin",
+    "build": "npm run build:web && npm run build:admin",
+    "build:web": "npm run build --workspace @cking/web",
+    "build:admin": "npm run build --workspace @cking/admin",
+    "lint": "npm run lint:shared && npm run lint:web && npm run lint:admin",
+    "lint:shared": "npm run lint --workspace @cking/shared",
+    "lint:web": "npm run lint --workspace @cking/web",
+    "lint:admin": "npm run lint --workspace @cking/admin",
+    "test:shared": "npm run test --workspace @cking/shared",
+    "test:admin": "npm run test --workspace @cking/admin",
+    "test": "npm run test:shared && npm run test:admin",
+    "test:e2e:admin": "playwright test --config=playwright.admin.config.js",
+    "test:e2e:admin:headed": "playwright test --config=playwright.admin.config.js --headed",
+    "preview": "npm run preview --workspace @cking/web"
   },
   "devDependencies": {
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
-    "@vitejs/plugin-react": "^6.1.1",
-    "autoprefixer": "^10.6.1",
-    "oxlint": "^1.81.0",
-    "postcss": "^8.5.28",
-    "tailwindcss": "^3.4.19",
-    "vite": "^8.3.0"
+    "@playwright/test": "^1.63.0"
   }
 }

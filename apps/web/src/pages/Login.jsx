@@ -7,21 +7,6 @@ import { oauthLoginUrl } from '../api/auth.js'
 import { bannerImage } from '../data/images.js'
 import { saveLoginIntent } from '../utils/loginIntent.js'
 
-const ROLES = [
-  {
-    id: 'fan',
-    icon: 'favorite',
-    title: '팬으로 시작',
-    desc: '좋아하는 크리에이터의 게시물과 이벤트를 즐길 수 있어요.',
-  },
-  {
-    id: 'creator',
-    icon: 'mic',
-    title: '크리에이터로 시작',
-    desc: '팬 활동과 크리에이터 기능을 함께 사용할 수 있어요. (크리에이터 전환 신청이 함께 접수돼요)',
-  },
-]
-
 const PROVIDERS = [
   { id: 'google', label: 'Google로 계속하기', className: 'bg-surface-container-lowest text-on-surface border border-outline-variant/60' },
   { id: 'kakao', label: '카카오로 계속하기', className: 'bg-[#FEE500] text-[#191919] border border-transparent' },
@@ -32,7 +17,6 @@ const PROVIDERS = [
  *
  * Google·Kakao OAuth 로그인을 시작한다(GET /oauth2/authorization/{provider}, Cking-BE docs/domains/auth/api.md).
  * 로그인이 끝나면 백엔드가 /oauth/callback으로 돌려보내고, OAuthCallback 화면이 Access JWT를 발급받는다.
- * 크리에이터로 시작을 고르면 로그인 직후 POST /api/creator/applications로 전환 신청까지 접수한다.
  */
 export default function Login() {
   const navigate = useNavigate()
@@ -40,7 +24,6 @@ export default function Login() {
   const showToast = useToast()
   const { user, status } = useUser()
 
-  const [role, setRole] = useState('fan')
   const [agreed, setAgreed] = useState(false)
 
   const redirectTo = location.state?.from ?? '/'
@@ -51,7 +34,7 @@ export default function Login() {
       showToast('이용약관에 먼저 동의해주세요.', { icon: 'error' })
       return
     }
-    saveLoginIntent({ role, redirectTo })
+    saveLoginIntent({ redirectTo })
     window.location.assign(oauthLoginUrl(provider))
   }
 
@@ -88,61 +71,6 @@ export default function Login() {
           </div>
         </div>
       </div>
-
-      <section className="flex flex-col gap-space-sm mb-space-lg">
-        <div className="flex items-center justify-between">
-          <span className="font-label-md text-label-md text-on-surface font-semibold">어떻게 시작하시겠어요?</span>
-          <span className="font-label-xs text-label-xs text-primary bg-berry-tint px-2 py-0.5 rounded-full font-semibold">
-            맞춤 프로필 설정
-          </span>
-        </div>
-        <div className="grid grid-cols-1 gap-space-sm">
-          {ROLES.map((option) => {
-            const selected = role === option.id
-            return (
-              <label
-                key={option.id}
-                className={`relative flex items-start gap-space-md p-space-md rounded-xl cursor-pointer transition-all duration-200 border-2 ${
-                  selected
-                    ? 'bg-surface-container-lowest shadow-md border-primary'
-                    : 'bg-surface-container-low shadow-sm border-transparent opacity-90'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="account_role"
-                  value={option.id}
-                  checked={selected}
-                  onChange={() => setRole(option.id)}
-                  className="sr-only"
-                />
-                <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5 ${
-                    selected ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'
-                  }`}
-                >
-                  <MaterialIcon name={option.icon} className="text-title-lg" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="font-title-md text-title-md text-on-surface font-semibold">{option.title}</span>
-                    <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                        selected ? 'bg-primary text-on-primary' : 'bg-surface-container text-transparent'
-                      }`}
-                    >
-                      <MaterialIcon name="check" className="text-[14px]" />
-                    </div>
-                  </div>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 leading-relaxed">
-                    {option.desc}
-                  </p>
-                </div>
-              </label>
-            )
-          })}
-        </div>
-      </section>
 
       <div className="flex items-center gap-2 mb-space-md px-1">
         <input

@@ -55,7 +55,7 @@ Web 빌드 산출물은 `apps/web/dist`이며 기존 `dev.cking.co.kr` 배포에
 | 화면 | 경로 | 사용하는 백엔드 API |
 | --- | --- | --- |
 | 로그인 | `/login` | `GET /oauth2/authorization/{google\|kakao}` (페이지 이동) |
-| 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`, `GET /api/me/follows` (모든 페이지), (크리에이터로 시작 시) `POST /api/creator/applications` |
+| 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`, `GET /api/me/follows` (모든 페이지) |
 | 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
 | 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` |
 | 탐색 | `/explore` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
@@ -79,7 +79,7 @@ Web 빌드 산출물은 `apps/web/dist`이며 기존 `dev.cking.co.kr` 배포에
 Google·Kakao OAuth로 로그인하고 Access JWT로 호출자를 식별합니다(`Cking-BE` `docs/domains/auth/api.md`).
 요청에 `userId`를 보내지 않습니다.
 
-1. 로그인 화면에서 `/oauth2/authorization/{provider}`로 이동합니다. "크리에이터로 시작"과 돌아갈 화면은 `sessionStorage`에 잠시 맡겨 둡니다.
+1. 로그인 화면에서 `/oauth2/authorization/{provider}`로 이동합니다. 돌아갈 화면은 `sessionStorage`에 잠시 맡겨 둡니다. 크리에이터 전환 신청은 로그인 후 마이페이지에서 합니다.
 2. 백엔드가 `/oauth/callback?code=...`(실패 시 `?error=...`)로 돌려보내면, Login Code를 `POST /api/auth/token`으로 Access JWT와 교환합니다.
 3. Access JWT는 `sessionStorage`에 두고 모든 요청에 `Authorization: Bearer`로 붙입니다(`credentials: 'include'`).
 4. 401을 받으면 `POST /api/auth/refresh`(HttpOnly Refresh Cookie)로 한 번 갱신 후 재시도하고, 실패하면 로그인 화면으로 보냅니다. 동시에 여러 요청이 401을 받아도 갱신은 한 번만 합니다.

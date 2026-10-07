@@ -25,6 +25,6 @@ API 사용 범위와 정본 링크는 [api-coverage.md](../api-coverage.md)를 �
 
 ### 실행 환경과 회귀 검증
 
-로컬에서 `VITE_API_BASE_URL`을 비우면 `/api`는 Web과 같은 출처로 요청되고 Vite가 `VITE_API_PROXY_TARGET`(기본 `http://localhost:8080`)으로 전달한다. OAuth 시작은 페이지 이동이므로 프록시를 거치지 않고 백엔드 주소로 직접 이동한다. `VITE_ADMIN_BASE_URL`은 독립 Admin 앱 주소이며, 운영 빌드에서 값이 없으면 관리자 링크를 숨긴다. 개발 배포 빌드는 CI가 API와 Admin 주소를 주입한다.
+로컬에서 `VITE_API_BASE_URL`을 비우면 `/api`는 Web과 같은 출처로 요청되고 Vite가 `VITE_API_PROXY_TARGET`(기본 `http://localhost:8080`)으로 전달한다. OAuth 시작은 페이지 이동이므로 프록시를 거치지 않고 백엔드 주소로 직접 이동한다. `VITE_ADMIN_BASE_URL`은 독립 Admin 앱 주소이며, 운영 빌드에서 값이 없으면 이동 가능한 관리자 링크 대신 `서비스 준비 중` 비활성 항목을 표시한다. 개발 배포 빌드는 CI가 API와 Admin 주소를 주입한다.
 
 모노레포 전환 후 Web 경계와 로컬 검증 결과는 [A-03 회귀 검증](../verification/a-03-web-regression.md)을 참고한다.

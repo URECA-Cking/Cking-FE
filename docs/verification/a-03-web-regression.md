@@ -16,7 +16,7 @@
 
 로컬 기본값은 `VITE_API_BASE_URL` 빈 값, `VITE_API_PROXY_TARGET=http://localhost:8080`, `VITE_ADMIN_BASE_URL=http://localhost:5174`이다. Web의 일반 API 요청은 같은 출처 `/api`를 쓰며, OAuth 시작은 페이지 이동이라 프록시가 아닌 백엔드 주소로 직접 이동한다. `develop` 배포 빌드에서는 CI가 `VITE_API_BASE_URL=https://dev-api.cking.co.kr`과 `VITE_ADMIN_BASE_URL=https://dev-admin.cking.co.kr`을 주입한다.
 
-배포 URL을 주입해 별도로 Web을 빌드했을 때 두 주소가 번들에 포함되고 `localhost:5174`는 포함되지 않음을 확인했다. URL을 주입하지 않은 프로덕션 빌드는 Admin 링크를 숨기는 현재 코드 경계를 유지한다.
+배포 URL을 주입해 별도로 Web을 빌드했을 때 두 주소가 번들에 포함되고 `localhost:5174`는 포함되지 않음을 확인했다. URL을 주입하지 않은 프로덕션 빌드는 이동 가능한 Admin 링크를 노출하지 않고 `서비스 준비 중` 비활성 항목을 표시하는 현재 코드 경계를 유지한다.
 
 ## Web/Admin 경계
 

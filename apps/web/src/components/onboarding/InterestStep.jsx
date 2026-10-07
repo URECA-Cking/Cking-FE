@@ -31,8 +31,8 @@ function InterestStepContent({ onDone, memberId }) {
   const [picked, setPicked] = useState(null)
   const [saving, setSaving] = useState(false)
   // 실험: 상위 분야를 고르면 세부 태그를 고를 수 있다(더미 데이터, 서버 저장 없음, 이슈 #83).
-  // 개발 서버에서는 기본으로 켜지고(?subtags=0이면 끔), 배포 빌드는 VITE_ENABLE_SUBTAGS=true로 명시해야만 켜진다.
-  const subtagsOn = subtagsExperimentOn()
+  // 개발 서버에서만 켜지고(?subtags=0이면 끔) 배포 빌드에서는 코드와 더미 데이터가 번들에서 빠진다.
+  const subtagsOn = import.meta.env.DEV && subtagsExperimentOn()
   const [subPicked, setSubPicked] = useState(() => (subtagsOn && memberId != null ? loadDummySubtags(memberId) : []))
   // 렌더 값이 아니라 직전 상태 기준으로 바꾸고(빠르게 연달아 눌러도 앞선 선택을 잃지 않는다), 저장은 변경 뒤에 따로 한다.
   useEffect(() => {
@@ -50,7 +50,7 @@ function InterestStepContent({ onDone, memberId }) {
 
   // 렌더 시점의 값이 아니라 직전 상태를 기준으로 바꿔, 빠르게 연달아 눌러도 앞선 선택을 잃지 않는다.
   function toggle(code) {
-    if (subtagsOn && current.includes(code)) {
+    if (import.meta.env.DEV && subtagsOn && current.includes(code)) {
       const ownCodes = (DUMMY_SUBTAGS[code] ?? []).map((sub) => sub.code)
       setSubPicked((prev) => prev.filter((subCode) => !ownCodes.includes(subCode)))
     }
@@ -62,6 +62,7 @@ function InterestStepContent({ onDone, memberId }) {
   }
 
   function toggleSub(parentCode, subCode) {
+    if (!import.meta.env.DEV) return // 배포 빌드에서는 이 함수와 더미 데이터가 번들에서 빠진다
     setSubPicked((prev) => {
       if (prev.includes(subCode)) return prev.filter((code) => code !== subCode)
       const ownCodes = (DUMMY_SUBTAGS[parentCode] ?? []).map((sub) => sub.code)
@@ -126,7 +127,7 @@ function InterestStepContent({ onDone, memberId }) {
             {current.length}/{max}개 선택
           </span>
 
-          {subtagsOn && (
+          {import.meta.env.DEV && subtagsOn && (
             <div className="flex flex-col gap-4 mt-2" data-testid="subtags">
               <p className="px-3 py-2 rounded-lg bg-surface-container font-label-xs text-label-xs text-on-surface-variant">
                 실험용 화면이에요. 세부 태그는 더미 데이터이고 이 기기에만 저장돼요(서버에는 저장되지 않아요).

@@ -148,13 +148,15 @@ export const DUMMY_SUBTAGS = {
   ],
 }
 
-const SUBTAG_NAMES = Object.fromEntries(Object.values(DUMMY_SUBTAGS).flat().map((sub) => [sub.code, sub.name]))
+/** 세부 태그 코드 → 화면에 보이는 이름. 모듈이 로드될 때가 아니라 쓸 때 찾아서, 안 쓰이는 배포 빌드에서는 번들에서 빠진다. */
+export const subtagName = (code) =>
+  Object.values(DUMMY_SUBTAGS).flat().find((sub) => sub.code === code)?.name ?? code
 
-/** 세부 태그 코드 → 화면에 보이는 이름 */
-export const subtagName = (code) => SUBTAG_NAMES[code] ?? code
-
-/** 세부 태그 실험이 켜져 있는가: 개발 서버는 기본 켜짐, 배포 빌드는 VITE_ENABLE_SUBTAGS=true일 때만. ?subtags=0이면 끈다. */
+/**
+ * 세부 태그 실험이 켜져 있는가: 개발 서버에서만 켜지고 ?subtags=0이면 끈다.
+ * 배포 빌드에서 이 코드와 더미 데이터가 번들에 남지 않도록, 사용하는 쪽에서 `import.meta.env.DEV &&`를 함께 걸어
+ * 빌드 시점에 상수 false로 접히게 한다(이 함수만 false를 돌려주면 호출 지점의 분기는 지워지지 않는다).
+ */
 export function subtagsExperimentOn() {
-  const enabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_SUBTAGS === 'true'
-  return enabled && new URLSearchParams(window.location.search).get('subtags') !== '0'
+  return import.meta.env.DEV && new URLSearchParams(window.location.search).get('subtags') !== '0'
 }

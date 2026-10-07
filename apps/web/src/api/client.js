@@ -9,33 +9,12 @@
 // 그래도 실패하면 등록된 리스너(UserContext)에 알려 로그인 화면으로 보내게 한다.
 
 import { clearAccessToken, getAccessToken, setAccessToken } from './authToken.js';
+import { ApiError, createApiTransport } from '@cking/shared/api';
 
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+export { ApiError };
 
-export class ApiError extends Error {
-  constructor(code, message, status) {
-    super(message || code || 'API 요청에 실패했습니다.');
-    this.name = 'ApiError';
-    this.code = code;
-    this.status = status;
-  }
-}
-
-function origin() {
-  if (BASE_URL) return BASE_URL;
-  return typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
-}
-
-function buildUrl(path, params) {
-  const url = new URL(path, origin());
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value === undefined || value === null || value === '') return;
-      url.searchParams.set(key, value);
-    });
-  }
-  return url;
-}
+const send = createApiTransport({ baseUrl: BASE_URL, getAccessToken });
 
 /**
  * 백엔드 공통 응답 봉투({code, data, message})를 감싸 반환한다.
@@ -55,50 +34,6 @@ export async function requestEnvelope(path, options = {}) {
     }
   }
   return envelope;
-}
-
-async function send(path, { method = 'GET', body, params, signal } = {}) {
-  const url = buildUrl(path, params);
-  const headers = {};
-  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
-  // FormData는 브라우저가 multipart boundary를 붙이도록 Content-Type을 직접 지정하지 않는다.
-  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
-  const token = getAccessToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  let response;
-  try {
-    response = await fetch(url, {
-      method,
-      headers,
-      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
-      credentials: 'include',
-      signal,
-    });
-  } catch (networkError) {
-    if (networkError?.name === 'AbortError') throw networkError;
-    throw new ApiError(
-      'NETWORK_ERROR',
-      '백엔드 서버에 연결할 수 없습니다. Cking-BE가 실행 중인지 확인해주세요.',
-      undefined
-    );
-  }
-
-  let payload = null;
-  try {
-    const text = await response.text();
-    payload = text ? JSON.parse(text) : null;
-  } catch {
-    payload = null;
-  }
-
-  return {
-    ok: response.ok,
-    status: response.status,
-    code: payload?.code,
-    data: payload?.data,
-    message: payload?.message,
-  };
 }
 
 async function requestOrThrow(path, options) {

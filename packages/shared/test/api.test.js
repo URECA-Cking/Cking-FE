@@ -51,3 +51,18 @@ test('네트워크 오류는 앱별 메시지의 ApiError로 변환한다', asyn
     globalThis.fetch = previousFetch
   }
 })
+
+test('HTTP 200이어도 응답 본문 읽기가 실패하면 성공으로 처리하지 않는다', async () => {
+  const previousFetch = globalThis.fetch
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => { throw new Error('body interrupted') },
+  })
+  try {
+    const send = createApiTransport({ getAccessToken: () => null })
+    await assert.rejects(send('/api/me'), (error) => error instanceof ApiError && error.code === 'NETWORK_ERROR')
+  } finally {
+    globalThis.fetch = previousFetch
+  }
+})

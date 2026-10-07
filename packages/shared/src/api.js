@@ -44,12 +44,19 @@ export function createApiTransport({
       throw new ApiError('NETWORK_ERROR', networkErrorMessage)
     }
 
+    let text
+    try {
+      text = await response.text()
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error
+      throw new ApiError('NETWORK_ERROR', networkErrorMessage)
+    }
+
     let payload = null
     try {
-      const text = await response.text()
       payload = text ? JSON.parse(text) : null
     } catch {
-      // 빈 응답이나 JSON이 아닌 오류 응답도 상태 코드로 처리한다.
+      // JSON이 아닌 오류 응답은 상태 코드로 처리한다.
     }
     return {
       ok: response.ok,

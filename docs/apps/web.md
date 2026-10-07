@@ -17,7 +17,7 @@ Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서
 
 ### 상태와 인증
 
-`UserContext`가 `/api/me`, 세션 상태, 역할, 팔로우 상태를 관리한다. Access JWT는 `sessionStorage`에 두며, `apps/web/src/api/client.js`가 `Authorization`과 Refresh Cookie를 처리한다. Toast는 `ToastContext`가 담당한다. Web 전용 상태·Context·페이지는 Admin과 공유하지 않는다.
+`UserContext`가 `/api/me`, 세션 상태, 역할, 팔로우 상태를 관리한다. Access JWT는 `sessionStorage`에 두며, `apps/web/src/api/client.js`가 Web 전용 refresh와 401 동작을 처리한다. 공통 HTTP 전송과 토큰 저장소의 저수준 로직은 `packages/shared`를 사용한다. Toast는 `ToastContext`가 담당한다. Web 전용 상태·Context·페이지는 Admin과 공유하지 않는다.
 
 `apps/web`은 PUBLIC, USER, CREATOR API를 소유한다. 공통화 후보는 앱 독립적인 UI·HTTP 클라이언트·유틸·실제 공통 타입뿐이며, `UserContext`, 팔로우 상태, Web/Creator 화면은 shared에 두지 않는다. 관리자 콘솔은 `VITE_ADMIN_BASE_URL`로 독립 Admin 앱에 진입한다.
 

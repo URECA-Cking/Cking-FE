@@ -10,7 +10,7 @@ Web 앱은 `apps/web`, 관리자 앱은 `apps/admin`에 있습니다. React + Vi
 ```text
 apps/web/      사용자·Creator Web 앱
 apps/admin/    독립 관리자 앱
-packages/      실제 공통 코드가 생길 때만 사용
+packages/shared/  두 앱이 사용하는 HTTP 전송·토큰 저장소·아이콘·포맷터·비동기 조회 훅
 package.json   npm workspaces 및 루트 명령
 ```
 
@@ -32,7 +32,7 @@ npm run dev:admin
   로컬 백엔드는 `local,oauth` 프로필과 `JWT_SECRET`, OAuth Client 환경변수로 실행해야 합니다(`Cking-BE` README 참고).
 - 환경변수는 `apps/web/.env.example`을 `apps/web/.env`로 복사해 사용하세요.
 
-루트에서 `npm run lint:web`, `npm run build:web`, `npm run lint:admin`, `npm run build:admin` 또는 `npm run build`를 실행합니다.
+루트에서 `npm run lint`(shared/Web/Admin), `npm run test:shared`, `npm run build`(Web/Admin)를 실행합니다.
 Web 빌드 산출물은 `apps/web/dist`이며 기존 `dev.cking.co.kr` 배포에 사용합니다.
 기존 `npm run dev`와 `npm run preview`도 Web 앱을 실행합니다.
 

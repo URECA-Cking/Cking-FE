@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { BackHeader } from '../../components/layout/TopHeader.jsx'
-import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
-import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/ui/States.jsx'
+import BackHeader from '../../components/BackHeader.jsx'
+import MaterialIcon from '../../components/MaterialIcon.jsx'
+import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { describeError } from '../../api/client.js'
 import { disqualifyWinner, getWinnerHistory, receiveWinner } from '../../api/admin.js'
-import { useToast } from '../../context/useToast.js'
+import { useToast } from '../../context/ToastContext.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 
@@ -15,6 +15,8 @@ const STATUS_META = {
   DECLINED: { label: '당첨 포기', tone: 'bg-surface-container-high text-on-surface-variant', icon: 'block' },
   DISQUALIFIED: { label: '당첨 취소', tone: 'bg-error-container text-on-error-container', icon: 'gpp_bad' },
 }
+
+/** 관리자 운영 화면에서 statusMeta 동작을 처리한다. */
 
 function statusMeta(status) {
   return STATUS_META[status] ?? { label: status ?? '상태 확인 중', tone: 'bg-surface-container-high text-on-surface-variant' }
@@ -39,6 +41,8 @@ export default function AdminWinnerDetail() {
   const meta = statusMeta(latestStatus)
   const isSelected = latestStatus === 'SELECTED'
 
+  /** 관리자 운영 화면에서 receive 동작을 처리한다. */
+
   async function receive() {
     if (!window.confirm('이 당첨자의 수령을 완료 처리할까요? 완료 후에는 되돌릴 수 없어요.')) return
     setBusy(true)
@@ -52,6 +56,8 @@ export default function AdminWinnerDetail() {
       setBusy(false)
     }
   }
+
+  /** 관리자 운영 화면에서 disqualify 동작을 처리한다. */
 
   async function disqualify() {
     const trimmedReason = reason.trim()
@@ -182,6 +188,8 @@ export default function AdminWinnerDetail() {
     </div>
   )
 }
+
+/** 관리자 운영 화면에서 Info 동작을 처리한다. */
 
 function Info({ label, value }) {
   return (

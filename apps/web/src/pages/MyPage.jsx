@@ -14,6 +14,8 @@ import { describeError } from '../api/client.js'
 import { formatDateTime, formatNumber } from '../utils/format.js'
 import { CREATOR_APPLICATION_STATUS_META } from '../utils/eventStatus.js'
 
+const ADMIN_BASE_URL = import.meta.env.VITE_ADMIN_BASE_URL || 'http://localhost:5174'
+
 /**
  * 마이페이지.
  *
@@ -224,14 +226,14 @@ export default function MyPage() {
           </Link>
         )}
         {isAdmin && (
-          <Link
-            to="/admin"
+          <a
+            href={ADMIN_BASE_URL}
             className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high"
           >
             <MaterialIcon name="admin_panel_settings" className="text-primary text-[20px]" />
             <span className="font-label-md text-label-md text-on-surface flex-1">관리자 콘솔</span>
             <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
-          </Link>
+          </a>
         )}
         <Link
           to="/my-entries"

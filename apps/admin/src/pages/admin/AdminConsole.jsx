@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
-import { BackHeader } from '../../components/layout/TopHeader.jsx'
-import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/ui/States.jsx'
+import MaterialIcon from '../../components/MaterialIcon.jsx'
+import BackHeader from '../../components/BackHeader.jsx'
+import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/States.jsx'
 import AdminDrawingPanel from './AdminDrawingPanel.jsx'
-import { useToast } from '../../context/useToast.js'
+import { useToast } from '../../context/ToastContext.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
 import {
   approveCreatorApplication,
@@ -77,6 +77,8 @@ export default function AdminConsole() {
   )
 }
 
+/** 관리자 운영 화면에서 PendingEvents 동작을 처리한다. */
+
 function PendingEvents() {
   const showToast = useToast()
   const [busyId, setBusyId] = useState(null)
@@ -88,6 +90,8 @@ function PendingEvents() {
   )
 
   const items = data?.items ?? []
+
+  /** 관리자 운영 화면에서 decide 동작을 처리한다. */
 
   async function decide(eventId, approve, title) {
     let reason = null
@@ -177,6 +181,8 @@ function PendingEvents() {
   )
 }
 
+/** 관리자 운영 화면에서 CreatorApplications 동작을 처리한다. */
+
 function CreatorApplications() {
   const showToast = useToast()
   const [busyId, setBusyId] = useState(null)
@@ -188,6 +194,8 @@ function CreatorApplications() {
   )
 
   const items = data?.items ?? []
+
+  /** 관리자 운영 화면에서 decide 동작을 처리한다. */
 
   async function decide(applicationId, approve, name) {
     let reason = null

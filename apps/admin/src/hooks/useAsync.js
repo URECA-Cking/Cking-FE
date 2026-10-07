@@ -1,0 +1,5 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { describeError } from '../api/client.js'
+
+/** 비동기 조회의 로딩·오류·재시도 상태를 관리한다. */
+export function useAsync(loader, deps = [], { enabled = true, fallbackMessage } = {}) { const [data, setData] = useState(null); const [loading, setLoading] = useState(enabled); const [error, setError] = useState(null); const alive = useRef(true); const seq = useRef(0); useEffect(() => () => { alive.current = false }, []); const run = useCallback(async () => { if (!enabled) { setLoading(false); return null }; const request = ++seq.current; setLoading(true); setError(null); try { const result = await loader(); if (alive.current && request === seq.current) setData(result); return result } catch (err) { if (alive.current && request === seq.current) setError(describeError(err, fallbackMessage)); return null } finally { if (alive.current && request === seq.current) setLoading(false) } }, [enabled, ...deps]); useEffect(() => { run() }, [run]); return { data, loading, error, reload: run, setData } }

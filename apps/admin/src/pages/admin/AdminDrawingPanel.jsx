@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
-import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/ui/States.jsx'
-import { useToast } from '../../context/useToast.js'
+import MaterialIcon from '../../components/MaterialIcon.jsx'
+import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/States.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
-import { getEvents } from '../../api/events.js'
 import {
   getClosingStatus,
+  getClosedEvents,
   getDrawing,
   getDrawingResult,
   getDrawingVerificationHistory,
@@ -16,7 +16,6 @@ import {
   verifyDrawing,
 } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
-import { useCreatorCatalog } from '../../hooks/useCreatorProfile.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 import { eventStatusMeta } from '../../utils/eventStatus.js'
 
@@ -27,7 +26,6 @@ import { eventStatusMeta } from '../../utils/eventStatus.js'
  * 추첨 메타데이터와 당첨자 결과를 조회한다.
  */
 export default function AdminDrawingPanel() {
-  const creatorCatalog = useCreatorCatalog()
   const showToast = useToast()
   const [selected, setSelected] = useState(null)
   const [detail, setDetail] = useState(null)
@@ -36,12 +34,14 @@ export default function AdminDrawingPanel() {
   const [historyOpen, setHistoryOpen] = useState(false)
 
   const { data, loading, error, reload } = useAsync(
-    () => getEvents({ status: 'CLOSED', size: 50 }),
+    () => getClosedEvents({ size: 50 }),
     [],
     { fallbackMessage: '마감된 이벤트를 불러오지 못했습니다.' },
   )
 
   const events = data?.items ?? []
+
+  /** 관리자 운영 화면에서 inspect 동작을 처리한다. */
 
   async function inspect(event) {
     setSelected(event)
@@ -72,6 +72,8 @@ export default function AdminDrawingPanel() {
     }
   }
 
+  /** 관리자 운영 화면에서 restoreInitialDrawing 동작을 처리한다. */
+
   async function restoreInitialDrawing(eventId) {
     try {
       // 완료된 INITIAL Drawing 요청은 BE에서 기존 Drawing을 반환하는 멱등 경로다.
@@ -85,6 +87,8 @@ export default function AdminDrawingPanel() {
       return { error: describeError(err, '완료된 추첨 정보를 불러오지 못했어요.') }
     }
   }
+
+  /** 관리자 운영 화면에서 executeDrawing 동작을 처리한다. */
 
   async function executeDrawing() {
     if (!selected) return
@@ -104,6 +108,8 @@ export default function AdminDrawingPanel() {
     }
   }
 
+  /** 관리자 운영 화면에서 refreshDrawing 동작을 처리한다. */
+
   async function refreshDrawing(drawingId, { includeResult = true } = {}) {
     const [drawing, result] = await Promise.all([
       getDrawing(drawingId),
@@ -112,6 +118,8 @@ export default function AdminDrawingPanel() {
     setDetail((prev) => ({ ...prev, drawing, result: result ?? prev?.result }))
     return drawing
   }
+
+  /** 관리자 운영 화면에서 publish 동작을 처리한다. */
 
   async function publish() {
     if (!detail?.drawing) return
@@ -127,6 +135,8 @@ export default function AdminDrawingPanel() {
     }
   }
 
+  /** 관리자 운영 화면에서 verify 동작을 처리한다. */
+
   async function verify() {
     if (!detail?.drawing) return
     setBusy(true)
@@ -141,6 +151,8 @@ export default function AdminDrawingPanel() {
       setBusy(false)
     }
   }
+
+  /** 관리자 운영 화면에서 toggleVerificationHistory 동작을 처리한다. */
 
   async function toggleVerificationHistory() {
     if (!detail?.drawing) return
@@ -189,7 +201,7 @@ export default function AdminDrawingPanel() {
               <div className="min-w-0">
                 <p className="font-label-md text-label-md text-on-surface font-semibold truncate">{event.title}</p>
                 <p className="font-label-xs text-label-xs text-on-surface-variant">
-                  #{event.eventId} · {creatorCatalog.get(event.creatorId)?.name ?? '크리에이터'} · 당첨{' '}
+                  #{event.eventId} · {event.creatorName ?? `크리에이터 #${event.creatorId}`} · 당첨{' '}
                   {formatNumber(event.winnerCount)}명
                 </p>
               </div>
@@ -366,6 +378,8 @@ export default function AdminDrawingPanel() {
   )
 }
 
+/** 관리자 운영 화면에서 VerificationCard 동작을 처리한다. */
+
 function VerificationCard({ verification, title }) {
   const verified = verification.status === 'VERIFIED'
   return (
@@ -385,6 +399,8 @@ function VerificationCard({ verification, title }) {
     </div>
   )
 }
+
+/** 관리자 운영 화면에서 InfoRow 동작을 처리한다. */
 
 function InfoRow({ icon, label, value, tone = 'text-on-surface' }) {
   return (

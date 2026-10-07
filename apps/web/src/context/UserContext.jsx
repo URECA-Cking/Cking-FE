@@ -143,6 +143,11 @@ export function UserProvider({ children }) {
     }
   }, [memberId, followsReady, followedCreators])
 
+  // 온보딩 완료 기록이 성공한 뒤 /api/me를 다시 읽으면 화면이 로딩 상태로 깜빡이므로 사용자 값만 바꾼다.
+  const markOnboardingCompleted = useCallback(() => {
+    setUser((current) => (current ? { ...current, onboardingCompleted: true } : current))
+  }, [])
+
   const isFollowing = useCallback(
     (creatorId) => followedCreators.includes(Number(creatorId)),
     [followedCreators],
@@ -159,6 +164,7 @@ export function UserProvider({ children }) {
     restore,
     // 크리에이터 승인처럼 권한이 바뀌었을 수 있을 때 /api/me를 다시 읽는다.
     refreshCapabilities: loadUser,
+    markOnboardingCompleted,
     followedCreators,
     followsReady,
     followsError,
@@ -166,7 +172,7 @@ export function UserProvider({ children }) {
     pendingFollowIds,
     toggleFollow,
     isFollowing,
-  }), [user, status, capabilities, loadUser, clearUser, restore, followedCreators, followsReady, followsError, reloadFollows, pendingFollowIds, toggleFollow, isFollowing])
+  }), [user, status, capabilities, loadUser, clearUser, restore, markOnboardingCompleted, followedCreators, followsReady, followsError, reloadFollows, pendingFollowIds, toggleFollow, isFollowing])
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>
 }

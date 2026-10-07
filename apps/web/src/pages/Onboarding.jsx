@@ -1,24 +1,53 @@
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useRef, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import InterestStep from '../components/onboarding/InterestStep.jsx'
 import CreatorStep from '../components/onboarding/CreatorStep.jsx'
+import { completeOnboarding } from '../api/auth.js'
+import { describeError } from '../api/client.js'
+import { useToast } from '../context/useToast.js'
+import { useUser } from '../context/useUser.js'
 
 /**
  * 온보딩: 1단계 관심 분야(0~3개, 건너뛰기 가능) → 2단계 크리에이터 추천·직접 찾기.
  *
  * `manage`이면 가입 직후 흐름이 아니라 마이페이지 등에서 다시 연 "관심 크리에이터 관리"라
- * 2단계만 보여주고 단계 표시를 하지 않는다. 가입 직후 자동 이동은 BE의 온보딩 완료 여부(onboardingCompleted)가
- * 생긴 뒤에 연결한다(이슈 #64).
+ * 2단계만 보여주고 단계 표시를 하지 않으며 완료 기록도 남기지 않는다.
+ * 가입 직후에는 로그인 콜백이 onboardingCompleted=false인 신규 가입자를 이 화면으로 보내고(#66),
+ * "시작하기"·"나중에 할게"를 누르면 BE에 완료를 기록한 뒤 로그인 전에 가려던 화면으로 이동한다.
  */
 export default function Onboarding({ manage = false }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const showToast = useToast()
+  const { user, markOnboardingCompleted } = useUser()
+  const [finishing, setFinishing] = useState(false)
+  // 같은 틱에 연달아 눌러도 한 번만 처리한다(state는 다음 렌더에야 바뀐다).
+  const finishingRef = useRef(false)
   // 단계를 주소(?step=creators)에 둔다. 크리에이터 스페이스를 둘러보고 뒤로 돌아와도 1단계로 되돌아가지 않는다.
   const [params, setParams] = useSearchParams()
   const step = manage || params.get('step') === 'creators' ? 'creators' : 'interests'
-  const goHome = () => navigate('/', { replace: true })
+  const destination = location.state?.from ?? '/'
+
+  async function finish() {
+    if (finishingRef.current) return
+    finishingRef.current = true
+    setFinishing(true)
+    // 이미 완료한 사용자가 다시 열었다면 기록을 또 남기지 않는다.
+    if (user?.onboardingCompleted !== true) {
+      try {
+        await completeOnboarding()
+        markOnboardingCompleted()
+      } catch (err) {
+        // 기록에 실패해도 사용자를 막지 않는다. 다음 로그인 때 온보딩이 다시 보일 수 있다.
+        showToast(describeError(err, '온보딩 완료를 저장하지 못했어요. 다음에 다시 보일 수 있어요.'), { icon: 'error' })
+      }
+    }
+    navigate(destination, { replace: true })
+  }
 
   function handleBack() {
-    if (step === 'creators' && !manage) setParams({}, { replace: true })
+    if (step === 'creators' && !manage) setParams({}, { replace: true, state: location.state })
     else navigate(-1)
   }
 
@@ -32,9 +61,14 @@ export default function Onboarding({ manage = false }) {
         onBack={handleBack}
       />
       {step === 'interests' ? (
-        <InterestStep onDone={() => setParams({ step: 'creators' })} />
+        <InterestStep onDone={() => setParams({ step: 'creators' }, { state: location.state })} />
       ) : (
-        <CreatorStep onFinish={manage ? () => navigate(-1) : goHome} finishLabel={manage ? '완료' : '시작하기'} showSkip={!manage} />
+        <CreatorStep
+          onFinish={manage ? () => navigate(-1) : finish}
+          busy={finishing}
+          finishLabel={manage ? '완료' : '시작하기'}
+          showSkip={!manage}
+        />
       )}
     </div>
   )

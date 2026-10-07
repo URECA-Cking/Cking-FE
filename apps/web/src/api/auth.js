@@ -27,9 +27,14 @@ export async function restoreSession() {
   return refreshAccessToken();
 }
 
-// GET /api/me - 현재 사용자 기본 정보와 Creator 여부
+// GET /api/me - 현재 사용자 기본 정보, Creator 여부, 온보딩 완료 여부(onboardingCompleted)
 export async function getMe() {
   return apiClient.get('/api/me');
+}
+
+// PUT /api/me/onboarding/complete - 온보딩 완료(또는 건너뛰기) 기록. 본문 없음, 이미 완료여도 성공(멱등)
+export async function completeOnboarding() {
+  return apiClient.put('/api/me/onboarding/complete');
 }
 
 // POST /api/auth/logout - Refresh Token 폐기. 실패해도 프론트 토큰은 지운다.

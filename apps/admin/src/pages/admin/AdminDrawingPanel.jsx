@@ -38,7 +38,7 @@ export default function AdminDrawingPanel() {
   const { data, loading, error, reload } = useAsync(
     () => getDrawingEvents(),
     [],
-    { fallbackMessage: '마감된 이벤트를 불러오지 못했습니다.' },
+    { fallbackMessage: '운영 대상 이벤트를 불러오지 못했습니다.' },
   )
 
   const events = data?.items ?? []
@@ -58,7 +58,7 @@ export default function AdminDrawingPanel() {
         canQueryClosingStatus
           ? getClosingStatus(event.eventId).catch((err) => ({ error: describeError(err) }))
           : Promise.resolve({ status: event.status }),
-        canQueryClosingStatus || hasCompletedInitialDrawing
+        event.status === 'CLOSED' || hasCompletedInitialDrawing
           ? getEventSnapshot(event.eventId).catch((err) => ({ error: describeError(err) }))
           : Promise.resolve(null),
         hasCompletedInitialDrawing ? restoreInitialDrawing(event.eventId) : Promise.resolve(null),
@@ -216,13 +216,13 @@ export default function AdminDrawingPanel() {
   return (
     <div className="flex flex-col gap-space-md">
       <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-        마감된 이벤트를 선택하면 마감 상태와 공식 스냅샷을 확인하고, 초기 추첨부터 재시도·검증·결과 공개까지 처리할 수 있어요.
+        운영 대상 이벤트를 선택하면 수동 마감부터 초기 추첨, 재시도·검증·결과 공개까지 처리할 수 있어요.
       </p>
 
-      {loading && <LoadingBlock label="마감된 이벤트를 불러오는 중..." />}
+      {loading && <LoadingBlock label="운영 대상 이벤트를 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
       {!loading && !error && events.length === 0 && (
-        <EmptyBlock icon="event_busy" message="마감된 이벤트가 아직 없어요." />
+        <EmptyBlock icon="event_busy" message="운영 대상 이벤트가 아직 없어요." />
       )}
 
       <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">

@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useLocation } from 'react-router-dom'
 import { markSkipSplash } from '../../utils/splashSkip.js'
 
 const TRIGGER = 70 // 이만큼 당긴 뒤 놓으면 새로고침
 const MAX_PULL = 110
 const RESISTANCE = 0.5 // 손가락 이동량 대비 화면에 따라오는 비율
+// 첫 화면(로그인)은 스플래시가 이어지는 화면이라 당겨서 새로고침을 쓰지 않는다.
+const DISABLED_PATHS = ['/login']
 const RELOAD_DELAY = 900 // 스플래시와 같은 왕관 낙하(620ms)·눌림 모션이 끝난 뒤 새로고침
 
 /** 터치 지점부터 위로 올라가며 스크롤된 영역(바텀시트 내부 등)이 있으면 true. 그 안의 스크롤을 새로고침으로 오인하지 않는다. */
@@ -18,16 +21,22 @@ function isInsideScrolled(el) {
 /**
  * 화면 맨 위에서 아래로 당기면 앱 화면 전체(#root)가 손가락을 따라 내려오고, 비워진 윗자리에 CKing 로고가 나온다.
  * 당기는 동안은 몸통만 보이고, 기준 이상 당겼다 놓으면 스플래시와 같은 왕관 낙하 연출(index.css의 splash-crown-drop)이 나온 뒤 새로고침한다.
- * 별도 화면을 덮지 않고, 새로고침 뒤에도 스플래시는 건너뛴다(splashSkip). 터치 기기 전용이다.
+ * 첫 화면(/login)에서는 쓰지 않는다. 별도 화면을 덮지 않고, 새로고침 뒤에도 스플래시는 건너뛴다(splashSkip). 터치 기기 전용이다.
  * 브라우저 기본 당겨서 새로고침은 index.css의 overscroll-behavior로 막아 둔다.
  */
 export default function PullToRefresh() {
   const [pull, setPull] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const { pathname } = useLocation()
+  const pathnameRef = useRef(pathname)
   const startY = useRef(null)
   const pullRef = useRef(0)
   const refreshingRef = useRef(false)
+
+  useEffect(() => {
+    pathnameRef.current = pathname
+  }, [pathname])
 
   useEffect(() => {
     function update(value) {
@@ -38,6 +47,7 @@ export default function PullToRefresh() {
     function onStart(e) {
       const blocked =
         refreshingRef.current ||
+        DISABLED_PATHS.includes(pathnameRef.current) ||
         e.touches.length !== 1 ||
         window.scrollY > 0 ||
         document.documentElement.classList.contains('splash-active') ||

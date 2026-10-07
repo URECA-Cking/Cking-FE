@@ -15,8 +15,8 @@ export default function BottomNav({ unreadCount = 0, embedded = false }) {
     <nav
       className={
         embedded
-          ? 'relative z-50 shrink-0 w-full pb-safe bg-surface/84 backdrop-blur-xl border-t border-border-rose shadow-dock'
-          : 'fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pb-safe bg-surface/84 backdrop-blur-xl border-t border-border-rose shadow-dock'
+          ? 'relative z-50 shrink-0 w-full pb-safe bg-surface-container/84 backdrop-blur-xl shadow-dock'
+          : 'fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pb-safe bg-surface-container/84 backdrop-blur-xl shadow-dock'
       }
     >
       <div className="flex justify-around md:justify-center md:gap-10 items-center h-16 px-space-xs md:px-8">

@@ -71,10 +71,19 @@ export function deleteComment(creatorId, postId, commentId) {
   return apiClient.delete(`${commentPath(creatorId, postId)}/${commentId}`)
 }
 
+/**
+ * 필터링되어 목록에서 원문이 가려진 댓글(filtered)의 원문. 게시글을 볼 수 있으면 누구나 요청할 수 있다(로그인 불필요).
+ * 작성자 본인의 댓글과 필터링되지 않은 댓글은 404, 개인정보로 막힌 댓글은 COMMENT_NOT_REVEALABLE(403)이다.
+ */
+export function getCommentOriginal(creatorId, postId, commentId) {
+  return apiClient.get(`${commentPath(creatorId, postId)}/${commentId}/original`)
+}
+
 /** 댓글 오류 코드별 사용자 문구. FORBIDDEN은 공통 문구(크리에이터 계정 안내)가 맞지 않아 따로 둔다. */
 export const COMMENT_ERROR_MESSAGES = {
   COMMENT_FOLLOWERS_ONLY: '팔로워만 댓글을 쓸 수 있어요. 관심 크리에이터로 등록해주세요.',
   POST_FOLLOWERS_ONLY: '팔로워에게만 공개된 게시글이에요.',
+  COMMENT_NOT_REVEALABLE: '원문을 볼 수 없는 댓글이에요.',
   FORBIDDEN: '이 댓글을 수정하거나 삭제할 권한이 없어요.',
   RESOURCE_NOT_FOUND: '댓글이나 게시글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
   VALIDATION_FAILED: '댓글은 1자 이상 500자 이하로 입력해주세요.',

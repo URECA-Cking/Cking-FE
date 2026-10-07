@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError } from '../../api/client.js'
@@ -7,6 +8,7 @@ import {
   COMMENT_MAX_LENGTH,
   createComment,
   deleteComment,
+  getCommentOriginal,
   getPostComments,
   updateComment,
 } from '../../api/posts.js'
@@ -59,6 +61,9 @@ export default function PostComments({ creatorId, postId, authenticated, followi
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  // 필터링된 댓글에서 사용자가 펼친 원문. 요청 시점의 updatedAt과 함께 저장해, 그 뒤 댓글이 고쳐져 다시 판정되면 이전 원문을 쓰지 않는다.
+  const [originals, setOriginals] = useState({})
+  const revealing = useRef(new Set())
 
   const page = first.data
   const pages = page ? [page, ...extra.pages] : []
@@ -170,6 +175,25 @@ export default function PostComments({ creatorId, postId, authenticated, followi
     }
   }
 
+  async function reveal(comment) {
+    const { commentId, updatedAt } = comment
+    if (revealing.current.has(commentId)) return
+    revealing.current.add(commentId)
+    setOriginals((state) => ({ ...state, [commentId]: { updatedAt, status: 'loading' } }))
+    try {
+      const original = await getCommentOriginal(creatorId, postId, commentId)
+      setOriginals((state) => ({ ...state, [commentId]: { updatedAt, status: 'done', content: original.content } }))
+    } catch (error) {
+      const code = error instanceof ApiError ? error.code : null
+      setOriginals((state) => ({
+        ...state,
+        [commentId]: { updatedAt, status: 'error', code, message: describeCommentError(error, '원문을 불러오지 못했어요.') },
+      }))
+    } finally {
+      revealing.current.delete(commentId)
+    }
+  }
+
   async function remove(comment) {
     if (deletingId != null) return
     if (!window.confirm('이 댓글을 삭제할까요? 삭제하면 되돌릴 수 없어요.')) return
@@ -236,11 +260,19 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                 </div>
               ) : (
                 <>
-                  <p className="whitespace-pre-wrap break-words font-body-sm text-body-sm text-on-surface">{comment.content}</p>
+                  {comment.filtered ? (
+                    <FilteredComment
+                      revealable={comment.revealable}
+                      original={originals[comment.commentId]?.updatedAt === comment.updatedAt ? originals[comment.commentId] : undefined}
+                      onReveal={() => reveal(comment)}
+                    />
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words font-body-sm text-body-sm text-on-surface">{comment.content}</p>
+                  )}
                   {authenticated && (isOwn(comment) || isMine) && (
                     <div className="mt-2 flex justify-end gap-3">
                       {/* 수정은 쓰기 권한이 있을 때만(팔로우를 끊은 작성자는 서버가 거절한다). 삭제는 팔로우와 무관하다. */}
-                      {isOwn(comment) && canWrite && (
+                      {isOwn(comment) && canWrite && !comment.filtered && (
                         <button
                           type="button"
                           onClick={() => { setEditing({ commentId: comment.commentId, text: comment.content }); setEditError('') }}
@@ -326,5 +358,47 @@ export default function PostComments({ creatorId, postId, authenticated, followi
         )}
       </div>
     </section>
+  )
+}
+
+/**
+ * 필터가 차단해 원문이 가려진 댓글(Cking-BE comment-api.md '필터링').
+ * - revealable: '필터링한 댓글 보기'로 원문을 받아 펼친다. 개인정보로 막힌 댓글은 false라 안내만 보여준다.
+ * - 판정 사유는 사용자에게 알리지 않는다.
+ */
+function FilteredComment({ revealable, original, onReveal }) {
+  const notRevealable = !revealable || original?.code === 'COMMENT_NOT_REVEALABLE'
+  // 판정만 바뀌어 revealable이 false가 된 댓글은 updatedAt이 그대로라 캐시가 남아 있을 수 있다. 펼쳐 둔 원문도 숨긴다.
+  if (revealable && original?.status === 'done') {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <p className="flex items-center gap-1 font-label-xs text-label-xs text-outline">
+          <MaterialIcon name="visibility" className="text-[14px]" />
+          필터링된 댓글의 원문이에요
+        </p>
+        <p className="whitespace-pre-wrap break-words font-body-sm text-body-sm text-on-surface">{original.content}</p>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <p className="flex items-center gap-1.5 rounded-lg bg-surface-container px-3 py-2 font-body-sm text-body-sm text-on-surface-variant">
+        <MaterialIcon name="visibility_off" className="text-[16px] text-outline" />
+        {notRevealable ? '볼 수 없는 댓글이에요.' : '필터링된 댓글이에요.'}
+      </p>
+      {!notRevealable && (
+        <button
+          type="button"
+          onClick={onReveal}
+          disabled={original?.status === 'loading'}
+          className="font-label-sm text-label-sm text-primary disabled:opacity-50"
+        >
+          {original?.status === 'loading' ? '불러오는 중...' : '필터링한 댓글 보기'}
+        </button>
+      )}
+      {original?.status === 'error' && original.code !== 'COMMENT_NOT_REVEALABLE' && (
+        <p className="font-label-xs text-label-xs text-error" role="alert">{original.message}</p>
+      )}
+    </div>
   )
 }

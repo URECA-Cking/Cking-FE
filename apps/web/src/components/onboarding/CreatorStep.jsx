@@ -181,6 +181,20 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
   const mySubtags = useMemo(() => (subtagsOn ? loadDummySubtags(user?.memberId) : []), [subtagsOn, user?.memberId])
   const subtagsOf = (creator) => (subtagsOn ? (CREATOR_SUBTAGS[creator.name?.replace('[시연] ', '')] ?? []) : [])
 
+  // 실험: 내가 고른 세부 태그와 겹치는 추천을 위로 올린다(겹치는 수가 많은 순). 겹침이 같으면 BE가 준 순서를 그대로 둔다.
+  // 서버 추천 자체는 상위 분야 기준이라 이 재정렬은 화면에서만 일어난다(이슈 #83).
+  const recommendedItems = useMemo(() => {
+    const items = recommended.data?.items ?? []
+    if (!subtagsOn || mySubtags.length === 0) return items
+    const matches = (creator) => subtagsOf(creator).filter((code) => mySubtags.includes(code)).length
+    return items
+      .map((item, index) => ({ item, index, score: matches(item) }))
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map(({ item }) => item)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recommended.data, subtagsOn, mySubtags])
+  const reordered = subtagsOn && mySubtags.length > 0 && recommendedItems.some((item, i) => item !== recommended.data?.items[i])
+
   const rowProps = (creator) => ({
     subtags: subtagsOf(creator),
     mySubtags,
@@ -248,7 +262,12 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
           )}
           {!recommended.loading && !recommended.error && (recommended.data?.items.length ?? 0) > 0 && (
             <ul className="flex flex-col gap-2.5">
-              {recommended.data.items.map((item) => (
+              {reordered && (
+                <li className="px-1 font-label-xs text-label-xs text-outline list-none" aria-live="polite">
+                  실험: 고른 세부 태그와 겹치는 크리에이터를 위로 올렸어요.
+                </li>
+              )}
+              {recommendedItems.map((item) => (
                 <CreatorRow key={item.creatorId} {...rowProps(item)} reason={reasonOf(item, interestNames)} />
               ))}
             </ul>

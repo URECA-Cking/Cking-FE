@@ -31,6 +31,9 @@ export default function PullToRefresh() {
   const { pathname } = useLocation()
   const pathnameRef = useRef(pathname)
   const startY = useRef(null)
+  const startX = useRef(0)
+  // 터치마다 첫 이동에서 한 번 정한다: 가로 이동이 더 크면 가로 스와이프로 보고 이번 터치는 건드리지 않는다.
+  const axisLocked = useRef(false)
   const pullRef = useRef(0)
   const refreshingRef = useRef(false)
 
@@ -53,11 +56,23 @@ export default function PullToRefresh() {
         document.documentElement.classList.contains('splash-active') ||
         isInsideScrolled(e.target)
       startY.current = blocked ? null : e.touches[0].clientY
+      startX.current = e.touches[0].clientX
+      axisLocked.current = false
     }
 
     function onMove(e) {
       if (startY.current === null) return
       const dy = e.touches[0].clientY - startY.current
+      if (!axisLocked.current) {
+        const dx = e.touches[0].clientX - startX.current
+        if (dx === 0 && dy === 0) return
+        // 홈의 가로 스크롤 영역을 넘기다 손가락이 살짝 내려가도 당겨서 새로고침으로 오인하지 않게 한다.
+        if (Math.abs(dx) > Math.abs(dy)) {
+          startY.current = null
+          return
+        }
+        axisLocked.current = true
+      }
       if (dy <= 0 || window.scrollY > 0) {
         if (pullRef.current > 0) update(0)
         setDragging(false)

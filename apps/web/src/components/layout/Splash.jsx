@@ -1,17 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useUser } from '../../context/useUser.js'
+import { consumeSkipSplash } from '../../utils/splashSkip.js'
 
 // 스플래시가 떠 있는 동안 아래 화면의 로고를 숨기는 표식(index.css). 로고가 두 개로 겹쳐 보이지 않게 한다.
 const ACTIVE_CLASS = 'splash-active'
 // 로그인 확인 뒤에도 아래 화면의 데이터 로딩 표시(role=status)가 남아 있으면 그게 사라질 때까지 기다린다. 이 시간이 넘으면 그냥 진행한다.
 const MAX_LOAD_WAIT = 3000
 
+// 모듈이 로드될 때 한 번만 읽는다. 컴포넌트 안에서 읽으면 StrictMode의 이중 호출로 두 번째에 표식이 사라져 있다.
+const skipOnce = consumeSkipSplash()
+
 /**
  * 페이지를 새로 열 때마다(새로고침 포함) 스플래시를 먼저 보여준다.
  * OAuth 콜백은 로그인 도중 거쳐 가는 화면이라 진입으로 보지 않고, 모션 줄이기 설정 사용자는 건너뛴다.
  */
 function shouldShowSplash() {
-  if (window.location.pathname.startsWith('/oauth/callback')) return false
+  if (skipOnce || window.location.pathname.startsWith('/oauth/callback')) return false
   return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
 

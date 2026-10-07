@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { markSkipSplash } from '../../utils/splashSkip.js'
 
 const TRIGGER = 70 // 이만큼 당긴 뒤 놓으면 새로고침
 const MAX_PULL = 110
@@ -14,12 +16,14 @@ function isInsideScrolled(el) {
 }
 
 /**
- * 화면 맨 위에서 아래로 당기면 기본 로딩바 대신 CKing 로고가 나온다.
+ * 화면 맨 위에서 아래로 당기면 앱 화면 전체(#root)가 손가락을 따라 내려오고, 비워진 윗자리에 CKing 로고가 나온다.
  * 당기는 만큼 왕관이 오른쪽 위에서 내려와 몸통에 얹히고(스플래시와 같은 연출), 기준 이상 당겼다 놓으면 새로고침한다.
- * 브라우저 기본 당겨서 새로고침은 index.css의 overscroll-behavior로 막아 둔다. 터치 기기 전용이다.
+ * 별도 화면을 덮지 않고, 새로고침 뒤에도 스플래시는 건너뛴다(splashSkip). 터치 기기 전용이다.
+ * 브라우저 기본 당겨서 새로고침은 index.css의 overscroll-behavior로 막아 둔다.
  */
 export default function PullToRefresh() {
   const [pull, setPull] = useState(0)
+  const [dragging, setDragging] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const startY = useRef(null)
   const pullRef = useRef(0)
@@ -46,20 +50,26 @@ export default function PullToRefresh() {
       const dy = e.touches[0].clientY - startY.current
       if (dy <= 0 || window.scrollY > 0) {
         if (pullRef.current > 0) update(0)
+        setDragging(false)
         return
       }
       if (e.cancelable) e.preventDefault()
+      setDragging(true)
       update(Math.min(dy * RESISTANCE, MAX_PULL))
     }
 
     function onEnd() {
       if (startY.current === null) return
       startY.current = null
+      setDragging(false)
       if (pullRef.current >= TRIGGER) {
         refreshingRef.current = true
         setRefreshing(true)
         update(TRIGGER)
-        setTimeout(() => window.location.reload(), RELOAD_DELAY)
+        setTimeout(() => {
+          markSkipSplash()
+          window.location.reload()
+        }, RELOAD_DELAY)
       } else {
         update(0)
       }
@@ -78,16 +88,32 @@ export default function PullToRefresh() {
     }
   }, [])
 
+  // 앱 화면 전체를 pull만큼 내린다. 손가락을 따라올 때는 즉시, 놓았을 때는 부드럽게 움직인다.
+  useEffect(() => {
+    const root = document.getElementById('root')
+    if (!root) return undefined
+    root.style.transition = dragging ? 'none' : 'transform 220ms ease-out'
+    root.style.transform = pull > 0 ? `translateY(${pull}px)` : ''
+    return () => {
+      root.style.transform = ''
+      root.style.transition = ''
+    }
+  }, [pull, dragging])
+
   if (pull === 0) return null
 
   const progress = Math.min(pull / TRIGGER, 1)
   const remain = 1 - progress
-  return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-0 z-[90] flex justify-center pt-safe">
+  // #root가 transform을 갖는 동안 그 안의 fixed 요소는 같이 움직이므로, 로고는 body에 직접 붙여 비워진 윗자리에 둔다.
+  return createPortal(
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-x-0 top-0 z-0 flex items-center justify-center overflow-hidden"
+      style={{ height: pull, transition: dragging ? 'none' : 'height 220ms ease-out' }}
+    >
       <div
-        className="splash-stack relative w-[112px]"
+        className="splash-stack relative w-[112px] shrink-0"
         style={{
-          transform: `translateY(${pull - 40}px)`,
           opacity: Math.min(progress * 1.5, 1),
           // 왕관이 얹힌 순간(놓은 뒤)에만 몸통이 눌리는 모션을 쓴다.
           animation: refreshing ? 'splash-stack-bump 220ms ease-out' : undefined,
@@ -104,6 +130,7 @@ export default function PullToRefresh() {
           }}
         />
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

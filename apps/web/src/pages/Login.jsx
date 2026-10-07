@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { useToast } from '../context/useToast.js'
-import { useUser } from '../context/useUser.js'
 import { oauthLoginUrl } from '../api/auth.js'
 import { saveLoginIntent } from '../utils/loginIntent.js'
 
@@ -17,15 +16,12 @@ const PROVIDERS = [
  * 로그인이 끝나면 백엔드가 /oauth/callback으로 돌려보내고, OAuthCallback 화면이 Access JWT를 발급받는다.
  */
 export default function Login() {
-  const navigate = useNavigate()
   const location = useLocation()
   const showToast = useToast()
-  const { user, status } = useUser()
 
   const [agreed, setAgreed] = useState(false)
 
   const redirectTo = location.state?.from ?? '/'
-  const alreadySignedIn = status === 'authenticated' && Boolean(user)
 
   function handleLogin(provider) {
     if (!agreed) {
@@ -74,15 +70,6 @@ export default function Login() {
             {provider.label}
           </button>
         ))}
-        {alreadySignedIn && (
-          <button
-            type="button"
-            onClick={() => navigate(redirectTo, { replace: true })}
-            className="w-full py-2.5 text-center font-label-md text-label-md text-outline hover:text-on-surface transition-colors"
-          >
-            {user.name}님으로 계속하기
-          </button>
-        )}
       </div>
     </div>
   )

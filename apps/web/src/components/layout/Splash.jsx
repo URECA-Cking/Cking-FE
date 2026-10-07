@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useUser } from '../../context/useUser.js'
 
-const LETTERS = ['C', 'K', 'i', 'n', 'g']
 // 스플래시가 떠 있는 동안 아래 화면의 로고를 숨기는 표식(index.css). 로고가 두 개로 겹쳐 보이지 않게 한다.
 const ACTIVE_CLASS = 'splash-active'
 
@@ -15,7 +14,7 @@ function shouldShowSplash() {
 }
 
 /**
- * 임시 첫 화면: CKing 워드마크가 글자별로 떠오른 뒤(intro),
+ * 임시 첫 화면: CKing 로고 몸통이 나타나고 왕관이 떨어져 씌워진 뒤(intro),
  * 로그인 상태 확인이 끝나 아래 화면이 정해지면 `data-splash-target` 로고가 있을 때 그 자리로 옮겨 가며 배경이 걷히고(dock),
  * 없으면(로그인된 사용자의 새로고침 등) CKing만 흐려지며 사라진다(out).
  * 로그인이 확인되면(is-over) 배경을 투명하게 풀어, 홈은 그대로 보이고 그 위에 CKing만 떠 있다 사라진다. 키프레임은 index.css의 splash-*.
@@ -61,7 +60,7 @@ export default function Splash() {
   }
 
   function handleAnimationEnd(e) {
-    if (e.animationName === 'splash-bar-sweep') setIntroEnded(true)
+    if (e.animationName === 'splash-crown-drop') setIntroEnded(true)
     else if (e.target === e.currentTarget) setPhase('done')
   }
 
@@ -75,16 +74,13 @@ export default function Splash() {
       }`}
       onAnimationEnd={handleAnimationEnd}
     >
-      <div ref={wordmarkRef} className="splash-wordmark inline-flex flex-col items-center">
-        {/* g의 꼬리가 글자 칸(line-height 1) 밖으로 나가 blur 중에 잘리므로, 칸 아래에 여유를 두되 음수 마진으로 레이아웃은 유지한다. */}
-        <span className="flex text-[44px] font-extrabold leading-none tracking-[-0.04em] text-on-surface [perspective:400px]">
-          {LETTERS.map((letter, i) => (
-            <span key={letter} className="splash-letter inline-block pb-[0.25em] -mb-[0.25em]" style={{ animationDelay: `${i * 40}ms` }}>
-              {letter}
-            </span>
-          ))}
-        </span>
-        <span className="splash-bar mt-3 h-[3px] w-full rounded-full bg-primary" />
+      <div ref={wordmarkRef} className="splash-wordmark">
+        {/* 로고를 왕관과 몸통 두 장(같은 캔버스 크기)으로 나눠 겹쳐 둔다. 왕관이 위에서 떨어져 씌워진다.
+            크기는 Login의 data-splash-target 로고와 같아야 dock 이동이 어긋나지 않는다. */}
+        <div className="splash-stack relative w-[232px]">
+          <img src="/cking-logo-body.png" alt="" className="splash-body block w-full" />
+          <img src="/cking-crown.png" alt="" className="splash-crown absolute inset-0 w-full h-full" />
+        </div>
       </div>
     </div>
   )

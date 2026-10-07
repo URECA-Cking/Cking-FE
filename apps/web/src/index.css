@@ -96,17 +96,24 @@
   }
 }
 
-/* 임시 첫 화면(Splash.jsx). intro 0~500ms → dock(로고 자리로 이동) 또는 out(사라짐) ~440ms, 총 1초 미만. */
+/* 임시 첫 화면(Splash.jsx). intro 0~820ms → dock(로고 자리로 이동) 또는 out(사라짐) ~440ms, 총 1초 미만. */
 @layer components {
-  .splash-letter {
+  .splash-body {
     opacity: 0;
-    animation: splash-letter-in 340ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    animation: splash-body-in 280ms ease-out forwards;
   }
 
-  .splash-bar {
-    transform: scaleX(0);
-    transform-origin: left;
-    animation: splash-bar-sweep 320ms cubic-bezier(0.65, 0, 0.35, 1) 180ms forwards;
+  /* 왕관: 오른쪽 위에서 기울어진 채 비스듬히 떨어져 몸통에 얹히고(~55%), 한 번 튕긴 뒤 자리 잡는다. */
+  .splash-crown {
+    opacity: 0;
+    transform-origin: 45% 17%;
+    animation: splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) 200ms forwards;
+  }
+
+  /* 왕관이 닿는 순간(200+620*0.55 ≈ 540ms) 몸통이 살짝 눌렸다 돌아온다. */
+  .splash-stack {
+    transform-origin: 50% 100%;
+    animation: splash-stack-bump 220ms ease-out 540ms;
   }
 
   .splash {
@@ -140,22 +147,41 @@
     visibility: hidden;
   }
 
-  @keyframes splash-letter-in {
+  @keyframes splash-body-in {
     from {
       opacity: 0;
-      transform: translateY(60%) rotateX(-70deg);
-      filter: blur(6px);
+      transform: scale(0.9);
     }
     to {
       opacity: 1;
       transform: none;
-      filter: blur(0);
     }
   }
 
-  @keyframes splash-bar-sweep {
-    to {
-      transform: scaleX(1);
+  @keyframes splash-crown-drop {
+    0% {
+      opacity: 0;
+      transform: translate(90px, -55px) rotate(22deg);
+    }
+    15% {
+      opacity: 1;
+    }
+    55% {
+      opacity: 1;
+      transform: translate(0, 0) rotate(-5deg);
+    }
+    75% {
+      transform: translate(0, -9px) rotate(3deg);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes splash-stack-bump {
+    40% {
+      transform: scale(1.02, 0.96);
     }
   }
 

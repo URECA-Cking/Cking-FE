@@ -6,8 +6,9 @@
  *   식별자가 없어서, 캐시하면 같은 브라우저에서 계정을 바꾼 뒤 이전 계정의 응답이 보일 수 있다.
  * - 네비게이션: 네트워크 우선, 실패하면 캐시된 app shell(SPA 진입점)로 폴백한다.
  */
+// v3: 아이콘 교체분이 stale 캐시에 남지 않도록 올린다.
 // v2: 인증 응답을 캐시하던 v1의 API 캐시를 activate 단계에서 지운다.
-const VERSION = 'v2'
+const VERSION = 'v3'
 const SHELL_CACHE = `cking-shell-${VERSION}`
 const API_CACHE = `cking-api-${VERSION}`
 const SHELL_URL = '/index.html'

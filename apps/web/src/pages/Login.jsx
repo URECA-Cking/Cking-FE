@@ -36,10 +36,9 @@ export default function Login() {
     <div className="flex flex-col w-full min-h-[100dvh] px-margin pb-space-xl pt-safe">
       {/* 스플래시(Splash.jsx)가 이 로고 자리(data-splash-target)로 옮겨 와 그대로 이어진다. 크기·모양을 같이 맞춘다. */}
       <div className="flex flex-1 flex-col items-center justify-center">
-        <div data-splash-target className="inline-flex flex-col items-center">
-          <h1 className="text-[44px] font-extrabold leading-none tracking-[-0.04em] text-on-surface">CKing</h1>
-          <span className="mt-3 h-[3px] w-full rounded-full bg-primary" aria-hidden="true" />
-        </div>
+        <h1 data-splash-target className="inline-flex">
+          <img src="/cking-logo.png" alt="CKing" className="block w-[232px]" />
+        </h1>
       </div>
 
       <div className="flex items-center gap-2 mb-space-md px-1">

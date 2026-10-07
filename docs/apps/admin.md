@@ -17,7 +17,7 @@
 
 관리자 화면·라우팅·운영 상태·`/api/admin/**` 호출은 `apps/admin`이 소유한다. Admin은 Web의 페이지, `UserContext`, 팔로우 상태, 사용자·Creator 화면을 import하지 않는다.
 
-독립 Admin은 Web OAuth를 재사용하지 않는다. BE #446의 관리자 전용 ID/PW 로그인 계약에 따라 `role=ADMIN` Access JWT와 `ADMIN_WEB` 전용 Refresh Token을 사용하고, 갱신·로그아웃은 각각 `POST /api/admin/auth/refresh`, `POST /api/admin/auth/logout`으로 분리한다. `/api/admin/**`는 ADMIN JWT로 인증·인가한다. 로그인 endpoint와 요청·응답 상세는 BE 계약이 확정된 뒤 [API 현황](../api-coverage.md)에 기록하며 FE가 추정하지 않는다.
+독립 Admin은 Web OAuth를 재사용하지 않는다. [Cking-BE Auth API](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md)의 관리자 전용 ID/PW 로그인 `POST /api/auth/admin/login`으로 `role=ADMIN` Access JWT와 `ADMIN_WEB` 전용 Refresh Cookie를 발급받는다. 갱신·로그아웃은 각각 `POST /api/admin/auth/refresh`, `POST /api/admin/auth/logout`으로 분리하며, 해당 Cookie와 Origin 계약도 Auth API 정본을 따른다. `/api/admin/**`는 ADMIN JWT로 인증·인가한다.
 
 Admin은 `dev-admin.cking.co.kr`에서 별도 배포한다. 별도 S3·CloudFront와 해당 Origin의 BE CORS 허용은 Admin 생성 작업에서 확인하며, `apps/admin` 생성 PR에 Admin 배포 워크플로도 함께 추가한다.
 

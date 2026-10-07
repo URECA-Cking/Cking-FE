@@ -1,21 +1,14 @@
 import { useEffect, useState } from 'react'
 
-const SEEN_KEY = 'cking:splash-seen'
 const LETTERS = ['C', 'K', 'i', 'n', 'g']
 
 /**
- * 같은 브라우저 세션에서 처음 들어왔을 때만 스플래시를 보여준다.
- * OAuth 콜백 복귀·새로고침도 전체 페이지 로드라 세션 단위로 막지 않으면 매번 반복된다.
- * 모션 줄이기 설정 사용자는 건너뛴다.
+ * 페이지를 새로 열 때마다(새로고침 포함) 스플래시를 먼저 보여준다.
+ * OAuth 콜백은 로그인 도중 거쳐 가는 화면이라 진입으로 보지 않고, 모션 줄이기 설정 사용자는 건너뛴다.
  */
 function shouldShowSplash() {
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false
-  try {
-    return !sessionStorage.getItem(SEEN_KEY)
-  } catch {
-    // 저장소를 못 쓰는 환경(사생활 보호 모드 등)에서는 매번 보여도 동작에는 문제없다.
-    return true
-  }
+  if (window.location.pathname.startsWith('/oauth/callback')) return false
+  return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
 
 /**
@@ -25,14 +18,11 @@ function shouldShowSplash() {
 export default function Splash() {
   const [visible, setVisible] = useState(shouldShowSplash)
 
-  // 표시 기록은 렌더 밖에서 남긴다. StrictMode가 초기화 함수를 두 번 부르면 두 번째에 false가 되기 때문이다.
+  // 보통은 animationend로 닫히지만, 백그라운드 탭·CSS 로드 실패처럼 이벤트가 안 오면 화면을 막지 않게 강제로 닫는다.
   useEffect(() => {
     if (!visible) return
-    try {
-      sessionStorage.setItem(SEEN_KEY, '1')
-    } catch {
-      // 위와 같은 이유로 무시한다.
-    }
+    const timer = setTimeout(() => setVisible(false), 1200)
+    return () => clearTimeout(timer)
   }, [visible])
 
   if (!visible) return null

@@ -2,7 +2,7 @@
 
 ## 진행 상태
 
-2026-10-07 기준 **자동 검증과 비인증 배포 경계 검증은 완료, 실계정 E2E는 미완료**다. #55(B-02)와 #56(B-03)이 머지된 FE `develop` `14d3f09`을 #65 브랜치에 fast-forward한 뒤 확인했다. 로컬 백엔드가 8080에 떠 있지 않고 Google·Kakao·Admin 테스트 계정에 접근할 수 없어 실제 로그인·Cookie 회전·관리자 상태 변경은 검증하지 못했다. 이 결과만으로 #65의 실계정 E2E 완료를 주장하지 않는다.
+2026-10-07~08 기준 자동 검증, 비인증 배포 경계 검증 및 실계정의 화면·세션 복원 일부를 확인했다. #55(B-02)와 #56(B-03)이 머지된 FE `develop` `14d3f09`을 #65 브랜치에 fast-forward한 뒤 확인했다. 토큰·Cookie 원문, Refresh API의 네트워크 요청·회전, 만료 뒤 401 재시도는 직접 관찰하지 않았으므로 이 결과만으로 해당 저수준 계약까지 통과했다고 주장하지 않는다.
 
 ## 확인한 항목
 
@@ -51,25 +51,51 @@
 | 새 탭 세션 복원 | Chrome 새 탭에서 `/my-page`를 직접 열었을 때 로그인 입력 없이 Kakao 계정이 표시됨. Refresh API 호출·Cookie 회전 자체는 별도 확인 필요 |
 | 기존 Google 탭 | 앞서 열어둔 Google 탭의 `/my-page`는 여전히 Google 계정을 표시함. 각 탭의 Access Token 유지가 확인된 것이며, 만료 후 갱신 시 계정 격리까지 보장하는 결과는 아님 |
 
-Kakao 사용자 화면과 조회·세션 유지 일부는 확인했다. Kakao OAuth 요청/응답 전체, 만료 뒤 Refresh, 로그아웃 및 Web/Admin 동시 세션은 여전히 미검증이다.
+Kakao 사용자 화면과 조회·세션 유지 일부는 확인했다. Kakao OAuth 요청/응답 전체, 만료 뒤 Refresh, 로그아웃 및 Web/Admin 동시 세션은 이 시점에 미검증이었다.
 
 ### 화면 정합성 관찰
 
 Kakao 로그인 뒤 홈의 `진행 중인 이벤트` 섹션에 `종료` 표시가 붙은 Event 카드가 노출됐다. `apps/web/src/pages/Home.jsx`의 `followedEvents`는 진행 중·예정·종료를 정렬만 하고 종료 이벤트를 제외하지 않으므로, 현재 화면 문구와 실제 목록 범위가 맞지 않는다. 인증 실패는 아니며 별도 Web UI 수정 대상으로 남긴다.
 
-## 실제 BE·브라우저 E2E: 미검증
+## 개발 Admin 실계정 부분 검증 (2026-10-07)
+
+사용자가 `https://dev-admin.cking.co.kr/admin`에 관리자 계정으로 로그인한 뒤, 같은 Chrome 프로필에서 조회 전용 화면을 확인했다. 관리자 ID·비밀번호·Token·Cookie 원문 및 운영 대상 개인 정보는 기록하지 않는다.
+
+| 항목 | 결과 |
+| --- | --- |
+| 보호된 관리자 콘솔 | 로그인 후 `/admin`이 열리고 이벤트 승인·Creator 신청·추첨 운영 탭이 표시됨. 로그인 요청과 `/api/me`의 네트워크 응답 자체는 직접 관찰하지 못함 |
+| 실제 운영 데이터 조회 | 추첨 운영 목록에서 마감·결과 공개 Event를 조회하고, 공개 Event의 Snapshot·INITIAL Drawing·당첨자 목록과 당첨자 상세를 열어 확인함 |
+| 다른 관리 목록 | Creator 신청 목록의 승인·대기 상태, 재추첨 요청 목록의 빈 상태, Dead Stream 목록의 빈 상태를 확인함 |
+| 새 탭 세션 복원 | 같은 Chrome 프로필의 새 탭에서 `/admin`을 직접 열었을 때 로그인 입력 없이 관리자 콘솔이 복원됨. 관리자 Refresh 호출·Cookie 회전은 네트워크에서 별도 확인 필요 |
+| 운영 상태 변경 | 승인·반려·수령 완료·추첨·replay 등 변경 버튼은 누르지 않음 |
+
+Admin의 보호 화면·조회 동선과 새 탭 세션 복원은 확인했다. 401 후 갱신·1회 재시도와 403 분기는 아래의 남은 검증에 포함한다.
+
+## 개발 Web·Admin 동시 세션 부분 검증 (2026-10-08)
+
+같은 Chrome 프로필에서 `https://dev.cking.co.kr`의 USER 세션과 `https://dev-admin.cking.co.kr`의 ADMIN 세션을 각각 열어, 두 origin의 화면 세션이 서로 영향을 주지 않는지 확인했다. 화면에서 확인 가능한 세션 복원·로그아웃 결과만 기록하며, Token·Cookie 원문은 조회하거나 기록하지 않는다.
+
+| 항목 | 결과 |
+| --- | --- |
+| USER·ADMIN 동시 세션 | Web의 `/my-page`는 USER 화면, Admin의 `/admin`은 관리자 콘솔을 각각 표시함 |
+| 새 탭 복원 | Web·Admin을 각각 새 탭으로 다시 열어도 각 보호 화면이 로그인 입력 없이 표시됨 |
+| Web Logout 영향 | Web에서 로그아웃 후 Web 새 탭은 `/login`으로 이동했고, Admin 새 탭은 계속 `/admin` 관리자 콘솔을 표시함 |
+| Admin Logout 영향 | Admin 로그아웃 후 Admin 보호 화면은 로그인으로 전환되고, Web의 USER 세션은 `/my-page`에서 유지됨 |
+
+이 결과는 서로 다른 Access Token 저장소와 Refresh 경로가 화면 수준에서 분리되어 동작함을 보여 준다. 다만 실제 Refresh 요청의 Cookie Path·회전과 401 재시도는 브라우저 네트워크 수준의 별도 검증이 남아 있다.
+
+## 실제 BE·브라우저 E2E: 남은 검증
 
 다음은 모두 **실행 결과가 아니라 남은 확인 절차**다. 인증 정보·Access Token·Cookie 원문은 문서와 PR에 기록하지 않는다. 테스트 계정은 채팅이나 PR 본문으로 공유하지 않는다.
 
 로컬 검증에는 8080에서 실제 BE를 먼저 기동해야 한다. 개발 배포 검증에는 테스트 계정·테스트 Event를 준비하고, Web과 Admin을 **같은 브라우저 프로필의 서로 다른 탭**에서 연다. 각 단계의 성공/실패, 환경, 확인 시각을 이 문서에 기록한다. 관리자 자동 브라우저 스펙은 테스트 계정 접근과 Playwright Chromium 설치 후 `npm run test:e2e:admin`으로 실행한다. 계정이 없을 때는 성공이 아니라 skipped로 남는다.
 
-- [ ] Web Google 로그인 → Callback → Login Code 교환 → `/api/me`의 USER 확인
-- [ ] Web Kakao 로그인 → Callback → Login Code 교환 → `/api/me`의 USER 확인
-- [ ] Web Access Token 만료·새로고침 후 사용자 Refresh 및 Logout 확인
-- [ ] Admin ID/PW 로그인 → `/api/me`의 ADMIN 확인 → 관리자 API 조회
+- [x] Web Google·Kakao 로그인 뒤 USER 화면 및 보호 조회 화면 확인 (OAuth Callback·Login Code 교환·`/api/me` 네트워크 응답은 직접 관찰하지 않음)
+- [x] Web 새로고침·새 탭에서 사용자 화면 복원, Web Logout 뒤 재진입 시 로그인 화면 확인 (만료 뒤 Refresh 회전은 직접 관찰하지 않음)
+- [x] Admin ID/PW 로그인 뒤 관리자 콘솔·관리 운영 API 화면 조회 및 새 탭 세션 복원 확인 (`/api/me` 네트워크 응답은 직접 관찰하지 않음)
 - [ ] Admin 401 → 관리자 Refresh 한 번 → 원 요청 한 번 재시도; 403은 Refresh하지 않음
-- [ ] Admin Logout 후 재진입 차단, USER 계정의 Admin 진입 차단
-- [ ] 같은 브라우저에서 Web·Admin 동시 로그인 후 한쪽 Refresh·Logout이 다른 쪽 세션을 변경하지 않음
+- [x] Admin Logout 후 Admin 보호 화면이 로그인으로 전환되고, Web USER 세션은 유지됨
+- [x] 같은 브라우저에서 Web·Admin 동시 로그인 후 Web·Admin 각각의 Logout이 반대쪽 세션을 변경하지 않음
 - [ ] Web Creator Space·Event·Mission·Calendar 화면이 실제 API 응답을 표시
 - [ ] Admin 운영 목록·상세·주요 동선이 실제 API 응답을 표시. 상태 변경은 개발 환경 테스트 데이터에만 수행
 - [ ] 개발 배포 화면의 네트워크 요청이 두 앱 모두 `dev-api.cking.co.kr`로 향하는지 브라우저에서 확인

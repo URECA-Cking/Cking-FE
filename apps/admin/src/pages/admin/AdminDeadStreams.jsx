@@ -1,8 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { getDeadStreams, replayDeadStream } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
-import BackHeader from '../../components/BackHeader.jsx'
 import MaterialIcon from '../../components/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
@@ -20,7 +18,6 @@ const STREAM_META = {
 }
 
 export default function AdminDeadStreams() {
-  const navigate = useNavigate()
   const showToast = useToast()
   const [status, setStatus] = useState('UNRESOLVED')
   const [page, setPage] = useState(0)
@@ -58,10 +55,8 @@ export default function AdminDeadStreams() {
   }
 
   return (
-    <div className="flex flex-col w-full min-h-screen pt-safe pb-8">
-      <BackHeader title="데드 스트림 관리" onBack={() => navigate('/admin')} />
-
-      <main className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-6xl md:px-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-space-md">
+      <div className="border-b border-slate-200 pb-4"><p className="text-sm text-slate-500">운영 관리</p><h1 className="mt-1 text-xl font-semibold text-slate-950">Dead Stream</h1></div>
         <section className="p-space-md rounded-2xl bg-gradient-to-br from-primary via-[#be185d] to-berry-deep text-on-primary shadow-floating relative overflow-hidden">
           <MaterialIcon name="warning" filled className="absolute -right-2 -bottom-4 text-[112px] text-primary-fixed/15" />
           <div className="relative flex items-start gap-space-sm">
@@ -112,7 +107,6 @@ export default function AdminDeadStreams() {
             <button type="button" disabled={!data.hasNext} onClick={() => setPage((current) => current + 1)} className="h-10 px-3 rounded-xl bg-surface-container-low text-on-surface font-label-sm text-label-sm font-semibold disabled:opacity-40">다음</button>
           </div>
         )}
-      </main>
     </div>
   )
 }

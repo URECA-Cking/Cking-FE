@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import MaterialIcon from '../../components/MaterialIcon.jsx'
-import BackHeader from '../../components/BackHeader.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/States.jsx'
 import AdminDrawingPanel from './AdminDrawingPanel.jsx'
 import { useToast } from '../../context/useToast.js'
-import { useAdminSession } from '../../context/useAdminSession.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import {
   approveCreatorApplication,
@@ -30,45 +28,17 @@ const TABS = [
  * 이벤트 승인 심사, 크리에이터 전환 신청 심사, 추첨 운영을 한 화면에서 처리한다.
  */
 export default function AdminConsole() {
-  const navigate = useNavigate()
-  const { signOut } = useAdminSession()
-  const showToast = useToast()
-  const [tab, setTab] = useState('events')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedTab = searchParams.get('tab')
+  const tab = TABS.some((item) => item.id === selectedTab) ? selectedTab : 'events'
 
-  async function handleSignOut() {
-    try {
-      await signOut()
-      navigate('/login', { replace: true })
-    } catch (error) {
-      showToast(describeError(error, '로그아웃하지 못했습니다. 다시 시도해주세요.'), { icon: 'error' })
-    }
+  function setTab(nextTab) {
+    setSearchParams(nextTab === 'events' ? {} : { tab: nextTab })
   }
 
   return (
-    <div className="flex flex-col w-full min-h-screen pt-safe pb-24">
-      <BackHeader
-        title="관리자 콘솔"
-        right={
-          <div className="flex items-center gap-1">
-            <Link to="/admin/redraws" className="h-9 px-2.5 rounded-xl bg-berry-tint text-primary font-label-sm text-label-sm font-semibold flex items-center gap-1">
-              <MaterialIcon name="autorenew" className="text-[17px]" />
-              재추첨
-            </Link>
-            <Link to="/admin/dead-streams" aria-label="데드 스트림 관리" className="w-9 h-9 rounded-xl bg-surface-container-low text-on-surface-variant flex items-center justify-center">
-              <MaterialIcon name="warning" className="text-[18px]" />
-            </Link>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="h-9 rounded-xl bg-surface-container-low px-2.5 font-label-sm text-label-sm font-semibold text-on-surface-variant"
-            >
-              로그아웃
-            </button>
-          </div>
-        }
-      />
-
-      <div className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-6xl md:px-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-space-md">
+      <div className="border-b border-slate-200 pb-4"><p className="text-sm text-slate-500">운영 콘솔</p><h1 className="mt-1 text-xl font-semibold text-slate-950">관리자 운영</h1></div>
         <div className="flex items-center gap-space-xs p-1 rounded-xl bg-surface-container-low">
           {TABS.map((item) => (
             <button
@@ -90,7 +60,6 @@ export default function AdminConsole() {
         {tab === 'events' && <PendingEvents />}
         {tab === 'applications' && <CreatorApplications />}
         {tab === 'drawings' && <AdminDrawingPanel />}
-      </div>
     </div>
   )
 }

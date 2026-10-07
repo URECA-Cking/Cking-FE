@@ -73,9 +73,10 @@ export default function Splash() {
       onAnimationEnd={handleAnimationEnd}
     >
       <div ref={wordmarkRef} className="splash-wordmark inline-flex flex-col items-center">
+        {/* g의 꼬리가 글자 칸(line-height 1) 밖으로 나가 blur 중에 잘리므로, 칸 아래에 여유를 두되 음수 마진으로 레이아웃은 유지한다. */}
         <span className="flex text-[44px] font-extrabold leading-none tracking-[-0.04em] text-on-surface [perspective:400px]">
           {LETTERS.map((letter, i) => (
-            <span key={letter} className="splash-letter inline-block" style={{ animationDelay: `${i * 40}ms` }}>
+            <span key={letter} className="splash-letter inline-block pb-[0.25em] -mb-[0.25em]" style={{ animationDelay: `${i * 40}ms` }}>
               {letter}
             </span>
           ))}

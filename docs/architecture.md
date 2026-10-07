@@ -20,7 +20,7 @@ web ─┐
 admin┘
 ```
 
-`admin → web`와 `web → admin` 의존은 금지한다. 각 앱은 자신의 페이지·라우팅·상태·도메인 조합 로직을 소유한다. B-01의 상세 의사결정은 [관리자 앱 분리 설계](architecture/b-01-admin-app-separation.md)를 따른다.
+`admin → web`와 `web → admin` 의존은 금지한다. 각 앱은 자신의 페이지·라우팅·상태·도메인 조합 로직을 소유한다.
 
 ## 책임
 

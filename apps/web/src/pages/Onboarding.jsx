@@ -47,8 +47,21 @@ export default function Onboarding({ manage = false }) {
   }
 
   function handleBack() {
-    if (step === 'creators' && !manage) setParams({}, { replace: true, state: location.state })
-    else navigate(-1)
+    // 앱 안에서 뒤로 갈 곳이 있는지: react-router가 이 앱에서 쌓은 위치를 history.state.idx에 기록한다.
+    // 로그인 직후에는 이전 기록이 Google·BE 로그인 중간 페이지라 idx가 0이고, 그쪽으로 돌아가면 안 된다.
+    const canGoBack = (window.history.state?.idx ?? 0) > 0
+    if (canGoBack) {
+      // 1단계에서 "다음"으로 쌓은 기록을 그대로 되돌린다. 덮어쓰면 1단계 항목이 중복으로 남아 다시 뒤로가도 변화가 없다.
+      navigate(-1)
+      return
+    }
+    // 새로고침 등으로 2단계에서 시작했다면 기록을 늘리지 않고 1단계로 바꾼다.
+    if (step === 'creators' && !manage) {
+      setParams({}, { replace: true, state: location.state })
+      return
+    }
+    // 돌아갈 곳이 없으면(가입 직후 등) 로그인 전에 가려던 화면, 없으면 홈으로 보낸다.
+    navigate(manage ? '/' : destination, { replace: true })
   }
 
   return (

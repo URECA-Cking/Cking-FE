@@ -163,14 +163,15 @@
 
   @keyframes splash-wordmark-out {
     to {
+      opacity: 0;
       transform: scale(1.08);
       filter: blur(8px);
     }
   }
 
+  /* 배경은 끝까지 불투명하게 둔다. 흐려지며 아래 페이지가 비치지 않고 CKing이 사라진 뒤에 페이지가 나타난다. */
   @keyframes splash-out {
     to {
-      opacity: 0;
       visibility: hidden;
     }
   }

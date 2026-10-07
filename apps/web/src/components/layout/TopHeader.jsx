@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useToast } from '../../context/useToast.js'
 
@@ -21,10 +21,8 @@ function useShare() {
   }
 }
 
-/** Top app bar used on the main tab screens (Home, Explore). */
-export function TopHeader({ title, embedded = false, hidden = false }) {
-  const navigate = useNavigate()
-
+/** Main-tab app bar. Its centered title is intentionally independent from the right action. */
+export function TopHeader({ title, unreadCount = 0, embedded = false, hidden = false }) {
   return (
     <header
       className={
@@ -42,28 +40,26 @@ export function TopHeader({ title, embedded = false, hidden = false }) {
             : 'h-14 px-margin md:px-8 flex items-center justify-between'
         }
       >
-        <div className="flex items-center gap-space-sm">
-          <Link to="/" className="text-primary font-headline-md text-headline-md tracking-tight font-bold">
-            Cking
-          </Link>
-          <div className="h-4 w-[1px] bg-outline-variant/30" />
-          <h1 className="text-on-surface font-title-md text-title-md truncate max-w-[180px]">{title}</h1>
-        </div>
-        <div className="flex items-center gap-space-sm">
-          <button
-            aria-label="검색"
-            onClick={() => navigate('/explore')}
-            className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
-            type="button"
-          >
-            <MaterialIcon name="search" className="text-[22px]" />
-          </button>
+        <h1 className={`font-title-md text-title-md font-semibold ${
+          title === 'Cking' ? 'text-primary font-bold tracking-tight' : 'absolute left-1/2 -translate-x-1/2 text-on-surface'
+        }`}>
+          {title}
+        </h1>
+        <div className="ml-auto flex items-center">
           <Link
-            to="/my-page"
-            className="w-8 h-8 rounded-full bg-primary flex items-center justify-center"
-            aria-label="마이페이지"
+            to="/notifications"
+            className="relative w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
+            aria-label="알림"
           >
-            <MaterialIcon name="person" className="text-on-primary text-[18px]" />
+            <MaterialIcon name="notifications" className="text-[22px]" />
+            {unreadCount > 0 && (
+              <span
+                className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-error text-on-error font-label-xs text-[10px] leading-4 text-center font-bold"
+                aria-label={`읽지 않은 알림 ${unreadCount}개`}
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </Link>
         </div>
       </div>

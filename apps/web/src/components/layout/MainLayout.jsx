@@ -9,12 +9,10 @@ import { getMyNotifications } from '../../api/notifications.js'
 import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 
-const TITLES = {
-  '/': 'Home',
-  '/explore': 'Explore',
-  '/my-entries': '내 응모',
+const APP_BAR_TITLES = {
+  '/': 'Cking',
   '/notifications': '알림',
-  '/my-page': 'MY',
+  '/my-page': '마이',
 }
 
 export default function MainLayout() {
@@ -22,7 +20,7 @@ export default function MainLayout() {
   const scrollRef = useRef(null)
   const { headerVisible, bottomCompact } = useScrollChrome(scrollRef)
   const online = useOnline()
-  const title = TITLES[pathname] ?? 'Cking'
+  const appBarTitle = APP_BAR_TITLES[pathname]
 
   // 하단 탭의 읽지 않은 알림 배지는 실제 알림 목록에서 계산한다.
   // 같은 결과를 홈 화면도 쓰기 때문에 Outlet context로 내려보내 중복 호출을 막는다.
@@ -33,10 +31,12 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
-      <TopHeader title={title} embedded hidden={!headerVisible} />
+      {appBarTitle && <TopHeader title={appBarTitle} unreadCount={unreadCount} embedded hidden={!headerVisible} />}
       <main
         ref={scrollRef}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)]"
+        className={`flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] ${
+          appBarTitle ? 'pt-[calc(env(safe-area-inset-top,0px)+3.5rem)]' : 'pt-safe'
+        }`}
       >
         <FollowStatus />
         {!online && (
@@ -49,7 +49,7 @@ export default function MainLayout() {
         )}
         <Outlet context={{ notifications, unreadCount, reloadNotifications: reload }} />
       </main>
-      <BottomNav unreadCount={unreadCount} embedded compact={bottomCompact} />
+      <BottomNav embedded compact={bottomCompact} />
     </div>
   )
 }

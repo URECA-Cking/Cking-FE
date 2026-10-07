@@ -6,14 +6,13 @@ const NAV_ITEMS = [
   { to: '/', label: '홈', icon: 'home', end: true },
   { to: '/explore', label: '탐색', icon: 'explore' },
   { to: '/my-entries', label: '내 응모', icon: 'confirmation_number' },
-  { to: '/notifications', label: '알림', icon: 'notifications', badgeKey: 'unread' },
   { to: '/my-page', label: 'MY', icon: 'person' },
 ]
 
 const INDICATOR_MOTION_MS = 380
 
-/** 시안의 프로스티드 글래스 하단 독. 알림 탭에는 읽지 않은 알림 배지를 표시한다. */
-export default function BottomNav({ unreadCount = 0, embedded = false, compact = false }) {
+/** 시안의 프로스티드 글래스 하단 독. 알림은 앱바에서 연다. */
+export default function BottomNav({ embedded = false, compact = false }) {
   const { pathname } = useLocation()
   const dockRef = useRef(null)
   const itemRefs = useRef([])
@@ -79,8 +78,8 @@ export default function BottomNav({ unreadCount = 0, embedded = false, compact =
         ref={dockRef}
         className={`liquid-nav-dock mx-auto flex items-center justify-between rounded-full transition-[width,height,padding,gap] duration-300 ease-out ${
           compact
-            ? 'h-12 w-[20.5rem] max-w-full gap-1 px-2'
-            : 'h-16 w-full max-w-[28rem] gap-3 px-3'
+            ? 'h-11 w-[20.5rem] max-w-full gap-1 px-2'
+            : 'h-[3.25rem] w-full max-w-[28rem] gap-3 px-3'
         } relative`}
       >
         <span
@@ -106,7 +105,7 @@ export default function BottomNav({ unreadCount = 0, embedded = false, compact =
             }}
             className={({ isActive }) =>
               `relative z-10 flex flex-1 flex-col items-center justify-center min-w-0 rounded-full transition-[height,color] duration-300 ease-out active:scale-95 ${
-                compact ? 'h-9 gap-0' : 'h-12 gap-0.5'
+                compact ? 'h-8 gap-0' : 'h-10 gap-0'
               } ${
                 isActive ? 'text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'
               }`
@@ -116,16 +115,8 @@ export default function BottomNav({ unreadCount = 0, embedded = false, compact =
               <>
                 <span className="relative">
                   <MaterialIcon name={item.icon} filled={isActive} className={compact ? 'text-[21px]' : 'text-[24px]'} />
-                  {item.badgeKey === 'unread' && unreadCount > 0 && (
-                    <span
-                      className="absolute -top-0.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-error text-on-error font-label-xs text-[10px] leading-4 text-center font-bold"
-                      aria-label={`읽지 않은 알림 ${unreadCount}개`}
-                    >
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
                 </span>
-                <span className={`relative font-label-xs transition-[font-size] duration-300 ${compact ? 'text-[9px] leading-3' : 'text-label-xs'}`}>
+                <span className={`relative -mt-1 font-label-xs transition-[font-size] duration-300 ${compact ? 'text-[9px] leading-3' : 'text-label-xs'}`}>
                   {item.label}
                 </span>
               </>

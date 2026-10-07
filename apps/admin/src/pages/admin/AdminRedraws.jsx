@@ -7,6 +7,7 @@ import {
   getRedrawRequest,
   getRedrawRequests,
   rejectRedrawRequest,
+  retryDrawing,
 } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
 import BackHeader from '../../components/BackHeader.jsx'
@@ -101,7 +102,9 @@ export default function AdminRedraws() {
         <RedrawList items={items} list={list} loading={listLoading} error={listError} status={status} page={page} selectedId={selectedId} onStatus={selectStatus} onSelect={setSelectedId} onPage={setPage} onRetry={reloadList} />
         {selectedId && loading && <LoadingBlock label="재추첨 요청을 불러오는 중..." />}
         {selectedId && !loading && error && <ErrorBlock message={error} onRetry={reload} />}
-        {redraw && <RedrawDetail redraw={redraw} onChanged={refreshOperation} />}
+        {redraw?.redrawRequestId === selectedId && !loading && (
+          <RedrawDetail redraw={redraw} onChanged={refreshOperation} />
+        )}
       </main>
     </div>
   )
@@ -145,6 +148,20 @@ function RedrawDetail({ redraw, onChanged }) {
   function reject() { const reason = rejectReason.trim(); if (!reason) return showToast('반려 사유를 입력해주세요.', { icon: 'error' }); return run(() => rejectRedrawRequest(redraw.redrawRequestId, reason), '재추첨 요청을 반려했어요.', '재추첨 요청을 반려하지 못했어요.') }
   /** 재추첨 실행 결과에 맞는 안내를 표시한다. */
   async function execute() { setBusy(true); try { const result = await executeRedrawRequest(redraw.redrawRequestId); showToast(result.executionStatus === 'EXECUTED' ? '재추첨을 실행했어요.' : result.executionStatus === 'INSUFFICIENT_CANDIDATES' ? '후보가 부족하여 재추첨을 완료하지 못했어요.' : '재추첨 실행 결과를 확인해주세요.'); await onChanged() } catch (error) { showToast(describeError(error, '재추첨을 실행하지 못했어요.'), { icon: 'error' }) } finally { setBusy(false) } }
+  /** 실패한 REDRAW Drawing을 보존된 입력으로 다시 실행한다. */
+  async function retryFailedDrawing() {
+    if (!redraw.redrawDrawingId) return
+    setBusy(true)
+    try {
+      await retryDrawing(redraw.redrawDrawingId)
+      showToast('기존 추첨 입력과 Seed를 재사용해 재추첨을 다시 실행했어요.')
+      await onChanged()
+    } catch (error) {
+      showToast(describeError(error, '재추첨을 다시 실행하지 못했어요.'), { icon: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
   return (
     <section className="p-space-md rounded-2xl bg-surface-container-lowest shadow-card flex flex-col gap-3">
       <div className="flex justify-between"><div><p className="font-label-xs text-label-xs text-on-surface-variant">재추첨 요청 #{redraw.redrawRequestId}</p><h3 className="font-title-md text-title-md text-on-surface font-bold">이벤트 #{redraw.eventId}</h3></div><div><StatusPill {...metaOf(REQUEST_STATUS, redraw.status)} /><StatusPill {...metaOf(EXECUTION_STATUS, redraw.executionStatus)} /></div></div>
@@ -152,6 +169,7 @@ function RedrawDetail({ redraw, onChanged }) {
       <p className="p-3 rounded-xl bg-berry-tint">{redraw.reason}</p>
       {redraw.status === 'REQUESTED' && <><button type="button" disabled={busy} onClick={approve} className="h-10 rounded-xl bg-primary text-on-primary font-bold">재추첨 승인</button><textarea value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} maxLength={500} rows={3} placeholder="반려 사유" className="rounded-xl bg-error-container/45 px-3 py-2" /><button type="button" disabled={busy || !rejectReason.trim()} onClick={reject} className="h-10 rounded-xl bg-error text-on-error font-bold">반려</button></>}
       {redraw.status === 'APPROVED' && redraw.executionStatus === 'PENDING' && <button type="button" disabled={busy} onClick={execute} className="h-11 rounded-xl bg-primary text-on-primary font-bold"><MaterialIcon name="casino" className="mr-1" />재추첨 실행</button>}
+      {redraw.executionStatus === 'FAILED' && redraw.redrawDrawingId && <button type="button" disabled={busy} onClick={retryFailedDrawing} className="h-11 rounded-xl bg-error text-on-error font-bold"><MaterialIcon name="refresh" className="mr-1" />실패한 재추첨 다시 실행</button>}
       {redraw.rejectReason && <p className="text-error">반려 사유: {redraw.rejectReason}</p>}
       <div className="flex flex-col gap-2"><p className="font-label-sm text-label-sm text-on-surface font-semibold">고정된 결원 당첨자</p>{redraw.vacancyWinners?.length ? redraw.vacancyWinners.map((winner) => <div key={winner.winnerId} className="flex justify-between p-space-sm rounded-xl bg-surface-container-low"><div><p className="font-label-md text-label-md text-on-surface font-semibold">{winner.name}</p><p className="font-label-xs text-label-xs text-on-surface-variant">당첨자 #{winner.winnerId} · 사용자 #{winner.userId}</p></div><span className="text-primary font-bold">{winner.rankInDrawing}위</span></div>) : <p className="font-body-sm text-body-sm text-on-surface-variant">고정된 결원 당첨자 정보가 없어요.</p>}</div>
     </section>

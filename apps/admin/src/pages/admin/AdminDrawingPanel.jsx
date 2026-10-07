@@ -129,6 +129,30 @@ export default function AdminDrawingPanel() {
     }
   }
 
+  /** 비동기 마감의 현재 상태를 다시 확인하고 선택 이벤트를 갱신한다. */
+  async function refreshClosingStatus() {
+    if (!selected) return
+    setBusy(true)
+    try {
+      const closing = await getClosingStatus(selected.eventId)
+      const next = { ...selected, status: closing.status }
+      setSelected(next)
+      setDetail((prev) => ({ ...prev, closing }))
+      if (closing.status === 'CLOSED') {
+        const snapshot = await getEventSnapshot(selected.eventId).catch((err) => ({ error: describeError(err) }))
+        setDetail((prev) => ({ ...prev, snapshot }))
+        showToast('이벤트 마감이 완료되어 초기 추첨을 진행할 수 있어요.')
+      } else {
+        showToast('이벤트 마감이 아직 진행 중이에요.', { icon: 'info' })
+      }
+      await reload()
+    } catch (err) {
+      showToast(describeError(err, '이벤트 마감 상태를 확인하지 못했어요.'), { icon: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   /** 실패한 Drawing을 같은 Drawing과 Seed로 다시 실행한다. */
   async function retryFailedDrawing() {
     if (!detail?.drawing) return
@@ -300,6 +324,16 @@ export default function AdminDrawingPanel() {
                   className="h-11 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
                 >
                   수동 마감 시작
+                </button>
+              )}
+
+              {selected.status === 'CLOSING' && (
+                <button
+                  type="button"
+                  onClick={refreshClosingStatus}
+                  className="h-11 rounded-xl bg-surface-container-high text-on-surface font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
+                >
+                  마감 상태 다시 확인
                 </button>
               )}
 

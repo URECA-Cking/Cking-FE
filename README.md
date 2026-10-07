@@ -1,14 +1,26 @@
 # Cking-FE
 
-Cking 팬덤 래플 서비스의 프론트엔드(웹앱)입니다. React + Vite + Tailwind CSS로 만들었고,
+Cking 팬덤 래플 서비스의 프론트엔드입니다. npm workspaces로 앱을 관리하며,
+현재 Web 앱은 `apps/web`에 있습니다. React + Vite + Tailwind CSS로 만들었고,
 화면 구성은 `stitch/` 시안(Fandom Editorial Luxe 디자인 시스템)을 따릅니다.
 표시되는 값은 별도로 표기한 항목을 빼고 모두 백엔드(`Cking-BE`)의 실제 응답입니다.
+
+## Workspace 구조
+
+```text
+apps/web/      기존 사용자·Creator·관리자 화면을 그대로 포함한 Web 앱
+packages/      후속 작업에서 실제 공통 코드 추출 예정
+package.json   npm workspaces 및 루트 명령
+```
+
+이번 단계는 기존 앱 이전만 완료한 상태입니다. 별도 `apps/admin` 생성과 Web의 관리자 화면 제거는 후속 작업입니다.
+따라서 현재 `npm run build`는 Web만 빌드합니다. Admin 앱이 추가되면 두 앱을 함께 검증하도록 확장합니다.
 
 ## 실행
 
 ```bash
-npm install
-npm run dev
+npm ci
+npm run dev:web
 ```
 
 - 개발 서버: http://localhost:5173
@@ -16,7 +28,11 @@ npm run dev
   같은 출처 요청이 되어 Refresh Cookie(`Path=/api/auth`)도 그대로 오갑니다.
 - 로그인(OAuth)은 API 호출이 아니라 백엔드 주소로의 페이지 이동이라 프록시를 거치지 않습니다.
   로컬 백엔드는 `local,oauth` 프로필과 `JWT_SECRET`, OAuth Client 환경변수로 실행해야 합니다(`Cking-BE` README 참고).
-- 환경변수는 `.env.example`을 복사해 `.env`로 사용하세요.
+- 환경변수는 `apps/web/.env.example`을 `apps/web/.env`로 복사해 사용하세요.
+
+루트에서 `npm run lint`, `npm run build:web` 또는 `npm run build`를 실행합니다.
+Web 빌드 산출물은 `apps/web/dist`이며 기존 `dev.cking.co.kr` 배포에 사용합니다.
+기존 `npm run dev`와 `npm run preview`도 Web 앱을 실행합니다.
 
 | 변수 | 설명 |
 | --- | --- |
@@ -27,10 +43,10 @@ npm run dev
 
 ## 웹앱(PWA)
 
-- `public/manifest.webmanifest` — standalone 실행, 브랜드 테마 색상, 바로가기(내 응모/알림)
-- `public/sw.js` — 앱 셸은 stale-while-revalidate, `/api`는 네트워크 우선(오프라인일 때만 마지막 성공 응답). Access JWT가 붙은 요청은 캐시하지 않음
+- `apps/web/public/manifest.webmanifest` — standalone 실행, 브랜드 테마 색상, 바로가기(내 응모/알림)
+- `apps/web/public/sw.js` — 앱 셸은 stale-while-revalidate, `/api`는 네트워크 우선(오프라인일 때만 마지막 성공 응답). Access JWT가 붙은 요청은 캐시하지 않음
 - 홈 화면 설치 배너(`InstallBanner`)와 오프라인 안내 배너 제공
-- 아이콘은 `node scripts/generate-icons.mjs`로 다시 생성할 수 있습니다(추가 의존성 없음)
+- 아이콘은 `node apps/web/scripts/generate-icons.mjs`로 다시 생성할 수 있습니다(추가 의존성 없음)
 
 서비스 워커는 프로덕션 빌드에서만 등록됩니다. 설치 동작을 확인하려면 `npm run build && npm run preview`.
 
@@ -95,7 +111,7 @@ Google·Kakao OAuth로 로그인하고 Access JWT로 호출자를 식별합니�
 ## 구조
 
 ```
-src/
+apps/web/src/
   api/        백엔드 엔드포인트별 호출 모듈 (+ creators/myEntries 같은 조합 조회)
   components/ 레이아웃·카드·시트 등 공용 UI
   context/    로그인 세션(UserContext), 토스트
@@ -110,5 +126,6 @@ src/
 
 ```bash
 npm run lint
+npm run build:web
 npm run build
 ```

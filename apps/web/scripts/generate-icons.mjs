@@ -1,6 +1,6 @@
 // PWA 아이콘(PNG) 생성 스크립트.
 // 이미지 라이브러리를 새로 설치하지 않기 위해 Node 내장 zlib만으로 PNG를 직접 인코딩한다.
-// 실행: node scripts/generate-icons.mjs
+// 저장소 루트에서 실행: node apps/web/scripts/generate-icons.mjs
 import { deflateSync } from 'node:zlib'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'

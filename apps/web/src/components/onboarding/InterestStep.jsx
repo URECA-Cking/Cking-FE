@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { getInterests, getMyInterests, saveMyInterests } from '../../api/interests.js'
 import { describeError } from '../../api/client.js'
@@ -6,7 +6,8 @@ import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import OnboardingFooter, { GhostButton, PrimaryButton } from './OnboardingFooter.jsx'
-import { DUMMY_SUBTAGS, SUBTAG_MAX_PER_PARENT } from '../../data/interestSubtagsDummy.js'
+import { DUMMY_SUBTAGS, SUBTAG_MAX_PER_PARENT, loadDummySubtags, saveDummySubtags } from '../../data/interestSubtagsDummy.js'
+import { useUser } from '../../context/useUser.js'
 
 const sameSet = (a, b) => a.length === b.length && a.every((code) => b.includes(code))
 
@@ -17,7 +18,7 @@ const sameSet = (a, b) => a.length === b.length && a.every((code) => b.includes(
  * GET /api/interests 응답 값을 쓴다(내 선택에 딸린 과거 버전은 분류체계가 바뀌면 저장이 400이 된다).
  * 바꾼 것이 없으면 저장하지 않고 넘어간다.
  */
-export default function InterestStep({ onDone }) {
+function InterestStepContent({ onDone, memberId }) {
   const showToast = useToast()
   const { data, loading, error, reload } = useAsync(
     async () => {
@@ -30,11 +31,15 @@ export default function InterestStep({ onDone }) {
   // null이면 아직 사용자가 건드리지 않았으므로 서버에 저장된 선택을 그대로 보여준다.
   const [picked, setPicked] = useState(null)
   const [saving, setSaving] = useState(false)
-  // 실험: 상위 분야를 고르면 세부 태그를 고를 수 있다(더미 데이터, 저장 안 됨, 이슈 #83).
-  // 개발 서버에서 /onboarding?subtags=1일 때만 켜져서 배포 빌드에는 나타나지 않는다.
+  // 실험: 상위 분야를 고르면 세부 태그를 고를 수 있다(더미 데이터, 서버 저장 없음, 이슈 #83).
+  // 개발 서버에서는 기본으로 켜지고(?subtags=0이면 끔), 배포 빌드는 VITE_ENABLE_SUBTAGS=true로 명시해야만 켜진다.
   const [params] = useSearchParams()
-  const subtagsOn = import.meta.env.DEV && params.get('subtags') === '1'
-  const [subPicked, setSubPicked] = useState([])
+  const subtagsOn = (import.meta.env.DEV || import.meta.env.VITE_ENABLE_SUBTAGS === 'true') && params.get('subtags') !== '0'
+  const [subPicked, setSubPicked] = useState(() => (subtagsOn && memberId != null ? loadDummySubtags(memberId) : []))
+  // 렌더 값이 아니라 직전 상태 기준으로 바꾸고(빠르게 연달아 눌러도 앞선 선택을 잃지 않는다), 저장은 변경 뒤에 따로 한다.
+  useEffect(() => {
+    if (subtagsOn && memberId != null) saveDummySubtags(memberId, subPicked)
+  }, [subtagsOn, memberId, subPicked])
 
   const catalog = data?.catalog
   const items = useMemo(() => catalog?.items ?? [], [catalog])
@@ -126,7 +131,7 @@ export default function InterestStep({ onDone }) {
           {subtagsOn && (
             <div className="flex flex-col gap-4 mt-2" data-testid="subtags">
               <p className="px-3 py-2 rounded-lg bg-surface-container font-label-xs text-label-xs text-on-surface-variant">
-                실험용 화면이에요. 세부 태그는 더미 데이터이고 저장되지 않아요.
+                실험용 화면이에요. 세부 태그는 더미 데이터이고 이 기기에만 저장돼요(서버에는 저장되지 않아요).
               </p>
               {current.map((parentCode) => {
                 const parent = items.find((item) => item.interestCode === parentCode)
@@ -176,4 +181,13 @@ export default function InterestStep({ onDone }) {
       </OnboardingFooter>
     </>
   )
+}
+
+/**
+ * 세부 태그 선택을 회원별로 보관하므로, 사용자 정보가 확정되면 안쪽 컴포넌트를 새로 만들어
+ * 저장된 선택을 처음부터 올바른 키로 읽는다.
+ */
+export default function InterestStep(props) {
+  const { user } = useUser()
+  return <InterestStepContent key={user?.memberId ?? 'anonymous'} memberId={user?.memberId} {...props} />
 }

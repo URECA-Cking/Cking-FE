@@ -5,6 +5,26 @@
 /** 상위 분야 하나에서 고를 수 있는 세부 태그 수(임의 가정, 팀 결정 전). */
 export const SUBTAG_MAX_PER_PARENT = 3
 
+const STORAGE_KEY = (memberId) => `cking.subtags.dummy.v1:${memberId}`
+
+/** 서버에 저장 계약이 없어서 선택은 이 기기(localStorage)에만 회원별로 보관한다. 저장소를 못 쓰면 빈 선택으로 시작한다. */
+export function loadDummySubtags(memberId) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY(memberId)) ?? '[]')
+    return Array.isArray(parsed) ? parsed.filter((code) => typeof code === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+export function saveDummySubtags(memberId, codes) {
+  try {
+    localStorage.setItem(STORAGE_KEY(memberId), JSON.stringify(codes))
+  } catch {
+    // 저장하지 못해도 이번 화면에서는 선택이 유지된다.
+  }
+}
+
 /** 상위 interestCode → 세부 태그 목록 */
 export const DUMMY_SUBTAGS = {
   FITNESS: [

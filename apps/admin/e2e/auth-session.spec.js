@@ -6,10 +6,9 @@ const apiBaseURL = process.env.E2E_ADMIN_API_BASE_URL || 'https://dev-api.cking.
 const apiHost = new URL(apiBaseURL).hostname
 
 test.describe.configure({ mode: 'serial' })
+test.skip(!loginId || !password, 'E2E_ADMIN_LOGIN_ID와 E2E_ADMIN_PASSWORD가 필요합니다.')
 
 test('관리자 로그인, Refresh Cookie 세션 복원, 로그아웃을 실제 배포 환경에서 확인한다', async ({ page, context }, testInfo) => {
-  test.skip(!loginId || !password, 'E2E_ADMIN_LOGIN_ID와 E2E_ADMIN_PASSWORD가 필요합니다.')
-
   await page.goto('/login')
   await page.getByLabel('관리자 ID').fill(loginId)
   await page.getByLabel('비밀번호').fill(password)

@@ -61,7 +61,7 @@ npm run test:e2e:admin
 - `apps/web/public/manifest.webmanifest` — standalone 실행, 브랜드 테마 색상, 바로가기(내 응모/알림)
 - `apps/web/public/sw.js` — 앱 셸은 stale-while-revalidate, `/api`는 네트워크 우선(오프라인일 때만 마지막 성공 응답). Access JWT가 붙은 요청은 캐시하지 않음
 - 홈 화면 설치 배너(`InstallBanner`)와 오프라인 안내 배너 제공
-- 아이콘은 `node apps/web/scripts/generate-icons.mjs`로 다시 생성할 수 있습니다(추가 의존성 없음)
+- 아이콘은 디자인 원본(CKing 로고)에서 만든 PNG를 `apps/web/public/icons/`에 직접 두고 쓴다(생성 스크립트 없음)
 
 서비스 워커는 프로덕션 빌드에서만 등록됩니다. 설치 동작을 확인하려면 `npm run build && npm run preview`.
 
@@ -70,8 +70,8 @@ npm run test:e2e:admin
 | 화면 | 경로 | 사용하는 백엔드 API |
 | --- | --- | --- |
 | 로그인 | `/login` | `GET /oauth2/authorization/{google\|kakao}` (페이지 이동) |
-| 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`, `GET /api/me/follows` (모든 페이지) |
-| 온보딩(관심 분야 → 크리에이터 추천) | `/onboarding` | `GET /api/interests`, `GET·PUT /api/me/interests`, `GET /api/me/creator-recommendations`, `GET /api/creators?keyword`, `GET /api/me/follows`, `PUT·DELETE /api/creators/{id}/follow` (가입 직후 자동 이동은 BE `onboardingCompleted` 대기, #64) |
+| 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`(신규 가입자 `onboardingCompleted=false`면 `/onboarding`으로 이동), `GET /api/me/follows` (모든 페이지) |
+| 온보딩(관심 분야 → 크리에이터 추천) | `/onboarding` | `GET /api/interests`, `GET·PUT /api/me/interests`, `GET /api/me/creator-recommendations`, `GET /api/creators?keyword`, `GET /api/me/follows`, `PUT·DELETE /api/creators/{id}/follow`, `PUT /api/me/onboarding/complete`(시작하기·나중에 할게) |
 | 관심 크리에이터 관리 | `/onboarding/creators` | 위 온보딩의 크리에이터 단계만 다시 연다 |
 | 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` |
 | 탐색 | `/explore` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useToast } from '../../context/useToast.js'
 
@@ -23,6 +23,8 @@ function useShare() {
 
 /** Main-tab app bar. Its centered title is intentionally independent from the right action. */
 export function TopHeader({ title, unreadCount = 0, embedded = false, hidden = false }) {
+  const navigate = useNavigate()
+
   return (
     <header
       className={
@@ -40,12 +42,22 @@ export function TopHeader({ title, unreadCount = 0, embedded = false, hidden = f
             : 'h-14 px-margin md:px-8 flex items-center justify-between'
         }
       >
-        <h1 className={`font-title-md text-title-md font-semibold ${
-          title === 'Cking' ? 'text-primary font-bold tracking-tight' : 'absolute left-1/2 -translate-x-1/2 text-on-surface'
-        }`}>
-          {title}
-        </h1>
-        <div className="ml-auto flex items-center">
+        <div className="flex items-center gap-space-sm">
+          <Link to="/" aria-label="Cking 홈">
+            <img src="/cking-logo.png" alt="Cking" className="block h-7 w-auto" />
+          </Link>
+          <div className="h-4 w-[1px] bg-outline-variant/30" />
+          <h1 className="text-on-surface font-title-md text-title-md truncate max-w-[180px]">{title}</h1>
+        </div>
+        <div className="flex items-center gap-space-sm">
+          <button
+            aria-label="검색"
+            onClick={() => navigate('/explore')}
+            className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+            type="button"
+          >
+            <MaterialIcon name="search" className="text-[22px]" />
+          </button>
           <Link
             to="/notifications"
             className="relative w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"

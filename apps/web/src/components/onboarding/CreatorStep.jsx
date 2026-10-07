@@ -122,7 +122,7 @@ function CreatorRow({ creator, reason, followed, disabled, onToggle }) {
  * 추천은 화면을 열 때 한 번만 불러온다. BE는 이미 팔로우한 크리에이터를 추천에서 빼므로,
  * 팔로우한 카드가 목록에서 사라져 화면이 흔들리지 않도록 머무는 동안은 다시 불러오지 않고 "관심 중"으로 유지한다.
  */
-export default function CreatorStep({ onFinish, finishLabel = '시작하기', showSkip = true }) {
+export default function CreatorStep({ onFinish, finishLabel = '시작하기', showSkip = true, busy = false }) {
   const showToast = useToast()
   const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds, isCreator } = useUser()
   const [mode, setMode] = useState('recommend')
@@ -274,7 +274,7 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
       )}
 
       <OnboardingFooter>
-        <PrimaryButton onClick={onFinish}>
+        <PrimaryButton onClick={onFinish} disabled={busy}>
           <span>{finishLabel}</span>
           {followedCount > 0 && (
             <span className="font-label-sm text-label-sm px-2.5 py-0.5 rounded-full bg-white/20 text-white font-medium backdrop-blur-sm">
@@ -282,7 +282,7 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
             </span>
           )}
         </PrimaryButton>
-        {showSkip && <GhostButton onClick={onFinish}>나중에 할게</GhostButton>}
+        {showSkip && <GhostButton onClick={onFinish} disabled={busy}>나중에 할게</GhostButton>}
       </OnboardingFooter>
     </>
   )

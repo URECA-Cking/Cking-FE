@@ -2,20 +2,20 @@
 export const ADMIN_NAVIGATION = [
   {
     label: 'Dashboard',
-    items: [{ label: 'Dashboard', icon: 'dashboard', unavailable: true }],
+    items: [{ label: 'Dashboard', icon: 'dashboard', to: '/admin', matches: (location) => location.pathname === '/admin' }],
   },
   {
     label: '심사 관리',
     items: [
-      { label: 'Creator 신청', icon: 'how_to_reg', to: '/admin?tab=applications', matches: (location) => location.pathname === '/admin' && location.searchParams.get('tab') === 'applications' },
-      { label: '이벤트 승인', icon: 'fact_check', to: '/admin?tab=events', matches: (location) => location.pathname === '/admin' && location.searchParams.get('tab') !== 'applications' && location.searchParams.get('tab') !== 'drawings' },
+      { label: 'Creator 신청', icon: 'how_to_reg', to: '/admin/console?tab=applications', matches: (location) => location.pathname === '/admin/console' && location.searchParams.get('tab') === 'applications' },
+      { label: '이벤트 승인', icon: 'fact_check', to: '/admin/console?tab=events', matches: (location) => location.pathname === '/admin/console' && location.searchParams.get('tab') !== 'applications' && location.searchParams.get('tab') !== 'drawings' },
     ],
   },
   {
     label: '이벤트 운영',
     items: [
       { label: '이벤트 관리', icon: 'event_note', unavailable: true },
-      { label: '추첨 관리', icon: 'casino', to: '/admin?tab=drawings', matches: (location) => location.pathname === '/admin' && location.searchParams.get('tab') === 'drawings' },
+      { label: '추첨 관리', icon: 'casino', to: '/admin/console?tab=drawings', matches: (location) => location.pathname === '/admin/console' && location.searchParams.get('tab') === 'drawings' },
       { label: '당첨자 관리', icon: 'workspace_premium', unavailable: true, matches: (location) => /^\/admin\/winners\/[^/]+$/.test(location.pathname) },
       { label: '재추첨 관리', icon: 'autorenew', to: '/admin/redraws', matches: (location) => location.pathname === '/admin/redraws' },
     ],

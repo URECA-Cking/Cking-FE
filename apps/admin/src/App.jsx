@@ -3,6 +3,7 @@ import RequireAdmin from './components/RequireAdmin.jsx'
 import AdminLayout from './components/layout/AdminLayout.jsx'
 import AdminLogin from './pages/AdminLogin.jsx'
 import AdminConsole from './pages/admin/AdminConsole.jsx'
+import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AdminDeadStreams from './pages/admin/AdminDeadStreams.jsx'
 import AdminRedraws from './pages/admin/AdminRedraws.jsx'
 import AdminWinnerDetail from './pages/admin/AdminWinnerDetail.jsx'
@@ -15,7 +16,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/admin" replace />} />
       <Route path="/login" element={<AdminLogin />} />
-      <Route path="/admin" element={protectedRoute(<AdminConsole />)} />
+      <Route path="/admin" element={protectedRoute(<AdminDashboard />)} />
+      <Route path="/admin/console" element={protectedRoute(<AdminConsole />)} />
       <Route path="/admin/winners/:winnerId" element={protectedRoute(<AdminWinnerDetail />)} />
       <Route path="/admin/redraws" element={protectedRoute(<AdminRedraws />)} />
       <Route path="/admin/dead-streams" element={protectedRoute(<AdminDeadStreams />)} />

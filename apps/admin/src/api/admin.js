@@ -132,6 +132,42 @@ export async function getCreatorApplications({ page = 0, size = 20 } = {}) {
   return get('/api/admin/creator-applications', { page, size });
 }
 
+/** 페이지 기반 관리자 목록을 모두 읽어 Dashboard 집계에 사용할 항목을 반환한다. */
+async function getAllPages(loadPage, size = 100) {
+  const items = []
+  let page = 0
+  let hasNext = true
+
+  while (hasNext) {
+    const result = await loadPage({ page, size })
+    items.push(...(result?.items ?? []))
+    hasNext = result?.hasNext === true
+    page += 1
+  }
+
+  return items
+}
+
+/** Dashboard의 Creator 신청 상태 집계를 위해 모든 신청을 조회한다. */
+export function getAllCreatorApplications() {
+  return getAllPages((params) => getCreatorApplications(params))
+}
+
+/** Dashboard의 승인 대기 이벤트 집계를 위해 모든 대기 이벤트를 조회한다. */
+export function getAllPendingEvents() {
+  return getAllPages((params) => getPendingEvents(params))
+}
+
+/** Dashboard의 검토 대기 재추첨 집계를 위해 REQUESTED 요청을 모두 조회한다. */
+export function getAllRequestedRedraws() {
+  return getAllPages((params) => getRedrawRequests({ ...params, status: 'REQUESTED' }))
+}
+
+/** Dashboard의 미처리 메시지 집계를 위해 UNRESOLVED Dead Stream을 모두 조회한다. */
+export function getAllUnresolvedDeadStreams() {
+  return getAllPages((params) => getDeadStreams({ ...params, status: 'UNRESOLVED' }))
+}
+
 /** 크리에이터 전환 신청을 승인한다. */
 export async function approveCreatorApplication(applicationId) {
   return post(`/api/admin/creator-applications/${applicationId}/approve`);

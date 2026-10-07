@@ -33,7 +33,7 @@ npm run dev:admin
 - 환경변수는 `apps/web/.env.example`을 `apps/web/.env`로 복사해 사용하세요.
 
 루트에서 `npm run lint:web`, `npm run build:web`, `npm run lint:admin`, `npm run build:admin` 또는 `npm run build`를 실행합니다.
-Web 빌드 산출물은 `apps/web/dist`이며 기존 `dev.cking.co.kr` 배포에 사용합니다.
+`develop`에 머지되면 Web(`apps/web/dist`)은 `dev.cking.co.kr`, Admin(`apps/admin/dist`)은 `dev-admin.cking.co.kr`로 배포됩니다.
 기존 `npm run dev`와 `npm run preview`도 Web 앱을 실행합니다.
 
 | 변수 | 설명 |

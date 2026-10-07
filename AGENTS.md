@@ -21,6 +21,8 @@
 
 - 작업은 Issue를 기준으로 시작하고, 담당자를 지정한다.
 - 브랜치·커밋·PR 규칙은 [조직 CONTRIBUTING](https://github.com/URECA-Cking/.github/blob/main/CONTRIBUTING.md)을 따른다. 문서 작업 브랜치는 `docs/{issue}-...` 형식과 `docs:` 커밋 타입을 사용한다.
+- GitHub Issue·PR을 만들기 전에는 조직 [`URECA-Cking/.github`](https://github.com/URECA-Cking/.github)의 현재 템플릿과 CONTRIBUTING을 조회한다. 이 저장소에 템플릿이 없다는 이유로 독자 본문을 만들지 않는다.
+- Issue·PR 생성 뒤에는 중앙 템플릿의 필수 섹션, Issue의 제목 접두어·레이블·담당자, PR의 `Closes #이슈번호`·리뷰어를 확인한다. `node scripts/github/create-from-template.mjs`와 `node scripts/github/verify-template.mjs`로 생성·검증할 수 있다.
 - 코드 변경은 범위에 맞는 검증을 수행한다. 현재와 B-01 이후 명령의 구분은 [development.md](docs/workflows/development.md)를 따른다.
 - API, 라우팅, 인증, 아키텍처를 변경하면 관련 문서를 함께 갱신한다.
 - 현재 Issue와 관계없는 리팩터링을 하지 않는다.

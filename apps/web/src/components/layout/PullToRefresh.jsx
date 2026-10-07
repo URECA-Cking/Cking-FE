@@ -5,7 +5,7 @@ import { markSkipSplash } from '../../utils/splashSkip.js'
 const TRIGGER = 70 // 이만큼 당긴 뒤 놓으면 새로고침
 const MAX_PULL = 110
 const RESISTANCE = 0.5 // 손가락 이동량 대비 화면에 따라오는 비율
-const RELOAD_DELAY = 700 // 왕관이 얹히는 모션을 보여준 뒤 새로고침
+const RELOAD_DELAY = 900 // 스플래시와 같은 왕관 낙하(620ms)·눌림 모션이 끝난 뒤 새로고침
 
 /** 터치 지점부터 위로 올라가며 스크롤된 영역(바텀시트 내부 등)이 있으면 true. 그 안의 스크롤을 새로고침으로 오인하지 않는다. */
 function isInsideScrolled(el) {
@@ -17,7 +17,7 @@ function isInsideScrolled(el) {
 
 /**
  * 화면 맨 위에서 아래로 당기면 앱 화면 전체(#root)가 손가락을 따라 내려오고, 비워진 윗자리에 CKing 로고가 나온다.
- * 당기는 만큼 왕관이 오른쪽 위에서 내려와 몸통에 얹히고(스플래시와 같은 연출), 기준 이상 당겼다 놓으면 새로고침한다.
+ * 당기는 동안은 몸통만 보이고, 기준 이상 당겼다 놓으면 스플래시와 같은 왕관 낙하 연출(index.css의 splash-crown-drop)이 나온 뒤 새로고침한다.
  * 별도 화면을 덮지 않고, 새로고침 뒤에도 스플래시는 건너뛴다(splashSkip). 터치 기기 전용이다.
  * 브라우저 기본 당겨서 새로고침은 index.css의 overscroll-behavior로 막아 둔다.
  */
@@ -103,7 +103,6 @@ export default function PullToRefresh() {
   if (pull === 0) return null
 
   const progress = Math.min(pull / TRIGGER, 1)
-  const remain = 1 - progress
   // #root가 transform을 갖는 동안 그 안의 fixed 요소는 같이 움직이므로, 로고는 body에 직접 붙여 비워진 윗자리에 둔다.
   return createPortal(
     <div
@@ -115,18 +114,18 @@ export default function PullToRefresh() {
         className="splash-stack relative w-[112px] shrink-0"
         style={{
           opacity: Math.min(progress * 1.5, 1),
-          // 왕관이 얹힌 순간(놓은 뒤)에만 몸통이 눌리는 모션을 쓴다.
-          animation: refreshing ? 'splash-stack-bump 220ms ease-out' : undefined,
+          animation: refreshing ? 'splash-stack-bump 220ms ease-out 340ms' : undefined,
         }}
       >
         <img src="/cking-logo-body.png" alt="" className="block w-full" />
+        {/* 왕관은 당기는 중엔 숨겨 두고(opacity 0), 놓은 뒤 스플래시와 같은 키프레임으로 떨어진다. */}
         <img
           src="/cking-crown.png"
           alt=""
-          className="absolute inset-0 h-full w-full"
+          className="absolute inset-0 h-full w-full opacity-0"
           style={{
             transformOrigin: '45% 17%',
-            transform: `translate(${remain * 40}px, ${-remain * 50}px) rotate(${remain * 22}deg)`,
+            animation: refreshing ? 'splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) forwards' : undefined,
           }}
         />
       </div>

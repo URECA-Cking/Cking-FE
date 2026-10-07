@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import InterestStep from '../components/onboarding/InterestStep.jsx'
 import CreatorStep from '../components/onboarding/CreatorStep.jsx'
@@ -13,11 +12,13 @@ import CreatorStep from '../components/onboarding/CreatorStep.jsx'
  */
 export default function Onboarding({ manage = false }) {
   const navigate = useNavigate()
-  const [step, setStep] = useState(manage ? 'creators' : 'interests')
+  // 단계를 주소(?step=creators)에 둔다. 크리에이터 스페이스를 둘러보고 뒤로 돌아와도 1단계로 되돌아가지 않는다.
+  const [params, setParams] = useSearchParams()
+  const step = manage || params.get('step') === 'creators' ? 'creators' : 'interests'
   const goHome = () => navigate('/', { replace: true })
 
   function handleBack() {
-    if (step === 'creators' && !manage) setStep('interests')
+    if (step === 'creators' && !manage) setParams({}, { replace: true })
     else navigate(-1)
   }
 
@@ -31,7 +32,7 @@ export default function Onboarding({ manage = false }) {
         onBack={handleBack}
       />
       {step === 'interests' ? (
-        <InterestStep onDone={() => setStep('creators')} />
+        <InterestStep onDone={() => setParams({ step: 'creators' })} />
       ) : (
         <CreatorStep onFinish={manage ? () => navigate(-1) : goHome} finishLabel={manage ? '완료' : '시작하기'} showSkip={!manage} />
       )}

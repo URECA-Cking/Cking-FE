@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import FollowStatus from '../creator/FollowStatus.jsx'
@@ -86,16 +87,19 @@ function Avatar({ src, name }) {
 function CreatorRow({ creator, reason, followed, disabled, onToggle }) {
   return (
     <li className="flex items-center gap-3 p-3 rounded-2xl bg-surface-container-lowest shadow-card">
-      <Avatar src={creator.avatar} name={creator.name} />
-      <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-        <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
-        {creator.bio && <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">{creator.bio}</p>}
-        {reason && (
-          <span className="mt-1 self-start max-w-full truncate px-2 py-0.5 rounded-full bg-berry-tint font-label-xs text-label-xs text-primary">
-            {reason}
-          </span>
-        )}
-      </div>
+      {/* 플로우: 추천·검색 결과에서 크리에이터 스페이스를 둘러본 뒤 팔로우를 정한다. 팔로우 버튼은 링크 밖에 둔다. */}
+      <Link to={`/creators/${creator.creatorId}`} className="min-w-0 flex-1 flex items-center gap-3">
+        <Avatar src={creator.avatar} name={creator.name} />
+        <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+          <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
+          {creator.bio && <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">{creator.bio}</p>}
+          {reason && (
+            <span className="mt-1 self-start max-w-full truncate px-2 py-0.5 rounded-full bg-berry-tint font-label-xs text-label-xs text-primary">
+              {reason}
+            </span>
+          )}
+        </div>
+      </Link>
       <button
         type="button"
         onClick={onToggle}
@@ -125,15 +129,17 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
   const [input, setInput] = useState('')
   const [keyword, setKeyword] = useState('')
 
-  // 크리에이터는 본인을 팔로우할 수 없어서 본인 카드의 버튼을 막는다. 본인 Space를 읽기 전에도 막아 둔다.
+  // 크리에이터는 본인을 팔로우할 수 없어서 본인 카드의 버튼을 막는다. 본인 Space를 읽는 동안에만 전체를 막는다.
+  // Space가 없는 기존 Creator는 이 조회가 404이고 일시적인 오류도 날 수 있는데, 그때 막힌 채로 두면 팔로우를 아예 못 한다.
+  // 조회가 실패하면 풀어 두고, 본인 팔로우는 BE가 SELF_FOLLOW_NOT_ALLOWED(400)로 거절해 안내 문구가 토스트로 나온다.
   const mySpace = useAsync(
     () => getMySpace().then((space) => ({ ...space, memberId: user.memberId })),
     [isCreator, user?.memberId],
     { enabled: isCreator },
   )
-  const ownSpaceReady = isCreator && !mySpace.loading && mySpace.data?.memberId === user?.memberId
-  const ownCreatorId = ownSpaceReady ? mySpace.data.creatorId : null
-  const ownSpacePending = isCreator && !ownSpaceReady
+  const ownSpacePending = isCreator && mySpace.loading
+  const ownCreatorId =
+    isCreator && !mySpace.loading && mySpace.data?.memberId === user?.memberId ? mySpace.data.creatorId : null
 
   const recommended = useAsync(loadRecommendations, [], { fallbackMessage: '추천 크리에이터를 불러오지 못했어요.' })
   const search = useCreatorSearch(keyword)

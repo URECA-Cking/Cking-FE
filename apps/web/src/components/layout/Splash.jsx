@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useUser } from '../../context/useUser.js'
 
 const LETTERS = ['C', 'K', 'i', 'n', 'g']
+// 스플래시가 떠 있는 동안 아래 화면의 로고를 숨기는 표식(index.css). 로고가 두 개로 겹쳐 보이지 않게 한다.
+const ACTIVE_CLASS = 'splash-active'
 
 /**
  * 페이지를 새로 열 때마다(새로고침 포함) 스플래시를 먼저 보여준다.
@@ -12,33 +15,67 @@ function shouldShowSplash() {
 }
 
 /**
- * 임시 첫 화면: CKing 워드마크가 글자별로 떠오른 뒤 흩어지며 사라진다(약 0.9초, index.css의 splash-* keyframes).
- * 화면 위에 덮어씌우는 방식이라 아래에서는 라우트(비로그인이면 로그인 화면)가 이미 렌더링돼 있다.
+ * 임시 첫 화면: CKing 워드마크가 글자별로 떠오른 뒤(intro),
+ * 로그인 상태 확인이 끝나 아래 화면이 정해지면 `data-splash-target` 로고가 있을 때 그 자리로 옮겨 가며 배경이 걷히고(dock),
+ * 없으면(로그인된 사용자의 홈 등) 흐려지며 사라진다(out). 키프레임은 index.css의 splash-*.
  */
 export default function Splash() {
-  const [visible, setVisible] = useState(shouldShowSplash)
+  const [phase, setPhase] = useState(() => (shouldShowSplash() ? 'intro' : 'done'))
+  const [introEnded, setIntroEnded] = useState(false)
+  const { status } = useUser()
+  const wordmarkRef = useRef(null)
+
+  useLayoutEffect(() => {
+    if (phase === 'done') return
+    document.documentElement.classList.add(ACTIVE_CLASS)
+    return () => document.documentElement.classList.remove(ACTIVE_CLASS)
+  }, [phase])
 
   // 보통은 animationend로 닫히지만, 백그라운드 탭·CSS 로드 실패처럼 이벤트가 안 오면 화면을 막지 않게 강제로 닫는다.
   useEffect(() => {
-    if (!visible) return
-    const timer = setTimeout(() => setVisible(false), 1200)
+    if (phase === 'done') return
+    const timer = setTimeout(() => setPhase('done'), 1600)
     return () => clearTimeout(timer)
-  }, [visible])
+  }, [phase])
 
-  if (!visible) return null
+  // 새로고침 직후에는 로그인 상태를 확인하는 중이라 아래 화면(로그인 또는 홈)이 아직 정해지지 않았다.
+  // 그 사이에 목표 로고를 찾으면 없는 줄 알고 그냥 사라지므로, 확인이 끝날 때까지 가운데에서 기다린다.
+  useEffect(() => {
+    if (!introEnded || status === 'loading') return
+    dockOrFade()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [introEnded, status])
+
+  function dockOrFade() {
+    const target = document.querySelector('[data-splash-target]')
+    const from = wordmarkRef.current?.getBoundingClientRect()
+    const to = target?.getBoundingClientRect()
+    if (!from || !to || to.width === 0) {
+      setPhase('out')
+      return
+    }
+    wordmarkRef.current.style.setProperty('--dock-x', `${to.left - from.left}px`)
+    wordmarkRef.current.style.setProperty('--dock-y', `${to.top - from.top}px`)
+    setPhase('dock')
+  }
+
+  function handleAnimationEnd(e) {
+    if (e.animationName === 'splash-bar-sweep') setIntroEnded(true)
+    else if (e.target === e.currentTarget) setPhase('done')
+  }
+
+  if (phase === 'done') return null
 
   return (
     <div
       aria-hidden="true"
-      className="splash fixed inset-0 z-[100] flex items-center justify-center bg-background"
-      onAnimationEnd={(e) => {
-        if (e.target === e.currentTarget) setVisible(false)
-      }}
+      className={`splash fixed inset-0 z-[100] flex items-center justify-center bg-background is-${phase}`}
+      onAnimationEnd={handleAnimationEnd}
     >
-      <div className="splash-wordmark flex flex-col items-center">
+      <div ref={wordmarkRef} className="splash-wordmark inline-flex flex-col items-center">
         <span className="flex text-[44px] font-extrabold leading-none tracking-[-0.04em] text-on-surface [perspective:400px]">
           {LETTERS.map((letter, i) => (
-            <span key={letter} className="splash-letter inline-block" style={{ animationDelay: `${i * 45}ms` }}>
+            <span key={letter} className="splash-letter inline-block" style={{ animationDelay: `${i * 40}ms` }}>
               {letter}
             </span>
           ))}

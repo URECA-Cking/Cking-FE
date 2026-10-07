@@ -272,7 +272,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                   {authenticated && (isOwn(comment) || isMine) && (
                     <div className="mt-2 flex justify-end gap-3">
                       {/* 수정은 쓰기 권한이 있을 때만(팔로우를 끊은 작성자는 서버가 거절한다). 삭제는 팔로우와 무관하다. */}
-                      {isOwn(comment) && canWrite && !comment.filtered && (
+                      {isOwn(comment) && canWrite && (
                         <button
                           type="button"
                           onClick={() => { setEditing({ commentId: comment.commentId, text: comment.content }); setEditError('') }}

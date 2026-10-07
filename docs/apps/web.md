@@ -10,7 +10,7 @@ Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서
 | --- | --- | --- |
 | 인증 | `/login`, `/oauth/callback` | Google/Kakao OAuth 시작과 Login Code 교환 |
 | 사용자 | `/`, `/explore`, `/my-entries`, `/my-winners`, `/notifications`, `/my-page`, `/my-calendar` | 탐색, 응모, 알림, 개인 정보·캘린더·당첨 관리 |
-| 온보딩·공개 Space | `/onboarding/creators`, `/creators/:creatorId`, `/space/:slug`, `/events/:eventId` | 팔로우, Creator Space, 이벤트·응모 |
+| 온보딩·공개 Space | `/onboarding`, `/onboarding/creators`, `/creators/:creatorId`, `/space/:slug`, `/events/:eventId` | 관심 분야·추천, 팔로우, Creator Space, 이벤트·응모 |
 | Creator 운영 | `/studio`, `/studio/events/new`, `/studio/events/:eventId/edit`, `/studio/calendar` | 이벤트·일정·Space 운영 |
 
 `/space/:slug`는 비로그인 공개 조회를 허용한다. 그 밖의 사용자 경로는 `RequireUser`, Creator 운영은 추가로 `RequireRole role="creator"`를 사용한다.

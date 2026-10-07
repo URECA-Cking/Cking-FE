@@ -59,7 +59,8 @@ npm run dev:admin
 | --- | --- | --- |
 | 로그인 | `/login` | `GET /oauth2/authorization/{google\|kakao}` (페이지 이동) |
 | 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`, `GET /api/me/follows` (모든 페이지), (크리에이터로 시작 시) `POST /api/creator/applications` |
-| 관심 크리에이터 선택 | `/onboarding/creators` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
+| 온보딩(관심 분야 → 크리에이터 추천) | `/onboarding` | `GET /api/interests`, `GET·PUT /api/me/interests`, `GET /api/me/creator-recommendations`, `GET /api/creators?keyword`, `GET /api/me/follows`, `PUT·DELETE /api/creators/{id}/follow` (가입 직후 자동 이동은 BE `onboardingCompleted` 대기, #64) |
+| 관심 크리에이터 관리 | `/onboarding/creators` | 위 온보딩의 크리에이터 단계만 다시 연다 |
 | 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` |
 | 탐색 | `/explore` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
 | 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}`, `GET /api/creators/{id}/posts`, `GET /api/creators/{id}/posts/{postId}`, (본인) `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug`, `GET /api/events?creatorId=`, `GET /api/creators/{id}/tickets`, `.../tickets/history`, `GET·POST .../missions`, `GET /api/creators/{id}/calendar/schedules`, (로그인 시) `GET /api/me/calendar/schedules`, `PUT·DELETE /api/me/calendar/schedules/{id}` |

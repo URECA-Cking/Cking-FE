@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  /* 브라우저 기본 당겨서 새로고침·바운스를 끄고 PullToRefresh.jsx의 CKing 로고 연출로 대신한다. */
+  html {
+    overscroll-behavior-y: none;
+  }
+
   html,
   body {
     width: 100%;

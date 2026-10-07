@@ -17,8 +17,10 @@ export default function BottomNav({ embedded = false, compact = false }) {
   const dockRef = useRef(null)
   const itemRefs = useRef([])
   const previousIndex = useRef(null)
+  const pulseTimerRef = useRef(null)
   const [indicator, setIndicator] = useState({ left: 0, top: 0, width: 0, height: 0 })
   const [motion, setMotion] = useState(null)
+  const [isPulsing, setIsPulsing] = useState(false)
   const activeIndex = NAV_ITEMS.findIndex((item) => (item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(`${item.to}/`)))
 
   useLayoutEffect(() => {
@@ -29,17 +31,17 @@ export default function BottomNav({ embedded = false, compact = false }) {
     const measure = () => {
       const dockBounds = dock.getBoundingClientRect()
       const itemBounds = activeItem.getBoundingClientRect()
-      // Keep the bubble centred on the measured tab cell. Small horizontal insets
-      // preserve a horizontal tab shape on mobile without crossing into another cell.
       const verticalInset = Math.round(Math.min(7, Math.max(5, dockBounds.height * 0.11)))
-      const horizontalInset = Math.round(Math.min(2, Math.max(1, itemBounds.width * 0.025)))
-      const width = Math.max(0, itemBounds.width - horizontalInset * 2 + 2)
-      const height = Math.max(0, dockBounds.height - verticalInset * 2)
-      const itemCenter = itemBounds.left - dockBounds.left + itemBounds.width / 2
+      const topInset = Math.max(3, verticalInset - 2)
+      const outerInset = 2
+      const width = Math.max(0, itemBounds.width - outerInset * 2)
+      const height = Math.max(0, dockBounds.height - topInset - verticalInset)
+      const cellLeft = itemBounds.left - dockBounds.left
+      const left = cellLeft + (itemBounds.width - width) / 2
 
       setIndicator({
-        left: itemCenter - width / 2,
-        top: verticalInset,
+        left,
+        top: topInset,
         width,
         height,
       })
@@ -66,6 +68,15 @@ export default function BottomNav({ embedded = false, compact = false }) {
     return () => window.clearTimeout(timer)
   }, [activeIndex])
 
+  useEffect(() => () => window.clearTimeout(pulseTimerRef.current), [])
+
+  const pulseDock = () => {
+    setIsPulsing(false)
+    window.requestAnimationFrame(() => setIsPulsing(true))
+    window.clearTimeout(pulseTimerRef.current)
+    pulseTimerRef.current = window.setTimeout(() => setIsPulsing(false), 220)
+  }
+
   return (
     <nav
       className={
@@ -76,10 +87,12 @@ export default function BottomNav({ embedded = false, compact = false }) {
     >
       <div
         ref={dockRef}
-        className={`liquid-nav-dock mx-auto flex items-center justify-between rounded-full transition-[width,height,padding,gap] duration-300 ease-out ${
+        className={`liquid-nav-dock mx-auto grid grid-cols-4 items-center rounded-full transition-[width,height,padding,gap] duration-300 ease-out ${
+          isPulsing ? 'is-pulsing' : ''
+        } ${
           compact
-            ? 'h-11 w-[20.5rem] max-w-full gap-1 px-2'
-            : 'h-[3.25rem] w-full max-w-[28rem] gap-3 px-3'
+            ? 'h-11 w-[20.5rem] max-w-full gap-1 px-0'
+            : 'h-[3.25rem] w-full max-w-[28rem] gap-3 px-0'
         } relative`}
       >
         <span
@@ -88,7 +101,7 @@ export default function BottomNav({ embedded = false, compact = false }) {
             motion ? `is-moving is-moving-${motion}` : ''
           } ${indicator.width ? 'opacity-100' : 'opacity-0'}`}
           style={{
-            left: -1,
+            left: 0,
             width: indicator.width,
             height: indicator.height,
             top: indicator.top,
@@ -100,6 +113,7 @@ export default function BottomNav({ embedded = false, compact = false }) {
             key={item.to}
             to={item.to}
             end={item.end}
+            onClick={pulseDock}
             ref={(element) => {
               itemRefs.current[index] = element
             }}

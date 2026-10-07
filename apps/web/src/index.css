@@ -102,7 +102,6 @@
     position: relative;
     isolation: isolate;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.13);
     background: linear-gradient(
       135deg,
       rgba(38, 33, 43, 0.2),
@@ -113,8 +112,8 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.14),
       inset 0 -1px 0 rgba(255, 255, 255, 0.025),
       0 12px 28px rgba(0, 0, 0, 0.16);
-    -webkit-backdrop-filter: blur(10px) saturate(150%);
-    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(2px) saturate(150%);
+    backdrop-filter: blur(2px) saturate(150%);
   }
 
   .liquid-nav-dock::before {
@@ -129,6 +128,16 @@
     );
     content: '';
     pointer-events: none;
+  }
+
+  .liquid-nav-dock.is-pulsing {
+    animation: liquid-nav-dock-pulse 220ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+
+  @keyframes liquid-nav-dock-pulse {
+    45% {
+      transform: scale(1.018);
+    }
   }
 
   .liquid-nav-indicator {

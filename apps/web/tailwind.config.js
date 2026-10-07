@@ -1,19 +1,23 @@
 /** @type {import('tailwindcss').Config} */
+
+// 다크/일반 모드에 따라 바뀌는 색은 index.css의 CSS 변수(--color-*)를 읽는다. 투명도(bg-surface/80)도 그대로 동작한다.
+const themeColor = (name) => `rgb(var(--color-${name}) / <alpha-value>)`
+
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
       colors: {
-        surface: '#1a1a1e',
-        'surface-dim': '#141417',
-        'surface-bright': '#1a1a1e',
-        'surface-container-lowest': '#141417',
-        'surface-container-low': '#222226',
-        'surface-container': '#29292e',
-        'surface-container-high': '#323237',
-        'surface-container-highest': '#3b3b41',
-        'on-surface': '#fcfbf7',
-        'on-surface-variant': '#dedad0',
+        surface: themeColor('surface'),
+        'surface-dim': themeColor('surface-dim'),
+        'surface-bright': themeColor('surface-bright'),
+        'surface-container-lowest': themeColor('surface-container-lowest'),
+        'surface-container-low': themeColor('surface-container-low'),
+        'surface-container': themeColor('surface-container'),
+        'surface-container-high': themeColor('surface-container-high'),
+        'surface-container-highest': themeColor('surface-container-highest'),
+        'on-surface': themeColor('on-surface'),
+        'on-surface-variant': themeColor('on-surface-variant'),
         'inverse-surface': '#283044',
         'inverse-on-surface': '#eef0ff',
         outline: '#8d6f77',
@@ -48,9 +52,9 @@ export default {
         'tertiary-fixed-dim': '#ffb95f',
         'on-tertiary-fixed': '#2a1700',
         'on-tertiary-fixed-variant': '#653e00',
-        background: '#1a1a1e',
-        'on-background': '#fcfbf7',
-        'surface-variant': '#3b3b41',
+        background: themeColor('background'),
+        'on-background': themeColor('on-background'),
+        'surface-variant': themeColor('surface-variant'),
         'surface-rose': '#fffbfd',
         'surface-rose-muted': '#fdf2f6',
         'surface-glass': 'rgba(255, 255, 255, 0.78)',

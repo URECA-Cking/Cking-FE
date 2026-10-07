@@ -117,7 +117,7 @@ Google·Kakao OAuth로 로그인하고 Access JWT로 호출자를 식별합니�
 apps/web/src/
   api/        백엔드 엔드포인트별 호출 모듈 (+ creators/myEntries 같은 조합 조회)
   components/ 레이아웃·카드·시트 등 공용 UI
-  context/    로그인 세션(UserContext), 토스트
+  context/    로그인 세션(UserContext), 토스트, 화면 모드(ThemeContext, 다크/일반)
   data/       이벤트 배너·이미지 헬퍼
   hooks/      useAsync(조회 공통), useOnline
   pages/      화면 (studio/, admin/ 하위 포함)

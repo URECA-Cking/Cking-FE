@@ -12,7 +12,7 @@
     <!-- 웹앱(PWA) 설치 및 홈 화면 실행 설정 -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#db2777" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="dark" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -29,6 +29,14 @@
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
       rel="stylesheet"
     />
+    <!-- 저장된 화면 모드(다크/일반)를 첫 렌더 전에 적용해 새로고침 때 화면이 깜빡이지 않게 한다. 키는 src/context/ThemeContext.jsx와 같다. -->
+    <script>
+      try {
+        var theme = localStorage.getItem('cking.theme') === 'light' ? 'light' : 'dark'
+        document.documentElement.setAttribute('data-theme', theme)
+        document.querySelector('meta[name="color-scheme"]').setAttribute('content', theme)
+      } catch (e) {}
+    </script>
     <title>Cking</title>
   </head>
   <body>

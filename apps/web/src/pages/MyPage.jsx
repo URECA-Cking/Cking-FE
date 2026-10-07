@@ -4,6 +4,7 @@ import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import TicketLedgerSheet from '../components/ticket/TicketLedgerSheet.jsx'
 import MySpaceLink from '../components/creator/MySpaceLink.jsx'
 import { LoadingBlock, ErrorBlock, StatusPill } from '../components/ui/States.jsx'
+import { useTheme } from '../context/useTheme.js'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
@@ -26,6 +27,7 @@ export default function MyPage() {
   const navigate = useNavigate()
   const showToast = useToast()
   const { user, isCreator, isAdmin, capabilities, clearUser, refreshCapabilities, followedCreators } = useUser()
+  const { isDark, toggleTheme } = useTheme()
 
   const [applying, setApplying] = useState(false)
   const [ledgerTarget, setLedgerTarget] = useState(null)
@@ -280,6 +282,25 @@ export default function MyPage() {
           <span className="font-label-md text-label-md text-on-surface flex-1">알림</span>
           <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
         </Link>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isDark}
+          aria-label="다크 모드"
+          onClick={toggleTheme}
+          className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high text-left"
+        >
+          <MaterialIcon name={isDark ? 'dark_mode' : 'light_mode'} className="text-on-surface-variant text-[20px]" />
+          <span className="font-label-md text-label-md text-on-surface flex-1">다크 모드</span>
+          <span
+            aria-hidden="true"
+            className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${isDark ? 'bg-primary' : 'bg-outline'}`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${isDark ? 'translate-x-5' : 'translate-x-0'}`}
+            />
+          </span>
+        </button>
         <button
           type="button"
           onClick={handleLogout}

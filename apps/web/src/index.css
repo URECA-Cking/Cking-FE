@@ -2,7 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * 화면 모드(다크/일반)에 따라 바뀌는 배경·카드·글씨 색 토큰. 값은 "R G B" 채널이라
+ * tailwind.config.js에서 rgb(var(--color-*) / <alpha-value>)로 감싸 bg-surface/80 같은 투명도도 쓸 수 있다.
+ * 기본은 다크이고, <html data-theme="light">이면 #44 이전의 밝은 값으로 바뀐다.
+ */
 @layer base {
+  :root {
+    color-scheme: dark;
+    --color-surface: 26 26 30; /* #1a1a1e */
+    --color-surface-dim: 20 20 23; /* #141417 */
+    --color-surface-bright: 26 26 30; /* #1a1a1e */
+    --color-surface-container-lowest: 20 20 23; /* #141417 */
+    --color-surface-container-low: 34 34 38; /* #222226 */
+    --color-surface-container: 41 41 46; /* #29292e */
+    --color-surface-container-high: 50 50 55; /* #323237 */
+    --color-surface-container-highest: 59 59 65; /* #3b3b41 */
+    --color-on-surface: 252 251 247; /* #fcfbf7 */
+    --color-on-surface-variant: 222 218 208; /* #dedad0 */
+    --color-background: 26 26 30; /* #1a1a1e */
+    --color-on-background: 252 251 247; /* #fcfbf7 */
+    --color-surface-variant: 59 59 65; /* #3b3b41 */
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+    --color-surface: 250 248 255; /* #faf8ff */
+    --color-surface-dim: 210 217 244; /* #d2d9f4 */
+    --color-surface-bright: 250 248 255; /* #faf8ff */
+    --color-surface-container-lowest: 255 255 255; /* #ffffff */
+    --color-surface-container-low: 242 243 255; /* #f2f3ff */
+    --color-surface-container: 234 237 255; /* #eaedff */
+    --color-surface-container-high: 226 231 255; /* #e2e7ff */
+    --color-surface-container-highest: 218 226 253; /* #dae2fd */
+    --color-on-surface: 19 27 46; /* #131b2e */
+    --color-on-surface-variant: 89 64 71; /* #594047 */
+    --color-background: 250 248 255; /* #faf8ff */
+    --color-on-background: 19 27 46; /* #131b2e */
+    --color-surface-variant: 218 226 253; /* #dae2fd */
+  }
+
   html,
   body {
     width: 100%;

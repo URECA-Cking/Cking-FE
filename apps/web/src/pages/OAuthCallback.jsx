@@ -4,7 +4,6 @@ import { LoadingBlock, ErrorBlock } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { exchangeLoginCode } from '../api/auth.js'
-import { applyCreator } from '../api/creatorApplications.js'
 import { describeError } from '../api/client.js'
 import { consumeLoginIntent } from '../utils/loginIntent.js'
 
@@ -51,16 +50,7 @@ export default function OAuthCallback() {
         const me = await loadUser()
         if (!me) throw new Error('사용자 정보를 불러오지 못했어요.')
 
-        if (intent.role === 'creator' && !me.creator) {
-          try {
-            await applyCreator()
-            showToast(`${me.name}님, 크리에이터 전환 신청도 접수했어요.`)
-          } catch (creatorError) {
-            showToast(describeError(creatorError, '크리에이터 전환 신청에 실패했어요.'), { icon: 'error' })
-          }
-        } else {
-          showToast(`${me.name}님, 환영해요.`)
-        }
+        showToast(`${me.name}님, 환영해요.`)
         navigate(intent.redirectTo || '/', { replace: true })
       } catch (err) {
         await restore()

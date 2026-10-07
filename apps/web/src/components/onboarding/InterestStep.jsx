@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { getInterests, getMyInterests, saveMyInterests } from '../../api/interests.js'
 import { describeError } from '../../api/client.js'
 import { useAsync } from '../../hooks/useAsync.js'
@@ -34,10 +34,6 @@ function InterestStepContent({ onDone, memberId }) {
   // 개발 서버에서만 켜지고(?subtags=0이면 끔) 배포 빌드에서는 코드와 더미 데이터가 번들에서 빠진다.
   const subtagsOn = import.meta.env.DEV && subtagsExperimentOn()
   const [subPicked, setSubPicked] = useState(() => (subtagsOn && memberId != null ? loadDummySubtags(memberId) : []))
-  // 렌더 값이 아니라 직전 상태 기준으로 바꾸고(빠르게 연달아 눌러도 앞선 선택을 잃지 않는다), 저장은 변경 뒤에 따로 한다.
-  useEffect(() => {
-    if (subtagsOn && memberId != null) saveDummySubtags(memberId, subPicked)
-  }, [subtagsOn, memberId, subPicked])
 
   const catalog = data?.catalog
   const items = useMemo(() => catalog?.items ?? [], [catalog])
@@ -71,15 +67,21 @@ function InterestStepContent({ onDone, memberId }) {
     })
   }
 
+  // 세부 태그는 상위 분야와 같은 시점(다음)에 저장한다. 저장 없이 이탈했을 때 세부 태그만 남아 추천 재정렬에 쓰이지 않게 한다.
+  function finishStep() {
+    if (subtagsOn && memberId != null) saveDummySubtags(memberId, subPicked)
+    onDone()
+  }
+
   async function handleNext() {
     if (!changed) {
-      onDone()
+      finishStep()
       return
     }
     setSaving(true)
     try {
       await saveMyInterests({ taxonomyVersion: catalog.taxonomyVersion, interestCodes: current })
-      onDone()
+      finishStep()
     } catch (err) {
       showToast(describeError(err, '관심 분야를 저장하지 못했어요.'), { icon: 'error' })
     } finally {

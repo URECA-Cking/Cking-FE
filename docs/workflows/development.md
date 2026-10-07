@@ -19,7 +19,7 @@ Issue
 
 - 기준 브랜치는 `develop`이며, 작업 브랜치는 `<type>/{issue}-<summary>` 형식이다. `type`은 `feat`, `fix`, `refactor`, `docs`, `test`, `ci`, `chore` 중 하나다.
 - 커밋은 `<type>: <한국어 한 줄 요약>` 형식이며, PR 제목은 Issue 제목과 동일하게 쓴다.
-- PR 대상이 `develop` 또는 `main`이면 CI가 Node 22에서 `npm ci`, `npm run lint:web`, `npm run lint:admin`, `npm run build`를 실행한다. `develop` push만 Web을 배포한다.
+- PR 대상이 `develop` 또는 `main`이면 CI가 Node 22에서 `npm ci`, `npm run lint:web`, `npm run lint:admin`, `npm run build`를 실행한다. `develop` push만 Web과 Admin을 배포한다.
 
 ## 현재 검증 명령
 

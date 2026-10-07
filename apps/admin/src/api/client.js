@@ -1,7 +1,7 @@
 import { clearAccessToken, getAccessToken, setAccessToken } from './token.js'
 import { ApiError, createApiTransport } from '@cking/shared/api'
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+export const BASE_URL = import.meta.env?.VITE_API_BASE_URL || ''
 export { ApiError }
 
 const send = createApiTransport({
@@ -11,12 +11,18 @@ const send = createApiTransport({
 })
 
 let refreshing = null
+let loggingOut = null
+let sessionGeneration = 0
+const unauthorizedListeners = new Set()
 
 /** admin_refresh_token Cookie로 Access JWT를 한 번만 갱신한다. */
 export function refreshAccessToken() {
+  if (loggingOut) return Promise.resolve(false)
   if (!refreshing) {
+    const refreshGeneration = sessionGeneration
     refreshing = send('/api/admin/auth/refresh', { method: 'POST' })
       .then((result) => {
+        if (refreshGeneration !== sessionGeneration) return false
         if (result.ok && result.data?.accessToken) {
           setAccessToken(result.data.accessToken, result.data.expiresIn)
           return true
@@ -24,7 +30,10 @@ export function refreshAccessToken() {
         clearAccessToken()
         return false
       })
-      .catch(() => false)
+      .catch(() => {
+        clearAccessToken()
+        return false
+      })
       .finally(() => {
         refreshing = null
       })
@@ -32,16 +41,52 @@ export function refreshAccessToken() {
   return refreshing
 }
 
-/** 401 발생 시 관리자 refresh를 한 번만 시도하고 실패하면 호출자에게 오류를 전달한다. */
+/** 진행 중인 Refresh를 마친 뒤 Refresh Cookie와 로컬 관리자 세션을 함께 폐기한다. */
+export function logoutAdminSession() {
+  if (loggingOut) return loggingOut
+
+  sessionGeneration += 1
+  clearAccessToken()
+  const refreshInFlight = refreshing
+  loggingOut = (async () => {
+    if (refreshInFlight) await refreshInFlight
+    const result = await send('/api/admin/auth/logout', { method: 'POST' })
+    if (!result.ok || (result.code && result.code !== 'SUCCESS')) {
+      throw new ApiError(result.code, result.message, result.status)
+    }
+    return result.data
+  })().finally(() => {
+    clearAccessToken()
+    loggingOut = null
+  })
+  return loggingOut
+}
+
+/** 401 갱신·한 번 재시도와 공통 오류 변환을 적용해 관리자 응답 데이터를 반환한다. */
 async function request(path, options = {}) {
   let result = await send(path, options)
   if (result.status === 401 && !options.skipRefresh && (await refreshAccessToken())) {
     result = await send(path, options)
   }
+  if (result.status === 401) {
+    clearAccessToken()
+    notifyUnauthorized()
+  }
   if (!result.ok || (result.code && result.code !== 'SUCCESS')) {
     throw new ApiError(result.code, result.message, result.status)
   }
   return result.data
+}
+
+/** 관리자 인증이 복구되지 않았을 때 세션 Context에 익명 전환을 알린다. */
+function notifyUnauthorized() {
+  unauthorizedListeners.forEach((listener) => listener())
+}
+
+/** 관리자 Access Token 갱신 실패를 구독하고 해제 함수를 반환한다. */
+export function onUnauthorized(listener) {
+  unauthorizedListeners.add(listener)
+  return () => unauthorizedListeners.delete(listener)
 }
 
 /** 관리자 화면이 사용하는 GET 요청을 실행한다. */

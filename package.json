@@ -14,7 +14,7 @@
     "build": "npm run build:web && npm run build:admin",
     "build:web": "npm run build --workspace @cking/web",
     "build:admin": "npm run build --workspace @cking/admin",
-    "lint": "npm run lint:web",
+    "lint": "npm run lint:web && npm run lint:admin",
     "lint:web": "npm run lint --workspace @cking/web",
     "lint:admin": "npm run lint --workspace @cking/admin",
     "preview": "npm run preview --workspace @cking/web"

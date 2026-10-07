@@ -5,7 +5,7 @@ import { describeError } from '../../api/client.js'
 import BackHeader from '../../components/BackHeader.jsx'
 import MaterialIcon from '../../components/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
-import { useToast } from '../../context/ToastContext.jsx'
+import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime } from '../../utils/format.js'
 

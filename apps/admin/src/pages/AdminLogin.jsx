@@ -1,8 +1,76 @@
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { login } from '../api/auth.js'
-import { describeError } from '../api/client.js'
-import { useAdminSession } from '../context/AdminSessionContext.jsx'
+import { ApiError, describeError } from '../api/client.js'
+import { useAdminSession } from '../context/useAdminSession.js'
 
 /** 관리자 ID/PW 로그인 폼을 표시하고 ADMIN 세션을 시작한다. */
-export default function AdminLogin() { const { status, loadUser } = useAdminSession(); const navigate = useNavigate(); const location = useLocation(); const [loginId, setLoginId] = useState(''); const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); if (status === 'authenticated') return <Navigate to="/admin" replace />; async function submit(event) { event.preventDefault(); setBusy(true); setError(''); try { await login(loginId, password); const user = await loadUser(); if (!user) throw new Error('FORBIDDEN'); navigate(location.state?.from || '/admin', { replace: true }) } catch (loginError) { setError(describeError(loginError, '로그인 정보를 다시 확인해주세요.')) } finally { setBusy(false) } } return <main className="mx-auto flex min-h-screen max-w-md items-center px-margin"><form onSubmit={submit} className="w-full rounded-2xl bg-surface-container-low p-6 shadow-card"><h1 className="text-title-lg font-bold">Cking 관리자</h1><p className="mt-2 text-body-sm text-on-surface-variant">관리자 계정으로 로그인해주세요.</p><label className="mt-6 block text-label-sm">관리자 ID<input value={loginId} onChange={(event) => setLoginId(event.target.value)} required autoComplete="username" className="mt-1 w-full rounded-xl bg-surface-container-lowest p-3 text-on-surface" /></label><label className="mt-4 block text-label-sm">비밀번호<input value={password} onChange={(event) => setPassword(event.target.value)} required type="password" autoComplete="current-password" className="mt-1 w-full rounded-xl bg-surface-container-lowest p-3 text-on-surface" /></label>{error && <p className="mt-3 text-body-sm text-error">{error}</p>}<button disabled={busy} className="mt-6 h-11 w-full rounded-xl bg-primary font-semibold text-on-primary disabled:opacity-50">{busy ? '로그인 중...' : '로그인'}</button></form></main> }
+export default function AdminLogin() {
+  const { status, loadUser } = useAdminSession()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [loginId, setLoginId] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  if (status === 'authenticated') return <Navigate to="/admin" replace />
+
+  async function submit(event) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      await login(loginId, password)
+      const user = await loadUser()
+      if (!user) {
+        throw new ApiError('FORBIDDEN', '관리자 권한이 없는 계정입니다.', 403)
+      }
+      navigate(location.state?.from || '/admin', { replace: true })
+    } catch (loginError) {
+      setError(describeError(loginError, '로그인 정보를 다시 확인해주세요.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <main className="mx-auto flex min-h-screen max-w-md items-center px-margin">
+      <form onSubmit={submit} className="w-full rounded-2xl bg-surface-container-low p-6 shadow-card">
+        <h1 className="text-title-lg font-bold">Cking 관리자</h1>
+        <p className="mt-2 text-body-sm text-on-surface-variant">관리자 계정으로 로그인해주세요.</p>
+
+        <label className="mt-6 block text-label-sm">
+          관리자 ID
+          <input
+            value={loginId}
+            onChange={(event) => setLoginId(event.target.value)}
+            required
+            autoComplete="username"
+            className="mt-1 w-full rounded-xl bg-surface-container-lowest p-3 text-on-surface"
+          />
+        </label>
+        <label className="mt-4 block text-label-sm">
+          비밀번호
+          <input
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            type="password"
+            autoComplete="current-password"
+            className="mt-1 w-full rounded-xl bg-surface-container-lowest p-3 text-on-surface"
+          />
+        </label>
+
+        {error && <p className="mt-3 text-body-sm text-error">{error}</p>}
+        <button
+          type="submit"
+          disabled={busy}
+          className="mt-6 h-11 w-full rounded-xl bg-primary font-semibold text-on-primary disabled:opacity-50"
+        >
+          {busy ? '로그인 중...' : '로그인'}
+        </button>
+      </form>
+    </main>
+  )
+}

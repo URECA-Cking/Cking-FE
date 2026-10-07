@@ -4,7 +4,8 @@ import MaterialIcon from '../../components/MaterialIcon.jsx'
 import BackHeader from '../../components/BackHeader.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/States.jsx'
 import AdminDrawingPanel from './AdminDrawingPanel.jsx'
-import { useToast } from '../../context/ToastContext.jsx'
+import { useToast } from '../../context/useToast.js'
+import { useAdminSession } from '../../context/useAdminSession.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import {
   approveCreatorApplication,
@@ -30,13 +31,23 @@ const TABS = [
  */
 export default function AdminConsole() {
   const navigate = useNavigate()
+  const { signOut } = useAdminSession()
+  const showToast = useToast()
   const [tab, setTab] = useState('events')
+
+  async function handleSignOut() {
+    try {
+      await signOut()
+      navigate('/login', { replace: true })
+    } catch (error) {
+      showToast(describeError(error, '로그아웃하지 못했습니다. 다시 시도해주세요.'), { icon: 'error' })
+    }
+  }
 
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-24">
       <BackHeader
         title="관리자 콘솔"
-        onBack={() => navigate('/my-page')}
         right={
           <div className="flex items-center gap-1">
             <Link to="/admin/redraws" className="h-9 px-2.5 rounded-xl bg-berry-tint text-primary font-label-sm text-label-sm font-semibold flex items-center gap-1">
@@ -46,6 +57,13 @@ export default function AdminConsole() {
             <Link to="/admin/dead-streams" aria-label="데드 스트림 관리" className="w-9 h-9 rounded-xl bg-surface-container-low text-on-surface-variant flex items-center justify-center">
               <MaterialIcon name="warning" className="text-[18px]" />
             </Link>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="h-9 rounded-xl bg-surface-container-low px-2.5 font-label-sm text-label-sm font-semibold text-on-surface-variant"
+            >
+              로그아웃
+            </button>
           </div>
         }
       />

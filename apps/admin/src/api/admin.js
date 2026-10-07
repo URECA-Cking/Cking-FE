@@ -105,5 +105,5 @@ export async function rejectCreatorApplication(applicationId, rejectReason) {
 
 /** 추첨 운영에 필요한 마감 이벤트 목록만 조회한다. */
 export function getClosedEvents({ page = 0, size = 50 } = {}) {
-  return get('/api/events', { status: 'CLOSED', page, size })
+  return get('/api/admin/events', { page, size })
 }

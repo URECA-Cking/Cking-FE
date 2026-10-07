@@ -5,7 +5,7 @@ import MaterialIcon from '../../components/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { describeError } from '../../api/client.js'
 import { disqualifyWinner, getWinnerHistory, receiveWinner } from '../../api/admin.js'
-import { useToast } from '../../context/ToastContext.jsx'
+import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 

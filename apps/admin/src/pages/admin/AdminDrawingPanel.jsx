@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../../components/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../components/States.jsx'
-import { useToast } from '../../context/ToastContext.jsx'
+import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import {
   getClosingStatus,
@@ -39,7 +39,9 @@ export default function AdminDrawingPanel() {
     { fallbackMessage: '마감된 이벤트를 불러오지 못했습니다.' },
   )
 
-  const events = data?.items ?? []
+  const events = (data?.items ?? []).filter((event) =>
+    ['CLOSING', 'CLOSED', 'DRAW_COMPLETED', 'PUBLISHED'].includes(event.status),
+  )
 
   /** 관리자 운영 화면에서 inspect 동작을 처리한다. */
 

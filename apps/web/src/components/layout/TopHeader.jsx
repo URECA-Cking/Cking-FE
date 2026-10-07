@@ -40,8 +40,8 @@ export function TopHeader({ title, unreadCount = 0, embedded = false, hidden = f
             : 'h-14 px-margin md:px-8 flex items-center justify-between'
         }
       >
-        {title === '마이' ? (
-          <h1 className="absolute left-1/2 -translate-x-1/2 text-on-surface font-title-md text-title-md">마이</h1>
+        {['마이', '내 응모'].includes(title) ? (
+          <h1 className="absolute left-1/2 -translate-x-1/2 text-on-surface font-title-md text-title-md">{title}</h1>
         ) : (
           <div className="flex items-center gap-space-sm">
             <Link to="/" aria-label="Cking 홈">

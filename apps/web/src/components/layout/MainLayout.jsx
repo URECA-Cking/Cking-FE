@@ -12,6 +12,7 @@ import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 const APP_BAR_TITLES = {
   '/': 'Cking',
   '/notifications': '알림',
+  '/my-entries': '내 응모',
   '/my-page': '마이',
 }
 

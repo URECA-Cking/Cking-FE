@@ -43,11 +43,11 @@ export function ErrorBlock({ message, onRetry }) {
   )
 }
 
-export function EmptyBlock({ message, icon = 'inbox', action }) {
+export function EmptyBlock({ message, icon = 'inbox', action, messageClassName = 'text-body-sm' }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-space-xl px-margin text-center text-on-surface-variant">
       <MaterialIcon name={icon} className="text-[28px] text-outline" />
-      <p className="font-body-sm text-body-sm">{message}</p>
+      <p className={`font-body-sm ${messageClassName}`}>{message}</p>
       {action}
     </div>
   )

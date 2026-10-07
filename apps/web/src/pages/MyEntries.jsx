@@ -25,13 +25,6 @@ export default function MyEntries() {
 
   return (
     <div className="flex min-h-full flex-col w-full px-margin pt-space-md pb-8 gap-space-md md:mx-auto md:max-w-5xl md:px-8">
-      <div>
-        <h2 className="font-headline-md text-headline-md text-on-surface tracking-tight">내 응모 현황</h2>
-        <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">
-          지금까지 참여한 래플 응모 내역을 한눈에 확인해봐
-        </p>
-      </div>
-
       {!loading && !error && entries.length > 0 && (
         <section className="p-space-md rounded-2xl bg-gradient-to-br from-primary via-[#be185d] to-berry-deep text-on-primary shadow-floating flex items-center justify-between">
           <div>
@@ -69,6 +62,7 @@ export default function MyEntries() {
           <EmptyBlock
             icon="confirmation_number"
             message="아직 응모한 이벤트가 없어요. 진행 중인 이벤트에 응모해보세요!"
+            messageClassName="text-[12px]"
             action={
               <Link
                 to="/explore"

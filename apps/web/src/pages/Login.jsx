@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { oauthLoginUrl } from '../api/auth.js'
-import { bannerImage } from '../data/images.js'
 import { saveLoginIntent } from '../utils/loginIntent.js'
 
 const PROVIDERS = [
@@ -39,37 +37,11 @@ export default function Login() {
   }
 
   return (
-    <div className="flex flex-col w-full min-h-screen px-margin pb-space-xl pt-safe">
-      <div className="flex flex-col items-center pt-space-md pb-space-md text-center">
-        <div className="flex items-center gap-space-xs px-space-md py-1.5 rounded-full bg-berry-tint text-primary shadow-sm mb-space-sm">
-          <MaterialIcon name="auto_awesome" filled className="text-primary text-title-lg" />
-          <span className="font-label-sm text-label-sm text-primary tracking-wider uppercase font-semibold">Cking</span>
-        </div>
-        <h2 className="font-headline-lg text-headline-lg text-on-surface tracking-tight mt-1">
-          좋아하는 크리에이터와
-          <br />더 가까워지는 순간
-        </h2>
-        <p className="font-body-sm text-body-sm text-on-surface-variant mt-1.5 max-w-xs">
-          한정판 드롭 티켓부터 단독 팬밋업까지, 투명하고 설레는 래플 라이브
-        </p>
-      </div>
-
-      <div className="relative w-full h-40 rounded-2xl overflow-hidden shadow-card mb-space-lg">
-        <img className="w-full h-full object-cover" src={bannerImage('cking-hero', 900, 500)} alt="" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-surface/90 via-slate-surface/20 to-transparent" />
-        <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2.5 text-white">
-          <img
-            className="w-10 h-10 rounded-full object-cover border-2 border-white/70"
-            src={bannerImage('cking-hero-avatar', 120, 120)}
-            alt=""
-          />
-          <div className="min-w-0">
-            <p className="font-label-md text-label-md font-bold truncate">Cking Live Drop</p>
-            <p className="font-label-xs text-label-xs text-white/85 truncate">
-              로그인하면 바로 이벤트 응모를 시작할 수 있어요
-            </p>
-          </div>
-        </div>
+    <div className="flex flex-col w-full min-h-[100dvh] px-margin pb-space-xl pt-safe">
+      {/* 스플래시(Splash.jsx)와 같은 워드마크라 스플래시가 걷힌 뒤 같은 자리에 로고가 남는다. */}
+      <div className="flex flex-1 flex-col items-center justify-center">
+        <h1 className="text-[44px] font-extrabold leading-none tracking-[-0.04em] text-on-surface">CKing</h1>
+        <span className="mt-3 h-[3px] w-[118px] rounded-full bg-primary" aria-hidden="true" />
       </div>
 
       <div className="flex items-center gap-2 mb-space-md px-1">

@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useToast } from '../../context/useToast.js'
 
@@ -23,13 +23,11 @@ function useShare() {
 
 /** Main-tab app bar. Its centered title is intentionally independent from the right action. */
 export function TopHeader({ title, unreadCount = 0, embedded = false, hidden = false }) {
-  const navigate = useNavigate()
-
   return (
     <header
       className={
         embedded
-          ? `fixed top-0 left-1/2 z-50 w-full max-w-[480px] -translate-x-1/2 px-3 pt-safe transition-[transform,opacity] duration-300 ease-out md:max-w-none md:px-6 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[calc(env(safe-area-inset-top,0px)+3.5rem)] before:bg-gradient-to-b before:from-surface/22 before:via-surface/8 before:to-transparent before:backdrop-blur-[2px] before:content-[''] ${
+          ? `fixed top-0 left-1/2 z-50 w-full max-w-[480px] -translate-x-1/2 pt-safe transition-[transform,opacity] duration-300 ease-out md:max-w-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[calc(env(safe-area-inset-top,0px)+3.5rem)] before:bg-gradient-to-b before:from-surface/22 before:via-surface/8 before:to-transparent before:backdrop-blur-[2px] before:content-[''] ${
               hidden ? '-translate-y-[calc(100%+1rem)] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
             }`
           : 'fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]'
@@ -42,22 +40,22 @@ export function TopHeader({ title, unreadCount = 0, embedded = false, hidden = f
             : 'h-14 px-margin md:px-8 flex items-center justify-between'
         }
       >
-        <div className="flex items-center gap-space-sm">
-          <Link to="/" aria-label="Cking 홈">
-            <img src="/cking-logo.png" alt="Cking" className="block h-7 w-auto" />
-          </Link>
-          <div className="h-4 w-[1px] bg-outline-variant/30" />
-          <h1 className="text-on-surface font-title-md text-title-md truncate max-w-[180px]">{title}</h1>
-        </div>
-        <div className="flex items-center gap-space-sm">
-          <button
-            aria-label="검색"
-            onClick={() => navigate('/explore')}
-            className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
-            type="button"
-          >
-            <MaterialIcon name="search" className="text-[22px]" />
-          </button>
+        {title === '마이' ? (
+          <h1 className="absolute left-1/2 -translate-x-1/2 text-on-surface font-title-md text-title-md">마이</h1>
+        ) : (
+          <div className="flex items-center gap-space-sm">
+            <Link to="/" aria-label="Cking 홈">
+              <img src="/cking-logo.png" alt="Cking" className="block h-10 w-auto" />
+            </Link>
+            {title !== 'Cking' && (
+              <>
+                <div className="h-4 w-[1px] bg-outline-variant/30" />
+                <h1 className="text-on-surface font-title-md text-title-md truncate max-w-[180px]">{title}</h1>
+              </>
+            )}
+          </div>
+        )}
+        <div className="ml-auto flex items-center">
           <Link
             to="/notifications"
             className="relative w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"

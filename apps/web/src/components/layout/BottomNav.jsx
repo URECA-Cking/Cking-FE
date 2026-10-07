@@ -1,12 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import MaterialIcon from '../ui/MaterialIcon.jsx';
+import homeIcon from '@cking/shared/icons/home.svg?raw';
+import homeOutlineIcon from '@cking/shared/icons/home-outline.svg?raw';
+import exploreIcon from '@cking/shared/icons/explore.svg?raw';
+import exploreOutlineIcon from '@cking/shared/icons/explore-outline.svg?raw';
+import couponIcon from '@cking/shared/icons/coupon.svg?raw';
+import couponOutlineIcon from '@cking/shared/icons/coupon-outline.svg?raw';
+import profileIcon from '@cking/shared/icons/profile.svg?raw';
+import profileOutlineIcon from '@cking/shared/icons/profile-outline.svg?raw';
 
 const NAV_ITEMS = [
-  { to: '/', label: '홈', icon: 'home', end: true },
-  { to: '/explore', label: '탐색', icon: 'explore' },
-  { to: '/my-entries', label: '내 응모', icon: 'confirmation_number' },
-  { to: '/my-page', label: 'MY', icon: 'person' },
+  {
+    to: '/',
+    label: '홈',
+    icon: homeIcon,
+    outlineIcon: homeOutlineIcon,
+    end: true,
+  },
+  {
+    to: '/explore',
+    label: '탐색',
+    icon: exploreIcon,
+    outlineIcon: exploreOutlineIcon,
+  },
+  {
+    to: '/my-entries',
+    label: '내 응모',
+    icon: couponIcon,
+    outlineIcon: couponOutlineIcon,
+  },
+  {
+    to: '/my-page',
+    label: 'MY',
+    icon: profileIcon,
+    outlineIcon: profileOutlineIcon,
+  },
 ];
 
 const INDICATOR_MOTION_MS = 380;
@@ -66,7 +94,7 @@ export default function BottomNav({ embedded = false, compact = false }) {
       >
         <span
           aria-hidden="true"
-          className={`liquid-nav-indicator pointer-events-none absolute rounded-full ${
+          className={`liquid-nav-indicator pointer-events-none absolute rounded-[50px] ${
             motion ? `is-moving is-moving-${motion}` : ''
           } ${activeIndex >= 0 ? 'opacity-100' : 'opacity-0'}`}
           style={{
@@ -82,23 +110,23 @@ export default function BottomNav({ embedded = false, compact = false }) {
               to={item.to}
               end={item.end}
               onClick={pulseDock}
-              className={`relative z-10 flex flex-1 flex-col items-center justify-center min-w-0 rounded-full transition-[height,color] duration-300 ease-out active:scale-95 ${
-                compact ? 'h-8 gap-0' : 'h-10 gap-0'
+              className={`relative z-10 flex flex-1 flex-col items-center justify-center min-w-0 rounded-full gap-0.5 transition-[height,color] duration-300 ease-out active:scale-95 ${
+                compact ? 'h-9' : 'h-10'
               } ${
                 isSelected
-                  ? 'text-primary font-semibold'
+                  ? 'text-white font-semibold'
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              <span className="relative">
-                <MaterialIcon
-                  name={item.icon}
-                  filled={isSelected}
-                  className={compact ? 'text-[21px]' : 'text-[24px]'}
-                />
-              </span>
               <span
-                className={`relative -mt-1 font-label-xs transition-[font-size] duration-300 ${compact ? 'text-[9px] leading-3' : 'text-label-xs'}`}
+                aria-hidden="true"
+                className={`${compact ? 'h-[21px] w-[21px] text-[21px]' : 'h-6 w-6 text-[24px]'} block leading-none [&>svg]:block [&>svg]:h-full [&>svg]:w-full`}
+                dangerouslySetInnerHTML={{
+                  __html: isSelected ? item.icon : item.outlineIcon,
+                }}
+              />
+              <span
+                className={`relative font-label-xs font-medium transition-[font-size] duration-300 ${compact ? 'text-[9px] leading-3' : 'text-label-xs'}`}
               >
                 {item.label}
               </span>

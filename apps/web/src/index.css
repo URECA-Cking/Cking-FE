@@ -117,7 +117,7 @@
 
   .liquid-nav-dock.is-compact {
     --indicator-top: 2px;
-    --indicator-bottom: 3px;
+    --indicator-bottom: 2px;
   }
 
   .liquid-nav-dock.is-pulsing {

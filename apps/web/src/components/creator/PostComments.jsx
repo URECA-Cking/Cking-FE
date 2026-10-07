@@ -367,9 +367,11 @@ export default function PostComments({ creatorId, postId, authenticated, followi
  * - 판정 사유는 사용자에게 알리지 않는다.
  */
 function FilteredComment({ revealable, original, onReveal }) {
+  // 펼친 원문을 다시 가린 상태. 받아 둔 원문은 버리지 않아 다시 보면 요청 없이 펼친다.
+  const [collapsed, setCollapsed] = useState(false)
   const notRevealable = !revealable || original?.code === 'COMMENT_NOT_REVEALABLE'
   // 판정만 바뀌어 revealable이 false가 된 댓글은 updatedAt이 그대로라 캐시가 남아 있을 수 있다. 펼쳐 둔 원문도 숨긴다.
-  if (revealable && original?.status === 'done') {
+  if (revealable && original?.status === 'done' && !collapsed) {
     return (
       <div className="flex flex-col gap-1.5">
         <p className="flex items-center gap-1 font-label-xs text-label-xs text-outline">
@@ -377,6 +379,9 @@ function FilteredComment({ revealable, original, onReveal }) {
           필터링된 댓글의 원문이에요
         </p>
         <p className="whitespace-pre-wrap break-words font-body-sm text-body-sm text-on-surface">{original.content}</p>
+        <button type="button" onClick={() => setCollapsed(true)} className="self-start font-label-sm text-label-sm text-primary">
+          다시 가리기
+        </button>
       </div>
     )
   }
@@ -389,7 +394,10 @@ function FilteredComment({ revealable, original, onReveal }) {
       {!notRevealable && (
         <button
           type="button"
-          onClick={onReveal}
+          onClick={() => {
+            setCollapsed(false)
+            if (original?.status !== 'done') onReveal()
+          }}
           disabled={original?.status === 'loading'}
           className="font-label-sm text-label-sm text-primary disabled:opacity-50"
         >

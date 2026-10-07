@@ -111,7 +111,7 @@
   .liquid-nav-dock {
     --indicator-top: 3px;
     --indicator-bottom: 4px;
-    --liquid-nav-surface-alpha: 0.04;
+    --liquid-nav-surface-alpha: 0.5;
     --liquid-nav-blur: 0px;
     --liquid-nav-indicator-alpha: 0.7;
     position: relative;

@@ -95,3 +95,58 @@
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+/* 임시 첫 화면(Splash.jsx). 글자 등장 0~560ms → 퇴장 580~880ms, 총 1초 미만. */
+@layer components {
+  .splash-letter {
+    opacity: 0;
+    animation: splash-letter-in 380ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+
+  .splash-bar {
+    transform: scaleX(0);
+    transform-origin: left;
+    animation: splash-bar-sweep 360ms cubic-bezier(0.65, 0, 0.35, 1) 200ms forwards;
+  }
+
+  .splash-wordmark {
+    animation: splash-wordmark-out 300ms cubic-bezier(0.4, 0, 1, 1) 580ms forwards;
+  }
+
+  .splash {
+    animation: splash-out 300ms ease-in 580ms forwards;
+  }
+
+  @keyframes splash-letter-in {
+    from {
+      opacity: 0;
+      transform: translateY(60%) rotateX(-70deg);
+      filter: blur(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+      filter: blur(0);
+    }
+  }
+
+  @keyframes splash-bar-sweep {
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes splash-wordmark-out {
+    to {
+      transform: scale(1.08);
+      filter: blur(8px);
+    }
+  }
+
+  @keyframes splash-out {
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+}

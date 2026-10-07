@@ -9,6 +9,7 @@
 | [apps/admin.md](apps/admin.md) | 관리자 앱의 책임과 규칙 |
 | [api-coverage.md](api-coverage.md) | BE API의 FE 사용·구현 범위 추적 |
 | [workflows/development.md](workflows/development.md) | Issue, 브랜치, 검증, PR 절차 |
+| [verification/a-03-web-regression.md](verification/a-03-web-regression.md) | Web 앱 설정·라우트·빌드 회귀 검증 결과 |
 
 ## 작업별 읽기 순서
 

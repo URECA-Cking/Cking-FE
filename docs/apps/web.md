@@ -1,12 +1,8 @@
 # Web 앱
 
-## 현재 develop 구조
+## 현재 구조
 
-현재 Web과 Creator 기능은 단일 Vite 앱의 `src/`에 있으며, Admin과 빌드·실행 단위를 공유한다. Web 화면은 `src/pages/`, Creator 운영 화면은 `src/pages/studio/`와 `src/components/creator/`에 있다.
-
-## PR #46 머지 후 구조
-
-PR #46이 머지되면 이 코드는 `apps/web/src/`으로 이동한다. 이 단계의 `apps/web`은 여전히 Admin 코드까지 포함한 기존 앱 전체이고, 독립 Admin 앱은 아직 없다. 루트에서는 `npm run dev:web`, `npm run build:web`, `npm run lint`로 Web workspace를 실행·검증한다.
+현재 Web과 Creator 기능은 `apps/web/src/`에 있으며, Admin과 같은 Web workspace에서 빌드·실행한다. Web 화면은 `apps/web/src/pages/`, Creator 운영 화면은 `apps/web/src/pages/studio/`와 `apps/web/src/components/creator/`에 있다. 루트에서는 `npm run dev:web`, `npm run build:web`, `npm run lint`로 Web workspace를 실행·검증한다.
 
 ### 책임과 라우트
 

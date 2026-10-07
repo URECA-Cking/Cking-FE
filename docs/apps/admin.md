@@ -1,10 +1,8 @@
 # Admin 앱
 
-## 현재 develop 구조
+## 현재 구조
 
-관리자 기능은 아직 단일 Vite 앱 안에 있다. 라우트는 `src/App.jsx`, 페이지는 `src/pages/admin/`, API 호출은 `src/api/admin.js`에 있다.
-
-PR #46이 머지된 뒤에도 관리자는 독립 앱이 아니다. 같은 코드가 `apps/web/src/App.jsx`, `apps/web/src/pages/admin/`, `apps/web/src/api/admin.js`으로 이전될 뿐이며, Web workspace의 일부로 빌드된다.
+관리자 기능은 아직 독립 앱이 아니다. 라우트는 `apps/web/src/App.jsx`, 페이지는 `apps/web/src/pages/admin/`, API 호출은 `apps/web/src/api/admin.js`에 있으며 Web workspace의 일부로 빌드된다.
 
 | 현재 라우트 | 화면·기능 |
 | --- | --- |
@@ -13,10 +11,14 @@ PR #46이 머지된 뒤에도 관리자는 독립 앱이 아니다. 같은 코�
 | `/admin/redraws` | 재추첨 요청·조회 |
 | `/admin/dead-streams` | Dead Stream 조회·replay |
 
-모든 관리자 라우트는 `RequireUser`와 `RequireRole role="admin"`으로 보호한다. 현재 역할 판정은 `/api/me`의 `role === 'ADMIN'`이며, 요청 권한의 최종 판정은 BE가 한다.
+현재 과도기 구현의 관리자 라우트는 `RequireUser`와 `RequireRole role="admin"`으로 보호하며, `/api/me`의 `role === 'ADMIN'`을 사용한다. 이는 Web workspace 안의 현재 구현일 뿐, B-01 독립 Admin의 인증 계약이 아니다.
 
 ## B-01 이후 목표
 
-관리자 화면·라우팅·운영 상태·`/api/admin/**` 호출은 `apps/admin`이 소유한다. Admin은 Web의 페이지, `UserContext`, 팔로우 상태, 사용자·Creator 화면을 import하지 않는다. 관리자 인증·권한 계약의 정본은 [Cking-BE Auth API](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md)와 각 관리자 도메인 API 문서이며, FE가 별도 인증 계약을 만들지 않는다.
+관리자 화면·라우팅·운영 상태·`/api/admin/**` 호출은 `apps/admin`이 소유한다. Admin은 Web의 페이지, `UserContext`, 팔로우 상태, 사용자·Creator 화면을 import하지 않는다.
+
+독립 Admin은 Web OAuth를 재사용하지 않는다. BE #446의 관리자 전용 ID/PW 로그인 계약에 따라 `role=ADMIN` Access JWT와 `ADMIN_WEB` 전용 Refresh Token을 사용하고, 갱신·로그아웃은 각각 `POST /api/admin/auth/refresh`, `POST /api/admin/auth/logout`으로 분리한다. `/api/admin/**`는 ADMIN JWT로 인증·인가한다. 로그인 endpoint와 요청·응답 상세는 BE 계약이 확정된 뒤 [API 현황](../api-coverage.md)에 기록하며 FE가 추정하지 않는다.
+
+Admin은 `dev-admin.cking.co.kr`에서 별도 배포한다. 별도 S3·CloudFront와 해당 Origin의 BE CORS 허용은 Admin 생성 작업에서 확인하며, `apps/admin` 생성 PR에 Admin 배포 워크플로도 함께 추가한다.
 
 공통 HTTP 클라이언트나 순수 UI가 실제로 양쪽에서 필요할 때만 `packages/shared`를 사용한다. Admin 전용 운영 정책과 상태는 shared에 두지 않는다.

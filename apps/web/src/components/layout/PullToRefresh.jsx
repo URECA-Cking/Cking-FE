@@ -85,11 +85,12 @@ export default function PullToRefresh() {
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-0 z-[90] flex justify-center pt-safe">
       <div
-        className={`relative w-[112px] ${refreshing ? 'splash-stack' : ''}`}
+        className="splash-stack relative w-[112px]"
         style={{
           transform: `translateY(${pull - 40}px)`,
           opacity: Math.min(progress * 1.5, 1),
-          animationDelay: '0ms',
+          // 왕관이 얹힌 순간(놓은 뒤)에만 몸통이 눌리는 모션을 쓴다.
+          animation: refreshing ? 'splash-stack-bump 220ms ease-out' : undefined,
         }}
       >
         <img src="/cking-logo-body.png" alt="" className="block w-full" />

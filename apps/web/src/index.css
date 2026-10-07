@@ -101,7 +101,7 @@
   }
 }
 
-/* 임시 첫 화면(Splash.jsx). intro 0~820ms → dock(로고 자리로 이동) 또는 out(사라짐) ~440ms, 총 1초 미만. */
+/* 임시 첫 화면(Splash.jsx). intro: 몸통 280ms + 로딩 대기 + 왕관 620ms → dock(로고 자리로 이동) 또는 out(사라짐) ~440ms, 총 1초 미만. */
 @layer components {
   .splash-body {
     opacity: 0;
@@ -112,13 +112,20 @@
   .splash-crown {
     opacity: 0;
     transform-origin: 45% 17%;
-    animation: splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) 200ms forwards;
   }
 
-  /* 왕관이 닿는 순간(200+620*0.55 ≈ 540ms) 몸통이 살짝 눌렸다 돌아온다. */
+  /* 로딩이 끝나(is-dropped) 왕관을 떨어뜨리기 전까지는 몸통만 보인다. */
+  .splash.is-dropped .splash-crown {
+    animation: splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) forwards;
+  }
+
+  /* 왕관이 닿는 순간(620*0.55 ≈ 340ms) 몸통이 살짝 눌렸다 돌아온다. */
   .splash-stack {
     transform-origin: 50% 100%;
-    animation: splash-stack-bump 220ms ease-out 540ms;
+  }
+
+  .splash.is-dropped .splash-stack {
+    animation: splash-stack-bump 220ms ease-out 340ms;
   }
 
   .splash {

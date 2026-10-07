@@ -36,6 +36,18 @@ npm run dev:admin
 `develop`에 머지되면 Web(`apps/web/dist`)은 `dev.cking.co.kr`, Admin(`apps/admin/dist`)은 `dev-admin.cking.co.kr`로 배포됩니다.
 기존 `npm run dev`와 `npm run preview`도 Web 앱을 실행합니다.
 
+### 로컬 Admin E2E
+
+실제 개발 배포 환경의 관리자 인증 흐름은 필요할 때만 Playwright로 확인한다. 이 테스트는 CI나 `npm run test`에 포함하지 않는다.
+
+```powershell
+$env:E2E_ADMIN_LOGIN_ID='<관리자 로그인 ID>'
+$env:E2E_ADMIN_PASSWORD='<관리자 비밀번호>'
+npm run test:e2e:admin
+```
+
+최초 한 번은 `npx playwright install chromium`으로 로컬 브라우저를 설치한다. 기본 대상은 `https://dev-admin.cking.co.kr`이며, `E2E_ADMIN_BASE_URL`과 `E2E_ADMIN_API_BASE_URL`로 다른 개발 환경을 지정할 수 있다.
+
 | 변수 | 설명 |
 | --- | --- |
 | `VITE_API_PROXY_TARGET` | 개발 서버가 `/api`를 전달할 백엔드 주소 (기본 `http://localhost:8080`). `VITE_API_BASE_URL`이 비어 있으면 OAuth 로그인도 이 주소로 이동 |

@@ -14,7 +14,7 @@ import { describeError } from '../api/client.js'
 import { formatDateTime, formatNumber } from '../utils/format.js'
 import { CREATOR_APPLICATION_STATUS_META } from '../utils/eventStatus.js'
 
-const ADMIN_BASE_URL = import.meta.env.VITE_ADMIN_BASE_URL || 'http://localhost:5174'
+const ADMIN_BASE_URL = import.meta.env.VITE_ADMIN_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5174' : null)
 
 /**
  * 마이페이지.
@@ -225,7 +225,7 @@ export default function MyPage() {
             <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
           </Link>
         )}
-        {isAdmin && (
+        {isAdmin && ADMIN_BASE_URL && (
           <a
             href={ADMIN_BASE_URL}
             className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high"
@@ -234,6 +234,19 @@ export default function MyPage() {
             <span className="font-label-md text-label-md text-on-surface flex-1">관리자 콘솔</span>
             <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
           </a>
+        )}
+        {isAdmin && !ADMIN_BASE_URL && (
+          <div
+            className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high text-on-surface-variant"
+            aria-disabled="true"
+          >
+            <MaterialIcon name="admin_panel_settings" className="text-outline text-[20px]" />
+            <div className="flex-1">
+              <span className="block font-label-md text-label-md">관리자 콘솔</span>
+              <span className="font-label-xs text-label-xs">서비스 준비 중</span>
+            </div>
+            <MaterialIcon name="schedule" className="text-outline text-[18px]" />
+          </div>
         )}
         <Link
           to="/my-entries"

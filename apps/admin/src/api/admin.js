@@ -103,7 +103,28 @@ export async function rejectCreatorApplication(applicationId, rejectReason) {
   return post(`/api/admin/creator-applications/${applicationId}/reject`, { rejectReason });
 }
 
-/** 추첨 운영에 필요한 마감 이벤트 목록만 조회한다. */
-export function getClosedEvents({ page = 0, size = 50 } = {}) {
-  return get('/api/admin/events', { page, size })
+const DRAWING_EVENT_STATUSES = ['CLOSING', 'CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
+
+/** 지정한 상태의 이벤트 목록을 마지막 페이지까지 조회한다. */
+async function getAllEventsByStatus(status, size) {
+  const items = []
+  let page = 0
+  let hasNext = true
+
+  while (hasNext) {
+    const result = await get('/api/admin/events', { status, page, size })
+    items.push(...(result?.items ?? []))
+    hasNext = result?.hasNext === true
+    page += 1
+  }
+
+  return items
+}
+
+/** 추첨 운영 대상 상태의 이벤트를 모두 조회한다. */
+export async function getDrawingEvents({ size = 100 } = {}) {
+  const eventsByStatus = await Promise.all(
+    DRAWING_EVENT_STATUSES.map((status) => getAllEventsByStatus(status, size)),
+  )
+  return { items: eventsByStatus.flat() }
 }

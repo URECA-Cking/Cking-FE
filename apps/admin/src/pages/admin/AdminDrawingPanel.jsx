@@ -6,7 +6,7 @@ import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import {
   getClosingStatus,
-  getClosedEvents,
+  getDrawingEvents,
   getDrawing,
   getDrawingResult,
   getDrawingVerificationHistory,
@@ -34,14 +34,12 @@ export default function AdminDrawingPanel() {
   const [historyOpen, setHistoryOpen] = useState(false)
 
   const { data, loading, error, reload } = useAsync(
-    () => getClosedEvents({ size: 50 }),
+    () => getDrawingEvents(),
     [],
     { fallbackMessage: '마감된 이벤트를 불러오지 못했습니다.' },
   )
 
-  const events = (data?.items ?? []).filter((event) =>
-    ['CLOSING', 'CLOSED', 'DRAW_COMPLETED', 'PUBLISHED'].includes(event.status),
-  )
+  const events = data?.items ?? []
 
   /** 관리자 운영 화면에서 inspect 동작을 처리한다. */
 

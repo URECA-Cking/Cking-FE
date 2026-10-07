@@ -24,4 +24,4 @@
 - 코드 변경은 범위에 맞는 검증을 수행한다. 현재와 B-01 이후 명령의 구분은 [development.md](docs/workflows/development.md)를 따른다.
 - API, 라우팅, 인증, 아키텍처를 변경하면 관련 문서를 함께 갱신한다.
 - 현재 Issue와 관계없는 리팩터링을 하지 않는다.
-- `.github/` 및 향후 추가될 `CONTRIBUTING.md`의 명시적 규칙을 우선한다.
+- [조직 CONTRIBUTING](https://github.com/URECA-Cking/.github/blob/main/CONTRIBUTING.md)과 `.github/`의 명시적 규칙을 우선한다.

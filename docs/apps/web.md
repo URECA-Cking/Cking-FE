@@ -17,10 +17,10 @@
 
 ### 상태와 인증
 
-`UserContext`가 `/api/me`, 세션 상태, 역할, 팔로우 상태를 관리한다. Access JWT는 `sessionStorage`에 두며, `src/api/client.js`가 `Authorization`과 Refresh Cookie를 처리한다. Toast는 `ToastContext`가 담당한다. Web 전용 상태·Context·페이지는 Admin과 공유하지 않는다.
+`UserContext`가 `/api/me`, 세션 상태, 역할, 팔로우 상태를 관리한다. Access JWT는 `sessionStorage`에 두며, `apps/web/src/api/client.js`가 `Authorization`과 Refresh Cookie를 처리한다. Toast는 `ToastContext`가 담당한다. Web 전용 상태·Context·페이지는 Admin과 공유하지 않는다.
 
 ### B-01 이후 목표
 
-위 코드는 `apps/web`으로 이동한다. Web은 PUBLIC, USER, CREATOR API만 소유한다. 공통화 후보는 앱 독립적인 UI·HTTP 클라이언트·유틸·실제 공통 타입뿐이며, `UserContext`, 팔로우 상태, Web/Creator 화면은 shared에 두지 않는다.
+현재 `apps/web` 코드는 B-01 이후에도 PUBLIC, USER, CREATOR API를 소유한다. 공통화 후보는 앱 독립적인 UI·HTTP 클라이언트·유틸·실제 공통 타입뿐이며, `UserContext`, 팔로우 상태, Web/Creator 화면은 shared에 두지 않는다.
 
 API 사용 범위와 정본 링크는 [api-coverage.md](../api-coverage.md)를 따른다.

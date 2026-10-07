@@ -19,6 +19,6 @@
 
 독립 Admin은 Web OAuth를 재사용하지 않는다. [Cking-BE Auth API](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md)의 관리자 전용 ID/PW 로그인 `POST /api/auth/admin/login`으로 `role=ADMIN` Access JWT와 `ADMIN_WEB` 전용 Refresh Cookie를 발급받는다. 갱신·로그아웃은 각각 `POST /api/admin/auth/refresh`, `POST /api/admin/auth/logout`으로 분리하며, 해당 Cookie와 Origin 계약도 Auth API 정본을 따른다. `/api/admin/**`는 ADMIN JWT로 인증·인가한다.
 
-Admin은 `dev-admin.cking.co.kr`에서 별도 배포한다. 별도 S3·CloudFront와 해당 Origin의 BE CORS 허용은 Admin 생성 작업에서 확인하며, `apps/admin` 생성 PR에 Admin 배포 워크플로도 함께 추가한다.
+Admin은 `dev-admin.cking.co.kr`에서 별도 배포한다. 별도 S3·CloudFront는 [Cking-Infra #3](https://github.com/URECA-Cking/Cking-Infra/issues/3)에서, 해당 Origin의 BE CORS·Refresh Origin 허용은 [Cking-BE #465](https://github.com/URECA-Cking/Cking-BE/issues/465)에서 준비를 완료했다. `apps/admin` 생성 PR에는 이 인프라를 사용하는 Admin 배포 워크플로를 함께 추가한다.
 
 공통 HTTP 클라이언트나 순수 UI가 실제로 양쪽에서 필요할 때만 `packages/shared`를 사용한다. Admin 전용 운영 정책과 상태는 shared에 두지 않는다.

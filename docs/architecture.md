@@ -2,27 +2,17 @@
 
 ## 현재 구조
 
-현재 Cking-FE는 npm workspaces의 `apps/web` 하나를 실행하는 React + Vite 앱이다. `apps/web/src/App.jsx`가 Web·Creator·Admin 라우트를 모두 등록하며, Admin 코드는 `apps/web/src/pages/admin/`, API 모듈은 `apps/web/src/api/admin.js`에 있다. `packages/`는 workspace 경로만 준비돼 있고 패키지는 아직 없다.
+현재 Cking-FE는 `apps/web`과 `apps/admin`을 각각 실행하는 React + Vite npm workspace다. Web은 사용자·Creator 화면만, Admin은 관리자 화면과 `/api/admin/**` 호출을 소유한다. `packages/`는 공통 코드가 실제로 필요해질 때만 사용한다.
 
 ```text
 apps/
-└── web/                 # Web·Creator·Admin 코드를 모두 포함
+├── web/                 # 사용자·Creator 화면
+└── admin/               # 관리자 화면
     └── src/
 packages/                # workspace 경로만 준비, 패키지는 아직 없음
 ```
 
-루트 명령은 `dev:web`, `build:web`, `lint`를 제공하며 `build`는 Web만 빌드한다. 이 구조는 B-01의 Admin 분리와 혼동하지 않는다.
-
-## B-01 이후 목표 구조
-
-```text
-apps/
-├── web/
-└── admin/
-
-packages/
-└── shared/
-```
+루트 명령은 `dev:web`, `dev:admin`, `build:web`, `build:admin`, `lint:web`, `lint:admin`을 제공하며 `build`는 두 앱을 모두 빌드한다.
 
 ```text
 web ─┐
@@ -30,7 +20,7 @@ web ─┐
 admin┘
 ```
 
-`admin → web`와 `web → admin` 의존은 금지한다. 각 앱은 자신의 페이지·라우팅·상태·도메인 조합 로직을 소유한다.
+`admin → web`와 `web → admin` 의존은 금지한다. 각 앱은 자신의 페이지·라우팅·상태·도메인 조합 로직을 소유한다. B-01의 상세 의사결정은 [관리자 앱 분리 설계](architecture/b-01-admin-app-separation.md)를 따른다.
 
 ## 책임
 

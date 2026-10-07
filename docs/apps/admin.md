@@ -6,9 +6,9 @@
 
 | 현재 라우트 | 화면·기능 |
 | --- | --- |
-| `/admin` | 승인 대기 이벤트·Creator 신청, 마감·스냅샷·초기 추첨 운영 |
+| `/admin` | 승인 대기 이벤트·Creator 신청, 수동 마감·스냅샷·초기 추첨·실패 추첨 재시도 운영 |
 | `/admin/winners/:winnerId` | 당첨자 수령 처리·자격 박탈·이력 |
-| `/admin/redraws` | 재추첨 요청·조회 |
+| `/admin/redraws` | 재추첨 요청 생성·상태별 목록·심사·실행 |
 | `/admin/dead-streams` | Dead Stream 조회·replay |
 
 관리자 라우트는 Admin 자체 세션 가드로 보호하며, `/api/me`의 `role === 'ADMIN'`을 확인한다. Admin은 Web의 페이지, `UserContext`, 팔로우 상태, 사용자·Creator 화면을 import하지 않는다.

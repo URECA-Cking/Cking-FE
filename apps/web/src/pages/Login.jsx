@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useToast } from '../context/useToast.js'
 import { oauthLoginUrl } from '../api/auth.js'
 import { saveLoginIntent } from '../utils/loginIntent.js'
+import { isSplashDone, prefersReducedMotion } from '../utils/splashState.js'
 
 const PROVIDERS = [
   { id: 'google', label: 'Google로 계속하기', className: 'bg-surface-container-lowest text-on-surface border border-outline-variant/60' },
@@ -20,6 +21,8 @@ export default function Login() {
   const showToast = useToast()
 
   const [agreed, setAgreed] = useState(false)
+  // 스플래시가 이미 끝난 뒤에 이 화면이 뜬 경우(로그아웃 등)에만 왕관 연출을 한다. 첫 진입은 스플래시가 이어받는다.
+  const [enter] = useState(() => isSplashDone() && !prefersReducedMotion())
 
   const redirectTo = location.state?.from ?? '/'
 
@@ -37,7 +40,12 @@ export default function Login() {
       {/* 스플래시(Splash.jsx)가 이 로고 자리(data-splash-target)로 옮겨 와 그대로 이어진다. 크기·모양을 같이 맞춘다. */}
       <div className="flex flex-1 flex-col items-center justify-center">
         <h1 data-splash-target className="inline-flex">
-          <img src="/cking-logo.png" alt="CKing" className="block w-[232px]" />
+          {/* 스플래시와 같은 몸통·왕관 2레이어. 첫 진입은 스플래시가 이 자리로 이어져 정지 상태로 두고,
+              그 뒤(로그아웃 등)에 이 화면이 다시 뜰 때마다 왕관이 떨어진다. */}
+          <span className={`relative block w-[232px] ${enter ? 'logo-enter splash-stack' : ''}`}>
+            <img src="/cking-logo-body.png" alt="CKing" className={`block w-full ${enter ? 'splash-body' : ''}`} />
+            <img src="/cking-crown.png" alt="" className={`absolute inset-0 h-full w-full ${enter ? 'splash-crown' : ''}`} />
+          </span>
         </h1>
       </div>
 

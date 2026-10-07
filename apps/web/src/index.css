@@ -119,6 +119,11 @@
     animation: splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) forwards;
   }
 
+  /* 스플래시 뒤에 화면이 다시 뜰 때(로그인 화면): 몸통이 나타난 뒤 바로 왕관이 떨어진다. */
+  .logo-enter .splash-crown {
+    animation: splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) 200ms forwards;
+  }
+
   /* 왕관이 닿는 순간(620*0.55 ≈ 340ms) 몸통이 살짝 눌렸다 돌아온다. */
   .splash-stack {
     transform-origin: 50% 100%;
@@ -126,6 +131,10 @@
 
   .splash.is-dropped .splash-stack {
     animation: splash-stack-bump 220ms ease-out 340ms;
+  }
+
+  .logo-enter.splash-stack {
+    animation: splash-stack-bump 220ms ease-out 540ms;
   }
 
   .splash {

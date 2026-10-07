@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
-import { markSkipSplash } from '../../utils/splashSkip.js'
+import { markSkipSplash } from '../../utils/splashState.js'
 
 const TRIGGER = 70 // 이만큼 당긴 뒤 놓으면 새로고침
 const MAX_PULL = 110
@@ -21,7 +21,7 @@ function isInsideScrolled(el) {
 /**
  * 화면 맨 위에서 아래로 당기면 앱 화면 전체(#root)가 손가락을 따라 내려오고, 비워진 윗자리에 CKing 로고가 나온다.
  * 당기는 동안은 몸통만 보이고, 기준 이상 당겼다 놓으면 스플래시와 같은 왕관 낙하 연출(index.css의 splash-crown-drop)이 나온 뒤 새로고침한다.
- * 첫 화면(/login)에서는 쓰지 않는다. 별도 화면을 덮지 않고, 새로고침 뒤에도 스플래시는 건너뛴다(splashSkip). 터치 기기 전용이다.
+ * 첫 화면(/login)에서는 쓰지 않는다. 별도 화면을 덮지 않고, 새로고침 뒤에도 스플래시는 건너뛴다(splashState). 터치 기기 전용이다.
  * 브라우저 기본 당겨서 새로고침은 index.css의 overscroll-behavior로 막아 둔다.
  */
 export default function PullToRefresh() {

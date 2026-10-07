@@ -1,23 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useUser } from '../../context/useUser.js'
-import { consumeSkipSplash } from '../../utils/splashSkip.js'
+import { markSplashDone, splashOnLoad } from '../../utils/splashState.js'
 
 // 스플래시가 떠 있는 동안 아래 화면의 로고를 숨기는 표식(index.css). 로고가 두 개로 겹쳐 보이지 않게 한다.
 const ACTIVE_CLASS = 'splash-active'
 // 로그인 확인 뒤에도 아래 화면의 데이터 로딩 표시(role=status)가 남아 있으면 그게 사라질 때까지 기다린다. 이 시간이 넘으면 그냥 진행한다.
 const MAX_LOAD_WAIT = 3000
-
-// 모듈이 로드될 때 한 번만 읽는다. 컴포넌트 안에서 읽으면 StrictMode의 이중 호출로 두 번째에 표식이 사라져 있다.
-const skipOnce = consumeSkipSplash()
-
-/**
- * 페이지를 새로 열 때마다(새로고침 포함) 스플래시를 먼저 보여준다.
- * OAuth 콜백은 로그인 도중 거쳐 가는 화면이라 진입으로 보지 않고, 모션 줄이기 설정 사용자는 건너뛴다.
- */
-function shouldShowSplash() {
-  if (skipOnce || window.location.pathname.startsWith('/oauth/callback')) return false
-  return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-}
 
 /**
  * 임시 첫 화면: CKing 로고 몸통이 나타나 기다리다 로딩이 끝나면 왕관이 떨어져 씌워진 뒤(intro),
@@ -26,12 +14,17 @@ function shouldShowSplash() {
  * 로그인이 확인되면(is-over) 배경을 투명하게 풀어, 홈은 그대로 보이고 그 위에 CKing만 떠 있다 사라진다. 키프레임은 index.css의 splash-*.
  */
 export default function Splash() {
-  const [phase, setPhase] = useState(() => (shouldShowSplash() ? 'intro' : 'done'))
+  const [phase, setPhase] = useState(splashOnLoad ? 'intro' : 'done')
   const [bodyReady, setBodyReady] = useState(false)
   const [dropped, setDropped] = useState(false)
   const [introEnded, setIntroEnded] = useState(false)
   const { status } = useUser()
   const wordmarkRef = useRef(null)
+
+  // 스플래시가 끝나면 이후에 뜨는 로그인 화면은 자체 왕관 연출을 쓴다(Login.jsx).
+  useEffect(() => {
+    if (phase === 'done') markSplashDone()
+  }, [phase])
 
   useLayoutEffect(() => {
     if (phase === 'done') return

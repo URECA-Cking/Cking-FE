@@ -4,10 +4,11 @@ import { useToast } from '../context/useToast.js'
 import { oauthLoginUrl } from '../api/auth.js'
 import { saveLoginIntent } from '../utils/loginIntent.js'
 import { isSplashDone, prefersReducedMotion } from '../utils/splashState.js'
+import kakaoIcon from '@cking/shared/icons/kakao2.svg'
 
 const PROVIDERS = [
-  { id: 'google', label: 'Google로 계속하기', className: 'bg-surface-container-lowest text-on-surface border border-outline-variant/60' },
-  { id: 'kakao', label: '카카오로 계속하기', className: 'bg-[#FEE500] text-[#191919] border border-transparent' },
+  { id: 'google', label: '구글로 시작하기', className: 'bg-surface-container-lowest text-on-surface border border-outline-variant/60' },
+  { id: 'kakao', label: '카카오로 시작하기', className: 'bg-[#FEE500] text-[#191919] border border-transparent' },
 ]
 
 /**
@@ -72,9 +73,46 @@ export default function Login() {
             type="button"
             disabled={!agreed}
             onClick={() => handleLogin(provider.id)}
-            className={`w-full h-12 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed font-label-md text-label-md font-semibold flex items-center justify-center gap-space-xs shadow-sm active:scale-[0.98] transition-all ${provider.className}`}
+            className={
+              provider.id === 'google'
+                ? 'relative w-full h-12 overflow-hidden rounded-xl bg-[#f2f2f2] text-[#1f1f1f] disabled:cursor-default disabled:bg-[#ffffff61] disabled:[&>.gsi-material-button-content-wrapper]:opacity-[0.38] active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-[218ms] hover:shadow-[0_1px_2px_0_rgba(60,64,67,0.30),0_1px_3px_1px_rgba(60,64,67,0.15)] hover:[&>.gsi-material-button-state]:opacity-[0.08] active:[&>.gsi-material-button-state]:opacity-[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001d35]/30 focus-visible:[&>.gsi-material-button-state]:opacity-[0.12]'
+                : provider.id === 'kakao'
+                  ? 'relative w-full h-12 overflow-hidden rounded-xl bg-[#FEE500] text-[#191919] disabled:cursor-default disabled:opacity-50 disabled:[&>.kakao-button-content-wrapper]:opacity-[0.76] active:scale-[0.98] transition-all'
+                : `w-full h-12 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed font-label-md text-label-md font-semibold flex items-center justify-center gap-space-xs shadow-sm active:scale-[0.98] transition-all ${provider.className}`
+            }
+            style={
+              provider.id === 'google' || provider.id === 'kakao'
+                ? { fontFamily: 'Inter, sans-serif' }
+                : undefined
+            }
           >
-            {provider.label}
+            {provider.id === 'google' ? (
+              <>
+                <span className="gsi-material-button-state absolute inset-0 bg-[#001d35] opacity-0 transition-opacity duration-[218ms]" />
+                <span className="gsi-material-button-content-wrapper relative mx-auto grid h-full w-[12.5rem] grid-cols-[2.5rem_1fr] items-center gap-2.5 px-3 text-[14px] font-semibold tracking-[0.25px]">
+                  <svg
+                    aria-hidden="true"
+                    className="h-5 w-5 shrink-0 justify-self-center"
+                    viewBox="0 0 48 48"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                    <path fill="none" d="M0 0h48v48H0z" />
+                  </svg>
+                  <span className="justify-self-start">{provider.label}</span>
+                </span>
+              </>
+            ) : provider.id === 'kakao' ? (
+              <span className="kakao-button-content-wrapper relative mx-auto grid h-full w-[12.5rem] grid-cols-[2.5rem_1fr] items-center gap-2.5 px-3 font-label-md text-label-md font-semibold">
+                <img src={kakaoIcon} alt="" aria-hidden="true" className="h-10 w-10 shrink-0 justify-self-center" />
+                <span className="justify-self-start">{provider.label}</span>
+              </span>
+            ) : (
+              provider.label
+            )}
           </button>
         ))}
       </div>

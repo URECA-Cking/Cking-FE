@@ -32,7 +32,7 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
-      - run: npm run build
+      - run: npm run build:web
 
   deploy:
     name: Deploy to S3
@@ -64,7 +64,7 @@ jobs:
         # Vite 환경변수는 빌드 시점에 번들에 포함된다. 배포본은 개발 프록시가 없어
         # 브라우저가 API를 직접 호출하므로 여기서 주소를 주입한다.
         # build job의 산출물을 넘기지 않고 다시 빌드한다. 빌드가 10초대라 아티팩트 전달보다 단순하다.
-        run: npm run build
+        run: npm run build:web
         env:
           VITE_API_BASE_URL: ${{ env.API_BASE_URL }}
 
@@ -75,7 +75,7 @@ jobs:
 
       - name: S3 동기화
         # --delete로 이전 빌드의 잔여 파일을 지운다. 해시가 붙은 파일명이라 계속 쌓인다.
-        run: aws s3 sync dist/ "s3://$S3_BUCKET/" --delete
+        run: aws s3 sync apps/web/dist/ "s3://$S3_BUCKET/" --delete
 
       - name: CloudFront 캐시 무효화
         # JS·CSS는 파일명에 해시가 붙어 캐시를 타지 않지만 index.html은 이름이 고정이다.

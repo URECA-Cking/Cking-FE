@@ -11,7 +11,7 @@ const VERSION = 'v2'
 const SHELL_CACHE = `cking-shell-${VERSION}`
 const API_CACHE = `cking-api-${VERSION}`
 const SHELL_URL = '/index.html'
-const PRECACHE = ['/', SHELL_URL, '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png', '/icons/icon-512.png']
+const PRECACHE = ['/', SHELL_URL, '/manifest.webmanifest', '/favicon.ico', '/icons/icon-192.png', '/icons/icon-512.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

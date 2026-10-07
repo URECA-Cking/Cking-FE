@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { getInterests, getMyInterests, saveMyInterests } from '../../api/interests.js'
 import { describeError } from '../../api/client.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import OnboardingFooter, { GhostButton, PrimaryButton } from './OnboardingFooter.jsx'
-import { DUMMY_SUBTAGS, SUBTAG_MAX_PER_PARENT, loadDummySubtags, saveDummySubtags } from '../../data/interestSubtagsDummy.js'
+import { DUMMY_SUBTAGS, SUBTAG_MAX_PER_PARENT, loadDummySubtags, saveDummySubtags, subtagsExperimentOn } from '../../data/interestSubtagsDummy.js'
 import { useUser } from '../../context/useUser.js'
 
 const sameSet = (a, b) => a.length === b.length && a.every((code) => b.includes(code))
@@ -33,8 +32,7 @@ function InterestStepContent({ onDone, memberId }) {
   const [saving, setSaving] = useState(false)
   // 실험: 상위 분야를 고르면 세부 태그를 고를 수 있다(더미 데이터, 서버 저장 없음, 이슈 #83).
   // 개발 서버에서는 기본으로 켜지고(?subtags=0이면 끔), 배포 빌드는 VITE_ENABLE_SUBTAGS=true로 명시해야만 켜진다.
-  const [params] = useSearchParams()
-  const subtagsOn = (import.meta.env.DEV || import.meta.env.VITE_ENABLE_SUBTAGS === 'true') && params.get('subtags') !== '0'
+  const subtagsOn = subtagsExperimentOn()
   const [subPicked, setSubPicked] = useState(() => (subtagsOn && memberId != null ? loadDummySubtags(memberId) : []))
   // 렌더 값이 아니라 직전 상태 기준으로 바꾸고(빠르게 연달아 눌러도 앞선 선택을 잃지 않는다), 저장은 변경 뒤에 따로 한다.
   useEffect(() => {

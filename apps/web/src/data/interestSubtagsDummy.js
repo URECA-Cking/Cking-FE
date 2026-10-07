@@ -147,3 +147,14 @@ export const DUMMY_SUBTAGS = {
     { code: 'LIFETIP_SHOPPING', name: '쇼핑 정보' },
   ],
 }
+
+const SUBTAG_NAMES = Object.fromEntries(Object.values(DUMMY_SUBTAGS).flat().map((sub) => [sub.code, sub.name]))
+
+/** 세부 태그 코드 → 화면에 보이는 이름 */
+export const subtagName = (code) => SUBTAG_NAMES[code] ?? code
+
+/** 세부 태그 실험이 켜져 있는가: 개발 서버는 기본 켜짐, 배포 빌드는 VITE_ENABLE_SUBTAGS=true일 때만. ?subtags=0이면 끈다. */
+export function subtagsExperimentOn() {
+  const enabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_SUBTAGS === 'true'
+  return enabled && new URLSearchParams(window.location.search).get('subtags') !== '0'
+}

@@ -11,6 +11,8 @@ import { describeError } from '../../api/client.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import { useUser } from '../../context/useUser.js'
+import { CREATOR_SUBTAGS } from '../../data/creatorSubtagsDummy.js'
+import { loadDummySubtags, subtagName, subtagsExperimentOn } from '../../data/interestSubtagsDummy.js'
 
 const PAGE_SIZE = 20
 const SEARCH_DEBOUNCE_MS = 300
@@ -84,7 +86,7 @@ function Avatar({ src, name }) {
   )
 }
 
-function CreatorRow({ creator, reason, followed, disabled, onToggle }) {
+function CreatorRow({ creator, reason, followed, disabled, onToggle, subtags = [], mySubtags = [] }) {
   return (
     <li className="flex items-center gap-3 p-3 rounded-2xl bg-surface-container-lowest shadow-card">
       {/* 플로우: 추천·검색 결과에서 크리에이터 스페이스를 둘러본 뒤 팔로우를 정한다. 팔로우 버튼은 링크 밖에 둔다. */}
@@ -93,6 +95,20 @@ function CreatorRow({ creator, reason, followed, disabled, onToggle }) {
         <div className="min-w-0 flex-1 flex flex-col gap-0.5">
           <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
           {creator.bio && <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">{creator.bio}</p>}
+          {subtags.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1" aria-label="세부 태그">
+              {subtags.map((code) => (
+                <span
+                  key={code}
+                  className={`px-2 py-0.5 rounded-full font-label-xs text-label-xs ${
+                    mySubtags.includes(code) ? 'bg-secondary text-on-secondary font-semibold' : 'bg-surface-container text-on-surface-variant'
+                  }`}
+                >
+                  #{subtagName(code)}
+                </span>
+              ))}
+            </div>
+          )}
           {reason && (
             <span className="mt-1 self-start max-w-full truncate px-2 py-0.5 rounded-full bg-berry-tint font-label-xs text-label-xs text-primary">
               {reason}
@@ -160,7 +176,14 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
     }
   }
 
+  // 실험: 크리에이터에게 할당한 세부 태그(더미)를 카드에 보여주고, 온보딩 1단계에서 고른 세부 태그와 겹치면 강조한다.
+  const subtagsOn = subtagsExperimentOn()
+  const mySubtags = useMemo(() => (subtagsOn ? loadDummySubtags(user?.memberId) : []), [subtagsOn, user?.memberId])
+  const subtagsOf = (creator) => (subtagsOn ? (CREATOR_SUBTAGS[creator.name?.replace('[시연] ', '')] ?? []) : [])
+
   const rowProps = (creator) => ({
+    subtags: subtagsOf(creator),
+    mySubtags,
     creator,
     followed: isFollowing(creator.creatorId),
     disabled: !followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId,

@@ -5,7 +5,7 @@ import AdminLogin from './pages/AdminLogin.jsx'
 import { AdminDrawingDetailPage, AdminDrawingsRoute } from './pages/admin/AdminDrawings.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AdminDeadStreams from './pages/admin/AdminDeadStreams.jsx'
-import AdminRedraws from './pages/admin/AdminRedraws.jsx'
+import AdminRedraws, { AdminRedrawDetailPage } from './pages/admin/AdminRedraws.jsx'
 import AdminWinnerDetail from './pages/admin/AdminWinnerDetail.jsx'
 import { AdminEventDetailPage, AdminEventsPage } from './pages/admin/AdminEvents.jsx'
 import { ReviewDetailPage, ReviewListPage } from './pages/admin/ReviewPages.jsx'
@@ -30,6 +30,7 @@ export default function App() {
       <Route path="/admin/reviews/events/:reviewId" element={protectedRoute(<ReviewDetailPage type="events" />)} />
       <Route path="/admin/winners/:winnerId" element={protectedRoute(<AdminWinnerDetail />)} />
       <Route path="/admin/redraws" element={protectedRoute(<AdminRedraws />)} />
+      <Route path="/admin/redraws/:redrawRequestId" element={protectedRoute(<AdminRedrawDetailPage />)} />
       <Route path="/admin/dead-streams" element={protectedRoute(<AdminDeadStreams />)} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>

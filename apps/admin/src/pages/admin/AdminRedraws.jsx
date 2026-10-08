@@ -1,174 +1,74 @@
-import { useState } from 'react'
-import {
-  approveRedrawRequest,
-  createRedrawRequest,
-  executeRedrawRequest,
-  getRedrawRequest,
-  getRedrawRequests,
-  rejectRedrawRequest,
-  retryDrawing,
-} from '../../api/admin.js'
+import { useMemo, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { approveRedrawRequest, createRedrawRequest, executeRedrawRequest, getRedrawRequest, getRedrawRequests, rejectRedrawRequest, retryDrawing } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
+import { AdminPageHeader, DetailInfoRows } from '../../components/AdminContent.jsx'
+import ConfirmModal from '../../components/ConfirmModal.jsx'
 import MaterialIcon from '../../components/MaterialIcon.jsx'
-import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
+import StatusBadge from '../../components/StatusBadge.jsx'
+import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 
-const REQUEST_STATUS = {
-  REQUESTED: { label: '심사 대기', tone: 'bg-berry-tint text-primary', icon: 'pending' },
-  APPROVED: { label: '승인', tone: 'bg-secondary-fixed text-on-secondary-fixed', icon: 'check_circle' },
-  REJECTED: { label: '반려', tone: 'bg-error-container text-on-error-container', icon: 'cancel' },
-}
-const EXECUTION_STATUS = {
-  PENDING: { label: '실행 대기', tone: 'bg-surface-container-high text-on-surface-variant', icon: 'schedule' },
-  EXECUTED: { label: '실행 완료', tone: 'bg-secondary-fixed text-on-secondary-fixed', icon: 'task_alt' },
-  INSUFFICIENT_CANDIDATES: { label: '후보 부족', tone: 'bg-gold-badge-bg text-gold-badge', icon: 'group_off' },
-  FAILED: { label: '실행 실패', tone: 'bg-error-container text-on-error-container', icon: 'error' },
-}
+const REQUEST_STATUSES = ['REQUESTED', 'APPROVED', 'REJECTED']
+const EXECUTION_STATUSES = ['PENDING', 'EXECUTED', 'FAILED', 'INSUFFICIENT_CANDIDATES']
+const reviewLabels = { REQUESTED: '검토 대기', APPROVED: '승인', REJECTED: '거절' }
+const executionLabels = { PENDING: '실행 대기', EXECUTED: '실행 완료', FAILED: '실행 실패', INSUFFICIENT_CANDIDATES: '후보 부족' }
+const idempotencyKey = () => typeof crypto?.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
-/** 상태 값을 화면용 표시 정보로 변환한다. */
-function metaOf(map, value) {
-  return map[value] ?? { label: value ?? '상태 확인 중', tone: 'bg-surface-container-high text-on-surface-variant' }
-}
-/** 재추첨 생성 요청에 사용할 멱등 키를 생성한다. */
-function createIdempotencyKey() {
-  return typeof crypto?.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
-
-/** 재추첨 요청 목록과 상세 심사·실행 흐름을 제공한다. */
+/** 목록 응답만으로 Table을 구성하고, 상세 진입 뒤에만 단건 요청을 조회한다. */
 export default function AdminRedraws() {
-  const showToast = useToast()
-  const [eventId, setEventId] = useState('')
-  const [reason, setReason] = useState('')
-  const [status, setStatus] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [keyword, setKeyword] = useState('')
+  const [status, setStatus] = useState(searchParams.get('status') ?? '')
+  const [executionStatus, setExecutionStatus] = useState(searchParams.get('executionStatus') ?? '')
   const [page, setPage] = useState(0)
-  const [selectedId, setSelectedId] = useState(null)
-  const [creating, setCreating] = useState(false)
-  const { data: list, loading: listLoading, error: listError, reload: reloadList } = useAsync(
-    () => getRedrawRequests({ status: status || undefined, page, size: 20 }),
-    [status, page],
-    { fallbackMessage: '재추첨 요청 목록을 불러오지 못했어요.' },
-  )
-  const { data: redraw, loading, error, reload } = useAsync(
-    () => getRedrawRequest(selectedId), [selectedId],
-    { enabled: Boolean(selectedId), fallbackMessage: '재추첨 요청 정보를 불러오지 못했어요.' },
-  )
-  const items = list?.items ?? []
-
-  /** 새 요청을 생성하고 목록과 상세를 갱신한다. */
-  async function createRequest(event) {
-    event.preventDefault()
-    const numericEventId = Number(eventId)
-    const trimmedReason = reason.trim()
-    if (!Number.isInteger(numericEventId) || numericEventId <= 0) return showToast('이벤트 ID를 입력해주세요.', { icon: 'error' })
-    if (!trimmedReason) return showToast('재추첨 사유를 입력해주세요.', { icon: 'error' })
-    setCreating(true)
-    try {
-      const created = await createRedrawRequest(numericEventId, trimmedReason, createIdempotencyKey())
-      setSelectedId(created.redrawRequestId)
-      setReason('')
-      showToast(`재추첨 요청 #${created.redrawRequestId}을 생성했어요.`)
-      await reloadList()
-    } catch (error) {
-      showToast(describeError(error, '재추첨 요청을 생성하지 못했어요.'), { icon: 'error' })
-    } finally { setCreating(false) }
+  const [createOpen, setCreateOpen] = useState(false)
+  const list = useAsync(() => getRedrawRequests({ status: status || undefined, executionStatus: executionStatus || undefined, page, size: 20 }), [status, executionStatus, page], { fallbackMessage: '재추첨 요청 목록을 불러오지 못했습니다.' })
+  const items = useMemo(() => {
+    const value = keyword.trim().toLowerCase()
+    if (!value) return list.data?.items ?? []
+    return (list.data?.items ?? []).filter((item) => [item.redrawRequestId, item.eventId, item.eventTitle, item.title].some((field) => String(field ?? '').toLowerCase().includes(value)))
+  }, [keyword, list.data?.items])
+  function changeFilters(nextStatus, nextExecutionStatus) {
+    setStatus(nextStatus); setExecutionStatus(nextExecutionStatus); setPage(0)
+    const params = {}; if (nextStatus) params.status = nextStatus; if (nextExecutionStatus) params.executionStatus = nextExecutionStatus; setSearchParams(params)
   }
-  /** 목록 필터를 바꾸고 첫 페이지를 조회한다. */
-  function selectStatus(nextStatus) { setStatus(nextStatus); setPage(0) }
-  /** 상세 명령 후 목록과 상세를 최신 상태로 갱신한다. */
-  async function refreshOperation() { await Promise.all([reload(), reloadList()]) }
-
-  return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-space-md">
-      <div className="border-b border-slate-200 pb-4"><p className="text-sm text-slate-500">이벤트 운영</p><h1 className="mt-1 text-xl font-semibold text-slate-950">재추첨 관리</h1></div>
-        <section className="p-space-md rounded-2xl bg-gradient-to-br from-primary via-[#be185d] to-berry-deep text-on-primary shadow-floating">
-          <p className="font-label-sm text-label-sm text-primary-fixed uppercase tracking-wider">Redraw request</p><h2 className="font-title-lg text-title-lg font-bold mt-1">재추첨 요청 관리</h2><p className="font-body-sm text-body-sm text-primary-fixed mt-1">요청 목록에서 심사와 실행 상태를 안전하게 처리하세요.</p>
-        </section>
-        <section className="p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
-          <form onSubmit={createRequest} className="flex flex-col gap-space-sm">
-            <h3 className="font-title-md text-title-md text-on-surface font-bold">재추첨 요청 생성</h3>
-            <label className="flex flex-col gap-1 font-label-sm text-label-sm text-on-surface font-semibold">이벤트 ID<input type="number" min="1" inputMode="numeric" value={eventId} onChange={(event) => setEventId(event.target.value)} placeholder="예: 20" className="h-11 rounded-xl bg-surface-container-low px-3" /></label>
-            <label className="flex flex-col gap-1 font-label-sm text-label-sm text-on-surface font-semibold">재추첨 사유<textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} rows={3} placeholder="재추첨 사유" className="resize-none rounded-xl bg-surface-container-low px-3 py-2.5" /></label>
-            <div className="flex items-center justify-between"><span className="font-label-xs text-label-xs text-on-surface-variant">결원 수는 서버가 계산해요. {reason.length}/500</span><button type="submit" disabled={creating} className="h-10 px-4 rounded-xl bg-primary text-on-primary font-bold disabled:opacity-50">요청 생성</button></div>
-          </form>
-        </section>
-        <RedrawList items={items} list={list} loading={listLoading} error={listError} status={status} page={page} selectedId={selectedId} onStatus={selectStatus} onSelect={setSelectedId} onPage={setPage} onRetry={reloadList} />
-        {selectedId && loading && <LoadingBlock label="재추첨 요청을 불러오는 중..." />}
-        {selectedId && !loading && error && <ErrorBlock message={error} onRetry={reload} />}
-        {redraw?.redrawRequestId === selectedId && !loading && (
-          <RedrawDetail redraw={redraw} onChanged={refreshOperation} />
-        )}
-    </div>
-  )
+  return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <AdminPageHeader title="재추첨 관리" description="결원이 발생한 이벤트의 재추첨 요청을 검토하고 실행합니다."><button type="button" onClick={() => setCreateOpen(true)} className="h-9 rounded-md bg-pink-700 px-3 text-sm font-semibold text-white hover:bg-pink-800">재추첨 요청 생성</button></AdminPageHeader>
+    <section className="rounded-lg border border-slate-200 bg-white p-5"><div className="flex flex-col gap-3 lg:flex-row lg:items-center"><input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="요청 ID 또는 Event ID 검색" className="h-10 flex-1 rounded-md border border-slate-300 px-3 text-sm" /><select value={status} onChange={(event) => changeFilters(event.target.value, executionStatus)} className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"><option value="">심사 상태: 전체</option>{REQUEST_STATUSES.map((value) => <option key={value} value={value}>{reviewLabels[value]}</option>)}</select><select value={executionStatus} onChange={(event) => changeFilters(status, event.target.value)} className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"><option value="">실행 상태: 전체</option>{EXECUTION_STATUSES.map((value) => <option key={value} value={value}>{executionLabels[value]}</option>)}</select><button type="button" onClick={() => void list.reload()} className="inline-flex h-10 items-center justify-center gap-1 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"><MaterialIcon name="refresh" className="text-[18px]" />새로고침</button></div></section>
+    <section className="rounded-lg border border-slate-200 bg-white"><div className="border-b border-slate-200 px-5 py-4"><h2 className="text-base font-semibold text-slate-950">재추첨 요청 목록</h2><p className="mt-0.5 text-xs text-slate-500">심사 상태와 재추첨 실행 상태는 별도로 표시됩니다.</p></div><RedrawTable items={items} loading={list.loading} error={list.error} filtered={Boolean(keyword || status || executionStatus)} onRetry={list.reload} />{!list.loading && !list.error && list.data?.totalPages > 1 && <Pagination page={page} list={list.data} onPage={setPage} />}</section>
+    {createOpen && <CreateRedrawModal onCancel={() => setCreateOpen(false)} onCreated={async () => { setCreateOpen(false); await list.reload() }} />}
+  </div>
 }
 
-/** 상태별 재추첨 요청 목록과 페이지 이동을 표시한다. */
-function RedrawList({ items, list, loading, error, status, page, selectedId, onStatus, onSelect, onPage, onRetry }) {
-  return (
-    <section className="p-space-md rounded-2xl bg-surface-container-lowest shadow-card flex flex-col gap-2">
-      <div className="flex justify-between">
-        <h3 className="font-title-md text-title-md text-on-surface font-bold">재추첨 요청 목록</h3>
-        <span className="font-label-xs text-label-xs text-on-surface-variant">최신 요청순</span>
-      </div>
-      <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-surface-container-low">
-        {[['', '전체'], ...Object.entries(REQUEST_STATUS).map(([value, meta]) => [value, meta.label])].map(([value, label]) => (
-          <button key={value} type="button" onClick={() => onStatus(value)} className={`h-9 rounded-lg font-label-xs font-semibold ${status === value ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant'}`}>{label}</button>
-        ))}
-      </div>
-      {loading && <LoadingBlock label="재추첨 요청 목록을 불러오는 중..." />}
-      {!loading && error && <ErrorBlock message={error} onRetry={onRetry} />}
-      {!loading && !error && items.length === 0 && <EmptyBlock icon="autorenew" message="조건에 맞는 재추첨 요청이 없어요." />}
-      {!loading && !error && items.map((item) => (
-        <button key={item.redrawRequestId} type="button" onClick={() => onSelect(item.redrawRequestId)} className={`p-space-sm rounded-xl text-left flex justify-between gap-2 ${selectedId === item.redrawRequestId ? 'bg-berry-tint border border-primary' : 'bg-surface-container-low'}`}>
-          <div><p className="font-label-md text-label-md text-on-surface font-semibold">이벤트 #{item.eventId} · 요청 #{item.redrawRequestId}</p><p className="font-label-xs text-label-xs text-on-surface-variant">결원 {formatNumber(item.vacancyCount)}명 · {formatDateTime(item.requestedAt)}</p></div>
-          <div><StatusPill {...metaOf(REQUEST_STATUS, item.status)} /><StatusPill {...metaOf(EXECUTION_STATUS, item.executionStatus)} /></div>
-        </button>
-      ))}
-      {list?.totalPages > 1 && <div className="flex items-center justify-between"><button type="button" disabled={page === 0} onClick={() => onPage((value) => value - 1)} className="h-10 px-3 rounded-xl bg-surface-container-low disabled:opacity-40">이전</button><span>{page + 1} / {list.totalPages}</span><button type="button" disabled={!list.hasNext} onClick={() => onPage((value) => value + 1)} className="h-10 px-3 rounded-xl bg-surface-container-low disabled:opacity-40">다음</button></div>}
-    </section>
-  )
+function RedrawTable({ items, loading, error, filtered, onRetry }) {
+  if (loading) return <LoadingBlock label="재추첨 요청 목록을 불러오는 중..." />
+  if (error) return <ErrorBlock message={error} onRetry={onRetry} />
+  if (!items.length) return <EmptyBlock icon="autorenew" message={filtered ? '검색 조건에 해당하는 재추첨 요청이 없습니다.' : '현재 재추첨 요청이 없습니다.'} />
+  return <div className="overflow-x-auto"><table className="w-full min-w-[820px] text-left text-sm"><thead className="bg-slate-50 text-xs font-medium text-slate-500"><tr><th className="px-5 py-3">요청 ID</th><th className="px-4 py-3">이벤트</th><th className="px-4 py-3">심사 상태</th><th className="px-4 py-3">실행 상태</th><th className="px-4 py-3">결원</th><th className="px-4 py-3">요청 시각</th><th className="px-5 py-3 text-right">관리</th></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => <tr key={item.redrawRequestId} className="hover:bg-slate-50"><td className="px-5 py-3 font-medium text-slate-900">#{item.redrawRequestId}</td><td className="px-4 py-3"><p className="font-medium text-slate-900">{item.eventTitle ?? item.title ?? `Event #${item.eventId}`}</p><p className="text-xs text-slate-500">Event #{item.eventId}</p></td><td className="px-4 py-3"><StatusBadge type="redraw-review" status={item.status} /></td><td className="px-4 py-3"><StatusBadge type="redraw-execution" status={item.executionStatus} /></td><td className="px-4 py-3 text-slate-700">{item.vacancyCount == null ? '-' : `${formatNumber(item.vacancyCount)}명`}</td><td className="px-4 py-3 text-slate-600">{formatDateTime(item.requestedAt)}</td><td className="px-5 py-3 text-right"><Link to={`/admin/redraws/${item.redrawRequestId}`} className="font-medium text-pink-700 hover:text-pink-800">상세 보기</Link></td></tr>)}</tbody></table></div>
+}
+function Pagination({ page, list, onPage }) { return <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-sm"><button type="button" disabled={page === 0} onClick={() => onPage((value) => value - 1)} className="rounded-md border border-slate-300 px-3 py-1.5 disabled:opacity-40">이전</button><span>{page + 1} / {list.totalPages}</span><button type="button" disabled={!list.hasNext} onClick={() => onPage((value) => value + 1)} className="rounded-md border border-slate-300 px-3 py-1.5 disabled:opacity-40">다음</button></div> }
+
+function CreateRedrawModal({ onCancel, onCreated }) {
+  const showToast = useToast(); const [eventId, setEventId] = useState(''); const [reason, setReason] = useState(''); const [busy, setBusy] = useState(false)
+  async function submit(event) { event.preventDefault(); const id = Number(eventId); if (!Number.isInteger(id) || id <= 0) return showToast('Event ID를 입력해주세요.', { icon: 'error' }); if (!reason.trim()) return showToast('재추첨 사유를 입력해주세요.', { icon: 'error' }); setBusy(true); try { const created = await createRedrawRequest(id, reason.trim(), idempotencyKey()); showToast(`재추첨 요청 #${created.redrawRequestId}을 생성했습니다.`); await onCreated() } catch (error) { showToast(describeError(error, '재추첨 요청을 생성하지 못했습니다.'), { icon: 'error' }) } finally { setBusy(false) } }
+  return <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/35 p-4"><form onSubmit={submit} role="dialog" aria-modal="true" className="w-full max-w-md rounded-lg bg-white p-6 shadow-floating"><h2 className="text-lg font-semibold text-slate-950">재추첨 요청 생성</h2><p className="mt-2 text-sm leading-6 text-slate-600">결원 수와 재추첨 가능 여부는 서버가 판단합니다.</p><label className="mt-5 block text-sm font-medium">Event ID<input type="number" min="1" required value={eventId} disabled={busy} onChange={(event) => setEventId(event.target.value)} className="mt-2 block h-10 w-full rounded-md border border-slate-300 px-3" /></label><label className="mt-4 block text-sm font-medium">요청 사유<textarea required rows="4" maxLength="500" value={reason} disabled={busy} onChange={(event) => setReason(event.target.value)} className="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2" /></label><div className="mt-6 flex justify-end gap-2"><button type="button" disabled={busy} onClick={onCancel} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium">취소</button><button type="submit" disabled={busy} className="h-9 rounded-md bg-pink-700 px-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? '요청 생성 중...' : '요청 생성'}</button></div></form></div>
 }
 
-/** 선택한 요청의 고정 결원, 심사, 실행 정보를 표시한다. */
-function RedrawDetail({ redraw, onChanged }) {
-  const showToast = useToast(); const [rejectReason, setRejectReason] = useState(''); const [busy, setBusy] = useState(false)
-  /** 요청 명령을 실행하고 갱신한다. */
-  async function run(action, success, fallback) { setBusy(true); try { await action(); showToast(success); await onChanged() } catch (error) { showToast(describeError(error, fallback), { icon: 'error' }) } finally { setBusy(false) } }
-  /** 요청을 승인한다. */
-  function approve() { return run(() => approveRedrawRequest(redraw.redrawRequestId), '재추첨 요청을 승인했어요.', '재추첨 요청을 승인하지 못했어요.') }
-  /** 입력한 사유로 요청을 반려한다. */
-  function reject() { const reason = rejectReason.trim(); if (!reason) return showToast('반려 사유를 입력해주세요.', { icon: 'error' }); return run(() => rejectRedrawRequest(redraw.redrawRequestId, reason), '재추첨 요청을 반려했어요.', '재추첨 요청을 반려하지 못했어요.') }
-  /** 재추첨 실행 결과에 맞는 안내를 표시한다. */
-  async function execute() { setBusy(true); try { const result = await executeRedrawRequest(redraw.redrawRequestId); showToast(result.executionStatus === 'EXECUTED' ? '재추첨을 실행했어요.' : result.executionStatus === 'INSUFFICIENT_CANDIDATES' ? '후보가 부족하여 재추첨을 완료하지 못했어요.' : '재추첨 실행 결과를 확인해주세요.'); await onChanged() } catch (error) { showToast(describeError(error, '재추첨을 실행하지 못했어요.'), { icon: 'error' }) } finally { setBusy(false) } }
-  /** 실패한 REDRAW Drawing을 보존된 입력으로 다시 실행한다. */
-  async function retryFailedDrawing() {
-    if (!redraw.redrawDrawingId) return
-    setBusy(true)
-    try {
-      await retryDrawing(redraw.redrawDrawingId)
-      showToast('기존 추첨 입력과 Seed를 재사용해 재추첨을 다시 실행했어요.')
-      await onChanged()
-    } catch (error) {
-      showToast(describeError(error, '재추첨을 다시 실행하지 못했어요.'), { icon: 'error' })
-    } finally {
-      setBusy(false)
-    }
-  }
-  return (
-    <section className="p-space-md rounded-2xl bg-surface-container-lowest shadow-card flex flex-col gap-3">
-      <div className="flex justify-between"><div><p className="font-label-xs text-label-xs text-on-surface-variant">재추첨 요청 #{redraw.redrawRequestId}</p><h3 className="font-title-md text-title-md text-on-surface font-bold">이벤트 #{redraw.eventId}</h3></div><div><StatusPill {...metaOf(REQUEST_STATUS, redraw.status)} /><StatusPill {...metaOf(EXECUTION_STATUS, redraw.executionStatus)} /></div></div>
-      <div className="grid grid-cols-2 gap-2 p-space-sm rounded-xl bg-surface-container-low md:grid-cols-4"><Info label="결원" value={`${formatNumber(redraw.vacancyCount)}명`} /><Info label="최초 추첨" value={`#${redraw.originalDrawingId}`} /><Info label="재추첨 결과" value={redraw.redrawDrawingId ? `#${redraw.redrawDrawingId}` : '아직 없음'} /><Info label="요청 일시" value={formatDateTime(redraw.requestedAt)} /></div>
-      <p className="p-3 rounded-xl bg-berry-tint">{redraw.reason}</p>
-      {redraw.status === 'REQUESTED' && <><button type="button" disabled={busy} onClick={approve} className="h-10 rounded-xl bg-primary text-on-primary font-bold">재추첨 승인</button><textarea value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} maxLength={500} rows={3} placeholder="반려 사유" className="rounded-xl bg-error-container/45 px-3 py-2" /><button type="button" disabled={busy || !rejectReason.trim()} onClick={reject} className="h-10 rounded-xl bg-error text-on-error font-bold">반려</button></>}
-      {redraw.status === 'APPROVED' && redraw.executionStatus === 'PENDING' && <button type="button" disabled={busy} onClick={execute} className="h-11 rounded-xl bg-primary text-on-primary font-bold"><MaterialIcon name="casino" className="mr-1" />재추첨 실행</button>}
-      {redraw.executionStatus === 'FAILED' && redraw.redrawDrawingId && <button type="button" disabled={busy} onClick={retryFailedDrawing} className="h-11 rounded-xl bg-error text-on-error font-bold"><MaterialIcon name="refresh" className="mr-1" />실패한 재추첨 다시 실행</button>}
-      {redraw.rejectReason && <p className="text-error">반려 사유: {redraw.rejectReason}</p>}
-      <div className="flex flex-col gap-2"><p className="font-label-sm text-label-sm text-on-surface font-semibold">고정된 결원 당첨자</p>{redraw.vacancyWinners?.length ? redraw.vacancyWinners.map((winner) => <div key={winner.winnerId} className="flex justify-between p-space-sm rounded-xl bg-surface-container-low"><div><p className="font-label-md text-label-md text-on-surface font-semibold">{winner.name}</p><p className="font-label-xs text-label-xs text-on-surface-variant">당첨자 #{winner.winnerId} · 사용자 #{winner.userId}</p></div><span className="text-primary font-bold">{winner.rankInDrawing}위</span></div>) : <p className="font-body-sm text-body-sm text-on-surface-variant">고정된 결원 당첨자 정보가 없어요.</p>}</div>
-    </section>
-  )
+/** 요청 정보와 상태별 Action Panel을 독립 페이지에 표시한다. */
+export function AdminRedrawDetailPage() {
+  const { redrawRequestId } = useParams(); const showToast = useToast(); const [action, setAction] = useState(null); const [busy, setBusy] = useState(false)
+  const detail = useAsync(() => getRedrawRequest(redrawRequestId), [redrawRequestId], { fallbackMessage: '재추첨 요청 정보를 불러오지 못했습니다.' })
+  async function run(reason) { const redraw = detail.data; if (!redraw || !action) return; setBusy(true); try { if (action === 'approve') await approveRedrawRequest(redraw.redrawRequestId); else if (action === 'reject') await rejectRedrawRequest(redraw.redrawRequestId, reason); else if (action === 'execute') await executeRedrawRequest(redraw.redrawRequestId); else await retryDrawing(redraw.redrawDrawingId); showToast({ approve: '재추첨 요청을 승인했습니다.', reject: '재추첨 요청을 거절했습니다.', execute: '재추첨 실행 요청을 처리했습니다.', retry: '재추첨 Drawing을 다시 실행했습니다.' }[action]); setAction(null); await detail.reload() } catch (error) { showToast(describeError(error, '요청을 처리하지 못했습니다.'), { icon: 'error' }) } finally { setBusy(false) } }
+  if (detail.loading) return <LoadingBlock label="재추첨 요청을 불러오는 중..." />
+  if (detail.error) return <ErrorBlock message={detail.error} onRetry={detail.reload} />
+  const redraw = detail.data; if (!redraw) return <EmptyBlock icon="autorenew" message="해당 재추첨 요청을 찾을 수 없습니다." />
+  const drawingLink = redraw.redrawDrawingId ? `/admin/drawings/${redraw.redrawDrawingId}?eventId=${redraw.eventId}` : null
+  return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6"><div><Link to="/admin/redraws" className="text-sm font-medium text-pink-700 hover:text-pink-800">← 재추첨 목록</Link><h1 className="mt-3 text-xl font-semibold text-slate-950">재추첨 요청 #{redraw.redrawRequestId}</h1><p className="mt-1 text-sm text-slate-500">Event #{redraw.eventId}</p></div><Progress redraw={redraw} /><div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]"><section className="border-y border-slate-200 bg-white"><DetailInfoRows title="요청 정보" rows={[["RedrawRequest ID", redraw.redrawRequestId], ["Event ID", redraw.eventId], ["요청 사유", redraw.reason], ["요청 시각", formatDateTime(redraw.requestedAt)], ["요청자", redraw.requestedBy ? `#${redraw.requestedBy}` : '-']]} /><DetailInfoRows title="재추첨 조건" rows={[["결원 수", redraw.vacancyCount == null ? '-' : `${formatNumber(redraw.vacancyCount)}명`], ["원본 Drawing ID", redraw.originalDrawingId ? `#${redraw.originalDrawingId}` : '-'], ["재추첨 Drawing ID", redraw.redrawDrawingId ? `#${redraw.redrawDrawingId}` : '-']]} /><DetailInfoRows title="현재 상태" rows={[["심사 상태", <StatusBadge key="review" type="redraw-review" status={redraw.status} />], ["실행 상태", <StatusBadge key="execution" type="redraw-execution" status={redraw.executionStatus} />], ["거절 사유", redraw.rejectReason ?? '-']]} />{redraw.executionStatus === 'INSUFFICIENT_CANDIDATES' && <section className="border-b border-amber-200 bg-amber-50 px-5 py-5"><h2 className="text-sm font-semibold text-amber-950">후보 부족</h2><p className="mt-1 text-sm leading-6 text-amber-900">서버 판단 결과 남은 후보가 결원 수에 미치지 않아 재추첨을 진행할 수 없습니다.</p></section>}{drawingLink && <section className="border-b border-slate-200 px-5 py-5"><h2 className="text-sm font-semibold">재추첨 Drawing</h2><p className="mt-1 text-sm text-slate-600">생성된 Drawing의 결과·검증·공개는 추첨 관리에서 처리합니다.</p><Link to={drawingLink} className="mt-3 inline-block text-sm font-medium text-pink-700 hover:text-pink-800">재추첨 결과 확인 →</Link></section>}</section><ActionPanel redraw={redraw} busy={busy} onAction={setAction} onRefresh={detail.reload} /></div>{action && <ConfirmModal action={action === 'reject' ? 'reject' : 'confirm'} subject={`재추첨 요청 #${redraw.redrawRequestId}`} busy={busy} onCancel={() => setAction(null)} onConfirm={(reason) => void run(reason)} {...confirmCopy(action)} />}</div>
 }
-/** 라벨과 값을 표시한다. */
-function Info({ label, value }) { return <div><p className="font-label-xs text-label-xs text-on-surface-variant">{label}</p><p className="font-label-sm text-label-sm text-on-surface font-semibold">{value}</p></div> }
+
+function ActionPanel({ redraw, busy, onAction, onRefresh }) { const canExecute = redraw.status === 'APPROVED' && redraw.executionStatus === 'PENDING'; return <aside className="h-fit rounded-lg border border-slate-200 bg-white p-5"><h2 className="text-sm font-semibold text-slate-900">현재 가능한 작업</h2><div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">{redraw.status === 'REQUESTED' && <><p>검토 대기 요청입니다. 승인하면 재추첨 실행이 가능해집니다.</p><button type="button" disabled={busy} onClick={() => onAction('approve')} className="h-10 w-full rounded-md bg-pink-700 px-3 font-semibold text-white disabled:opacity-50">승인</button><button type="button" disabled={busy} onClick={() => onAction('reject')} className="h-10 w-full rounded-md border border-red-200 bg-red-50 px-3 font-semibold text-red-800 disabled:opacity-50">거절</button></>}{canExecute && <><p>승인되었고 실행 대기 상태입니다. 서버가 확정한 조건을 기준으로 재추첨을 실행합니다.</p><button type="button" disabled={busy} onClick={() => onAction('execute')} className="h-10 w-full rounded-md bg-pink-700 px-3 font-semibold text-white disabled:opacity-50">재추첨 실행</button></>}{redraw.status === 'REJECTED' && <p>거절된 요청입니다. 추가 실행 작업은 제공되지 않습니다.</p>}{redraw.executionStatus === 'EXECUTED' && <p>재추첨 실행이 완료되었습니다. 생성된 Drawing에서 결과를 확인하세요.</p>}{redraw.executionStatus === 'FAILED' && (redraw.redrawDrawingId ? <><p>재추첨 Drawing 실행에 실패했습니다. 기존 Drawing과 Seed를 재사용해 다시 시도할 수 있습니다.</p><button type="button" disabled={busy} onClick={() => onAction('retry')} className="h-10 w-full rounded-md border border-red-200 bg-red-50 px-3 font-semibold text-red-800 disabled:opacity-50">Drawing 다시 시도</button></> : <p>재추첨 실행에 실패했으며 생성된 Drawing이 없어 재시도할 수 없습니다.</p>)}{redraw.executionStatus === 'INSUFFICIENT_CANDIDATES' && <p>후보 부족은 정상적인 비즈니스 결과입니다. 부분 재추첨은 제공되지 않습니다.</p>}<button type="button" disabled={busy} onClick={() => void onRefresh()} className="w-full text-sm font-medium text-pink-700 hover:text-pink-800">새로고침</button></div></aside> }
+function Progress({ redraw }) { if (redraw.status === 'REJECTED') return <section className="rounded-lg border border-slate-200 bg-white p-5"><h2 className="text-sm font-semibold text-slate-900">재추첨 진행</h2><p className="mt-3 text-sm text-slate-600">요청은 거절되어 실행 단계로 진행하지 않습니다.</p><div className="mt-3 flex gap-2 text-xs font-semibold"><span className="rounded-full bg-pink-50 px-3 py-1.5 text-pink-700">요청 ✓</span><span className="rounded-full bg-red-50 px-3 py-1.5 text-red-700">거절됨</span></div></section>; const approved = redraw.status === 'APPROVED' || ['EXECUTED', 'FAILED', 'INSUFFICIENT_CANDIDATES'].includes(redraw.executionStatus); const executed = redraw.executionStatus === 'EXECUTED'; const labels = [['요청', true], ['심사', approved], ['실행', executed], ['결과', executed]]; return <section className="rounded-lg border border-slate-200 bg-white p-5"><h2 className="text-sm font-semibold text-slate-900">재추첨 진행</h2><ol className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold">{labels.map(([label, complete], index) => <li key={label} className="flex items-center gap-2">{index > 0 && <span className="text-slate-300">→</span>}<span className={`rounded-full px-3 py-1.5 ${complete ? 'bg-pink-50 text-pink-700' : 'bg-slate-100 text-slate-500'}`}>{label} {complete ? '✓' : '·'}</span></li>)}</ol></section> }
+function confirmCopy(action) { if (action === 'approve') return { title: '재추첨 요청을 승인할까요?', message: '현재 결원과 재추첨 조건은 서버가 관리합니다. 승인 후 재추첨 실행이 가능해집니다.', confirmLabel: '승인' }; if (action === 'reject') return { title: '재추첨 요청 거절', message: '거절 사유를 입력해주세요.', confirmLabel: '거절하기' }; if (action === 'execute') return { title: '재추첨을 실행할까요?', message: '확정된 결원 수와 기존 추첨 기준으로 재추첨을 실행합니다. 후보 제외 규칙은 서버가 적용합니다.', confirmLabel: '재추첨 실행' }; return { title: '실패한 Drawing을 다시 실행할까요?', message: '기존 Drawing과 Seed를 재사용합니다. 새로운 추첨을 생성하지 않습니다.', confirmLabel: '다시 시도', confirmTone: 'bg-red-700 hover:bg-red-800' } }

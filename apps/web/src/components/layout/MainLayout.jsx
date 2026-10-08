@@ -8,7 +8,7 @@ import { getMyNotifications } from '../../api/notifications.js'
 import FollowStatus from '../creator/FollowStatus.jsx'
 
 const TITLES = {
-  '/': 'Home',
+  '/': '',
   '/explore': 'Explore',
   '/my-entries': '내 응모',
   '/notifications': '알림',

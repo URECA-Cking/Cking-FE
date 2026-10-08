@@ -38,8 +38,12 @@ export function TopHeader({ title, embedded = false }) {
           <Link to="/" aria-label="Cking 홈">
             <img src="/cking-logo.png" alt="Cking" className="block h-7 w-auto" />
           </Link>
-          <div className="h-4 w-[1px] bg-outline-variant/30" />
-          <h1 className="text-on-surface font-title-md text-title-md truncate max-w-[180px]">{title}</h1>
+          {title && (
+            <>
+              <div className="h-4 w-[1px] bg-outline-variant/30" />
+              <h1 className="text-on-surface font-title-md text-title-md truncate max-w-[180px]">{title}</h1>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-space-sm">
           <button

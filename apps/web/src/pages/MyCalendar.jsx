@@ -105,7 +105,7 @@ export default function MyCalendar() {
                     key={schedule.scheduleId}
                     className="flex gap-3 p-space-md rounded-2xl bg-surface-container-lowest shadow-card"
                   >
-                    <div className="w-1 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
+                    <div className={`w-1 rounded-full shrink-0 ${meta.bgClass}`} />
                     <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                       <Link
                         to={`/creators/${schedule.creatorId}`}
@@ -113,7 +113,7 @@ export default function MyCalendar() {
                       >
                         {schedule.creatorName}
                       </Link>
-                      <span className="font-label-xs text-label-xs font-semibold" style={{ color: meta.color }}>
+                      <span className={`font-label-xs text-label-xs font-semibold ${meta.textClass}`}>
                         {meta.label}
                       </span>
                       <span className="font-title-md text-title-md font-bold text-on-surface">{schedule.title}</span>

@@ -18,15 +18,19 @@ export async function getCreatorSchedules(creatorId, from, to) {
 
 /**
  * scheduleType별 표시 이름과 색(백엔드 enum: BIRTHDAY, FAN_SIGN, BROADCAST, CONTENT_RELEASE, OTHER).
- * 색은 화면 모드(다크/일반)마다 값이 달라 index.css의 CSS 변수(--color-schedule-*)를 가리킨다.
- * 인라인 style(color, backgroundColor)에 그대로 쓸 수 있다.
+ * 색은 화면 모드(다크/일반)마다 값이 달라 tailwind.config.js의 schedule-* 색 토큰을 쓴다:
+ * textClass는 글씨색, bgClass는 배경색이다. Tailwind가 클래스를 만들 수 있게 이름을 통째로 적는다(조합 금지).
  */
 export const SCHEDULE_TYPE_META = {
-  BIRTHDAY: { label: '생일', color: 'rgb(var(--color-schedule-birthday))' },
-  FAN_SIGN: { label: '팬사인회', color: 'rgb(var(--color-schedule-fan-sign))' },
-  BROADCAST: { label: '방송', color: 'rgb(var(--color-schedule-broadcast))' },
-  CONTENT_RELEASE: { label: '콘텐츠 공개', color: 'rgb(var(--color-schedule-content-release))' },
-  OTHER: { label: '기타', color: 'rgb(var(--color-schedule-other))' },
+  BIRTHDAY: { label: '생일', textClass: 'text-schedule-birthday', bgClass: 'bg-schedule-birthday' },
+  FAN_SIGN: { label: '팬사인회', textClass: 'text-schedule-fan-sign', bgClass: 'bg-schedule-fan-sign' },
+  BROADCAST: { label: '방송', textClass: 'text-schedule-broadcast', bgClass: 'bg-schedule-broadcast' },
+  CONTENT_RELEASE: {
+    label: '콘텐츠 공개',
+    textClass: 'text-schedule-content-release',
+    bgClass: 'bg-schedule-content-release',
+  },
+  OTHER: { label: '기타', textClass: 'text-schedule-other', bgClass: 'bg-schedule-other' },
 };
 
 export function scheduleTypeMeta(type) {

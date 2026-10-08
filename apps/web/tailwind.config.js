@@ -55,6 +55,12 @@ export default {
         background: themeColor('background'),
         'on-background': themeColor('on-background'),
         'surface-variant': themeColor('surface-variant'),
+        // 캘린더 일정 유형 색. 모드별 값은 index.css의 --color-schedule-*에 있고, api/calendar.js가 클래스 이름으로 쓴다.
+        'schedule-birthday': themeColor('schedule-birthday'),
+        'schedule-fan-sign': themeColor('schedule-fan-sign'),
+        'schedule-broadcast': themeColor('schedule-broadcast'),
+        'schedule-content-release': themeColor('schedule-content-release'),
+        'schedule-other': themeColor('schedule-other'),
         'surface-rose': '#fffbfd',
         'surface-rose-muted': '#fdf2f6',
         // 유리 질감 배경. 투명도(0.78)는 고정이고, 색만 모드에 따라 바뀐다(다크는 어두운 유리, 일반은 흰 유리).

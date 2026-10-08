@@ -24,7 +24,11 @@
     --color-on-background: 252 251 247; /* #fcfbf7 */
     --color-surface-variant: 59 59 65; /* #3b3b41 */
     --color-surface-glass: 26 26 30; /* #1a1a1e, 투명도는 tailwind.config.js의 surface-glass */
-    /* 일정 유형 색. 다크 카드 위 글씨 대비 4.5 이상이 되도록 일반 모드보다 밝게 잡았다. */
+    /*
+     * 일정 유형 색(tailwind.config.js의 schedule-*). 글씨가 놓이는 카드(surface-container-lowest #141417)와
+     * 날짜 칸(surface-container-low #222226) 위에서 대비 4.6 이상이 되도록 일반 모드보다 밝게 잡았다.
+     * 이 값보다 밝은 배경(surface-container 이상) 위에는 올리지 않는다.
+     */
     --color-schedule-birthday: 227 89 151; /* #e35997 */
     --color-schedule-fan-sign: 238 106 115; /* #ee6a73 */
     --color-schedule-broadcast: 160 112 242; /* #a070f2 */

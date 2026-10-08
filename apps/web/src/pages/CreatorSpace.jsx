@@ -67,7 +67,8 @@ export default function CreatorSpace() {
   // 로그인 상태를 복원하는 동안(loading)에는 로그인 안내를 띄우지 않아 로그인 사용자에게 깜빡이지 않게 한다.
   const anonymous = status === 'anonymous'
 
-  const [tab, setTab] = useState('home')
+  // 홈의 게시물 카드처럼 특정 탭을 가리키며 들어오면(location.state.tab) 그 탭으로 연다.
+  const [tab, setTab] = useState(location.state?.tab ?? 'home')
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [missionBusyId, setMissionBusyId] = useState(null)

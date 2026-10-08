@@ -32,7 +32,7 @@ export function TopHeader({ title, centered = false, unreadCount = 0, embedded =
             }`
           : 'fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]'
       }
-      inert={hidden ? '' : undefined}
+      inert={hidden}
     >
       <div
         className={

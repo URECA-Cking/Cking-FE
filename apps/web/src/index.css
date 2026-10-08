@@ -23,6 +23,13 @@
     --color-background: 26 26 30; /* #1a1a1e */
     --color-on-background: 252 251 247; /* #fcfbf7 */
     --color-surface-variant: 59 59 65; /* #3b3b41 */
+    --color-surface-glass: 26 26 30; /* #1a1a1e, 투명도는 tailwind.config.js의 surface-glass */
+    /* 일정 유형 색. 다크 카드 위 글씨 대비 4.5 이상이 되도록 일반 모드보다 밝게 잡았다. */
+    --color-schedule-birthday: 227 89 151; /* #e35997 */
+    --color-schedule-fan-sign: 238 106 115; /* #ee6a73 */
+    --color-schedule-broadcast: 160 112 242; /* #a070f2 */
+    --color-schedule-content-release: 195 122 0; /* #c37a00 */
+    --color-schedule-other: 165 130 140; /* #a5828c */
   }
 
   :root[data-theme='light'] {
@@ -40,6 +47,12 @@
     --color-background: 250 248 255; /* #faf8ff */
     --color-on-background: 19 27 46; /* #131b2e */
     --color-surface-variant: 218 226 253; /* #dae2fd */
+    --color-surface-glass: 255 255 255; /* #ffffff */
+    --color-schedule-birthday: 219 39 119; /* #db2777 */
+    --color-schedule-fan-sign: 157 23 77; /* #9d174d */
+    --color-schedule-broadcast: 124 58 237; /* #7c3aed */
+    --color-schedule-content-release: 131 82 0; /* #835200 */
+    --color-schedule-other: 89 64 71; /* #594047 */
   }
 
   /* 브라우저 기본 당겨서 새로고침·바운스를 끄고 PullToRefresh.jsx의 CKing 로고 연출로 대신한다. */

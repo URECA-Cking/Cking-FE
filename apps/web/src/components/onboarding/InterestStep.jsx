@@ -5,7 +5,7 @@ import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import OnboardingFooter, { GhostButton, PrimaryButton } from './OnboardingFooter.jsx'
-import { DUMMY_SUBTAGS, SUBTAG_MAX_PER_PARENT, loadDummySubtags, saveDummySubtags, subtagsExperimentOn } from '../../data/interestSubtagsDummy.js'
+import { DUMMY_SUBTAGS, SUBTAG_MAX_PER_PARENT, keepSubtagsOf, loadDummySubtags, saveDummySubtags, subtagsExperimentOn } from '../../data/interestSubtagsDummy.js'
 import { useUser } from '../../context/useUser.js'
 
 const sameSet = (a, b) => a.length === b.length && a.every((code) => b.includes(code))
@@ -46,7 +46,7 @@ function InterestStepContent({ onDone, memberId }) {
 
   // 렌더 시점의 값이 아니라 직전 상태를 기준으로 바꿔, 빠르게 연달아 눌러도 앞선 선택을 잃지 않는다.
   function toggle(code) {
-    if (import.meta.env.DEV && subtagsOn && current.includes(code)) {
+    if (import.meta.env.DEV && subtagsOn) {
       const ownCodes = (DUMMY_SUBTAGS[code] ?? []).map((sub) => sub.code)
       setSubPicked((prev) => prev.filter((subCode) => !ownCodes.includes(subCode)))
     }
@@ -69,7 +69,7 @@ function InterestStepContent({ onDone, memberId }) {
 
   // 세부 태그는 상위 분야와 같은 시점(다음)에 저장한다. 저장 없이 이탈했을 때 세부 태그만 남아 추천 재정렬에 쓰이지 않게 한다.
   function finishStep() {
-    if (subtagsOn && memberId != null) saveDummySubtags(memberId, subPicked)
+    if (subtagsOn && memberId != null) saveDummySubtags(memberId, keepSubtagsOf(subPicked, current))
     onDone()
   }
 

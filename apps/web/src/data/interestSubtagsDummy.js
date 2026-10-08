@@ -7,8 +7,12 @@ export const SUBTAG_MAX_PER_PARENT = 3
 
 const STORAGE_KEY = (memberId) => `cking.subtags.dummy.v1:${memberId}`
 
+// localStorage 쓰기가 실패해도(용량 초과 등) 이번 온보딩에서 확정한 선택이 다음 단계에 그대로 전달되도록 메모리에도 둔다.
+const confirmed = new Map()
+
 /** 서버에 저장 계약이 없어서 선택은 이 기기(localStorage)에만 회원별로 보관한다. 저장소를 못 쓰면 빈 선택으로 시작한다. */
 export function loadDummySubtags(memberId) {
+  if (confirmed.has(memberId)) return confirmed.get(memberId)
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY(memberId)) ?? '[]')
     return Array.isArray(parsed) ? parsed.filter((code) => typeof code === 'string') : []
@@ -18,11 +22,17 @@ export function loadDummySubtags(memberId) {
 }
 
 export function saveDummySubtags(memberId, codes) {
+  confirmed.set(memberId, codes)
   try {
     localStorage.setItem(STORAGE_KEY(memberId), JSON.stringify(codes))
   } catch {
-    // 저장하지 못해도 이번 화면에서는 선택이 유지된다.
+    // 저장하지 못해도 위 메모리 값으로 이번 세션의 다음 단계는 일관된다. 새로고침하면 이전 저장값으로 돌아간다.
   }
+}
+
+/** 지금 고른 상위 분야에 속한 세부 태그만 남긴다. 상위를 바꾼 뒤에도 예전 세부 태그가 추천에 쓰이지 않게 한다. */
+export function keepSubtagsOf(codes, parentCodes) {
+  return codes.filter((code) => parentCodes.some((parent) => DUMMY_SUBTAGS[parent]?.some((sub) => sub.code === code)))
 }
 
 /** 상위 interestCode → 세부 태그 목록 */

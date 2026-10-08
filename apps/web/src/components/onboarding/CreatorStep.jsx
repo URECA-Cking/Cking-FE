@@ -5,14 +5,14 @@ import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import FollowStatus from '../creator/FollowStatus.jsx'
 import OnboardingFooter, { GhostButton, PrimaryButton } from './OnboardingFooter.jsx'
 import { getMyCreatorRecommendations, searchCreators } from '../../api/creators.js'
-import { getInterests } from '../../api/interests.js'
+import { getInterests, getMyInterests } from '../../api/interests.js'
 import { getMySpace } from '../../api/creatorSpace.js'
 import { describeError } from '../../api/client.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import { useUser } from '../../context/useUser.js'
 import { CREATOR_SUBTAGS } from '../../data/creatorSubtagsDummy.js'
-import { loadDummySubtags, subtagName, subtagsExperimentOn } from '../../data/interestSubtagsDummy.js'
+import { keepSubtagsOf, loadDummySubtags, subtagName, subtagsExperimentOn } from '../../data/interestSubtagsDummy.js'
 
 const PAGE_SIZE = 20
 const SEARCH_DEBOUNCE_MS = 300
@@ -178,7 +178,12 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
 
   // 실험: 크리에이터에게 할당한 세부 태그(더미)를 카드에 보여주고, 온보딩 1단계에서 고른 세부 태그와 겹치면 강조한다.
   const subtagsOn = import.meta.env.DEV && subtagsExperimentOn()
-  const mySubtags = useMemo(() => (subtagsOn ? loadDummySubtags(user?.memberId) : []), [subtagsOn, user?.memberId])
+  // 저장된 세부 태그 중 서버에 저장된 현재 상위 분야에 속한 것만 추천에 쓴다(상위를 바꾼 뒤 남은 예전 선택 제외). 관리 화면 직행도 같은 기준이다.
+  const myInterests = useAsync(getMyInterests, [], { enabled: subtagsOn })
+  const mySubtags = useMemo(
+    () => (subtagsOn ? keepSubtagsOf(loadDummySubtags(user?.memberId), myInterests.data?.interestCodes ?? []) : []),
+    [subtagsOn, user?.memberId, myInterests.data],
+  )
   const subtagsOf = (creator) => (subtagsOn ? (CREATOR_SUBTAGS[creator.name?.replace('[시연] ', '')] ?? []) : [])
 
   // 실험: 내가 고른 세부 태그와 겹치는 추천을 위로 올린다(겹치는 수가 많은 순). 겹침이 같으면 BE가 준 순서를 그대로 둔다.

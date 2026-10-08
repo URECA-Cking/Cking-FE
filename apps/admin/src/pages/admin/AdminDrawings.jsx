@@ -32,6 +32,7 @@ import {
 } from "../../components/States.jsx";
 import { useToast } from "../../context/useToast.js";
 import { useAsync } from "../../hooks/useAsync.js";
+import { canRunInitialDrawing } from "../../utils/drawingActions.js";
 import { drawingStatusMeta } from "../../utils/eventStatus.js";
 import { formatDateTime, formatNumber } from "../../utils/format.js";
 
@@ -373,8 +374,10 @@ export function AdminDrawingDetailPage() {
         <ActionPanel
           event={event}
           drawing={drawing}
+          drawingError={detail.data?.drawingError}
           busy={actionBusy}
           onInitial={() => setConfirmAction("initial")}
+          onRetryDrawing={() => void detail.reload()}
           onRetry={() => setConfirmAction("retry")}
           onVerify={() => void verify()}
           onPublish={() => setConfirmAction("publish")}
@@ -648,18 +651,37 @@ function VerificationRows({ verification, title }) {
 function ActionPanel({
   event,
   drawing,
+  drawingError,
   busy,
   onInitial,
+  onRetryDrawing,
   onRetry,
   onVerify,
   onPublish,
 }) {
   const completed = drawing?.status === "COMPLETED";
+  if (drawingError) {
+    return (
+      <aside className="h-fit rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-slate-900">현재 가능한 작업</h2>
+        <div className="mt-4 space-y-3 text-sm text-slate-600">
+          <p>추첨 정보를 확인할 수 없어 최초 추첨을 실행할 수 없습니다.</p>
+          <ActionButton busy={busy} onClick={onRetryDrawing} tone="secondary">
+            추첨 정보 다시 조회
+          </ActionButton>
+        </div>
+      </aside>
+    );
+  }
   return (
     <aside className="h-fit rounded-lg border border-slate-200 bg-white p-5">
       <h2 className="text-sm font-semibold text-slate-900">현재 가능한 작업</h2>
       <div className="mt-4 space-y-3 text-sm text-slate-600">
-        {!drawing && event.status === "CLOSED" && (
+        {canRunInitialDrawing({
+          drawing,
+          drawingError,
+          eventStatus: event.status,
+        }) && (
           <>
             <p>Snapshot을 확인한 뒤 최초 추첨을 실행할 수 있습니다.</p>
             <ActionButton busy={busy} onClick={onInitial}>

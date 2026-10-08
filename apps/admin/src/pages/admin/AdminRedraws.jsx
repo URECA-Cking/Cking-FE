@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { approveRedrawRequest, createRedrawRequest, executeRedrawRequest, getRedrawRequest, getRedrawRequests, rejectRedrawRequest, retryDrawing } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
@@ -10,17 +10,12 @@ import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.js
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
+import { createIdempotencyKey } from '../../utils/redrawRequest.js'
 
 const REQUEST_STATUSES = ['REQUESTED', 'APPROVED', 'REJECTED']
 const EXECUTION_STATUSES = ['PENDING', 'EXECUTED', 'FAILED', 'INSUFFICIENT_CANDIDATES']
 const reviewLabels = { REQUESTED: '검토 대기', APPROVED: '승인', REJECTED: '거절' }
 const executionLabels = { PENDING: '실행 대기', EXECUTED: '실행 완료', FAILED: '실행 실패', INSUFFICIENT_CANDIDATES: '후보 부족' }
-
-function createIdempotencyKey() {
-  return typeof crypto?.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
 
 /** 목록 응답만 Table에 사용하고, 상세 진입 뒤에만 단건 요청을 조회한다. */
 export default function AdminRedraws() {
@@ -54,7 +49,7 @@ export default function AdminRedraws() {
       <button type="button" onClick={() => setCreateOpen(true)} className="h-9 rounded-md bg-pink-700 px-3 text-sm font-semibold text-white hover:bg-pink-800">재추첨 요청 생성</button>
     </AdminPageHeader>
     <section className="rounded-lg border border-slate-200 bg-white p-5"><div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-      <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="요청 ID 또는 Event ID 검색" className="h-10 flex-1 rounded-md border border-slate-300 px-3 text-sm" />
+      <label className="flex flex-1 flex-col gap-1 text-xs text-slate-500">현재 페이지 내 검색<input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="요청 ID 또는 Event ID 검색" className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-900" /></label>
       <select value={status} onChange={(event) => changeFilters(event.target.value, executionStatus)} className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"><option value="">심사 상태: 전체</option>{REQUEST_STATUSES.map((value) => <option key={value} value={value}>{reviewLabels[value]}</option>)}</select>
       <select value={executionStatus} onChange={(event) => changeFilters(status, event.target.value)} className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"><option value="">실행 상태: 전체</option>{EXECUTION_STATUSES.map((value) => <option key={value} value={value}>{executionLabels[value]}</option>)}</select>
       <button type="button" onClick={() => void list.reload()} className="inline-flex h-10 items-center justify-center gap-1 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"><MaterialIcon name="refresh" className="text-[18px]" />새로고침</button>
@@ -77,8 +72,8 @@ function RedrawTable({ items, loading, error, filtered, onRetry }) {
 function Pagination({ page, list, onPage }) { return <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-sm"><button type="button" disabled={page === 0} onClick={() => onPage((value) => value - 1)} className="rounded-md border border-slate-300 px-3 py-1.5 disabled:opacity-40">이전</button><span>{page + 1} / {list.totalPages}</span><button type="button" disabled={!list.hasNext} onClick={() => onPage((value) => value + 1)} className="rounded-md border border-slate-300 px-3 py-1.5 disabled:opacity-40">다음</button></div> }
 
 function CreateRedrawModal({ onCancel, onCreated }) {
-  const showToast = useToast(); const [eventId, setEventId] = useState(''); const [reason, setReason] = useState(''); const [busy, setBusy] = useState(false)
-  async function submit(event) { event.preventDefault(); const id = Number(eventId); if (!Number.isInteger(id) || id <= 0) return showToast('Event ID를 입력해주세요.', { icon: 'error' }); if (!reason.trim()) return showToast('재추첨 사유를 입력해주세요.', { icon: 'error' }); setBusy(true); try { const created = await createRedrawRequest(id, reason.trim(), createIdempotencyKey()); showToast(`재추첨 요청 #${created.redrawRequestId}을 생성했습니다.`); await onCreated() } catch (error) { showToast(describeError(error, '재추첨 요청을 생성하지 못했습니다.'), { icon: 'error' }) } finally { setBusy(false) } }
+  const showToast = useToast(); const [eventId, setEventId] = useState(''); const [reason, setReason] = useState(''); const [busy, setBusy] = useState(false); const idempotencyKeyRef = useRef(null)
+  async function submit(event) { event.preventDefault(); const id = Number(eventId); if (!Number.isInteger(id) || id <= 0) return showToast('Event ID를 입력해주세요.', { icon: 'error' }); if (!reason.trim()) return showToast('재추첨 사유를 입력해주세요.', { icon: 'error' }); const idempotencyKey = idempotencyKeyRef.current ?? createIdempotencyKey(); idempotencyKeyRef.current = idempotencyKey; setBusy(true); try { const created = await createRedrawRequest(id, reason.trim(), idempotencyKey); idempotencyKeyRef.current = null; showToast(`재추첨 요청 #${created.redrawRequestId}을 생성했습니다.`); await onCreated() } catch (error) { showToast(describeError(error, '재추첨 요청을 생성하지 못했습니다.'), { icon: 'error' }) } finally { setBusy(false) } }
   return <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/35 p-4"><form onSubmit={submit} role="dialog" aria-modal="true" className="w-full max-w-md rounded-lg bg-white p-6 shadow-floating"><h2 className="text-lg font-semibold text-slate-950">재추첨 요청 생성</h2><p className="mt-2 text-sm leading-6 text-slate-600">결원 수와 재추첨 가능 여부는 서버가 판단합니다.</p><label className="mt-5 block text-sm font-medium">Event ID<input type="number" min="1" required value={eventId} disabled={busy} onChange={(event) => setEventId(event.target.value)} className="mt-2 block h-10 w-full rounded-md border border-slate-300 px-3" /></label><label className="mt-4 block text-sm font-medium">요청 사유<textarea required rows="4" maxLength="500" value={reason} disabled={busy} onChange={(event) => setReason(event.target.value)} className="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2" /></label><div className="mt-6 flex justify-end gap-2"><button type="button" disabled={busy} onClick={onCancel} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium">취소</button><button type="submit" disabled={busy} className="h-9 rounded-md bg-pink-700 px-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? '요청 생성 중...' : '요청 생성'}</button></div></form></div>
 }
 

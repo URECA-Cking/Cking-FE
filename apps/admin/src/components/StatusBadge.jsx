@@ -4,6 +4,7 @@ import {
   drawingStatusMeta,
   eventStatusMeta,
   verificationStatusMeta,
+  winnerStatusMeta,
 } from "../utils/eventStatus.js";
 
 const REDRAW_REVIEW_META = {
@@ -29,8 +30,10 @@ export default function StatusBadge({ status, type = "auto", className = "" }) {
           ? (REDRAW_EXECUTION_META[status] ?? eventStatusMeta(status))
       : type === "drawing"
         ? drawingStatusMeta(status)
-        : type === "verification"
-          ? verificationStatusMeta(status)
+      : type === "verification"
+        ? verificationStatusMeta(status)
+        : type === "winner"
+          ? winnerStatusMeta(status)
           : (REVIEW_STATUS_META[status] ?? eventStatusMeta(status));
   return (
     <span

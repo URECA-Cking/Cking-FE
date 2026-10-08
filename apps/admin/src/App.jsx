@@ -6,7 +6,7 @@ import { AdminDrawingDetailPage, AdminDrawingsRoute } from './pages/admin/AdminD
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AdminDeadStreams from './pages/admin/AdminDeadStreams.jsx'
 import AdminRedraws, { AdminRedrawDetailPage } from './pages/admin/AdminRedraws.jsx'
-import AdminWinnerDetail from './pages/admin/AdminWinnerDetail.jsx'
+import AdminWinners, { AdminWinnerDetail } from './pages/admin/AdminWinnerDetail.jsx'
 import { AdminEventDetailPage, AdminEventsPage } from './pages/admin/AdminEvents.jsx'
 import { ReviewDetailPage, ReviewListPage } from './pages/admin/ReviewPages.jsx'
 
@@ -28,6 +28,7 @@ export default function App() {
       <Route path="/admin/reviews/creators/:reviewId" element={protectedRoute(<ReviewDetailPage type="creators" />)} />
       <Route path="/admin/reviews/events" element={protectedRoute(<ReviewListPage type="events" />)} />
       <Route path="/admin/reviews/events/:reviewId" element={protectedRoute(<ReviewDetailPage type="events" />)} />
+      <Route path="/admin/winners" element={protectedRoute(<AdminWinners />)} />
       <Route path="/admin/winners/:winnerId" element={protectedRoute(<AdminWinnerDetail />)} />
       <Route path="/admin/redraws" element={protectedRoute(<AdminRedraws />)} />
       <Route path="/admin/redraws/:redrawRequestId" element={protectedRoute(<AdminRedrawDetailPage />)} />

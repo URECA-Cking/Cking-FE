@@ -1,196 +1,111 @@
 import { useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
-import MaterialIcon from '../../components/MaterialIcon.jsx'
-import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
-import { describeError } from '../../api/client.js'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { disqualifyWinner, getWinnerHistory, receiveWinner } from '../../api/admin.js'
+import { describeError } from '../../api/client.js'
+import { AdminPageHeader, DetailInfoRows } from '../../components/AdminContent.jsx'
+import ConfirmModal from '../../components/ConfirmModal.jsx'
+import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.jsx'
+import StatusBadge from '../../components/StatusBadge.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 
-const STATUS_META = {
-  SELECTED: { label: '수령 대기', tone: 'bg-berry-tint text-primary', icon: 'workspace_premium' },
-  RECEIVED: { label: '수령 완료', tone: 'bg-secondary-fixed text-on-secondary-fixed', icon: 'check_circle' },
-  DECLINED: { label: '당첨 포기', tone: 'bg-surface-container-high text-on-surface-variant', icon: 'block' },
-  DISQUALIFIED: { label: '당첨 취소', tone: 'bg-error-container text-on-error-container', icon: 'gpp_bad' },
+/** 전용 목록 API가 없으므로 추첨 결과에서 당첨자 상세로 진입하도록 안내한다. */
+export default function AdminWinners() {
+  return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <AdminPageHeader title="당첨자 관리" description="당첨자의 현재 상태와 처리 이력은 추첨 결과에서 선택해 관리합니다." />
+    <section className="rounded-lg border border-slate-200 bg-white p-6">
+      <h2 className="text-base font-semibold text-slate-950">당첨자 전체 목록을 제공하지 않습니다</h2>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">현재 관리자 API에는 전체 당첨자 또는 단건 당첨자 조회 계약이 없습니다. 모든 추첨 결과를 순회해 목록을 만들지 않고, 각 Drawing 결과에서 당첨자를 선택하는 운영 흐름을 유지합니다.</p>
+      <Link to="/admin/drawings" className="mt-5 inline-flex h-10 items-center rounded-md bg-pink-700 px-4 text-sm font-semibold text-white hover:bg-pink-800">추첨 관리로 이동</Link>
+    </section>
+  </div>
 }
 
-/** 관리자 운영 화면에서 statusMeta 동작을 처리한다. */
-
-function statusMeta(status) {
-  return STATUS_META[status] ?? { label: status ?? '상태 확인 중', tone: 'bg-surface-container-high text-on-surface-variant' }
-}
-
-export default function AdminWinnerDetail() {
+/** Drawing Result에서 전달된 Winner와 상태 이력을 함께 표시하고, 서버 명령으로만 상태를 변경한다. */
+export function AdminWinnerDetail() {
   const { winnerId } = useParams()
   const { state } = useLocation()
   const winner = state?.winner
   const showToast = useToast()
-  const [reason, setReason] = useState('')
+  const [action, setAction] = useState(null)
   const [busy, setBusy] = useState(false)
+  const history = useAsync(() => getWinnerHistory(winnerId), [winnerId], { fallbackMessage: '상태 변경 이력을 불러오지 못했습니다.' })
+  const currentStatus = history.data?.at(-1)?.afterStatus ?? winner?.winnerManagementStatus ?? null
 
-  const { data: history, loading, error, reload } = useAsync(
-    () => getWinnerHistory(winnerId),
-    [winnerId],
-    { fallbackMessage: '당첨 상태 이력을 불러오지 못했어요.' },
-  )
-
-  const latestStatus = history?.at(-1)?.afterStatus ?? winner?.winnerManagementStatus ?? 'SELECTED'
-  const meta = statusMeta(latestStatus)
-  const isSelected = latestStatus === 'SELECTED'
-
-  /** 관리자 운영 화면에서 receive 동작을 처리한다. */
-
-  async function receive() {
-    if (!window.confirm('이 당첨자의 수령을 완료 처리할까요? 완료 후에는 되돌릴 수 없어요.')) return
+  async function runAction(reason) {
+    if (!action) return
     setBusy(true)
     try {
-      await receiveWinner(winnerId)
-      showToast('수령 완료로 처리했어요.')
-      await reload()
-    } catch (receiveError) {
-      showToast(describeError(receiveError, '수령 완료를 처리하지 못했어요.'), { icon: 'error' })
+      if (action === 'receive') await receiveWinner(winnerId)
+      else await disqualifyWinner(winnerId, reason)
+      showToast(action === 'receive' ? '수령 완료 처리되었습니다.' : '당첨자 자격을 박탈했습니다.')
+      setAction(null)
+      await history.reload()
+    } catch (error) {
+      showToast(describeError(error, action === 'receive' ? '수령 완료 처리에 실패했습니다.' : '자격 박탈 처리에 실패했습니다.'), { icon: 'error' })
+      await history.reload()
     } finally {
       setBusy(false)
     }
   }
 
-  /** 관리자 운영 화면에서 disqualify 동작을 처리한다. */
-
-  async function disqualify() {
-    const trimmedReason = reason.trim()
-    if (!trimmedReason) {
-      showToast('당첨 취소 사유를 입력해주세요.', { icon: 'error' })
-      return
-    }
-    if (!window.confirm('이 당첨을 취소할까요? 처리 후에는 되돌릴 수 없어요.')) return
-
-    setBusy(true)
-    try {
-      await disqualifyWinner(winnerId, trimmedReason)
-      showToast('당첨을 취소했어요.')
-      setReason('')
-      await reload()
-    } catch (disqualifyError) {
-      showToast(describeError(disqualifyError, '당첨을 취소하지 못했어요.'), { icon: 'error' })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-space-md">
-      <div className="border-b border-slate-200 pb-4"><p className="text-sm text-slate-500">당첨자 관리</p><h1 className="mt-1 text-xl font-semibold text-slate-950">당첨자 운영</h1></div>
-        <section className="p-space-md rounded-2xl bg-gradient-to-br from-primary via-[#be185d] to-berry-deep text-on-primary shadow-floating relative overflow-hidden">
-          <MaterialIcon name="workspace_premium" filled className="absolute -right-2 -bottom-4 text-[112px] text-primary-fixed/15" />
-          <div className="relative flex items-start gap-space-sm">
-            <div className="w-11 h-11 rounded-xl bg-primary-fixed/20 flex items-center justify-center shrink-0">
-              <MaterialIcon name="emoji_events" filled className="text-primary-fixed text-[24px]" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-label-sm text-label-sm text-primary-fixed uppercase tracking-wider">Winner #{winnerId}</p>
-              <h2 className="font-title-lg text-title-lg font-bold mt-1 truncate">{winner?.name ?? '당첨자 운영'}</h2>
-              <p className="font-label-xs text-label-xs text-primary-fixed mt-1">
-                {winner?.eventId ? `이벤트 #${winner.eventId} · ` : ''}{winner?.rankInDrawing ? `${winner.rankInDrawing}위` : '상태와 이력을 관리할 수 있어요.'}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="p-space-md rounded-2xl bg-surface-container-lowest shadow-card flex flex-col gap-space-sm">
-          <div className="flex items-center justify-between gap-space-sm">
-            <div>
-              <p className="font-label-xs text-label-xs text-on-surface-variant">현재 운영 상태</p>
-              <p className="font-title-md text-title-md text-on-surface font-bold mt-1">당첨자 #{winnerId}</p>
-            </div>
-            <StatusPill label={meta.label} tone={meta.tone} icon={meta.icon} className="shrink-0" />
-          </div>
-          {winner && (
-            <div className="grid grid-cols-2 gap-2 p-space-sm rounded-xl bg-surface-container-low">
-              <Info label="사용 응모권" value={`${formatNumber(winner.appliedTicketCount)}장`} />
-              <Info label="상품" value={winner.prizeDisplayName ?? '상품 미지정'} />
-            </div>
-          )}
-        </section>
-
-        {isSelected && (
-          <section className="p-space-md rounded-2xl bg-surface-container-lowest shadow-card flex flex-col gap-space-sm">
-            <div className="flex items-center gap-1.5">
-              <MaterialIcon name="settings" className="text-primary text-[20px]" />
-              <h3 className="font-title-md text-title-md text-on-surface font-bold">운영 처리</h3>
-            </div>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={receive}
-              className="w-full h-11 rounded-xl bg-secondary-fixed text-on-secondary-fixed font-label-md text-label-md font-bold active:scale-[0.98] transition-all disabled:opacity-50"
-            >
-              <MaterialIcon name="task_alt" className="text-[19px] mr-1" />
-              수령 완료 처리
-            </button>
-            <div className="p-space-sm rounded-xl bg-error-container/45 flex flex-col gap-2">
-              <label htmlFor="disqualify-reason" className="font-label-sm text-label-sm text-on-error-container font-semibold">당첨 취소 사유</label>
-              <textarea
-                id="disqualify-reason"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                maxLength={500}
-                rows={3}
-                placeholder="당첨 취소 사유를 입력해주세요."
-                className="w-full resize-none rounded-xl bg-surface-container-lowest px-3 py-2.5 font-body-sm text-body-sm text-on-surface outline-none ring-primary focus:ring-2"
-              />
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-label-xs text-label-xs text-on-error-container">{reason.length}/500</span>
-                <button
-                  type="button"
-                  disabled={busy || !reason.trim()}
-                  onClick={disqualify}
-                  className="h-9 px-3 rounded-xl bg-error text-on-error font-label-sm text-label-sm font-bold active:scale-[0.98] transition-all disabled:opacity-50"
-                >
-                  당첨 취소
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
-
-        <section className="p-space-md rounded-2xl bg-surface-container-lowest shadow-card flex flex-col gap-space-sm">
-          <div className="flex items-center gap-1.5">
-            <MaterialIcon name="history" className="text-primary text-[20px]" />
-            <h3 className="font-title-md text-title-md text-on-surface font-bold">상태 이력</h3>
-          </div>
-          {loading && <LoadingBlock label="상태 이력을 불러오는 중..." />}
-          {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
-          {!loading && !error && history.length === 0 && <EmptyBlock icon="history" message="아직 상태 변경 이력이 없어요." />}
-          {!loading && !error && history.length > 0 && (
-            <ol className="flex flex-col gap-4 pl-3 border-l-2 border-berry-tint">
-              {history.map((item) => {
-                const itemMeta = statusMeta(item.afterStatus)
-                return (
-                  <li key={item.historyId} className="relative pl-3">
-                    <span className="absolute w-2.5 h-2.5 rounded-full bg-primary -left-[7px] top-1.5" />
-                    <div className="flex items-center gap-2">
-                      <span className="font-label-md text-label-md text-on-surface font-semibold">{itemMeta.label}</span>
-                      <span className="font-label-xs text-label-xs text-on-surface-variant">{formatDateTime(item.changedAt)}</span>
-                    </div>
-                    {item.reason && <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">{item.reason}</p>}
-                  </li>
-                )
-              })}
-            </ol>
-          )}
-        </section>
+  return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <div>
+      <Link to="/admin/winners" className="text-sm font-medium text-pink-700 hover:text-pink-800">← 당첨자 관리</Link>
+      <AdminPageHeader title="당첨자 상세" description={`Winner #${winnerId}의 상태와 처리 이력을 확인합니다.`} />
     </div>
-  )
+    {!winner && !history.loading && history.error && <ErrorBlock message="당첨자 기본 정보를 불러올 수 없습니다. 추첨 결과에서 다시 진입해주세요." />}
+    {!winner && !history.loading && !history.error && !currentStatus && <EmptyBlock icon="workspace_premium" message="당첨자 기본 정보가 없습니다. 추첨 결과에서 상세 보기를 선택해주세요." />}
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
+      <section className="border-y border-slate-200 bg-white">
+        <DetailInfoRows title="기본 정보" rows={[
+          ['Winner ID', winnerId],
+          ['User ID', winner?.userId == null ? '-' : `#${winner.userId}`],
+          ['이름', winner?.name ?? '-'],
+          ['연락처', winner?.phoneNumber ?? '-'],
+          ['현재 상태', currentStatus ? <StatusBadge key="status" type="winner" status={currentStatus} /> : '-'],
+        ]} />
+        <DetailInfoRows title="당첨 정보" rows={[
+          ['Event ID', winner?.eventId == null ? '-' : `#${winner.eventId}`],
+          ['이벤트명', winner?.eventTitle ?? '-'],
+          ['Drawing ID', winner?.drawingId == null ? '-' : `#${winner.drawingId}`],
+          ['Drawing 유형', winner?.drawType ?? '-'],
+          ['회차', winner?.drawNo == null ? '-' : `${winner.drawNo}회차`],
+          ['당첨 순위', winner?.rankInDrawing == null ? '-' : `${winner.rankInDrawing}위`],
+          ['상품', winner?.prizeDisplayName ?? '-'],
+          ['사용 응모권', winner?.appliedTicketCount == null ? '-' : `${formatNumber(winner.appliedTicketCount)}장`],
+        ]} />
+        <HistorySection history={history} />
+      </section>
+      <WinnerActionPanel status={currentStatus} busy={busy} onAction={setAction} onRefresh={history.reload} />
+    </div>
+    {action && <ConfirmModal action={action === 'disqualify' ? 'reject' : 'confirm'} subject={`Winner #${winnerId}`} busy={busy} onCancel={() => setAction(null)} onConfirm={(reason) => void runAction(reason)} {...confirmCopy(action)} />}
+  </div>
 }
 
-/** 관리자 운영 화면에서 Info 동작을 처리한다. */
+function HistorySection({ history }) {
+  return <section className="border-b border-slate-200 px-5 py-5 last:border-b-0"><h2 className="text-sm font-semibold text-slate-900">상태 변경 이력</h2>
+    {history.loading && <LoadingBlock label="상태 변경 이력을 불러오는 중..." />}
+    {!history.loading && history.error && <ErrorBlock message={history.error} onRetry={history.reload} />}
+    {!history.loading && !history.error && !(history.data?.length) && <EmptyBlock icon="history" message="상태 변경 이력이 없습니다." />}
+    {!history.loading && !history.error && history.data?.length > 0 && <ol className="mt-4 flex flex-col gap-4 border-l-2 border-pink-100 pl-4">{history.data.map((item, index) => <li key={item.historyId ?? `${item.changedAt}-${index}`} className="relative"><span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-pink-600" /><div className="flex flex-wrap items-center gap-2"><StatusBadge type="winner" status={item.afterStatus} /><span className="text-xs text-slate-500">{formatDateTime(item.changedAt)}</span></div>{item.reason && <p className="mt-1 text-sm text-slate-600">{item.reason}</p>}</li>)}</ol>}
+  </section>
+}
 
-function Info({ label, value }) {
-  return (
-    <div className="min-w-0">
-      <p className="font-label-xs text-label-xs text-on-surface-variant">{label}</p>
-      <p className="font-label-sm text-label-sm text-on-surface font-semibold truncate mt-0.5">{value}</p>
-    </div>
-  )
+function WinnerActionPanel({ status, busy, onAction, onRefresh }) {
+  const redrawLink = '/admin/redraws'
+  return <aside className="h-fit rounded-lg border border-slate-200 bg-white p-5"><h2 className="text-sm font-semibold text-slate-900">현재 가능한 작업</h2><div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+    {status === 'SELECTED' && <><p>당첨 상태입니다. 서버 명령을 통해 수령 완료 또는 자격 박탈 처리할 수 있습니다.</p><button type="button" disabled={busy} onClick={() => onAction('receive')} className="h-10 w-full rounded-md bg-pink-700 px-3 font-semibold text-white hover:bg-pink-800 disabled:opacity-50">{busy ? '처리 중...' : '수령 완료'}</button><button type="button" disabled={busy} onClick={() => onAction('disqualify')} className="h-10 w-full rounded-md border border-red-200 bg-red-50 px-3 font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50">자격 박탈</button></>}
+    {status === 'RECEIVED' && <p>수령 완료된 당첨자입니다. 추가 관리자 처리가 없습니다.</p>}
+    {status === 'DECLINED' && <><p>당첨 포기 상태입니다. 추가 관리자 처리가 없습니다.</p><Link to={redrawLink} className="block font-medium text-pink-700 hover:text-pink-800">재추첨 관리에서 확인 →</Link></>}
+    {status === 'DISQUALIFIED' && <><p>자격 박탈 상태입니다. 결원과 재추첨 필요 여부는 서버가 판단합니다.</p><Link to={redrawLink} className="block font-medium text-pink-700 hover:text-pink-800">재추첨 관리에서 확인 →</Link></>}
+    {!status && <p>현재 상태를 확인할 수 없어 작업을 제공하지 않습니다.</p>}
+    <button type="button" disabled={busy} onClick={() => void onRefresh()} className="w-full text-sm font-medium text-pink-700 hover:text-pink-800 disabled:opacity-50">새로고침</button>
+  </div></aside>
+}
+
+function confirmCopy(action) {
+  if (action === 'receive') return { title: '수령 완료 처리할까요?', message: '이 당첨자를 수령 완료 상태로 변경합니다.', confirmLabel: '수령 완료' }
+  return { title: '당첨자 자격을 박탈할까요?', message: '자격 박탈 사유를 입력해주세요. 처리 후 결원과 재추첨 필요 여부는 서버가 판단합니다.', confirmLabel: '자격 박탈' }
 }

@@ -114,15 +114,20 @@ export default function PullToRefresh() {
     }
   }, [])
 
-  // 앱 화면 전체를 pull만큼 내린다. 손가락을 따라올 때는 즉시, 놓았을 때는 부드럽게 움직인다.
+  // 앱 화면 전체를 pull만큼 내린다. #root 안의 하단 네비게이션은 같은 거리만큼 반대로 보정해 화면 하단에 둔다.
+  // 손가락을 따라올 때는 즉시, 놓았을 때는 부드럽게 움직인다.
   useEffect(() => {
     const root = document.getElementById('root')
     if (!root) return undefined
     root.style.transition = dragging ? 'none' : 'transform 220ms ease-out'
     root.style.transform = pull > 0 ? `translateY(${pull}px)` : ''
+    root.style.setProperty('--pull-fixed-offset', `${-pull}px`)
+    root.style.setProperty('--pull-offset-duration', dragging ? '0ms' : '220ms')
     return () => {
       root.style.transform = ''
       root.style.transition = ''
+      root.style.removeProperty('--pull-fixed-offset')
+      root.style.removeProperty('--pull-offset-duration')
     }
   }, [pull, dragging])
 

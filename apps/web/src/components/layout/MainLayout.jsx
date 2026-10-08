@@ -10,10 +10,10 @@ import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 
 const APP_BAR_TITLES = {
-  '/': 'Cking',
-  '/notifications': '알림',
-  '/my-entries': '내 응모',
-  '/my-page': '마이',
+  '/': { title: 'Cking' },
+  '/notifications': { title: '알림' },
+  '/my-entries': { title: '내 응모', centered: true },
+  '/my-page': { title: '마이', centered: true },
 }
 
 export default function MainLayout() {
@@ -32,7 +32,15 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
-      {appBarTitle && <TopHeader title={appBarTitle} unreadCount={unreadCount} embedded hidden={!headerVisible} />}
+      {appBarTitle && (
+        <TopHeader
+          title={appBarTitle.title}
+          centered={appBarTitle.centered}
+          unreadCount={unreadCount}
+          embedded
+          hidden={!headerVisible}
+        />
+      )}
       <main
         ref={scrollRef}
         className={`flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] ${

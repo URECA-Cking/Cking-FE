@@ -84,22 +84,24 @@ export default function BottomNav({ embedded = false, compact = false }) {
       }
     >
       <div
-        className={`liquid-nav-dock mx-auto grid grid-cols-4 items-center rounded-full transition-[width,height,padding] duration-300 ease-out ${
+        className={`liquid-nav-dock mx-auto grid items-center rounded-full transition-[width,height,padding] duration-300 ease-out ${
           isPulsing ? 'is-pulsing' : ''
         } ${
           compact
             ? 'is-compact h-11 w-[20.5rem] max-w-full px-0'
             : 'h-[3.25rem] w-full max-w-[28rem] px-0'
         } relative`}
+        style={{
+          gridTemplateColumns: `repeat(${NAV_ITEMS.length}, minmax(0, 1fr))`,
+          '--liquid-nav-item-count': NAV_ITEMS.length,
+          '--liquid-nav-active-index': Math.max(activeIndex, 0),
+        }}
       >
         <span
           aria-hidden="true"
           className={`liquid-nav-indicator pointer-events-none absolute rounded-[50px] ${
             motion ? `is-moving is-moving-${motion}` : ''
           } ${activeIndex >= 0 ? 'opacity-100' : 'opacity-0'}`}
-          style={{
-            left: `calc(${activeIndex * 25}% + 10px)`,
-          }}
         />
         {NAV_ITEMS.map((item, index) => {
           const isSelected = activeIndex === index;

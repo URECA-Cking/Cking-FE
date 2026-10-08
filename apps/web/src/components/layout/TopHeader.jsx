@@ -22,7 +22,7 @@ function useShare() {
 }
 
 /** Main-tab app bar. Its centered title is intentionally independent from the right action. */
-export function TopHeader({ title, unreadCount = 0, embedded = false, hidden = false }) {
+export function TopHeader({ title, centered = false, unreadCount = 0, embedded = false, hidden = false }) {
   return (
     <header
       className={
@@ -40,7 +40,7 @@ export function TopHeader({ title, unreadCount = 0, embedded = false, hidden = f
             : 'h-14 px-margin md:px-8 flex items-center justify-between'
         }
       >
-        {['마이', '내 응모'].includes(title) ? (
+        {centered ? (
           <h1 className="absolute left-1/2 -translate-x-1/2 text-on-surface font-title-md text-title-md">{title}</h1>
         ) : (
           <div className="flex items-center gap-space-sm">
@@ -58,7 +58,7 @@ export function TopHeader({ title, unreadCount = 0, embedded = false, hidden = f
         <div className="ml-auto flex items-center">
           <Link
             to="/notifications"
-            className="relative w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
+            className="relative w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
             aria-label="알림"
           >
             <MaterialIcon name="notifications" className="text-[22px]" />

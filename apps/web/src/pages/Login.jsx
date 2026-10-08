@@ -7,8 +7,8 @@ import { isSplashDone, prefersReducedMotion } from '../utils/splashState.js'
 import kakaoIcon from '@cking/shared/icons/kakao2.svg'
 
 const PROVIDERS = [
-  { id: 'google', label: '구글로 시작하기', className: 'bg-surface-container-lowest text-on-surface border border-outline-variant/60' },
-  { id: 'kakao', label: '카카오로 시작하기', className: 'bg-[#FEE500] text-[#191919] border border-transparent' },
+  { id: 'google', label: '구글로 시작하기' },
+  { id: 'kakao', label: '카카오로 시작하기' },
 ]
 
 /**
@@ -73,19 +73,11 @@ export default function Login() {
             type="button"
             disabled={!agreed}
             onClick={() => handleLogin(provider.id)}
-            className={
-              provider.id === 'google'
-                ? 'relative w-full h-12 overflow-hidden rounded-xl bg-[#f2f2f2] text-[#1f1f1f] disabled:cursor-default disabled:bg-[#ffffff61] disabled:[&>.gsi-material-button-content-wrapper]:opacity-[0.38] active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-[218ms] hover:shadow-[0_1px_2px_0_rgba(60,64,67,0.30),0_1px_3px_1px_rgba(60,64,67,0.15)] hover:[&>.gsi-material-button-state]:opacity-[0.08] active:[&>.gsi-material-button-state]:opacity-[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001d35]/30 focus-visible:[&>.gsi-material-button-state]:opacity-[0.12]'
-                : provider.id === 'kakao'
-                  ? 'relative w-full h-12 overflow-hidden rounded-xl bg-[#FEE500] text-[#191919] disabled:cursor-default disabled:opacity-50 disabled:[&>.kakao-button-content-wrapper]:opacity-[0.76] active:scale-[0.98] transition-all'
-                : `w-full h-12 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed font-label-md text-label-md font-semibold flex items-center justify-center gap-space-xs shadow-sm active:scale-[0.98] transition-all ${provider.className}`
-            }
-            style={
-              provider.id === 'google' || provider.id === 'kakao'
-                ? { fontFamily: 'Inter, sans-serif' }
-                : undefined
-            }
+            className={provider.id === 'google'
+              ? 'relative w-full h-12 overflow-hidden rounded-xl bg-[#f2f2f2] text-[#1f1f1f] disabled:cursor-default disabled:bg-[#ffffff61] disabled:[&>.gsi-material-button-content-wrapper]:opacity-[0.38] active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-[218ms] hover:shadow-[0_1px_2px_0_rgba(60,64,67,0.30),0_1px_3px_1px_rgba(60,64,67,0.15)] hover:[&>.gsi-material-button-state]:opacity-[0.08] active:[&>.gsi-material-button-state]:opacity-[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001d35]/30 focus-visible:[&>.gsi-material-button-state]:opacity-[0.12]'
+              : 'relative w-full h-12 overflow-hidden rounded-xl bg-[#FEE500] text-[#191919] disabled:cursor-default disabled:opacity-50 disabled:[&>.kakao-button-content-wrapper]:opacity-[0.76] active:scale-[0.98] transition-all'}
           >
+            {/* OAuth 제공사 버튼은 각 브랜드 가이드의 색상·상호작용을 유지한다. */}
             {provider.id === 'google' ? (
               <>
                 <span className="gsi-material-button-state absolute inset-0 bg-[#001d35] opacity-0 transition-opacity duration-[218ms]" />
@@ -105,13 +97,11 @@ export default function Login() {
                   <span className="justify-self-start">{provider.label}</span>
                 </span>
               </>
-            ) : provider.id === 'kakao' ? (
+            ) : (
               <span className="kakao-button-content-wrapper relative mx-auto grid h-full w-[12.5rem] grid-cols-[2.5rem_1fr] items-center gap-2.5 px-3 font-label-md text-label-md font-semibold">
                 <img src={kakaoIcon} alt="" aria-hidden="true" className="h-10 w-10 shrink-0 justify-self-center" />
                 <span className="justify-self-start">{provider.label}</span>
               </span>
-            ) : (
-              provider.label
             )}
           </button>
         ))}

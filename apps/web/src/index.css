@@ -144,7 +144,8 @@
     --liquid-nav-motion-duration: 380ms;
     top: var(--indicator-top);
     bottom: var(--indicator-bottom);
-    width: calc(25% - 20px);
+    left: calc((var(--liquid-nav-active-index) * 100% / var(--liquid-nav-item-count)) + 10px);
+    width: calc((100% / var(--liquid-nav-item-count)) - 20px);
     background: rgba(70, 78, 97, var(--liquid-nav-indicator-alpha));
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.24),

@@ -75,7 +75,7 @@ export default function MyWinners() {
   }
 
   return (
-    <div className="flex flex-col w-full min-h-screen pt-safe pb-8">
+    <div className="flex flex-col w-full min-h-screen pb-8">
       <BackHeader title="내 당첨" />
 
       <main className="pt-16 px-margin flex flex-col gap-space-md">

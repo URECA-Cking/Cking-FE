@@ -73,7 +73,6 @@ export default function Notifications() {
     <div className="flex min-h-full flex-col w-full px-margin pt-space-md pb-8 gap-space-sm md:mx-auto md:max-w-4xl md:px-8">
       <div className="flex items-center justify-between mb-1">
         <div>
-          <h2 className="font-headline-md text-headline-md text-on-surface tracking-tight">알림</h2>
           {unreadCount > 0 && (
             <p className="font-label-sm text-label-sm text-primary font-semibold mt-0.5">
               읽지 않은 알림 {unreadCount}개

@@ -9,12 +9,13 @@
 | `/admin` | 운영 우선순위·주의 상태·현재 운영 이벤트 Dashboard |
 | `/admin/reviews/creators`, `/admin/reviews/creators/:reviewId` | Creator 신청 목록·상세 심사와 승인·거절 |
 | `/admin/reviews/events`, `/admin/reviews/events/:reviewId` | 승인 대기 이벤트 목록·상세 심사와 승인·거절 |
-| `/admin/console` | 공통 Backoffice Layout 내부에서 수동 마감·스냅샷·초기 추첨·실패 추첨 재시도 운영 |
+| `/admin/events`, `/admin/events/:eventId` | 운영 이벤트 목록·상세, 상태 흐름, 수동 마감 요청과 마감 처리 상태 확인 |
+| `/admin/console` | 마감 완료 이벤트의 스냅샷·초기 추첨·실패 추첨 재시도 운영 |
 | `/admin/winners/:winnerId` | 당첨자 수령 처리·자격 박탈·이력 |
 | `/admin/redraws` | 재추첨 요청 생성·상태별 목록·심사·실행 |
 | `/admin/dead-streams` | Dead Stream 조회·replay |
 
-`/admin/reviews/events`는 `PENDING_APPROVAL` 상태만 처리하는 심사 큐다. 승인·거절 완료 이벤트를 포함한 전체 상태 추적은 이후 이벤트 관리 화면에서 `/api/admin/events`의 상태별 조회로 제공한다. 심사 이력 필드의 제공 범위는 해당 API 계약을 확인한 뒤 결정한다.
+`/admin/reviews/events`는 `PENDING_APPROVAL` 상태만 처리하는 심사 큐다. `/admin/events`는 기존 `/api/admin/events`의 상태별 조회를 합쳐 `OPEN`부터 `PUBLISHED`까지의 운영 상태를 추적한다. 단건 이벤트 조회 계약이 없으므로 상세도 같은 운영 목록에서 현재 서버 응답을 다시 찾아 구성한다. 심사 이력 필드의 제공 범위는 해당 API 계약을 확인한 뒤 결정한다.
 
 관리자 라우트는 Admin 자체 세션 가드로 보호하며, `/api/me`의 `role === 'ADMIN'`을 확인한다. Admin은 Web의 페이지, `UserContext`, 팔로우 상태, 사용자·Creator 화면을 import하지 않는다.
 

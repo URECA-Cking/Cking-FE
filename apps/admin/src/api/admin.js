@@ -178,7 +178,7 @@ export async function rejectCreatorApplication(applicationId, rejectReason) {
   return post(`/api/admin/creator-applications/${applicationId}/reject`, { rejectReason });
 }
 
-const DRAWING_EVENT_STATUSES = ['OPEN', 'CLOSING', 'CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
+export const OPERATING_EVENT_STATUSES = ['OPEN', 'CLOSING', 'CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
 
 /** 지정한 상태의 이벤트 목록을 마지막 페이지까지 조회한다. */
 async function getAllEventsByStatus(status, size) {
@@ -199,7 +199,24 @@ async function getAllEventsByStatus(status, size) {
 /** 추첨 운영 대상 상태의 이벤트를 모두 조회한다. */
 export async function getDrawingEvents({ size = 100 } = {}) {
   const eventsByStatus = await Promise.all(
-    DRAWING_EVENT_STATUSES.map((status) => getAllEventsByStatus(status, size)),
+    OPERATING_EVENT_STATUSES.map((status) => getAllEventsByStatus(status, size)),
   )
   return { items: eventsByStatus.flat() }
+}
+
+/** 운영 상태별 목록 계약을 합쳐 이벤트 관리 화면의 전체 목록을 제공한다. */
+export function getOperatingEvents(options) {
+  return getDrawingEvents(options)
+}
+
+/** 추첨 콘솔에는 이미 마감된 이벤트만 전달해 이벤트 운영 화면과 책임을 분리한다. */
+export async function getDrawingReadyEvents(options) {
+  const result = await getDrawingEvents(options)
+  return { items: result.items.filter((item) => ['CLOSED', 'DRAW_COMPLETED', 'PUBLISHED'].includes(item.status)) }
+}
+
+/** 단건 조회 계약이 없으므로 운영 상태 목록에서 URL의 이벤트를 찾아 상세를 구성한다. */
+export async function getOperatingEvent(eventId) {
+  const result = await getOperatingEvents()
+  return result.items.find((item) => String(item.eventId) === String(eventId)) ?? null
 }

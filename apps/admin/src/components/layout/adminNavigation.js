@@ -14,7 +14,7 @@ export const ADMIN_NAVIGATION = [
   {
     label: '이벤트 운영',
     items: [
-      { label: '이벤트 관리', icon: 'event_note', unavailable: true },
+      { label: '이벤트 관리', icon: 'event_note', to: '/admin/events', matches: (location) => /^\/admin\/events(?:\/|$)/.test(location.pathname) },
       { label: '추첨 관리', icon: 'casino', to: '/admin/console', matches: (location) => location.pathname === '/admin/console' },
       { label: '당첨자 관리', icon: 'workspace_premium', unavailable: true, matches: (location) => /^\/admin\/winners\/[^/]+$/.test(location.pathname) },
       { label: '재추첨 관리', icon: 'autorenew', to: '/admin/redraws', matches: (location) => location.pathname === '/admin/redraws' },

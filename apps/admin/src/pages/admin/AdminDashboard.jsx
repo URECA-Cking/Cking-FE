@@ -31,12 +31,12 @@ export default function AdminDashboard() {
       </DashboardSection>
 
       <DashboardSection title="주의 필요">
-        <StatusCard title="마감 처리 중" count={closingEventCount} meaning="확인 필요" to="/admin/console?tab=drawings" section={sections.operatingEvents} onRetry={reload} />
+        <StatusCard title="마감 처리 중" count={closingEventCount} meaning="확인 필요" to="/admin/events" section={sections.operatingEvents} onRetry={reload} />
         <StatusCard title="Dead Stream" count={unresolvedDeadStreamCount} meaning="미처리" to="/admin/dead-streams" section={sections.unresolvedDeadStreams} onRetry={reload} />
       </DashboardSection>
 
       <section className="rounded-lg border border-slate-200 bg-white">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4"><div><h2 className="text-base font-semibold text-slate-950">현재 운영 이벤트</h2><p className="mt-0.5 text-xs text-slate-500">진행·마감·추첨 상태의 이벤트를 최대 8건 표시합니다.</p></div><Link to="/admin/console?tab=drawings" className="text-sm font-medium text-pink-700 hover:text-pink-800">전체 보기 →</Link></div>
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4"><div><h2 className="text-base font-semibold text-slate-950">현재 운영 이벤트</h2><p className="mt-0.5 text-xs text-slate-500">진행·마감·추첨 상태의 이벤트를 최대 8건 표시합니다.</p></div><Link to="/admin/events" className="text-sm font-medium text-pink-700 hover:text-pink-800">전체 보기 →</Link></div>
         <OperatingEventsTable section={sections.operatingEvents} events={operatingEvents} onRetry={reload} />
       </section>
     </div>
@@ -64,7 +64,7 @@ function OperatingEventsTable({ section, events, onRetry }) {
   if (section.error) return <div className="px-5 py-10 text-center"><p className="text-sm text-slate-500">데이터를 불러오지 못했습니다.</p><button type="button" onClick={() => void onRetry()} className="mt-2 text-sm font-medium text-pink-700">다시 시도</button></div>
   if (events.length === 0) return <div className="px-5 py-10 text-center text-sm text-slate-500">현재 운영 중인 이벤트가 없습니다.</div>
 
-  return <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-slate-50 text-xs font-medium text-slate-500"><tr><th className="px-5 py-3">이벤트</th><th className="px-4 py-3">Creator</th><th className="px-4 py-3">상태</th><th className="px-4 py-3">종료일</th><th className="px-5 py-3 text-right">관리</th></tr></thead><tbody className="divide-y divide-slate-100">{events.map((event) => { const meta = eventStatusMeta(event.status); return <tr key={event.eventId}><td className="px-5 py-3"><p className="font-medium text-slate-900">{event.title}</p><p className="mt-0.5 text-xs text-slate-500">#{event.eventId}</p></td><td className="px-4 py-3 text-slate-600">{event.creatorName ?? `크리에이터 #${event.creatorId}`}</td><td className="px-4 py-3"><StatusPill label={`${meta.label} · ${event.status}`} tone={meta.tone} /></td><td className="px-4 py-3 text-slate-600">{event.endAt ? formatDateTime(event.endAt) : '조회 불가'}</td><td className="px-5 py-3 text-right"><Link to="/admin/console?tab=drawings" className="font-medium text-pink-700 hover:text-pink-800">보기</Link></td></tr> })}</tbody></table></div>
+  return <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-slate-50 text-xs font-medium text-slate-500"><tr><th className="px-5 py-3">이벤트</th><th className="px-4 py-3">Creator</th><th className="px-4 py-3">상태</th><th className="px-4 py-3">종료일</th><th className="px-5 py-3 text-right">관리</th></tr></thead><tbody className="divide-y divide-slate-100">{events.map((event) => { const meta = eventStatusMeta(event.status); return <tr key={event.eventId}><td className="px-5 py-3"><p className="font-medium text-slate-900">{event.title}</p><p className="mt-0.5 text-xs text-slate-500">#{event.eventId}</p></td><td className="px-4 py-3 text-slate-600">{event.creatorName ?? `크리에이터 #${event.creatorId}`}</td><td className="px-4 py-3"><StatusPill label={`${meta.label} · ${event.status}`} tone={meta.tone} /></td><td className="px-4 py-3 text-slate-600">{event.endAt ? formatDateTime(event.endAt) : '조회 불가'}</td><td className="px-5 py-3 text-right"><Link to={`/admin/events/${event.eventId}`} className="font-medium text-pink-700 hover:text-pink-800">보기</Link></td></tr> })}</tbody></table></div>
 }
 
 function formatDashboardTime(value) {

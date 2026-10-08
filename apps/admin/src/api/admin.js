@@ -148,12 +148,12 @@ async function getAllPages(loadPage, size = 100) {
   return items
 }
 
-/** Dashboard의 Creator 신청 상태 집계를 위해 모든 신청을 조회한다. */
+/** 목록·상세 조회와 Dashboard 집계를 위해 모든 Creator 신청을 조회한다. */
 export function getAllCreatorApplications() {
   return getAllPages((params) => getCreatorApplications(params))
 }
 
-/** Dashboard의 승인 대기 이벤트 집계를 위해 모든 대기 이벤트를 조회한다. */
+/** 목록·상세 조회와 Dashboard 집계를 위해 모든 승인 대기 이벤트를 조회한다. */
 export function getAllPendingEvents() {
   return getAllPages((params) => getPendingEvents(params))
 }

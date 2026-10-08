@@ -1,4 +1,4 @@
-import { get, post } from './client.js'
+import { get, patch, post } from './client.js'
 
 // 관리자 전용 API. 백엔드는 Access JWT의 role이 ADMIN이 아니면 FORBIDDEN을 돌려준다.
 
@@ -224,4 +224,35 @@ export function getDrawingReadyEvents(options) {
 export async function getOperatingEvent(eventId) {
   const result = await getOperatingEvents()
   return result.items.find((item) => String(item.eventId) === String(eventId)) ?? null
+}
+
+/** 조건에 맞는 Abuse Detection을 서버 페이지 단위로 조회한다. */
+export async function getAbuseDetections({
+  memberId,
+  abuseType,
+  status,
+  detectedAtFrom,
+  detectedAtTo,
+  page = 0,
+  size = 20,
+} = {}) {
+  return get('/api/admin/abuse-detections', {
+    ...(memberId ? { memberId } : {}),
+    ...(abuseType ? { abuseType } : {}),
+    ...(status ? { status } : {}),
+    ...(detectedAtFrom ? { detectedAtFrom } : {}),
+    ...(detectedAtTo ? { detectedAtTo } : {}),
+    page,
+    size,
+  })
+}
+
+/** 하나의 Abuse Detection과 전체 Evidence를 조회한다. */
+export async function getAbuseDetection(detectionId) {
+  return get(`/api/admin/abuse-detections/${detectionId}`)
+}
+
+/** 관리자의 최종 검토 판정을 기록한다. */
+export async function reviewAbuseDetection(detectionId, status) {
+  return patch(`/api/admin/abuse-detections/${detectionId}/review`, { status })
 }

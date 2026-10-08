@@ -16,13 +16,17 @@ export async function getCreatorSchedules(creatorId, from, to) {
   });
 }
 
-/** scheduleType별 표시 이름과 색(백엔드 enum: BIRTHDAY, FAN_SIGN, BROADCAST, CONTENT_RELEASE, OTHER). */
+/**
+ * scheduleType별 표시 이름과 색(백엔드 enum: BIRTHDAY, FAN_SIGN, BROADCAST, CONTENT_RELEASE, OTHER).
+ * 색은 화면 모드(다크/일반)마다 값이 달라 index.css의 CSS 변수(--color-schedule-*)를 가리킨다.
+ * 인라인 style(color, backgroundColor)에 그대로 쓸 수 있다.
+ */
 export const SCHEDULE_TYPE_META = {
-  BIRTHDAY: { label: '생일', color: '#db2777' },
-  FAN_SIGN: { label: '팬사인회', color: '#9d174d' },
-  BROADCAST: { label: '방송', color: '#7c3aed' },
-  CONTENT_RELEASE: { label: '콘텐츠 공개', color: '#835200' },
-  OTHER: { label: '기타', color: '#594047' },
+  BIRTHDAY: { label: '생일', color: 'rgb(var(--color-schedule-birthday))' },
+  FAN_SIGN: { label: '팬사인회', color: 'rgb(var(--color-schedule-fan-sign))' },
+  BROADCAST: { label: '방송', color: 'rgb(var(--color-schedule-broadcast))' },
+  CONTENT_RELEASE: { label: '콘텐츠 공개', color: 'rgb(var(--color-schedule-content-release))' },
+  OTHER: { label: '기타', color: 'rgb(var(--color-schedule-other))' },
 };
 
 export function scheduleTypeMeta(type) {

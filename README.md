@@ -31,6 +31,8 @@ npm run dev:admin
 - 로그인(OAuth)은 API 호출이 아니라 백엔드 주소로의 페이지 이동이라 프록시를 거치지 않습니다.
   로컬 백엔드는 `local,oauth` 프로필과 `JWT_SECRET`, OAuth Client 환경변수로 실행해야 합니다(`Cking-BE` README 참고).
 - 환경변수는 `apps/web/.env.example`을 `apps/web/.env`로 복사해 사용하세요.
+- 백엔드·로그인 없이 화면만 볼 때는 개발 서버 주소 끝에 `?mock=1`(팬), `?mock=creator`(크리에이터), `?mock=empty`(팔로우·이벤트 없음)를 붙입니다.
+  `apps/web/src/dev/mockApi.js`가 `fetch`만 더미로 바꾸고, 개발 모드에서만 불러와 배포 빌드에는 들어가지 않습니다. `?mock=0`으로 끕니다.
 
 루트에서 `npm run lint`(shared/Web/Admin), `npm run test`(shared/Admin), `npm run build`(Web/Admin)를 실행합니다.
 `develop`에 머지되면 Web(`apps/web/dist`)은 `dev.cking.co.kr`, Admin(`apps/admin/dist`)은 `dev-admin.cking.co.kr`로 배포됩니다.

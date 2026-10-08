@@ -37,7 +37,7 @@ const NAV_ITEMS = [
   },
 ];
 
-const INDICATOR_MOTION_MS = 380;
+const INDICATOR_MOTION_MS = 520;
 
 /** 시안의 프로스티드 글래스 하단 독. 알림은 앱바에서 연다. */
 export default function BottomNav({ embedded = false, compact = false }) {
@@ -72,7 +72,7 @@ export default function BottomNav({ embedded = false, compact = false }) {
     setIsPulsing(false);
     window.requestAnimationFrame(() => setIsPulsing(true));
     window.clearTimeout(pulseTimerRef.current);
-    pulseTimerRef.current = window.setTimeout(() => setIsPulsing(false), 220);
+    pulseTimerRef.current = window.setTimeout(() => setIsPulsing(false), 520);
   };
 
   return (
@@ -112,11 +112,12 @@ export default function BottomNav({ embedded = false, compact = false }) {
               to={item.to}
               end={item.end}
               onClick={pulseDock}
-              className={`relative z-10 flex flex-1 flex-col items-center justify-center min-w-0 rounded-full gap-0.5 transition-[height,color] duration-300 ease-out active:scale-95 ${
+              aria-label={item.label}
+              className={`relative z-10 flex flex-1 flex-col items-center justify-center min-w-0 rounded-full transition-[height,color] duration-300 ease-out active:scale-95 ${
                 compact ? 'h-9' : 'h-10'
               } ${
                 isSelected
-                  ? 'text-white font-semibold'
+                  ? 'text-on-surface font-semibold'
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
@@ -127,11 +128,6 @@ export default function BottomNav({ embedded = false, compact = false }) {
                   __html: isSelected ? item.icon : item.outlineIcon,
                 }}
               />
-              <span
-                className={`relative font-label-xs font-medium transition-[font-size] duration-300 ${compact ? 'text-[9px] leading-3' : 'text-label-xs'}`}
-              >
-                {item.label}
-              </span>
             </NavLink>
           );
         })}

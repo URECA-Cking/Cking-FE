@@ -110,7 +110,7 @@ export default function Home() {
           </div>
         )}
         <h2 className="font-headline-md text-headline-md text-on-surface tracking-tight">
-          {user?.name ?? '팬'}님, 오늘도 좋아하는 크리에이터와 함께해봐 ✨
+          {user?.name ?? '팬'}님, 반가워요 ✨
         </h2>
       </section>
 

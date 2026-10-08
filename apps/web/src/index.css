@@ -140,10 +140,10 @@
 }
 
 @layer base {
-  /* 웹앱(standalone)으로 실행될 때는 브라우저 UI가 없으므로 상태바 영역만큼 여백을 확보한다. */
+  /* 각 고정 헤더와 메인 컨테이너가 safe area를 직접 처리한다. body에 다시 더하면 상단 여백이 중복된다. */
   @media (display-mode: standalone) {
     body {
-      padding-top: env(safe-area-inset-top, 0px);
+      padding-top: 0;
     }
   }
 
@@ -155,6 +155,58 @@
 
 /* 임시 첫 화면(Splash.jsx). intro: 몸통 280ms + 로딩 대기 + 왕관 620ms → dock(로고 자리로 이동) 또는 out(사라짐) ~440ms, 총 1초 미만. */
 @layer components {
+  .pull-to-refresh-fixed {
+    translate: 0 var(--pull-fixed-offset, 0px);
+    transition: translate var(--pull-offset-duration, 220ms) ease-out;
+  }
+
+  .liquid-nav-dock {
+    --indicator-top: 3px;
+    --indicator-bottom: 4px;
+    --liquid-nav-surface-alpha: 0.5;
+    --liquid-nav-indicator-alpha: 0.2;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: rgba(0, 0, 0, var(--liquid-nav-surface-alpha));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+  }
+
+  .liquid-nav-dock.is-compact {
+    --indicator-top: 2px;
+    --indicator-bottom: 2px;
+  }
+
+  .liquid-nav-dock.is-pulsing {
+    animation: liquid-nav-dock-pulse 220ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+
+  @keyframes liquid-nav-dock-pulse {
+    45% {
+      transform: scale(1.018);
+    }
+  }
+
+  .liquid-nav-indicator {
+    z-index: 1;
+    --liquid-nav-motion-duration: 380ms;
+    top: var(--indicator-top);
+    bottom: var(--indicator-bottom);
+    left: calc((var(--liquid-nav-active-index) * 100% / var(--liquid-nav-item-count)) + 10px);
+    width: calc((100% / var(--liquid-nav-item-count)) - 20px);
+    background: rgba(70, 78, 97, var(--liquid-nav-indicator-alpha));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.24),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.035),
+      0 3px 10px rgba(0, 0, 0, 0.12);
+    transition:
+      left var(--liquid-nav-motion-duration) cubic-bezier(0.22, 0.9, 0.28, 1),
+      top 300ms ease-out,
+      bottom 300ms ease-out,
+      opacity 160ms ease-out;
+  }
+
   .splash-body {
     opacity: 0;
     animation: splash-body-in 280ms ease-out forwards;
@@ -173,7 +225,8 @@
 
   /* 스플래시 뒤에 화면이 다시 뜰 때(로그인 화면): 몸통이 나타난 뒤 바로 왕관이 떨어진다. */
   .logo-enter .splash-crown {
-    animation: splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) 200ms forwards;
+    animation: splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) 200ms
+      forwards;
   }
 
   /* 왕관이 닿는 순간(620*0.55 ≈ 340ms) 몸통이 살짝 눌렸다 돌아온다. */

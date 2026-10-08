@@ -52,8 +52,8 @@ export function AdminEventDetailPage() {
   const snapshot = useAsync(() => ['CLOSED', 'DRAW_COMPLETED', 'PUBLISHED'].includes(event?.status) ? getEventSnapshot(event.eventId) : Promise.resolve(null), [event?.eventId, event?.status], { fallbackMessage: '스냅샷 정보를 불러오지 못했습니다.' })
 
   async function refreshEvent() {
-    await reload()
-    if (event?.status === 'CLOSING') await closing.reload()
+    const nextEvent = await reload()
+    if (nextEvent?.status === 'CLOSING') await closing.reload()
   }
 
   async function requestClose() {
@@ -80,7 +80,7 @@ export function AdminEventDetailPage() {
   return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
     <div className="flex flex-wrap items-end justify-between gap-4"><div><Link to="/admin/events" className="text-sm font-medium text-pink-700 hover:text-pink-800">← 이벤트 목록</Link><h1 className="mt-3 text-xl font-semibold text-slate-950">이벤트 운영 상세</h1><p className="mt-1 text-sm text-slate-500">{event.title} · Event #{event.eventId}</p></div><button type="button" onClick={() => void refreshEvent()} className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button></div>
     <EventStatusFlow status={event.status} />
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]"><section className="border-y border-slate-200 bg-white"><DetailInfoRows title="기본 정보" rows={infoRows} /><DetailInfoRows title="운영 일정" rows={scheduleRows} /><DetailInfoRows title="이벤트 정보" rows={eventRows} />{snapshot.data && <DetailInfoRows title="추첨 Snapshot" rows={toRows(snapshot.data)} />}{snapshot.error && <section className="border-b border-slate-200 px-5 py-5"><ErrorBlock message={snapshot.error} onRetry={snapshot.reload} /></section>}</section><OperationPanel event={event} closing={closing} closingBusy={closingBusy} onClose={() => setCloseConfirmOpen(true)} onRefresh={() => void refreshEvent()} /></div>
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]"><section className="border-y border-slate-200 bg-white"><DetailInfoRows title="기본 정보" rows={infoRows} /><DetailInfoRows title="운영 일정" rows={scheduleRows} /><DetailInfoRows title="이벤트 정보" rows={eventRows} />{event.prizes?.length > 0 && <DetailInfoRows title="상품" rows={event.prizes.map((prize) => [prize.displayName, `${formatNumber(prize.quantity)}개`])} />}{snapshot.data && <DetailInfoRows title="추첨 Snapshot" rows={toRows(snapshot.data)} />}{snapshot.error && <section className="border-b border-slate-200 px-5 py-5"><ErrorBlock message={snapshot.error} onRetry={snapshot.reload} /></section>}</section><OperationPanel event={event} closing={closing} closingBusy={closingBusy} onClose={() => setCloseConfirmOpen(true)} onRefresh={() => void refreshEvent()} /></div>
     {closeConfirmOpen && <ConfirmModal action="confirm" subject={event.title} busy={closingBusy} title="이 이벤트의 마감을 요청할까요?" message={'마감 요청이 접수되면 백엔드에서 마감 처리가 진행됩니다.\n처리 완료 전까지 상태는 마감 처리 중으로 표시될 수 있습니다.'} confirmLabel="마감 요청" onCancel={() => setCloseConfirmOpen(false)} onConfirm={() => void requestClose()} />}
   </div>
 }
@@ -93,7 +93,7 @@ function EventStatusFlow({ status }) {
 
 function OperationPanel({ event, closing, closingBusy, onClose, onRefresh }) {
   const status = event.status
-  return <aside className="h-fit rounded-lg border border-slate-200 bg-white p-5"><h2 className="text-sm font-semibold text-slate-900">운영 상태</h2><div className="mt-4"><p className="text-xs text-slate-500">현재 상태</p><div className="mt-2"><StatusBadge status={status} /></div></div>{status === 'OPEN' && <><p className="mt-5 text-sm leading-6 text-slate-600">현재 이벤트의 마감을 요청할 수 있습니다.</p><button type="button" disabled={closingBusy} onClick={onClose} className="mt-4 h-10 w-full rounded-md bg-pink-700 text-sm font-semibold text-white hover:bg-pink-800 disabled:opacity-50">이벤트 마감</button></>}{status === 'CLOSING' && <ClosingPanel closing={closing} onRefresh={onRefresh} />}{status === 'CLOSED' && <StateLink text="마감이 완료되어 추첨 작업을 진행할 수 있습니다." />}{status === 'DRAW_COMPLETED' && <StateLink text="추첨이 완료되었습니다. 추첨 관리에서 결과를 확인하세요." />}{status === 'PUBLISHED' && <p className="mt-5 text-sm leading-6 text-slate-600">결과 공개가 완료되었습니다.</p>}</aside>
+  return <aside className="h-fit rounded-lg border border-slate-200 bg-white p-5"><h2 className="text-sm font-semibold text-slate-900">운영 상태</h2><div className="mt-4"><p className="text-xs text-slate-500">현재 상태</p><div className="mt-2"><StatusBadge status={status} /></div></div>{status === 'SCHEDULED' && <p className="mt-5 text-sm leading-6 text-slate-600">오픈 예정 이벤트입니다. 현재 제공되는 관리자 작업은 없습니다.</p>}{status === 'OPEN' && <><p className="mt-5 text-sm leading-6 text-slate-600">현재 이벤트의 마감을 요청할 수 있습니다.</p><button type="button" disabled={closingBusy} onClick={onClose} className="mt-4 h-10 w-full rounded-md bg-pink-700 text-sm font-semibold text-white hover:bg-pink-800 disabled:opacity-50">이벤트 마감</button></>}{status === 'CLOSING' && <ClosingPanel closing={closing} onRefresh={onRefresh} />}{status === 'CLOSED' && <StateLink text="마감이 완료되어 추첨 작업을 진행할 수 있습니다." />}{status === 'DRAW_COMPLETED' && <StateLink text="추첨이 완료되었습니다. 추첨 관리에서 결과를 확인하세요." />}{status === 'PUBLISHED' && <p className="mt-5 text-sm leading-6 text-slate-600">결과 공개가 완료되었습니다.</p>}</aside>
 }
 
 function ClosingPanel({ closing, onRefresh }) {

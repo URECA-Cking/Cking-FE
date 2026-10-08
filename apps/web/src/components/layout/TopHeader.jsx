@@ -27,11 +27,12 @@ export function TopHeader({ title, centered = false, unreadCount = 0, embedded =
     <header
       className={
         embedded
-          ? `fixed top-0 left-1/2 z-50 w-full max-w-[480px] -translate-x-1/2 pt-safe transition-[transform,opacity] duration-300 ease-out md:max-w-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[calc(env(safe-area-inset-top,0px)+3.5rem)] before:bg-gradient-to-b before:from-surface/22 before:via-surface/8 before:to-transparent before:backdrop-blur-[2px] before:content-[''] ${
+          ? `fixed top-0 left-1/2 z-50 w-full max-w-[480px] -translate-x-1/2 pt-safe transition-[transform,opacity] duration-300 ease-out md:max-w-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[calc(env(safe-area-inset-top,0px)+3.5rem)] before:bg-gradient-to-b before:from-surface/[0.22] before:via-surface/[0.08] before:to-transparent before:backdrop-blur-[2px] before:content-[''] ${
               hidden ? '-translate-y-[calc(100%+1rem)] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
             }`
           : 'fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]'
       }
+      inert={hidden ? '' : undefined}
     >
       <div
         className={

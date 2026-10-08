@@ -77,7 +77,7 @@ export default function Login() {
               ? 'relative w-full h-12 overflow-hidden rounded-xl bg-[#f2f2f2] text-[#1f1f1f] disabled:cursor-default disabled:bg-[#ffffff61] disabled:[&>.gsi-material-button-content-wrapper]:opacity-[0.38] active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-[218ms] hover:shadow-[0_1px_2px_0_rgba(60,64,67,0.30),0_1px_3px_1px_rgba(60,64,67,0.15)] hover:[&>.gsi-material-button-state]:opacity-[0.08] active:[&>.gsi-material-button-state]:opacity-[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001d35]/30 focus-visible:[&>.gsi-material-button-state]:opacity-[0.12]'
               : 'relative w-full h-12 overflow-hidden rounded-xl bg-[#FEE500] text-[#191919] disabled:cursor-default disabled:opacity-50 disabled:[&>.kakao-button-content-wrapper]:opacity-[0.76] active:scale-[0.98] transition-all'}
           >
-            {/* OAuth 제공사 버튼은 각 브랜드 가이드의 색상·상호작용을 유지한다. */}
+            {/* Google·Kakao 브랜드 가이드의 색상과 상호작용을 유지한다. */}
             {provider.id === 'google' ? (
               <>
                 <span className="gsi-material-button-state absolute inset-0 bg-[#001d35] opacity-0 transition-opacity duration-[218ms]" />

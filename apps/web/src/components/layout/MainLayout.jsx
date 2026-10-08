@@ -11,6 +11,7 @@ import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 
 const APP_BAR_TITLES = {
   '/': { title: 'Cking' },
+  '/explore': { title: '탐색', centered: true },
   '/notifications': { title: '알림' },
   '/my-entries': { title: '내 응모', centered: true },
   '/my-page': { title: '마이', centered: true },

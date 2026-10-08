@@ -6,7 +6,7 @@ import { InlineRetry } from '../ui/States.jsx'
  * 응모할 수 있는 이벤트를 마감 임박순 티켓으로. 응모 가능 여부의 최종 판정은 서버(응모 결과 코드)가 하고,
  * 여기서는 BE가 내려준 displayStatus로 목록을 고르기만 한다.
  */
-export default function EntrySection({ events, balanceByCreator, appliedIds, appliedCheckFailed = false, onRetryApplied }) {
+export default function EntrySection({ events, balanceByCreator, appliedIds, knownIds, appliedCheckFailed = false, onRetryApplied }) {
   return (
     <section className="mt-6 px-margin">
       <SectionTitle title="응모" subtitle="마감 임박순" to="/explore" />
@@ -25,7 +25,8 @@ export default function EntrySection({ events, balanceByCreator, appliedIds, app
               key={event.eventId}
               event={event}
               ticketsOwned={balanceByCreator.get(event.creatorId)}
-              applied={appliedIds.has(event.eventId)}
+              // 조회 중이거나 실패한 이벤트는 null(확인 전)로 넘겨 '응모'로 확정 표시하지 않는다.
+              applied={appliedIds.has(event.eventId) ? true : knownIds.has(event.eventId) ? false : null}
             />
           ))}
         </div>

@@ -3,6 +3,7 @@ import { useAsync } from './useAsync.js'
 
 const noneApplied = new Set()
 const noneFailed = new Set()
+const noneKnown = new Set()
 
 /**
  * 넘긴 이벤트 중 내가 이미 응모한 이벤트의 id 집합. 사용자 단위 응모 목록 API가 없어 이벤트마다 조회하므로,
@@ -24,12 +25,15 @@ export function useAppliedEvents(eventIds, memberId) {
     return {
       appliedIds: new Set(results.filter((result) => result.applied).map((result) => result.id)),
       failedIds: new Set(results.filter((result) => result.failed).map((result) => result.id)),
+      // 조회가 끝나 응모 여부를 확정할 수 있는 이벤트. 여기에 없으면(조회 중·실패) 미응모로 단정하지 않는다.
+      knownIds: new Set(results.filter((result) => !result.failed).map((result) => result.id)),
     }
   }, [idsKey, memberId], { enabled: memberId != null && idsKey !== '' })
 
   return {
     appliedIds: data?.appliedIds ?? noneApplied,
     failedIds: data?.failedIds ?? noneFailed,
+    knownIds: data?.knownIds ?? noneKnown,
     retry: reload,
   }
 }

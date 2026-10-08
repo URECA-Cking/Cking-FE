@@ -80,8 +80,7 @@ export function MonthGrid({ month, cells, selectedKey, schedulesByDay, onSelect 
               {daySchedules.slice(0, 3).map((schedule) => (
                 <span
                   key={schedule.scheduleId}
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: scheduleTypeMeta(schedule.scheduleType).color }}
+                  className={`w-1.5 h-1.5 rounded-full ${scheduleTypeMeta(schedule.scheduleType).bgClass}`}
                 />
               ))}
             </span>
@@ -129,10 +128,7 @@ export function NextSchedulePreview({ schedules, onSelect }) {
       </div>
       {schedules.map((schedule) => (
         <div key={schedule.scheduleId} className="flex items-center gap-3">
-          <div
-            className="w-1 h-10 rounded-full shrink-0"
-            style={{ backgroundColor: scheduleTypeMeta(schedule.scheduleType).color }}
-          />
+          <div className={`w-1 h-10 rounded-full shrink-0 ${scheduleTypeMeta(schedule.scheduleType).bgClass}`} />
           <div className="flex flex-col min-w-0 flex-1">
             <span className="font-label-md text-label-md font-bold text-on-surface truncate">{schedule.title}</span>
             <span className="font-label-xs text-label-xs text-on-surface-variant truncate">

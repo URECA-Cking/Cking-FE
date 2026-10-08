@@ -27,9 +27,9 @@ function ScheduleCard({ schedule, calendar }) {
   const externalUrl = toSafeHttpUrl(schedule.externalUrl)
   return (
     <div className="flex gap-3 p-space-md rounded-xl bg-surface-container-lowest shadow-card">
-      <div className="w-1 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
+      <div className={`w-1 rounded-full shrink-0 ${meta.bgClass}`} />
       <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-        <span className="font-label-xs text-label-xs font-semibold" style={{ color: meta.color }}>{meta.label}</span>
+        <span className={`font-label-xs text-label-xs font-semibold ${meta.textClass}`}>{meta.label}</span>
         <span className="font-title-md text-title-md font-bold text-on-surface">{schedule.title}</span>
         <span className="font-label-xs text-label-xs text-on-surface-variant">
           {formatScheduleRange(schedule)}
@@ -177,8 +177,7 @@ export default function CreatorCalendar({ creatorId }) {
                 {daySchedules.slice(0, 3).map((schedule) => (
                   <span
                     key={schedule.scheduleId}
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: scheduleTypeMeta(schedule.scheduleType).color }}
+                    className={`w-1.5 h-1.5 rounded-full ${scheduleTypeMeta(schedule.scheduleType).bgClass}`}
                   />
                 ))}
               </span>
@@ -298,8 +297,8 @@ export function UpcomingSchedules({ creatorId, onShowAll }) {
                 className="flex items-center gap-3 p-space-sm rounded-xl bg-surface-container-lowest shadow-card text-left active:scale-[0.99] transition-all"
               >
                 <span className="w-11 h-12 rounded-lg bg-surface-container-low flex flex-col items-center justify-center shrink-0">
-                  <span className="font-label-xs text-label-xs font-semibold" style={{ color: meta.color }}>{start.getMonth() + 1}월</span>
-                  <span className="font-title-md text-title-md font-extrabold" style={{ color: meta.color }}>{start.getDate()}</span>
+                  <span className={`font-label-xs text-label-xs font-semibold ${meta.textClass}`}>{start.getMonth() + 1}월</span>
+                  <span className={`font-title-md text-title-md font-extrabold ${meta.textClass}`}>{start.getDate()}</span>
                 </span>
                 <span className="flex flex-col min-w-0">
                   <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{schedule.title}</span>

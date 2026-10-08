@@ -106,10 +106,10 @@ export default function StudioCalendar() {
                     key={schedule.scheduleId}
                     className="flex gap-3 p-space-md rounded-2xl bg-surface-container-lowest shadow-card"
                   >
-                    <div className="w-1 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
+                    <div className={`w-1 rounded-full shrink-0 ${meta.bgClass}`} />
                     <div className="flex flex-col gap-space-sm min-w-0 flex-1">
                       <div className="min-w-0">
-                        <span className="font-label-xs text-label-xs font-semibold" style={{ color: meta.color }}>
+                        <span className={`font-label-xs text-label-xs font-semibold ${meta.textClass}`}>
                           {meta.label}
                         </span>
                         <p className="font-title-md text-title-md text-on-surface font-bold truncate">{schedule.title}</p>

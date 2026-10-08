@@ -5,13 +5,16 @@ import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError, newRequestId } from '../../api/client.js'
 import { completeCommonMission, getCommonMissions } from '../../api/missions.js'
-import { getCommonTicketHistory } from '../../api/tickets.js'
+import { getCommonTicketHistorySince } from '../../api/tickets.js'
 import { buildStampSlots } from '../../utils/attendanceStamps.js'
 
 const MISSION_LABELS = { ATTENDANCE: '출석체크' }
 
 // 결과를 모르는 실패(네트워크 끊김·타임아웃·적립 장애·점검)는 서버가 이미 적립했을 수 있어 같은 requestId로 재시도해야 한다.
 const RETRY_WITH_SAME_ID = ['NETWORK_ERROR', 'EARN_STATUS_UNKNOWN', 'EARN_PROCESSING_FAILED', 'BALANCE_MAINTENANCE']
+
+// 출석 도장은 최근 7일(UTC 날짜 기준 경계 하루 여유 포함)의 출석 적립이 필요하다.
+const STAMP_WINDOW_MS = 8 * 24 * 60 * 60 * 1000
 
 /** 홈의 공용 미션(출석). 크리에이터별 미션은 N회 호출이라 크리에이터 스페이스에서 한다. */
 export default function MissionSection({ memberId }) {
@@ -23,7 +26,7 @@ export default function MissionSection({ memberId }) {
   )
   // 도장 칸은 원장의 출석 적립으로 그린다. 조회에 실패해도 오늘 완료 여부(completedToday)만으로 오늘 도장은 보여준다.
   const { data: ledger } = useAsync(
-    () => getCommonTicketHistory({ size: 100 }),
+    () => getCommonTicketHistorySince(Date.now() - STAMP_WINDOW_MS),
     [memberId],
     { enabled: memberId != null },
   )

@@ -7,7 +7,9 @@
 | 현재 라우트 | 화면·기능 |
 | --- | --- |
 | `/admin` | 운영 우선순위·주의 상태·현재 운영 이벤트 Dashboard |
-| `/admin/console` (`?tab=events\|applications\|drawings`) | 공통 Backoffice Layout 내부에서 승인 대기 이벤트·Creator 신청, 수동 마감·스냅샷·초기 추첨·실패 추첨 재시도 운영 |
+| `/admin/reviews/creators`, `/admin/reviews/creators/:reviewId` | Creator 신청 목록·상세 심사와 승인·거절 |
+| `/admin/reviews/events`, `/admin/reviews/events/:reviewId` | 승인 대기 이벤트 목록·상세 심사와 승인·거절 |
+| `/admin/console` | 공통 Backoffice Layout 내부에서 수동 마감·스냅샷·초기 추첨·실패 추첨 재시도 운영 |
 | `/admin/winners/:winnerId` | 당첨자 수령 처리·자격 박탈·이력 |
 | `/admin/redraws` | 재추첨 요청 생성·상태별 목록·심사·실행 |
 | `/admin/dead-streams` | Dead Stream 조회·replay |

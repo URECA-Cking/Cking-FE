@@ -31,6 +31,8 @@ npm run dev:admin
 - 로그인(OAuth)은 API 호출이 아니라 백엔드 주소로의 페이지 이동이라 프록시를 거치지 않습니다.
   로컬 백엔드는 `local,oauth` 프로필과 `JWT_SECRET`, OAuth Client 환경변수로 실행해야 합니다(`Cking-BE` README 참고).
 - 환경변수는 `apps/web/.env.example`을 `apps/web/.env`로 복사해 사용하세요.
+- 백엔드·로그인 없이 화면만 볼 때는 개발 서버 주소 끝에 `?mock=1`(팬), `?mock=creator`(크리에이터), `?mock=empty`(팔로우·이벤트 없음)를 붙입니다.
+  `apps/web/src/dev/mockApi.js`가 `fetch`만 더미로 바꾸고, 개발 모드에서만 불러와 배포 빌드에는 들어가지 않습니다. `?mock=0`으로 끕니다.
 
 루트에서 `npm run lint`(shared/Web/Admin), `npm run test`(shared/Admin), `npm run build`(Web/Admin)를 실행합니다.
 `develop`에 머지되면 Web(`apps/web/dist`)은 `dev.cking.co.kr`, Admin(`apps/admin/dist`)은 `dev-admin.cking.co.kr`로 배포됩니다.
@@ -73,7 +75,7 @@ npm run test:e2e:admin
 | 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`(신규 가입자 `onboardingCompleted=false`면 `/onboarding`으로 이동), `GET /api/me/follows` (모든 페이지) |
 | 온보딩(관심 분야 → 크리에이터 추천) | `/onboarding` | `GET /api/interests`, `GET·PUT /api/me/interests`, `GET /api/me/creator-recommendations`, `GET /api/creators?keyword`, `GET /api/me/follows`, `PUT·DELETE /api/creators/{id}/follow`, `PUT /api/me/onboarding/complete`(시작하기·나중에 할게) |
 | 관심 크리에이터 관리 | `/onboarding/creators` | 위 온보딩의 크리에이터 단계만 다시 연다 |
-| 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/me/notifications` |
+| 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/creators/{id}/posts`(팔로우한 크리에이터별 최근 3건, 최대 10명), `GET /api/missions`, `POST /api/missions/{missionId}/complete`, `GET /api/tickets/common/history`(출석 도장 7칸), `GET /api/me/winners`(수령 대기 건수 배너), `GET /api/events/{id}/entries/me`(보이는 응모 티켓 3장의 응모 여부) |
 | 탐색 | `/explore` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
 | 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}`, `GET /api/creators/{id}/posts`, `GET /api/creators/{id}/posts/{postId}`, (본인) `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug`, `GET /api/events?creatorId=`, `GET /api/creators/{id}/tickets`, `.../tickets/history`, `GET·POST .../missions`, `GET /api/creators/{id}/calendar/schedules`, (로그인 시) `GET /api/me/calendar/schedules`, `PUT·DELETE /api/me/calendar/schedules/{id}` |
 | 이벤트 상세 · 응모 | `/events/:eventId` | `GET /api/events/{id}`, `POST /api/events/{id}/entries`, `GET /api/events/{id}/winners` |

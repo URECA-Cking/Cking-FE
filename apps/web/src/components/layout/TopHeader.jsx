@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import ThemedImage from '../ui/ThemedImage.jsx'
 import { useToast } from '../../context/useToast.js'
 
 /** 현재 화면 주소를 공유한다. Web Share API가 없으면 클립보드로 복사한다. */
@@ -46,7 +47,7 @@ export function TopHeader({ title, centered = false, unreadCount = 0, embedded =
         ) : (
           <div className="flex items-center gap-space-sm">
             <Link to="/" aria-label="Cking 홈">
-              <img src="/cking-logo.png" alt="Cking" className="block h-10 w-auto" />
+              <ThemedImage dark="/cking-logo.png" light="/cking-logo-light.png" alt="Cking" className="h-10 w-auto" />
             </Link>
             {title !== 'Cking' && (
               <>

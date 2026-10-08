@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
 import { markSkipSplash } from '../../utils/splashState.js'
+import ThemedImage from '../ui/ThemedImage.jsx'
 
 const TRIGGER = 70 // 이만큼 당긴 뒤 놓으면 새로고침
 const MAX_PULL = 110
@@ -147,7 +148,7 @@ export default function PullToRefresh() {
           animation: refreshing ? 'splash-stack-bump 220ms ease-out 340ms' : undefined,
         }}
       >
-        <img src="/cking-logo-body.png" alt="" className="block w-full" />
+        <ThemedImage dark="/cking-logo-body.png" light="/cking-logo-body-light.png" className="w-full" />
         {/* 왕관은 당기는 중엔 숨겨 두고(opacity 0), 놓은 뒤 스플래시와 같은 키프레임으로 떨어진다. */}
         <img
           src="/cking-crown.png"

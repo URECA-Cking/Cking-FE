@@ -15,24 +15,37 @@ function toProfile(space) {
 }
 
 let creatorCatalogPromise = null;
+let creatorCatalogLoadedAt = 0;
+// 공개 Creator 목록은 자주 바뀌지 않는다. 탭을 오갈 때마다 전체 페이지를 다시 받지 않도록 잠시 재사용한다.
+const CREATOR_CATALOG_TTL_MS = 60_000;
 
-/** 공개 Creator 목록의 모든 페이지를 읽는다. 동시에 시작된 요청만 공유한다. */
+/**
+ * 공개 Creator 목록의 모든 페이지를 읽는다. 첫 페이지의 totalPages로 나머지를 한 번에 병렬 요청하고,
+ * 진행 중인 요청은 공유하며 성공한 결과는 CREATOR_CATALOG_TTL_MS 동안 재사용한다.
+ */
 export function getCreatorCatalog() {
-  if (!creatorCatalogPromise) {
-    creatorCatalogPromise = (async () => {
-      const creators = new Map();
-      let page = 0;
-      while (true) {
-        const result = await apiClient.get('/api/creators', { page, size: 100 });
-        result.items.forEach((item) => creators.set(item.creatorId, toProfile(item)));
-        if (!result.hasNext) return [...creators.values()];
-        page += 1;
-      }
-    })().finally(() => {
-      creatorCatalogPromise = null;
-    });
+  if (creatorCatalogPromise && Date.now() - creatorCatalogLoadedAt < CREATOR_CATALOG_TTL_MS) {
+    return creatorCatalogPromise;
   }
-  return creatorCatalogPromise;
+  const request = (async () => {
+    const fetchPage = (page) => apiClient.get('/api/creators', { page, size: 100 });
+    const first = await fetchPage(0);
+    const rest = await Promise.all(
+      Array.from({ length: Math.max((first.totalPages ?? 1) - 1, 0) }, (_, i) => fetchPage(i + 1)),
+    );
+    const creators = new Map();
+    [first, ...rest].forEach((result) =>
+      result.items.forEach((item) => creators.set(item.creatorId, toProfile(item))),
+    );
+    return [...creators.values()];
+  })();
+  creatorCatalogPromise = request;
+  // 진행 중에는 만료로 보지 않도록 시작 시각을 먼저 찍고, 실패하면 다음 호출이 다시 시도하게 비운다.
+  creatorCatalogLoadedAt = Date.now();
+  request.catch(() => {
+    if (creatorCatalogPromise === request) creatorCatalogPromise = null;
+  });
+  return request;
 }
 
 export async function getCreatorProfileById(creatorId) {
@@ -89,8 +102,8 @@ export async function getMyCreatorRecommendations({ size = 10 } = {}) {
 
 /** 공개 Creator 목록과 이벤트만 조합한다. 응모권 잔액은 화면에서 필요한 ID만 조회한다. */
 export async function loadCreatorDirectory({ size = 100 } = {}) {
-  const profiles = await getCreatorCatalog();
-  const page = await getEvents({ size });
+  // 서로 의존하지 않는 두 조회라 직렬로 기다리면 탐색 진입이 두 배 느려진다.
+  const [profiles, page] = await Promise.all([getCreatorCatalog(), getEvents({ size })]);
   const events = page?.items ?? [];
   const byCreator = new Map();
   events.forEach((event) => {

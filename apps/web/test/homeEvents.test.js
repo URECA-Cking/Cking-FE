@@ -1,30 +1,25 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { selectHomeEvents } from '../src/utils/homeEvents.js'
+import { selectEntryEvents } from '../src/utils/homeEvents.js'
 
-test('홈 이벤트에는 종료된 Event를 노출하지 않는다', () => {
+const ids = (events) => events.map((event) => event.eventId)
+
+test('응모 섹션에는 종료·예정 Event를 노출하지 않고 마감이 빠른 순으로 정렬한다', () => {
   const events = [
-    { eventId: 1, creatorId: 10, displayStatus: 'CLOSED' },
-    { eventId: 2, creatorId: 20, displayStatus: 'UPCOMING' },
-    { eventId: 3, creatorId: 30, displayStatus: 'IN_PROGRESS' },
+    { eventId: 1, creatorId: 10, displayStatus: 'CLOSED', endAt: '2026-10-01T00:00:00Z' },
+    { eventId: 2, creatorId: 20, displayStatus: 'UPCOMING', endAt: '2026-10-20T00:00:00Z' },
+    { eventId: 3, creatorId: 30, displayStatus: 'IN_PROGRESS', endAt: '2026-10-15T00:00:00Z' },
+    { eventId: 4, creatorId: 40, displayStatus: 'IN_PROGRESS', endAt: '2026-10-10T00:00:00Z' },
   ]
 
-  assert.deepEqual(
-    selectHomeEvents(events, []).map((event) => event.eventId),
-    [3, 2],
-  )
+  assert.deepEqual(ids(selectEntryEvents(events, [])), [4, 3])
 })
 
-test('관심 크리에이터 범위에서 진행 중 Event를 예정 Event보다 먼저 노출한다', () => {
+test('응모 섹션은 관심 크리에이터가 있으면 그들의 Event만 보여준다', () => {
   const events = [
-    { eventId: 1, creatorId: 10, displayStatus: 'UPCOMING' },
-    { eventId: 2, creatorId: 10, displayStatus: 'CLOSED' },
-    { eventId: 3, creatorId: 10, displayStatus: 'IN_PROGRESS' },
-    { eventId: 4, creatorId: 20, displayStatus: 'IN_PROGRESS' },
+    { eventId: 1, creatorId: 10, displayStatus: 'IN_PROGRESS', endAt: '2026-10-15T00:00:00Z' },
+    { eventId: 2, creatorId: 20, displayStatus: 'IN_PROGRESS', endAt: '2026-10-10T00:00:00Z' },
   ]
 
-  assert.deepEqual(
-    selectHomeEvents(events, [10]).map((event) => event.eventId),
-    [3, 1],
-  )
+  assert.deepEqual(ids(selectEntryEvents(events, [10])), [1])
 })

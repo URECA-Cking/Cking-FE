@@ -4,6 +4,7 @@ import { useToast } from '../context/useToast.js'
 import { oauthLoginUrl } from '../api/auth.js'
 import { saveLoginIntent } from '../utils/loginIntent.js'
 import { isSplashDone, prefersReducedMotion } from '../utils/splashState.js'
+import ThemedImage from '../components/ui/ThemedImage.jsx'
 
 const PROVIDERS = [
   { id: 'google', label: 'Google로 계속하기', className: 'bg-surface-container-lowest text-on-surface border border-outline-variant/60' },
@@ -43,7 +44,7 @@ export default function Login() {
           {/* 스플래시와 같은 몸통·왕관 2레이어. 첫 진입은 스플래시가 이 자리로 이어져 정지 상태로 두고,
               그 뒤(로그아웃 등)에 이 화면이 다시 뜰 때마다 왕관이 떨어진다. */}
           <span className={`relative block w-[232px] ${enter ? 'logo-enter splash-stack' : ''}`}>
-            <img src="/cking-logo-body.png" alt="CKing" className={`block w-full ${enter ? 'splash-body' : ''}`} />
+            <ThemedImage dark="/cking-logo-body.png" light="/cking-logo-body-light.png" alt="CKing" className={`w-full ${enter ? 'splash-body' : ''}`} />
             <img src="/cking-crown.png" alt="" className={`absolute inset-0 h-full w-full ${enter ? 'splash-crown' : ''}`} />
           </span>
         </h1>

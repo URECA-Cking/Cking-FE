@@ -295,3 +295,9 @@
 @media (prefers-reduced-motion: no-preference) {
   .animate-stamp-pop { animation: stamp-pop 420ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 }
+
+/* 로고는 어두운 배경용(흰색)과 밝은 배경용(어두운색) 두 장이고, 화면 모드(<html data-theme>)에 맞는 쪽만 보인다. */
+.logo-for-dark { display: block; }
+.logo-for-light { display: none; }
+:root[data-theme='light'] .logo-for-dark { display: none; }
+:root[data-theme='light'] .logo-for-light { display: block; }

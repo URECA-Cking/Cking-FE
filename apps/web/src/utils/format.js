@@ -1,17 +1,5 @@
-/** 날짜·숫자 표시 공통 포맷터. 백엔드는 모든 시각을 ISO-8601(UTC) 문자열로 내려준다. */
-
-export function formatDateTime(iso) {
-  if (!iso) return '-'
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return String(iso)
-  return date.toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { formatDateTime } from '@cking/shared/format'
+export { formatDateTime, formatNumber, totalPrizeQuantity } from '@cking/shared/format'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -56,15 +44,4 @@ export function formatDday(endAt, { closed = false } = {}) {
   const days = Math.floor(diff / 86400000)
   if (days === 0) return 'D-DAY'
   return `D-${days}`
-}
-
-export function formatNumber(value) {
-  const num = Number(value)
-  return Number.isFinite(num) ? num.toLocaleString('ko-KR') : '0'
-}
-
-/** 상품 등급 설정에서 총 배정 수량을 구한다(= 실제 당첨 가능 인원). */
-export function totalPrizeQuantity(prizes) {
-  if (!Array.isArray(prizes)) return 0
-  return prizes.reduce((sum, prize) => sum + (Number(prize?.quantity) || 0), 0)
 }

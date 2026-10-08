@@ -10,6 +10,7 @@ import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorDirectory } from '../api/creators.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { formatNumber } from '../utils/format.js'
+import { selectHomeEvents } from '../utils/homeEvents.js'
 
 /**
  * 홈 피드.
@@ -54,13 +55,10 @@ export default function Home() {
     return map
   }, [balances])
 
-  const followedEvents = useMemo(() => {
-    const scoped = followedCreators.length
-      ? events.filter((event) => followedCreators.includes(event.creatorId))
-      : events
-    const order = { IN_PROGRESS: 0, UPCOMING: 1, CLOSED: 2 }
-    return [...scoped].sort((a, b) => (order[a.displayStatus] ?? 3) - (order[b.displayStatus] ?? 3)).slice(0, 8)
-  }, [events, followedCreators])
+  const followedEvents = useMemo(
+    () => selectHomeEvents(events, followedCreators),
+    [events, followedCreators],
+  )
 
   const openEventCount = useMemo(
     () => events.filter((event) => event.displayStatus === 'IN_PROGRESS').length,

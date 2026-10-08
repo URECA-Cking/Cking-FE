@@ -42,6 +42,11 @@
     --color-surface-variant: 218 226 253; /* #dae2fd */
   }
 
+  /* 브라우저 기본 당겨서 새로고침·바운스를 끄고 PullToRefresh.jsx의 CKing 로고 연출로 대신한다. */
+  html {
+    overscroll-behavior-y: none;
+  }
+
   html,
   body {
     width: 100%;
@@ -132,5 +137,138 @@
   /* 홈 화면에서 실행된 앱에서 링크/버튼을 눌렀을 때 생기는 하이라이트를 없앤다. */
   * {
     -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* 임시 첫 화면(Splash.jsx). intro: 몸통 280ms + 로딩 대기 + 왕관 620ms → dock(로고 자리로 이동) 또는 out(사라짐) ~440ms, 총 1초 미만. */
+@layer components {
+  .splash-body {
+    opacity: 0;
+    animation: splash-body-in 280ms ease-out forwards;
+  }
+
+  /* 왕관: 오른쪽 위에서 기울어진 채 비스듬히 떨어져 몸통에 얹히고(~55%), 한 번 튕긴 뒤 자리 잡는다. */
+  .splash-crown {
+    opacity: 0;
+    transform-origin: 45% 17%;
+  }
+
+  /* 로딩이 끝나(is-dropped) 왕관을 떨어뜨리기 전까지는 몸통만 보인다. */
+  .splash.is-dropped .splash-crown {
+    animation: splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) forwards;
+  }
+
+  /* 스플래시 뒤에 화면이 다시 뜰 때(로그인 화면): 몸통이 나타난 뒤 바로 왕관이 떨어진다. */
+  .logo-enter .splash-crown {
+    animation: splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) 200ms forwards;
+  }
+
+  /* 왕관이 닿는 순간(620*0.55 ≈ 340ms) 몸통이 살짝 눌렸다 돌아온다. */
+  .splash-stack {
+    transform-origin: 50% 100%;
+  }
+
+  .splash.is-dropped .splash-stack {
+    animation: splash-stack-bump 220ms ease-out 340ms;
+  }
+
+  .logo-enter.splash-stack {
+    animation: splash-stack-bump 220ms ease-out 540ms;
+  }
+
+  .splash {
+    transition: background-color 200ms ease-out;
+  }
+
+  /* 로그인된 사용자: 아래 페이지(홈 등)는 그대로 보이고 그 위에 CKing만 떠 있다. 클릭을 막지 않는다. */
+  .splash.is-over {
+    background-color: transparent;
+    pointer-events: none;
+  }
+
+  .splash.is-dock {
+    animation: splash-bg-clear 440ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .splash.is-dock .splash-wordmark {
+    animation: splash-dock 440ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  }
+
+  .splash.is-out {
+    animation: splash-out 300ms ease-in forwards;
+  }
+
+  .splash.is-out .splash-wordmark {
+    animation: splash-wordmark-out 300ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+
+  /* 스플래시가 옮겨 올 자리의 실제 로고는 스플래시가 끝날 때까지 숨겨 둔다. */
+  .splash-active [data-splash-target] {
+    visibility: hidden;
+  }
+
+  @keyframes splash-body-in {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes splash-crown-drop {
+    0% {
+      opacity: 0;
+      transform: translate(90px, -55px) rotate(22deg);
+    }
+    15% {
+      opacity: 1;
+    }
+    55% {
+      opacity: 1;
+      transform: translate(0, 0) rotate(-5deg);
+    }
+    75% {
+      transform: translate(0, -9px) rotate(3deg);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes splash-stack-bump {
+    40% {
+      transform: scale(1.02, 0.96);
+    }
+  }
+
+  @keyframes splash-dock {
+    to {
+      transform: translate(var(--dock-x), var(--dock-y));
+    }
+  }
+
+  @keyframes splash-bg-clear {
+    to {
+      background-color: transparent;
+    }
+  }
+
+  @keyframes splash-wordmark-out {
+    to {
+      opacity: 0;
+      transform: scale(1.08);
+      filter: blur(8px);
+    }
+  }
+
+  /* 배경은 건드리지 않는다. 비로그인은 불투명한 채 CKing만 사라지고, 로그인(is-over)은 이미 투명해 페이지 위에서 사라진다. */
+  @keyframes splash-out {
+    to {
+      visibility: hidden;
+    }
   }
 }

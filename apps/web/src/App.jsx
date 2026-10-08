@@ -9,7 +9,7 @@ import Notifications from './pages/Notifications.jsx'
 import MyPage from './pages/MyPage.jsx'
 import Login from './pages/Login.jsx'
 import OAuthCallback from './pages/OAuthCallback.jsx'
-import OnboardingCreators from './pages/OnboardingCreators.jsx'
+import Onboarding from './pages/Onboarding.jsx'
 import CreatorSpace from './pages/CreatorSpace.jsx'
 import EventDetail from './pages/EventDetail.jsx'
 import RequireRole from './components/auth/RequireRole.jsx'
@@ -40,10 +40,18 @@ function App() {
       </Route>
 
       <Route
+        path="/onboarding"
+        element={
+          <RequireUser>
+            <Onboarding />
+          </RequireUser>
+        }
+      />
+      <Route
         path="/onboarding/creators"
         element={
           <RequireUser>
-            <OnboardingCreators />
+            <Onboarding manage />
           </RequireUser>
         }
       />

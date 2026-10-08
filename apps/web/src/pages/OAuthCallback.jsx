@@ -4,7 +4,6 @@ import { LoadingBlock, ErrorBlock } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { exchangeLoginCode } from '../api/auth.js'
-import { applyCreator } from '../api/creatorApplications.js'
 import { describeError } from '../api/client.js'
 import { consumeLoginIntent } from '../utils/loginIntent.js'
 
@@ -51,17 +50,12 @@ export default function OAuthCallback() {
         const me = await loadUser()
         if (!me) throw new Error('사용자 정보를 불러오지 못했어요.')
 
-        if (intent.role === 'creator' && !me.creator) {
-          try {
-            await applyCreator()
-            showToast(`${me.name}님, 크리에이터 전환 신청도 접수했어요.`)
-          } catch (creatorError) {
-            showToast(describeError(creatorError, '크리에이터 전환 신청에 실패했어요.'), { icon: 'error' })
-          }
-        } else {
-          showToast(`${me.name}님, 환영해요.`)
-        }
-        navigate(intent.redirectTo || '/', { replace: true })
+        showToast(`${me.name}님, 환영해요.`)
+        const destination = intent.redirectTo || '/'
+        // 신규 가입자는 BE가 onboardingCompleted=false로 내려준다. 필드가 없으면(구버전 BE) 이동하지 않는다.
+        // 로그인 전에 가려던 화면은 온보딩을 마친 뒤 이어서 보내려고 state로 넘긴다.
+        if (me.onboardingCompleted === false) navigate('/onboarding', { replace: true, state: { from: destination } })
+        else navigate(destination, { replace: true })
       } catch (err) {
         await restore()
         setFailure(describeError(err, '로그인을 완료하지 못했어요. 다시 시도해주세요.'))

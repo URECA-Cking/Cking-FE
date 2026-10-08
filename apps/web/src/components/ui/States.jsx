@@ -99,3 +99,19 @@ export function SectionHeader({ icon, title, count, action, actionTo, onAction }
   )
 }
 
+
+/** 목록 일부를 못 불러왔을 때 화면을 비우지 않고 한 줄로 알리며 다시 시도하게 한다. */
+export function InlineRetry({ message, onRetry }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-container-low px-3 py-2.5">
+      <p className="min-w-0 font-label-sm text-label-sm text-on-surface-variant">{message}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="shrink-0 font-label-sm text-label-sm font-semibold text-primary active:opacity-70"
+      >
+        다시 시도
+      </button>
+    </div>
+  )
+}

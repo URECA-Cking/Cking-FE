@@ -6,7 +6,7 @@ import NewsFeed from '../components/home/NewsFeed.jsx'
 import NewsRow from '../components/home/NewsRow.jsx'
 import EntrySection from '../components/home/EntrySection.jsx'
 import MissionSection from '../components/home/MissionSection.jsx'
-import { LoadingBlock, ErrorBlock } from '../components/ui/States.jsx'
+import { LoadingBlock, ErrorBlock, InlineRetry } from '../components/ui/States.jsx'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorDirectory } from '../api/creators.js'
@@ -29,7 +29,7 @@ export default function Home() {
     fallbackMessage: '크리에이터와 이벤트를 불러오지 못했습니다.',
   })
   const { balances } = useCreatorBalances(followedCreators, user?.memberId)
-  const { latestByCreator, posts } = useCreatorNews(followedCreators, user?.memberId)
+  const { latestByCreator, posts, failed: newsFailed, retry: retryNews } = useCreatorNews(followedCreators, user?.memberId)
 
   const myCreators = useMemo(
     () => (directory.data?.creators ?? []).filter((creator) => followedCreators.includes(creator.creatorId)),
@@ -44,7 +44,7 @@ export default function Home() {
 
   const events = useMemo(() => directory.data?.events ?? [], [directory.data])
   const entryEvents = useMemo(() => selectEntryEvents(events, followedCreators, ENTRY_LIMIT), [events, followedCreators])
-  const appliedIds = useAppliedEvents(entryEvents.map((event) => event.eventId), user?.memberId)
+  const { appliedIds, failedIds: appliedFailedIds, retry: retryApplied } = useAppliedEvents(entryEvents.map((event) => event.eventId), user?.memberId)
 
   const ready = !directory.loading && !directory.error
 
@@ -57,8 +57,21 @@ export default function Home() {
       {!directory.loading && directory.error && <ErrorBlock message={directory.error} onRetry={directory.reload} />}
       {ready && <NewsRow creators={myCreators} latestByCreator={latestByCreator} />}
       {ready && <NewsFeed creators={myCreators} posts={posts} />}
+      {ready && newsFailed && (
+        <div className="mt-3 px-margin">
+          <InlineRetry message="일부 소식을 불러오지 못했어요." onRetry={retryNews} />
+        </div>
+      )}
       {isCreator && <StudioLink />}
-      {ready && <EntrySection events={entryEvents} balanceByCreator={balanceByCreator} appliedIds={appliedIds} />}
+      {ready && (
+        <EntrySection
+          events={entryEvents}
+          balanceByCreator={balanceByCreator}
+          appliedIds={appliedIds}
+          appliedCheckFailed={appliedFailedIds.size > 0}
+          onRetryApplied={retryApplied}
+        />
+      )}
 
       <MissionSection memberId={user?.memberId} />
     </div>

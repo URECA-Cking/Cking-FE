@@ -11,7 +11,7 @@
   "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "portrait",
   "background_color": "#18181a",
-  "theme_color": "#db2777",
+  "theme_color": "#1a1a1e",
   "categories": ["entertainment", "lifestyle", "social"],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

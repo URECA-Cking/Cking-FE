@@ -58,7 +58,7 @@ npm run test:e2e:admin
 
 ## 웹앱(PWA)
 
-- `apps/web/public/manifest.webmanifest` — standalone 실행, 브랜드 테마 색상, 바로가기(내 응모/알림)
+- `apps/web/public/manifest.webmanifest` — standalone 실행, 기본(다크) 테마·배경 색상(실행 중에는 선택한 모드에 맞춰 `theme-color` 갱신), 바로가기(내 응모/알림)
 - `apps/web/public/sw.js` — 앱 셸은 stale-while-revalidate, `/api`는 네트워크 우선(오프라인일 때만 마지막 성공 응답). Access JWT가 붙은 요청은 캐시하지 않음
 - 홈 화면 설치 배너(`InstallBanner`)와 오프라인 안내 배너 제공
 - 아이콘은 디자인 원본(CKing 로고)에서 만든 PNG를 `apps/web/public/icons/`에 직접 두고 쓴다(생성 스크립트 없음)
@@ -130,7 +130,7 @@ Google·Kakao OAuth로 로그인하고 Access JWT로 호출자를 식별합니�
 apps/web/src/
   api/        백엔드 엔드포인트별 호출 모듈 (+ creators/myEntries 같은 조합 조회)
   components/ 레이아웃·카드·시트 등 공용 UI
-  context/    로그인 세션(UserContext), 토스트
+  context/    로그인 세션(UserContext), 토스트, 화면 모드(ThemeContext, 다크/일반)
   data/       이벤트 배너·이미지 헬퍼
   hooks/      useAsync(조회 공통), useOnline
   pages/      화면 (studio/, admin/ 하위 포함)

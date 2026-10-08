@@ -31,7 +31,9 @@ export function AdminWinnerDetail() {
   const [action, setAction] = useState(null)
   const [busy, setBusy] = useState(false)
   const history = useAsync(() => getWinnerHistory(winnerId), [winnerId], { fallbackMessage: '상태 변경 이력을 불러오지 못했습니다.' })
-  const currentStatus = history.data?.at(-1)?.afterStatus ?? winner?.winnerManagementStatus ?? null
+  const currentStatus = history.data?.at(-1)?.afterStatus
+    ?? winner?.winnerManagementStatus
+    ?? (!history.loading && !history.error && winner ? 'SELECTED' : null)
 
   async function runAction(reason) {
     if (!action) return
@@ -50,20 +52,25 @@ export function AdminWinnerDetail() {
     }
   }
 
+  const header = <div>
+    <Link to="/admin/winners" className="text-sm font-medium text-pink-700 hover:text-pink-800">← 당첨자 관리</Link>
+    <AdminPageHeader title="당첨자 상세" description={`Winner #${winnerId}의 상태와 처리 이력을 확인합니다.`} />
+  </div>
+
+  if (!winner) return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    {header}
+    {history.loading ? <LoadingBlock label="당첨자 정보를 확인하는 중..." /> : <EmptyBlock icon="workspace_premium" message="당첨자 기본 정보가 없습니다. 추첨 결과에서 상세 보기를 선택해주세요." />}
+  </div>
+
   return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-    <div>
-      <Link to="/admin/winners" className="text-sm font-medium text-pink-700 hover:text-pink-800">← 당첨자 관리</Link>
-      <AdminPageHeader title="당첨자 상세" description={`Winner #${winnerId}의 상태와 처리 이력을 확인합니다.`} />
-    </div>
-    {!winner && !history.loading && history.error && <ErrorBlock message="당첨자 기본 정보를 불러올 수 없습니다. 추첨 결과에서 다시 진입해주세요." />}
-    {!winner && !history.loading && !history.error && !currentStatus && <EmptyBlock icon="workspace_premium" message="당첨자 기본 정보가 없습니다. 추첨 결과에서 상세 보기를 선택해주세요." />}
+    {header}
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
       <section className="border-y border-slate-200 bg-white">
         <DetailInfoRows title="기본 정보" rows={[
           ['Winner ID', winnerId],
           ['User ID', winner?.userId == null ? '-' : `#${winner.userId}`],
           ['이름', winner?.name ?? '-'],
-          ['연락처', winner?.phoneNumber ?? '-'],
+          ['연락처', winner.phone ?? winner.phoneNumber ?? '-'],
           ['현재 상태', currentStatus ? <StatusBadge key="status" type="winner" status={currentStatus} /> : '-'],
         ]} />
         <DetailInfoRows title="당첨 정보" rows={[
@@ -107,5 +114,5 @@ function WinnerActionPanel({ status, busy, onAction, onRefresh }) {
 
 function confirmCopy(action) {
   if (action === 'receive') return { title: '수령 완료 처리할까요?', message: '이 당첨자를 수령 완료 상태로 변경합니다.', confirmLabel: '수령 완료' }
-  return { title: '당첨자 자격을 박탈할까요?', message: '자격 박탈 사유를 입력해주세요. 처리 후 결원과 재추첨 필요 여부는 서버가 판단합니다.', confirmLabel: '자격 박탈' }
+  return { title: '당첨자 자격을 박탈할까요?', message: '자격 박탈 사유를 입력해주세요. 처리 후 결원과 재추첨 필요 여부는 서버가 판단합니다.', confirmLabel: '자격 박탈', reasonLabel: '자격 박탈 사유', busyLabel: '자격 박탈 처리 중...' }
 }

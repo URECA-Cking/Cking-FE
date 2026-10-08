@@ -359,6 +359,7 @@ export function AdminDrawingDetailPage() {
           </section>
           <SnapshotSection snapshot={snapshot} />
           <DrawingSection
+            event={event}
             drawing={drawing}
             drawingError={detail.data?.drawingError}
             result={result}
@@ -463,6 +464,7 @@ function SnapshotSection({ snapshot }) {
   );
 }
 function DrawingSection({
+  event,
   drawing,
   drawingError,
   result,
@@ -511,7 +513,7 @@ function DrawingSection({
               <ErrorBlock message={result.error} onRetry={result.reload} />
             )}
             {!result.loading && !result.error && (
-              <WinnerTable winners={result.data?.winners ?? []} />
+              <WinnerTable event={event} drawing={drawing} winners={result.data?.winners ?? []} />
             )}
           </div>
           <div className="border-t border-slate-200 px-5 py-5">
@@ -566,7 +568,7 @@ function DrawingSection({
     </section>
   );
 }
-function WinnerTable({ winners }) {
+function WinnerTable({ event, drawing, winners }) {
   if (!winners.length)
     return (
       <p className="mt-3 text-sm text-slate-500">표시할 당첨자가 없습니다.</p>
@@ -606,7 +608,7 @@ function WinnerTable({ winners }) {
               <td className="px-3 py-2 text-right">
                 <Link
                   to={`/admin/winners/${winner.winnerId}`}
-                  state={{ winner }}
+                  state={{ winner: { ...winner, eventTitle: event?.title, drawType: drawing?.drawType, drawNo: drawing?.drawNo } }}
                   className="font-medium text-pink-700 hover:text-pink-800"
                 >
                   상세 보기

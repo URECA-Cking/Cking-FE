@@ -5,9 +5,7 @@ import { LoadingBlock, ErrorBlock, EmptyBlock, StatusPill } from '../../componen
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import {
-  getClosingStatus,
-  closeEvent,
-  getDrawingEvents,
+  getDrawingReadyEvents,
   getDrawing,
   getInitialDrawing,
   getDrawingResult,
@@ -25,7 +23,7 @@ import { eventStatusMeta } from '../../utils/eventStatus.js'
 /**
  * 관리자 추첨 운영 패널.
  *
- * 마감된 이벤트를 골라 마감 상태 / 공식 스냅샷을 확인하고 초기 추첨을 실행한 뒤
+ * 마감 완료된 이벤트를 골라 공식 스냅샷을 확인하고 초기 추첨을 실행한 뒤
  * 추첨 메타데이터와 당첨자 결과를 조회한다.
  */
 export default function AdminDrawingPanel() {
@@ -37,7 +35,7 @@ export default function AdminDrawingPanel() {
   const [historyOpen, setHistoryOpen] = useState(false)
 
   const { data, loading, error, reload } = useAsync(
-    () => getDrawingEvents(),
+    () => getDrawingReadyEvents(),
     [],
     { fallbackMessage: '운영 대상 이벤트를 불러오지 못했습니다.' },
   )
@@ -53,21 +51,17 @@ export default function AdminDrawingPanel() {
     setHistoryOpen(false)
     setBusy(true)
     try {
-      const canQueryClosingStatus = event.status === 'CLOSING' || event.status === 'CLOSED'
       const canQueryInitialDrawing = event.status === 'CLOSED'
         || event.status === 'DRAW_COMPLETED'
         || event.status === 'PUBLISHED'
-      const [closing, snapshot, initial] = await Promise.all([
-        canQueryClosingStatus
-          ? getClosingStatus(event.eventId).catch((err) => ({ error: describeError(err) }))
-          : Promise.resolve({ status: event.status }),
+      const [snapshot, initial] = await Promise.all([
         canQueryInitialDrawing
           ? getEventSnapshot(event.eventId).catch((err) => ({ error: describeError(err) }))
           : Promise.resolve(null),
         canQueryInitialDrawing ? loadInitialDrawing(event.eventId) : Promise.resolve(null),
       ])
       setDetail({
-        closing,
+        closing: { status: event.status },
         snapshot,
         drawing: initial?.drawing ?? null,
         result: initial?.result ?? null,
@@ -108,56 +102,6 @@ export default function AdminDrawingPanel() {
       setDetail((prev) => ({ ...prev, drawing: meta ?? drawing, result, verification: null }))
     } catch (err) {
       showToast(describeError(err, '추첨 실행에 실패했습니다.'), { icon: 'error' })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  /** 열려 있는 이벤트의 비동기 마감을 시작하고 화면 상태를 갱신한다. */
-  async function startClosing() {
-    if (!selected) return
-    setBusy(true)
-    try {
-      const closing = await closeEvent(selected.eventId)
-      const next = { ...selected, status: closing.status }
-      showToast(closing.status === 'CLOSED' ? '이벤트가 이미 마감되어 있어요.' : '이벤트 마감을 시작했어요.')
-      await reload()
-      await inspect(next)
-    } catch (err) {
-      showToast(describeError(err, '이벤트 마감을 시작하지 못했어요.'), { icon: 'error' })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  /** 비동기 마감의 현재 상태를 다시 확인하고 선택 이벤트를 갱신한다. */
-  async function refreshClosingStatus() {
-    if (!selected) return
-    setBusy(true)
-    try {
-      const closing = await getClosingStatus(selected.eventId)
-      const next = { ...selected, status: closing.status }
-      setSelected(next)
-      setDetail((prev) => ({ ...prev, closing }))
-      if (closing.status === 'CLOSED') {
-        const [snapshot, initial] = await Promise.all([
-          getEventSnapshot(selected.eventId).catch((err) => ({ error: describeError(err) })),
-          loadInitialDrawing(selected.eventId),
-        ])
-        setDetail((prev) => ({
-          ...prev,
-          snapshot,
-          drawing: initial?.drawing ?? null,
-          result: initial?.result ?? null,
-          drawingError: initial?.error,
-        }))
-        showToast('이벤트 마감이 완료되어 초기 추첨을 진행할 수 있어요.')
-      } else {
-        showToast('이벤트 마감이 아직 진행 중이에요.', { icon: 'info' })
-      }
-      await reload()
-    } catch (err) {
-      showToast(describeError(err, '이벤트 마감 상태를 확인하지 못했어요.'), { icon: 'error' })
     } finally {
       setBusy(false)
     }
@@ -250,7 +194,7 @@ export default function AdminDrawingPanel() {
   return (
     <div className="flex flex-col gap-space-md">
       <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-        운영 대상 이벤트를 선택하면 수동 마감부터 초기 추첨, 재시도·검증·결과 공개까지 처리할 수 있어요.
+        마감 완료된 이벤트를 선택하면 초기 추첨, 재시도·검증·결과 공개를 처리할 수 있어요.
       </p>
 
       {loading && <LoadingBlock label="운영 대상 이벤트를 불러오는 중..." />}
@@ -326,26 +270,6 @@ export default function AdminDrawingPanel() {
               ) : null}
 
               {detail.drawingError && <ErrorBlock message={detail.drawingError} onRetry={() => inspect(selected)} />}
-
-              {selected.status === 'OPEN' && (
-                <button
-                  type="button"
-                  onClick={startClosing}
-                  className="h-11 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
-                >
-                  수동 마감 시작
-                </button>
-              )}
-
-              {selected.status === 'CLOSING' && (
-                <button
-                  type="button"
-                  onClick={refreshClosingStatus}
-                  className="h-11 rounded-xl bg-surface-container-high text-on-surface font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
-                >
-                  마감 상태 다시 확인
-                </button>
-              )}
 
               {selected.status === 'CLOSED' && !detail.drawing && (
                 <button

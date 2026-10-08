@@ -132,6 +132,42 @@ export async function getCreatorApplications({ page = 0, size = 20 } = {}) {
   return get('/api/admin/creator-applications', { page, size });
 }
 
+/** 페이지 기반 관리자 목록을 모두 읽어 Dashboard 집계에 사용할 항목을 반환한다. */
+async function getAllPages(loadPage, size = 100) {
+  const items = []
+  let page = 0
+  let hasNext = true
+
+  while (hasNext) {
+    const result = await loadPage({ page, size })
+    items.push(...(result?.items ?? []))
+    hasNext = result?.hasNext === true
+    page += 1
+  }
+
+  return items
+}
+
+/** 목록·상세 조회와 Dashboard 집계를 위해 모든 Creator 신청을 조회한다. */
+export function getAllCreatorApplications() {
+  return getAllPages((params) => getCreatorApplications(params))
+}
+
+/** 목록·상세 조회와 Dashboard 집계를 위해 모든 승인 대기 이벤트를 조회한다. */
+export function getAllPendingEvents() {
+  return getAllPages((params) => getPendingEvents(params))
+}
+
+/** Dashboard의 검토 대기 재추첨 집계를 위해 REQUESTED 요청을 모두 조회한다. */
+export function getAllRequestedRedraws() {
+  return getAllPages((params) => getRedrawRequests({ ...params, status: 'REQUESTED' }))
+}
+
+/** Dashboard의 미처리 메시지 집계를 위해 UNRESOLVED Dead Stream을 모두 조회한다. */
+export function getAllUnresolvedDeadStreams() {
+  return getAllPages((params) => getDeadStreams({ ...params, status: 'UNRESOLVED' }))
+}
+
 /** 크리에이터 전환 신청을 승인한다. */
 export async function approveCreatorApplication(applicationId) {
   return post(`/api/admin/creator-applications/${applicationId}/approve`);
@@ -142,7 +178,8 @@ export async function rejectCreatorApplication(applicationId, rejectReason) {
   return post(`/api/admin/creator-applications/${applicationId}/reject`, { rejectReason });
 }
 
-const DRAWING_EVENT_STATUSES = ['OPEN', 'CLOSING', 'CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
+export const OPERATING_EVENT_STATUSES = ['SCHEDULED', 'OPEN', 'CLOSING', 'CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
+const DRAWING_READY_EVENT_STATUSES = ['CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
 
 /** 지정한 상태의 이벤트 목록을 마지막 페이지까지 조회한다. */
 async function getAllEventsByStatus(status, size) {
@@ -160,10 +197,31 @@ async function getAllEventsByStatus(status, size) {
   return items
 }
 
-/** 추첨 운영 대상 상태의 이벤트를 모두 조회한다. */
-export async function getDrawingEvents({ size = 100 } = {}) {
+/** 지정된 상태 목록을 병렬로 조회해 하나의 이벤트 목록으로 합친다. */
+async function getEventsByStatuses(statuses, { size = 100 } = {}) {
   const eventsByStatus = await Promise.all(
-    DRAWING_EVENT_STATUSES.map((status) => getAllEventsByStatus(status, size)),
+    statuses.map((status) => getAllEventsByStatus(status, size)),
   )
   return { items: eventsByStatus.flat() }
+}
+
+/** Dashboard와 이벤트 관리 화면에서 추적하는 전체 운영 이벤트를 조회한다. */
+export function getDrawingEvents(options) {
+  return getEventsByStatuses(OPERATING_EVENT_STATUSES, options)
+}
+
+/** 운영 상태별 목록 계약을 합쳐 이벤트 관리 화면의 전체 목록을 제공한다. */
+export function getOperatingEvents(options) {
+  return getDrawingEvents(options)
+}
+
+/** 추첨 콘솔에는 이미 마감된 이벤트만 전달해 이벤트 운영 화면과 책임을 분리한다. */
+export function getDrawingReadyEvents(options) {
+  return getEventsByStatuses(DRAWING_READY_EVENT_STATUSES, options)
+}
+
+/** 단건 조회 계약이 없으므로 운영 상태 목록에서 URL의 이벤트를 찾아 상세를 구성한다. */
+export async function getOperatingEvent(eventId) {
+  const result = await getOperatingEvents()
+  return result.items.find((item) => String(item.eventId) === String(eventId)) ?? null
 }

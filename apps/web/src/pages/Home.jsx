@@ -10,6 +10,7 @@ import { LoadingBlock, ErrorBlock, InlineRetry } from '../components/ui/States.j
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorDirectory } from '../api/creators.js'
+import { getInProgressEvents } from '../api/events.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { useAppliedEvents } from '../hooks/useAppliedEvents.js'
 import { useCreatorNews } from '../hooks/useCreatorNews.js'
@@ -28,6 +29,10 @@ export default function Home() {
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터와 이벤트를 불러오지 못했습니다.',
   })
+  // 마감 임박순 3건을 정확히 고르려면 진행 중 이벤트 전체가 필요하다. 목록 전체(최신 100건)에서 고르면 100건을 넘을 때 놓친다.
+  const openEvents = useAsync(() => getInProgressEvents(), [], {
+    fallbackMessage: '진행 중인 이벤트를 불러오지 못했습니다.',
+  })
   const { balances } = useCreatorBalances(followedCreators, user?.memberId)
   const { latestByCreator, posts, failed: newsFailed, retry: retryNews } = useCreatorNews(followedCreators, user?.memberId)
 
@@ -42,9 +47,11 @@ export default function Home() {
     return map
   }, [balances])
 
-  const events = useMemo(() => directory.data?.events ?? [], [directory.data])
-  const entryEvents = useMemo(() => selectEntryEvents(events, followedCreators, ENTRY_LIMIT), [events, followedCreators])
-  const { appliedIds, failedIds: appliedFailedIds, retry: retryApplied } = useAppliedEvents(entryEvents.map((event) => event.eventId), user?.memberId)
+  const entryEvents = useMemo(
+    () => selectEntryEvents(openEvents.data ?? [], followedCreators, ENTRY_LIMIT),
+    [openEvents.data, followedCreators],
+  )
+  const { appliedIds, knownIds, failedIds: appliedFailedIds, retry: retryApplied } = useAppliedEvents(entryEvents.map((event) => event.eventId), user?.memberId)
 
   const ready = !directory.loading && !directory.error
 
@@ -63,11 +70,16 @@ export default function Home() {
         </div>
       )}
       {isCreator && <StudioLink />}
-      {ready && (
+      {ready && openEvents.loading && <LoadingBlock label="진행 중인 이벤트를 불러오는 중..." />}
+      {ready && !openEvents.loading && openEvents.error && (
+        <ErrorBlock message={openEvents.error} onRetry={openEvents.reload} />
+      )}
+      {ready && !openEvents.loading && !openEvents.error && (
         <EntrySection
           events={entryEvents}
           balanceByCreator={balanceByCreator}
           appliedIds={appliedIds}
+          knownIds={knownIds}
           appliedCheckFailed={appliedFailedIds.size > 0}
           onRetryApplied={retryApplied}
         />

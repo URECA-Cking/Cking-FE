@@ -10,8 +10,8 @@ import { buildStampSlots } from '../../utils/attendanceStamps.js'
 
 const MISSION_LABELS = { ATTENDANCE: '출석체크' }
 
-// 결과를 모르는 실패(타임아웃·적립 장애·점검)는 같은 requestId로 재시도해야 중복 지급이 없다.
-const RETRY_WITH_SAME_ID = ['EARN_STATUS_UNKNOWN', 'EARN_PROCESSING_FAILED', 'BALANCE_MAINTENANCE']
+// 결과를 모르는 실패(네트워크 끊김·타임아웃·적립 장애·점검)는 서버가 이미 적립했을 수 있어 같은 requestId로 재시도해야 한다.
+const RETRY_WITH_SAME_ID = ['NETWORK_ERROR', 'EARN_STATUS_UNKNOWN', 'EARN_PROCESSING_FAILED', 'BALANCE_MAINTENANCE']
 
 /** 홈의 공용 미션(출석). 크리에이터별 미션은 N회 호출이라 크리에이터 스페이스에서 한다. */
 export default function MissionSection({ memberId }) {
@@ -54,7 +54,7 @@ export default function MissionSection({ memberId }) {
         showToast('오늘은 이미 완료했어요.')
         return
       }
-      // 코드가 없으면 네트워크 오류라 서버 처리 여부를 알 수 없다.
+      // ApiError가 아닌 예외도 서버 처리 여부를 알 수 없어 키를 유지한다. 확정된 실패(RETRY 목록 밖의 코드)만 키를 버린다.
       if (code !== null && !RETRY_WITH_SAME_ID.includes(code)) requestIds.current.delete(mission.missionId)
       showToast(describeError(completeError, '미션을 완료하지 못했어요. 다시 눌러 주세요.'), { icon: 'error' })
     } finally {

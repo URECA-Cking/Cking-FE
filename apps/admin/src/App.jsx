@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import RequireAdmin from './components/RequireAdmin.jsx'
 import AdminLayout from './components/layout/AdminLayout.jsx'
 import AdminLogin from './pages/AdminLogin.jsx'
-import AdminConsole from './pages/admin/AdminConsole.jsx'
+import { AdminDrawingDetailPage, AdminDrawingsRoute } from './pages/admin/AdminDrawings.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AdminDeadStreams from './pages/admin/AdminDeadStreams.jsx'
 import AdminRedraws from './pages/admin/AdminRedraws.jsx'
@@ -19,7 +19,9 @@ export default function App() {
       <Route path="/" element={<Navigate to="/admin" replace />} />
       <Route path="/login" element={<AdminLogin />} />
       <Route path="/admin" element={protectedRoute(<AdminDashboard />)} />
-      <Route path="/admin/console" element={protectedRoute(<AdminConsole />)} />
+      <Route path="/admin/console" element={<Navigate to="/admin/drawings" replace />} />
+      <Route path="/admin/drawings" element={protectedRoute(<AdminDrawingsRoute />)} />
+      <Route path="/admin/drawings/:drawingId" element={protectedRoute(<AdminDrawingDetailPage />)} />
       <Route path="/admin/events" element={protectedRoute(<AdminEventsPage />)} />
       <Route path="/admin/events/:eventId" element={protectedRoute(<AdminEventDetailPage />)} />
       <Route path="/admin/reviews/creators" element={protectedRoute(<ReviewListPage type="creators" />)} />

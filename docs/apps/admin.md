@@ -10,7 +10,7 @@
 | `/admin/reviews/creators`, `/admin/reviews/creators/:reviewId` | Creator 신청 목록·상세 심사와 승인·거절 |
 | `/admin/reviews/events`, `/admin/reviews/events/:reviewId` | 승인 대기 이벤트 목록·상세 심사와 승인·거절 |
 | `/admin/events`, `/admin/events/:eventId` | 운영 이벤트 목록·상세, 상태 흐름, 수동 마감 요청과 마감 처리 상태 확인 |
-| `/admin/console` | 마감 완료 이벤트의 스냅샷·초기 추첨·실패 추첨 재시도 운영 |
+| `/admin/drawings`, `/admin/drawings/:drawingId` | 마감 완료 이벤트의 Snapshot·초기 추첨·실패 추첨 재시도·결과·검증·공개 운영 (`/admin/console`은 목록으로 리디렉션) |
 | `/admin/winners/:winnerId` | 당첨자 수령 처리·자격 박탈·이력 |
 | `/admin/redraws` | 재추첨 요청 생성·상태별 목록·심사·실행 |
 | `/admin/dead-streams` | Dead Stream 조회·replay |

@@ -1,9 +1,12 @@
 import { useRef, useState } from 'react'
+import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { ErrorBlock } from '../ui/States.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError, newRequestId } from '../../api/client.js'
 import { completeCommonMission, getCommonMissions } from '../../api/missions.js'
+import { getCommonTicketHistory } from '../../api/tickets.js'
+import { buildStampSlots } from '../../utils/attendanceStamps.js'
 
 const MISSION_LABELS = { ATTENDANCE: '출석체크' }
 
@@ -18,7 +21,14 @@ export default function MissionSection({ memberId }) {
     [memberId],
     { enabled: memberId != null, fallbackMessage: '미션을 불러오지 못했습니다.' },
   )
+  // 도장 칸은 원장의 출석 적립으로 그린다. 조회에 실패해도 오늘 완료 여부(completedToday)만으로 오늘 도장은 보여준다.
+  const { data: ledger } = useAsync(
+    () => getCommonTicketHistory({ size: 100 }),
+    [memberId],
+    { enabled: memberId != null },
+  )
   const [busyId, setBusyId] = useState(null)
+  const [justStamped, setJustStamped] = useState(false)
   const requestIds = useRef(new Map())
 
   const markCompleted = (missionId) => setData((current) => (
@@ -34,6 +44,7 @@ export default function MissionSection({ memberId }) {
       await completeCommonMission(mission.missionId, requestId)
       requestIds.current.delete(mission.missionId)
       markCompleted(mission.missionId)
+      setJustStamped(true)
       showToast(`응모권 ${mission.rewardAmount}장을 적립했어요.`)
     } catch (completeError) {
       const code = completeError instanceof ApiError ? completeError.code : null
@@ -57,27 +68,54 @@ export default function MissionSection({ memberId }) {
   if ((missions ?? []).length === 0) return null
 
   return (
-    <section className="mt-6 px-margin">
+    <section className="mt-6 px-margin flex flex-col gap-2.5">
       {missions.map((mission) => {
         const done = mission.completedToday
         const busy = busyId === mission.missionId
+        const stamps = mission.type === 'ATTENDANCE'
+          ? buildStampSlots({ ledgerItems: ledger?.items, missionId: mission.missionId, completedToday: done })
+          : null
+        const stampedCount = stamps ? stamps.filter((slot) => slot.stamped).length : 0
         return (
-          <div
-            key={mission.missionId}
-            className="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-primary to-berry-deep"
-          >
-            <p className="min-w-0 font-label-md text-label-md text-on-primary line-clamp-2">
-              {MISSION_LABELS[mission.type] ?? '미션'}
-              <span className="ml-2 font-label-sm text-label-sm text-on-primary/80 font-normal">응모권 +{mission.rewardAmount}</span>
-            </p>
-            <button
-              type="button"
-              disabled={done || busy}
-              onClick={() => complete(mission)}
-              className="shrink-0 whitespace-nowrap rounded-full bg-white px-3.5 py-1.5 font-label-sm text-label-sm text-primary disabled:bg-white/25 disabled:text-on-primary/80 active:opacity-70 transition-opacity"
-            >
-              {busy ? '처리 중' : done ? '도장 완료' : '도장 찍기'}
-            </button>
+          <div key={mission.missionId} className="rounded-2xl bg-gradient-to-r from-primary to-berry-deep px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="min-w-0 font-label-md text-label-md text-on-primary line-clamp-2">
+                {MISSION_LABELS[mission.type] ?? '미션'}
+                <span className="ml-2 font-label-sm text-label-sm text-on-primary/80 font-normal">응모권 +{mission.rewardAmount}</span>
+              </p>
+              <button
+                type="button"
+                disabled={done || busy}
+                onClick={() => complete(mission)}
+                className="shrink-0 whitespace-nowrap rounded-full bg-white px-3.5 py-1.5 font-label-sm text-label-sm text-primary disabled:bg-white/25 disabled:text-on-primary/80 active:opacity-70 transition-opacity"
+              >
+                {busy ? '처리 중' : done ? '도장 완료' : '도장 찍기'}
+              </button>
+            </div>
+            {stamps && (
+              <>
+                <ol className="mt-3 flex items-center justify-between" aria-label="최근 7일 출석 도장">
+                  {stamps.map((slot, index) => (
+                    <li
+                      key={index}
+                      aria-label={`${index + 1}번째 도장 ${slot.stamped ? '찍힘' : '비어 있음'}`}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                        slot.stamped
+                          ? `bg-white text-primary ring-2 ring-white/40 -rotate-[8deg] ${
+                              justStamped && index === stampedCount - 1 ? 'animate-stamp-pop' : ''
+                            }`
+                          : `border-2 ${slot.next ? 'border-white' : 'border-dashed border-white/40'}`
+                      }`}
+                    >
+                      {slot.stamped && <MaterialIcon name="check" filled className="text-[18px]" />}
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-2 font-label-xs text-label-xs text-on-primary/80 font-normal">
+                  최근 7일 중 {stampedCount}일 출석 · 매일 오전 9시에 초기화돼요
+                </p>
+              </>
+            )}
           </div>
         )
       })}

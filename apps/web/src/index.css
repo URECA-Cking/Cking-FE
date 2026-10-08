@@ -233,3 +233,13 @@
     }
   }
 }
+
+/* 출석 도장이 찍히는 순간: 크게 내려와 살짝 기울어진 채 자리 잡는다. 모션을 줄인 환경에서는 쓰지 않는다. */
+@keyframes stamp-pop {
+  0% { transform: scale(2.2) rotate(-24deg); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: scale(1) rotate(-8deg); opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .animate-stamp-pop { animation: stamp-pop 420ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+}

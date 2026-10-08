@@ -6,18 +6,18 @@ import StatusBadge from '../../components/StatusBadge.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { approveCreatorApplication, approveEvent, getAllCreatorApplications, getAllPendingEvents, getCreatorApplications, getPendingEvents, rejectCreatorApplication, rejectEvent } from '../../api/admin.js'
+import { approveCreatorApplication, approveEvent, getAllCreatorApplications, getAllPendingEvents, rejectCreatorApplication, rejectEvent } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 
 const CONFIG = {
   creators: {
-    title: 'Creator 신청 관리', description: 'Creator 권한 신청을 검토하고 승인하거나 거절합니다.', listPath: '/admin/reviews/creators', loadList: () => getCreatorApplications({ size: 100 }), loadDetail: async () => ({ items: await getAllCreatorApplications() }), itemId: (item) => item.applicationId,
+    title: 'Creator 신청 관리', description: 'Creator 권한 신청을 검토하고 승인하거나 거절합니다.', listPath: '/admin/reviews/creators', loadList: async () => ({ items: await getAllCreatorApplications() }), loadDetail: async () => ({ items: await getAllCreatorApplications() }), itemId: (item) => item.applicationId,
     empty: '현재 검토할 Creator 신청이 없습니다.', searchPlaceholder: '신청 ID 또는 신청자 검색', matches: (item, term) => [item.applicationId, item.applicantName, item.applicantUserId].some((value) => String(value ?? '').toLowerCase().includes(term)),
     subject: (item) => `${item.applicantName}님의 Creator 신청`, status: (item) => item.status,
   },
   events: {
-    title: '이벤트 승인 관리', description: '승인 대기 중인 Creator 이벤트를 심사합니다.', listPath: '/admin/reviews/events', loadList: () => getPendingEvents({ size: 100 }), loadDetail: async () => ({ items: await getAllPendingEvents() }), itemId: (item) => item.eventId,
+    title: '이벤트 승인 관리', description: '승인 대기 중인 Creator 이벤트를 심사합니다.', listPath: '/admin/reviews/events', loadList: async () => ({ items: await getAllPendingEvents() }), loadDetail: async () => ({ items: await getAllPendingEvents() }), itemId: (item) => item.eventId,
     empty: '현재 승인 대기 중인 이벤트가 없습니다.', searchPlaceholder: '이벤트 ID, 이벤트명 또는 Creator 검색', matches: (item, term) => [item.eventId, item.title, item.creatorName, item.creatorId].some((value) => String(value ?? '').toLowerCase().includes(term)),
     subject: (item) => `“${item.title}” 이벤트`, status: (item) => item.status,
   },

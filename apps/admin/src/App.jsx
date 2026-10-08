@@ -2,11 +2,11 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import RequireAdmin from './components/RequireAdmin.jsx'
 import AdminLayout from './components/layout/AdminLayout.jsx'
 import AdminLogin from './pages/AdminLogin.jsx'
-import AdminConsole from './pages/admin/AdminConsole.jsx'
+import { AdminDrawingDetailPage, AdminDrawingsRoute } from './pages/admin/AdminDrawings.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AdminDeadStreams from './pages/admin/AdminDeadStreams.jsx'
-import AdminRedraws from './pages/admin/AdminRedraws.jsx'
-import AdminWinnerDetail from './pages/admin/AdminWinnerDetail.jsx'
+import AdminRedraws, { AdminRedrawDetailPage } from './pages/admin/AdminRedraws.jsx'
+import AdminWinners, { AdminWinnerDetail } from './pages/admin/AdminWinnerDetail.jsx'
 import { AdminEventDetailPage, AdminEventsPage } from './pages/admin/AdminEvents.jsx'
 import { AdminAbuseDetectionDetailPage, AdminAbuseDetectionListPage } from './pages/admin/AdminAbuseDetections.jsx'
 import { ReviewDetailPage, ReviewListPage } from './pages/admin/ReviewPages.jsx'
@@ -20,7 +20,9 @@ export default function App() {
       <Route path="/" element={<Navigate to="/admin" replace />} />
       <Route path="/login" element={<AdminLogin />} />
       <Route path="/admin" element={protectedRoute(<AdminDashboard />)} />
-      <Route path="/admin/console" element={protectedRoute(<AdminConsole />)} />
+      <Route path="/admin/console" element={<Navigate to="/admin/drawings" replace />} />
+      <Route path="/admin/drawings" element={protectedRoute(<AdminDrawingsRoute />)} />
+      <Route path="/admin/drawings/:drawingId" element={protectedRoute(<AdminDrawingDetailPage />)} />
       <Route path="/admin/events" element={protectedRoute(<AdminEventsPage />)} />
       <Route path="/admin/events/:eventId" element={protectedRoute(<AdminEventDetailPage />)} />
       <Route path="/admin/abuse-detections" element={protectedRoute(<AdminAbuseDetectionListPage />)} />
@@ -29,8 +31,10 @@ export default function App() {
       <Route path="/admin/reviews/creators/:reviewId" element={protectedRoute(<ReviewDetailPage type="creators" />)} />
       <Route path="/admin/reviews/events" element={protectedRoute(<ReviewListPage type="events" />)} />
       <Route path="/admin/reviews/events/:reviewId" element={protectedRoute(<ReviewDetailPage type="events" />)} />
+      <Route path="/admin/winners" element={protectedRoute(<AdminWinners />)} />
       <Route path="/admin/winners/:winnerId" element={protectedRoute(<AdminWinnerDetail />)} />
       <Route path="/admin/redraws" element={protectedRoute(<AdminRedraws />)} />
+      <Route path="/admin/redraws/:redrawRequestId" element={protectedRoute(<AdminRedrawDetailPage />)} />
       <Route path="/admin/dead-streams" element={protectedRoute(<AdminDeadStreams />)} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>

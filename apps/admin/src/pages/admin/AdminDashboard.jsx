@@ -27,7 +27,7 @@ export default function AdminDashboard() {
       <DashboardSection title="처리할 작업">
         <StatusCard title="Creator 신청" count={creatorPendingCount} meaning="승인 대기" to="/admin/reviews/creators" section={sections.creatorApplications} onRetry={reload} />
         <StatusCard title="이벤트 승인" count={pendingEventCount} meaning="승인 대기" to="/admin/reviews/events" section={sections.pendingEvents} onRetry={reload} />
-        <StatusCard title="재추첨 요청" count={requestedRedrawCount} meaning="검토 필요" to="/admin/redraws" section={sections.requestedRedraws} onRetry={reload} />
+        <StatusCard title="재추첨 요청" count={requestedRedrawCount} meaning="검토 필요" to="/admin/redraws?status=REQUESTED" section={sections.requestedRedraws} onRetry={reload} />
       </DashboardSection>
 
       <DashboardSection title="주의 필요">

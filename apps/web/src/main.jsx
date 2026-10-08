@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import PullToRefresh from './components/layout/PullToRefresh.jsx'
 import Splash from './components/layout/Splash.jsx'
+import { ThemeProvider } from './context/ThemeContext.jsx'
 import { ToastProvider } from './context/ToastContext.jsx'
 import { UserProvider } from './context/UserContext.jsx'
 import { registerServiceWorker } from './pwa/registerServiceWorker.js'
@@ -20,15 +21,17 @@ async function start() {
 
   createRoot(document.getElementById('root')).render(
     <StrictMode>
-      <BrowserRouter>
-        <ToastProvider>
-          <UserProvider>
-            <App />
-            <Splash />
-            <PullToRefresh />
-          </UserProvider>
-        </ToastProvider>
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <ToastProvider>
+            <UserProvider>
+              <App />
+              <Splash />
+              <PullToRefresh />
+            </UserProvider>
+          </ToastProvider>
+        </BrowserRouter>
+      </ThemeProvider>
     </StrictMode>,
   )
 }

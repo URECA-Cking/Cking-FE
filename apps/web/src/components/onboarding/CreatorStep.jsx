@@ -5,12 +5,14 @@ import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import FollowStatus from '../creator/FollowStatus.jsx'
 import OnboardingFooter, { GhostButton, PrimaryButton } from './OnboardingFooter.jsx'
 import { getMyCreatorRecommendations, searchCreators } from '../../api/creators.js'
-import { getInterests } from '../../api/interests.js'
+import { getInterests, getMyInterests } from '../../api/interests.js'
 import { getMySpace } from '../../api/creatorSpace.js'
 import { describeError } from '../../api/client.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import { useUser } from '../../context/useUser.js'
+import { CREATOR_SUBTAGS } from '../../data/creatorSubtagsDummy.js'
+import { keepSubtagsOf, loadDummySubtags, subtagName, subtagsExperimentOn } from '../../data/interestSubtagsDummy.js'
 
 const PAGE_SIZE = 20
 const SEARCH_DEBOUNCE_MS = 300
@@ -84,7 +86,7 @@ function Avatar({ src, name }) {
   )
 }
 
-function CreatorRow({ creator, reason, followed, disabled, onToggle }) {
+function CreatorRow({ creator, reason, followed, disabled, onToggle, subtags = [], mySubtags = [] }) {
   return (
     <li className="flex items-center gap-3 p-3 rounded-2xl bg-surface-container-lowest shadow-card">
       {/* 플로우: 추천·검색 결과에서 크리에이터 스페이스를 둘러본 뒤 팔로우를 정한다. 팔로우 버튼은 링크 밖에 둔다. */}
@@ -93,6 +95,20 @@ function CreatorRow({ creator, reason, followed, disabled, onToggle }) {
         <div className="min-w-0 flex-1 flex flex-col gap-0.5">
           <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
           {creator.bio && <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">{creator.bio}</p>}
+          {import.meta.env.DEV && subtags.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1" aria-label="세부 태그">
+              {subtags.map((code) => (
+                <span
+                  key={code}
+                  className={`px-2 py-0.5 rounded-full font-label-xs text-label-xs ${
+                    mySubtags.includes(code) ? 'bg-secondary text-on-secondary font-semibold' : 'bg-surface-container text-on-surface-variant'
+                  }`}
+                >
+                  #{subtagName(code)}
+                </span>
+              ))}
+            </div>
+          )}
           {reason && (
             <span className="mt-1 self-start max-w-full truncate px-2 py-0.5 rounded-full bg-berry-tint font-label-xs text-label-xs text-primary">
               {reason}
@@ -160,7 +176,33 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
     }
   }
 
+  // 실험: 크리에이터에게 할당한 세부 태그(더미)를 카드에 보여주고, 온보딩 1단계에서 고른 세부 태그와 겹치면 강조한다.
+  const subtagsOn = import.meta.env.DEV && subtagsExperimentOn()
+  // 저장된 세부 태그 중 서버에 저장된 현재 상위 분야에 속한 것만 추천에 쓴다(상위를 바꾼 뒤 남은 예전 선택 제외). 관리 화면 직행도 같은 기준이다.
+  const myInterests = useAsync(getMyInterests, [], { enabled: subtagsOn })
+  const mySubtags = useMemo(
+    () => (subtagsOn ? keepSubtagsOf(loadDummySubtags(user?.memberId), myInterests.data?.interestCodes ?? []) : []),
+    [subtagsOn, user?.memberId, myInterests.data],
+  )
+  const subtagsOf = (creator) => (subtagsOn ? (CREATOR_SUBTAGS[creator.name?.replace('[시연] ', '')] ?? []) : [])
+
+  // 실험: 내가 고른 세부 태그와 겹치는 추천을 위로 올린다(겹치는 수가 많은 순). 겹침이 같으면 BE가 준 순서를 그대로 둔다.
+  // 서버 추천 자체는 상위 분야 기준이라 이 재정렬은 화면에서만 일어난다(이슈 #83).
+  const recommendedItems = useMemo(() => {
+    const items = recommended.data?.items ?? []
+    if (!subtagsOn || mySubtags.length === 0) return items
+    const matches = (creator) => subtagsOf(creator).filter((code) => mySubtags.includes(code)).length
+    return items
+      .map((item, index) => ({ item, index, score: matches(item) }))
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map(({ item }) => item)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recommended.data, subtagsOn, mySubtags])
+  const reordered = subtagsOn && mySubtags.length > 0 && recommendedItems.some((item, i) => item !== recommended.data?.items[i])
+
   const rowProps = (creator) => ({
+    subtags: subtagsOf(creator),
+    mySubtags,
     creator,
     followed: isFollowing(creator.creatorId),
     disabled: !followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId,
@@ -225,7 +267,12 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
           )}
           {!recommended.loading && !recommended.error && (recommended.data?.items.length ?? 0) > 0 && (
             <ul className="flex flex-col gap-2.5">
-              {recommended.data.items.map((item) => (
+              {reordered && (
+                <li className="px-1 font-label-xs text-label-xs text-outline list-none" aria-live="polite">
+                  실험: 고른 세부 태그와 겹치는 크리에이터를 위로 올렸어요.
+                </li>
+              )}
+              {recommendedItems.map((item) => (
                 <CreatorRow key={item.creatorId} {...rowProps(item)} reason={reasonOf(item, interestNames)} />
               ))}
             </ul>

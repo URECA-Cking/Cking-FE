@@ -34,7 +34,7 @@
 | GET | `/api/creators/{creatorId}/calendar/schedules` | Creator Space 공개 캘린더 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
 | GET/PUT/DELETE | `/api/me/calendar/schedules`, `/api/me/calendar/schedules/{scheduleId}` | 내 캘린더 조회·담기·빼기 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
 | GET | `/api/creators/{creatorId}/posts`, `/api/creators/{creatorId}/posts/{postId}` | Space 게시물 목록·상세 | 연동 | [Post](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/api.md) |
-| GET/POST/PATCH/DELETE | `/api/creators/{creatorId}/posts/{postId}/comments` | 게시물 댓글 조회·작성·수정·삭제 | 연동 | [Comment](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/comment-api.md) |
+| GET/POST/PATCH/DELETE | `/api/creators/{creatorId}/posts/{postId}/comments`, `/api/creators/{creatorId}/posts/{postId}/comments/{commentId}/original` | 게시물 댓글 조회·작성·수정·삭제, 필터링된 댓글 원문 보기 | 연동 | [Comment](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/comment-api.md) |
 | GET | `/api/interests`, `/api/me/interests` | 온보딩 관심 분야 조회 | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
 | PUT | `/api/me/interests` | 온보딩 관심 분야 저장(0~3개) | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
 | GET | `/api/me/creator-recommendations` | 온보딩 AI 크리에이터 추천 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
@@ -69,7 +69,8 @@
 | POST/GET | `/api/admin/winners/{winnerId}/receive`, `/disqualify`, `/api/winners/{winnerId}/history` | 당첨자 수령·자격·이력 | 연동 | [Winner](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/winner/api.md) |
 | GET/POST | `/api/admin/events/{eventId}/redraw-requests`, `/api/admin/redraw-requests`, `/{id}`, `/{id}/approve`, `/{id}/reject`, `/{id}/execute` | 재추첨 요청 생성·목록·상세·심사·실행 | 연동 | [Redraw](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/redraw/api.md) |
 | GET/POST | `/api/admin/dead-streams`, `/api/admin/dead-streams/{id}/replay` | Dead Stream 조회·replay | 연동 | [Stream](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/stream/api.md) |
+| GET/PATCH | `/api/admin/abuse-detections`, `/api/admin/abuse-detections/{id}`, `/api/admin/abuse-detections/{id}/review` | Detection 목록·Evidence 상세·관리자 검토 | 연동 | [Abuse Detection](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/abuse-detection/api.md) |
 
 ## 미연동 또는 확인이 필요한 BE 기능
 
-현재 UI/API 모듈에서 사용하지 않는 API를 새로 연동할 때는 먼저 API 인덱스에서 역할과 계약 문서를 확인하고, 해당 행을 이 문서에 추가한다. 예: Creator Space 템플릿, 관심사, Abuse Detection, Subscription Verification, Ticket/Lua 내부 처리 API는 현재 FE 화면 사용 범위가 아니다.
+현재 UI/API 모듈에서 사용하지 않는 API를 새로 연동할 때는 먼저 API 인덱스에서 역할과 계약 문서를 확인하고, 해당 행을 이 문서에 추가한다. 예: Creator Space 템플릿, Subscription Verification, Ticket/Lua 내부 처리 API는 현재 FE 화면 사용 범위가 아니다.

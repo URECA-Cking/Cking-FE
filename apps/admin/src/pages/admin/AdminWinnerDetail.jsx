@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import BackHeader from '../../components/BackHeader.jsx'
+import { useLocation, useParams } from 'react-router-dom'
 import MaterialIcon from '../../components/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { describeError } from '../../api/client.js'
@@ -23,7 +22,6 @@ function statusMeta(status) {
 }
 
 export default function AdminWinnerDetail() {
-  const navigate = useNavigate()
   const { winnerId } = useParams()
   const { state } = useLocation()
   const winner = state?.winner
@@ -81,10 +79,8 @@ export default function AdminWinnerDetail() {
   }
 
   return (
-    <div className="flex flex-col w-full min-h-screen pt-safe pb-8">
-      <BackHeader title="당첨자 운영" onBack={() => navigate(-1)} />
-
-      <main className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-5xl md:px-8">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-space-md">
+      <div className="border-b border-slate-200 pb-4"><p className="text-sm text-slate-500">당첨자 관리</p><h1 className="mt-1 text-xl font-semibold text-slate-950">당첨자 운영</h1></div>
         <section className="p-space-md rounded-2xl bg-gradient-to-br from-primary via-[#be185d] to-berry-deep text-on-primary shadow-floating relative overflow-hidden">
           <MaterialIcon name="workspace_premium" filled className="absolute -right-2 -bottom-4 text-[112px] text-primary-fixed/15" />
           <div className="relative flex items-start gap-space-sm">
@@ -184,7 +180,6 @@ export default function AdminWinnerDetail() {
             </ol>
           )}
         </section>
-      </main>
     </div>
   )
 }

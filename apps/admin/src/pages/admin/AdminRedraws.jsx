@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   approveRedrawRequest,
   createRedrawRequest,
@@ -10,7 +9,6 @@ import {
   retryDrawing,
 } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
-import BackHeader from '../../components/BackHeader.jsx'
 import MaterialIcon from '../../components/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
@@ -42,7 +40,6 @@ function createIdempotencyKey() {
 
 /** 재추첨 요청 목록과 상세 심사·실행 흐름을 제공한다. */
 export default function AdminRedraws() {
-  const navigate = useNavigate()
   const showToast = useToast()
   const [eventId, setEventId] = useState('')
   const [reason, setReason] = useState('')
@@ -85,9 +82,8 @@ export default function AdminRedraws() {
   async function refreshOperation() { await Promise.all([reload(), reloadList()]) }
 
   return (
-    <div className="flex flex-col w-full min-h-screen pt-safe pb-8">
-      <BackHeader title="재추첨 관리" onBack={() => navigate('/admin')} />
-      <main className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-5xl md:px-8">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-space-md">
+      <div className="border-b border-slate-200 pb-4"><p className="text-sm text-slate-500">이벤트 운영</p><h1 className="mt-1 text-xl font-semibold text-slate-950">재추첨 관리</h1></div>
         <section className="p-space-md rounded-2xl bg-gradient-to-br from-primary via-[#be185d] to-berry-deep text-on-primary shadow-floating">
           <p className="font-label-sm text-label-sm text-primary-fixed uppercase tracking-wider">Redraw request</p><h2 className="font-title-lg text-title-lg font-bold mt-1">재추첨 요청 관리</h2><p className="font-body-sm text-body-sm text-primary-fixed mt-1">요청 목록에서 심사와 실행 상태를 안전하게 처리하세요.</p>
         </section>
@@ -105,7 +101,6 @@ export default function AdminRedraws() {
         {redraw?.redrawRequestId === selectedId && !loading && (
           <RedrawDetail redraw={redraw} onChanged={refreshOperation} />
         )}
-      </main>
     </div>
   )
 }

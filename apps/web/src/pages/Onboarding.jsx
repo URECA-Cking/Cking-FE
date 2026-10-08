@@ -16,6 +16,14 @@ import { useUser } from '../context/useUser.js'
  * 가입 직후에는 로그인 콜백이 onboardingCompleted=false인 신규 가입자를 이 화면으로 보내고(#66),
  * "시작하기"·"나중에 할게"를 누르면 BE에 완료를 기록한 뒤 로그인 전에 가려던 화면으로 이동한다.
  */
+// 단계만 바꾸고 나머지 쿼리(?subtags=0 같은 실험 스위치)는 보존한다. 통째로 교체하면 다음 단계에서 스위치가 사라진다.
+function withStep(prev, step) {
+  const next = new URLSearchParams(prev)
+  if (step) next.set('step', step)
+  else next.delete('step')
+  return next
+}
+
 export default function Onboarding({ manage = false }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -57,7 +65,7 @@ export default function Onboarding({ manage = false }) {
     }
     // 새로고침 등으로 2단계에서 시작했다면 기록을 늘리지 않고 1단계로 바꾼다.
     if (step === 'creators' && !manage) {
-      setParams({}, { replace: true, state: location.state })
+      setParams((prev) => withStep(prev, null), { replace: true, state: location.state })
       return
     }
     // 돌아갈 곳이 없으면(가입 직후 등) 로그인 전에 가려던 화면, 없으면 홈으로 보낸다.
@@ -74,7 +82,7 @@ export default function Onboarding({ manage = false }) {
         onBack={handleBack}
       />
       {step === 'interests' ? (
-        <InterestStep onDone={() => setParams({ step: 'creators' }, { state: location.state })} />
+        <InterestStep onDone={() => setParams((prev) => withStep(prev, 'creators'), { state: location.state })} />
       ) : (
         <CreatorStep
           onFinish={manage ? () => navigate(-1) : finish}

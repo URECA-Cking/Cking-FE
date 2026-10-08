@@ -8,6 +8,7 @@ import AdminDeadStreams from './pages/admin/AdminDeadStreams.jsx'
 import AdminRedraws from './pages/admin/AdminRedraws.jsx'
 import AdminWinnerDetail from './pages/admin/AdminWinnerDetail.jsx'
 import { AdminEventDetailPage, AdminEventsPage } from './pages/admin/AdminEvents.jsx'
+import { AdminAbuseDetectionDetailPage, AdminAbuseDetectionListPage } from './pages/admin/AdminAbuseDetections.jsx'
 import { ReviewDetailPage, ReviewListPage } from './pages/admin/ReviewPages.jsx'
 
 /** 관리자 도메인의 고정 URL과 로그인 보호 라우트를 등록한다. */
@@ -22,6 +23,8 @@ export default function App() {
       <Route path="/admin/console" element={protectedRoute(<AdminConsole />)} />
       <Route path="/admin/events" element={protectedRoute(<AdminEventsPage />)} />
       <Route path="/admin/events/:eventId" element={protectedRoute(<AdminEventDetailPage />)} />
+      <Route path="/admin/abuse-detections" element={protectedRoute(<AdminAbuseDetectionListPage />)} />
+      <Route path="/admin/abuse-detections/:detectionId" element={protectedRoute(<AdminAbuseDetectionDetailPage />)} />
       <Route path="/admin/reviews/creators" element={protectedRoute(<ReviewListPage type="creators" />)} />
       <Route path="/admin/reviews/creators/:reviewId" element={protectedRoute(<ReviewDetailPage type="creators" />)} />
       <Route path="/admin/reviews/events" element={protectedRoute(<ReviewListPage type="events" />)} />

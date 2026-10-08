@@ -36,19 +36,20 @@ export function AdminAbuseDetectionListPage() {
   const [draft, setDraft] = useState(EMPTY_FILTERS)
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [page, setPage] = useState(0)
+  const [searchVersion, setSearchVersion] = useState(0)
   const [validationMessage, setValidationMessage] = useState('')
   const query = useMemo(() => ({
     memberId: filters.memberId ? Number(filters.memberId) : undefined,
     abuseType: filters.abuseType || undefined,
     status: filters.status || undefined,
     detectedAtFrom: toUtcDateTime(filters.detectedAtFrom),
-    detectedAtTo: toUtcDateTime(filters.detectedAtTo),
+    detectedAtTo: toUtcDateTime(filters.detectedAtTo, { endOfMinute: true }),
     page,
     size: PAGE_SIZE,
   }), [filters, page])
   const { data, loading, error, reload } = useAsync(
     () => getAbuseDetections(query),
-    [query.memberId, query.abuseType, query.status, query.detectedAtFrom, query.detectedAtTo, query.page],
+    [query.memberId, query.abuseType, query.status, query.detectedAtFrom, query.detectedAtTo, query.page, searchVersion],
     { fallbackMessage: '이상행위 탐지 목록을 불러오지 못했습니다.' },
   )
   const items = data?.items ?? []
@@ -61,7 +62,7 @@ export function AdminAbuseDetectionListPage() {
     event.preventDefault()
     const memberId = draft.memberId ? Number(draft.memberId) : undefined
     const from = toUtcDateTime(draft.detectedAtFrom)
-    const to = toUtcDateTime(draft.detectedAtTo)
+    const to = toUtcDateTime(draft.detectedAtTo, { endOfMinute: true })
     if (draft.memberId && (!Number.isSafeInteger(memberId) || memberId <= 0)) {
       setValidationMessage('회원 ID는 양의 정수로 입력해주세요.')
       return
@@ -77,12 +78,14 @@ export function AdminAbuseDetectionListPage() {
     setValidationMessage('')
     setFilters(draft)
     setPage(0)
+    setSearchVersion((current) => current + 1)
   }
 
   function resetFilters() {
     setDraft(EMPTY_FILTERS)
     setFilters(EMPTY_FILTERS)
     setPage(0)
+    setSearchVersion((current) => current + 1)
     setValidationMessage('')
   }
 

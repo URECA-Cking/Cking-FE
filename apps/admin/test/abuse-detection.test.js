@@ -30,5 +30,10 @@ test('Evidence Scope를 식별 가능한 관리자 요약으로 표시한다', (
 test('datetime-local 입력을 API UTC 시각으로 변환하고 빈 값은 보내지 않는다', () => {
   assert.equal(toUtcDateTime(''), undefined)
   assert.equal(toUtcDateTime('invalid'), undefined)
-  assert.match(toUtcDateTime('2026-10-08T12:30'), /^2026-10-08T/)
+  const startOfMinute = toUtcDateTime('2026-10-08T12:30')
+  assert.match(startOfMinute, /^2026-10-08T/)
+  assert.equal(
+    toUtcDateTime('2026-10-08T12:30', { endOfMinute: true }),
+    `${startOfMinute.slice(0, 16)}:59.999999999Z`,
+  )
 })

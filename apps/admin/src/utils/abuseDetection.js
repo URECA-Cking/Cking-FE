@@ -77,10 +77,12 @@ export function ruleLabels(rules = []) {
 }
 
 /** datetime-local 입력을 API의 UTC RFC 3339 query 값으로 변환한다. */
-export function toUtcDateTime(value) {
+export function toUtcDateTime(value, { endOfMinute = false } = {}) {
   if (!value) return undefined
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+  if (Number.isNaN(date.getTime())) return undefined
+  const instant = date.toISOString()
+  return endOfMinute ? `${instant.slice(0, 16)}:59.999999999Z` : instant
 }
 
 function formatDuration(milliseconds) {

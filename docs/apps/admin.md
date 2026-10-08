@@ -28,6 +28,8 @@ HTTP 전송·토큰 저장소·MaterialIcon·포맷터·조회 훅은 `packages/
 
 이상행위 탐지는 자동 차단이나 회원 제재를 수행하지 않는다. 관리자는 서버 페이지네이션으로 Detection을 조회하고 저장된 Evidence를 확인한 뒤 `CONFIRMED` 또는 `FALSE_POSITIVE`를 한 번 기록할 수 있다. 탐지 설정과 Rule 변경은 Admin UI 범위 밖이다.
 
+목록의 탐지 기간은 `datetime-local` 입력을 UTC RFC 3339로 변환해 전달한다. 종료 시각은 사용자가 고른 분의 마지막 시각(`:59.999999999`)까지 포함하며, 동일 조건으로 조회를 다시 실행하면 최신 서버 목록을 다시 읽는다.
+
 ## 로컬 E2E 확인
 
 `npm run test:e2e:admin`은 실제 개발 배포 환경에서 관리자 로그인, Refresh Cookie를 이용한 세션 복원, 로그아웃과 보호 라우트 차단을 확인하는 선택적 Playwright 테스트다. CI와 기본 `npm run test`에는 포함하지 않는다. 테스트 계정은 `E2E_ADMIN_LOGIN_ID`, `E2E_ADMIN_PASSWORD` 환경변수로 전달하며 저장소에 기록하지 않는다.

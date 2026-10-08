@@ -5,6 +5,8 @@ import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import OnboardingFooter, { GhostButton, PrimaryButton } from './OnboardingFooter.jsx'
+import { DUMMY_SUBTAGS, SUBTAG_MAX_PER_PARENT, keepSubtagsOf, loadDummySubtags, saveDummySubtags, subtagsExperimentOn } from '../../data/interestSubtagsDummy.js'
+import { useUser } from '../../context/useUser.js'
 
 const sameSet = (a, b) => a.length === b.length && a.every((code) => b.includes(code))
 
@@ -15,7 +17,7 @@ const sameSet = (a, b) => a.length === b.length && a.every((code) => b.includes(
  * GET /api/interests 응답 값을 쓴다(내 선택에 딸린 과거 버전은 분류체계가 바뀌면 저장이 400이 된다).
  * 바꾼 것이 없으면 저장하지 않고 넘어간다.
  */
-export default function InterestStep({ onDone }) {
+function InterestStepContent({ onDone, memberId }) {
   const showToast = useToast()
   const { data, loading, error, reload } = useAsync(
     async () => {
@@ -28,6 +30,10 @@ export default function InterestStep({ onDone }) {
   // null이면 아직 사용자가 건드리지 않았으므로 서버에 저장된 선택을 그대로 보여준다.
   const [picked, setPicked] = useState(null)
   const [saving, setSaving] = useState(false)
+  // 실험: 상위 분야를 고르면 세부 태그를 고를 수 있다(더미 데이터, 서버 저장 없음, 이슈 #83).
+  // 개발 서버에서만 켜지고(?subtags=0이면 끔) 배포 빌드에서는 코드와 더미 데이터가 번들에서 빠진다.
+  const subtagsOn = import.meta.env.DEV && subtagsExperimentOn()
+  const [subPicked, setSubPicked] = useState(() => (subtagsOn && memberId != null ? loadDummySubtags(memberId) : []))
 
   const catalog = data?.catalog
   const items = useMemo(() => catalog?.items ?? [], [catalog])
@@ -40,6 +46,10 @@ export default function InterestStep({ onDone }) {
 
   // 렌더 시점의 값이 아니라 직전 상태를 기준으로 바꿔, 빠르게 연달아 눌러도 앞선 선택을 잃지 않는다.
   function toggle(code) {
+    if (import.meta.env.DEV && subtagsOn) {
+      const ownCodes = (DUMMY_SUBTAGS[code] ?? []).map((sub) => sub.code)
+      setSubPicked((prev) => prev.filter((subCode) => !ownCodes.includes(subCode)))
+    }
     setPicked((prev) => {
       const base = prev ?? saved
       const next = base.includes(code) ? base.filter((item) => item !== code) : [...base, code]
@@ -47,15 +57,31 @@ export default function InterestStep({ onDone }) {
     })
   }
 
+  function toggleSub(parentCode, subCode) {
+    if (!import.meta.env.DEV) return // 배포 빌드에서는 이 함수와 더미 데이터가 번들에서 빠진다
+    setSubPicked((prev) => {
+      if (prev.includes(subCode)) return prev.filter((code) => code !== subCode)
+      const ownCodes = (DUMMY_SUBTAGS[parentCode] ?? []).map((sub) => sub.code)
+      if (prev.filter((code) => ownCodes.includes(code)).length >= SUBTAG_MAX_PER_PARENT) return prev
+      return [...prev, subCode]
+    })
+  }
+
+  // 세부 태그는 상위 분야와 같은 시점(다음)에 저장한다. 저장 없이 이탈했을 때 세부 태그만 남아 추천 재정렬에 쓰이지 않게 한다.
+  function finishStep() {
+    if (subtagsOn && memberId != null) saveDummySubtags(memberId, keepSubtagsOf(subPicked, current))
+    onDone()
+  }
+
   async function handleNext() {
     if (!changed) {
-      onDone()
+      finishStep()
       return
     }
     setSaving(true)
     try {
       await saveMyInterests({ taxonomyVersion: catalog.taxonomyVersion, interestCodes: current })
-      onDone()
+      finishStep()
     } catch (err) {
       showToast(describeError(err, '관심 분야를 저장하지 못했어요.'), { icon: 'error' })
     } finally {
@@ -102,6 +128,49 @@ export default function InterestStep({ onDone }) {
           <span className="font-label-xs text-label-xs text-outline" aria-live="polite">
             {current.length}/{max}개 선택
           </span>
+
+          {import.meta.env.DEV && subtagsOn && (
+            <div className="flex flex-col gap-4 mt-2" data-testid="subtags">
+              <p className="px-3 py-2 rounded-lg bg-surface-container font-label-xs text-label-xs text-on-surface-variant">
+                실험용 화면이에요. 세부 태그는 더미 데이터이고 이 기기에만 저장돼요(서버에는 저장되지 않아요).
+              </p>
+              {current.map((parentCode) => {
+                const parent = items.find((item) => item.interestCode === parentCode)
+                const subs = DUMMY_SUBTAGS[parentCode] ?? []
+                const ownCount = subs.filter((sub) => subPicked.includes(sub.code)).length
+                return (
+                  <section key={parentCode} className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <h2 className="font-title-md text-title-md text-on-surface">{parent?.name} 세부 태그</h2>
+                      <span className="font-label-xs text-label-xs text-outline">
+                        {ownCount}/{SUBTAG_MAX_PER_PARENT}개
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label={`${parent?.name} 세부 태그`}>
+                      {subs.map((sub) => {
+                        const selected = subPicked.includes(sub.code)
+                        const full = !selected && ownCount >= SUBTAG_MAX_PER_PARENT
+                        return (
+                          <button
+                            key={sub.code}
+                            type="button"
+                            aria-pressed={selected}
+                            disabled={full}
+                            onClick={() => toggleSub(parentCode, sub.code)}
+                            className={`px-3.5 py-2 rounded-full font-label-sm text-label-sm font-semibold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
+                              selected ? 'bg-secondary text-on-secondary shadow-sm' : 'bg-surface-container-low text-on-surface-variant'
+                            }`}
+                          >
+                            {sub.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </section>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -113,4 +182,13 @@ export default function InterestStep({ onDone }) {
       </OnboardingFooter>
     </>
   )
+}
+
+/**
+ * 세부 태그 선택을 회원별로 보관하므로, 사용자 정보가 확정되면 안쪽 컴포넌트를 새로 만들어
+ * 저장된 선택을 처음부터 올바른 키로 읽는다.
+ */
+export default function InterestStep(props) {
+  const { user } = useUser()
+  return <InterestStepContent key={user?.memberId ?? 'anonymous'} memberId={user?.memberId} {...props} />
 }

@@ -15,6 +15,7 @@ import {
   updateComment,
 } from '../../api/posts.js'
 import { useAsync } from '../../hooks/useAsync.js'
+import { useProfileSetupRedirect } from '../../hooks/useProfileSetupRedirect.js'
 import { formatDateTime } from '../../utils/format.js'
 
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
@@ -43,6 +44,7 @@ const inputClass =
  */
 export default function PostComments({ creatorId, postId, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostRestricted }) {
   const showToast = useToast()
+  const redirectToProfileSetup = useProfileSetupRedirect()
   const first = useAsync(
     () => getPostComments(creatorId, postId),
     [creatorId, postId],
@@ -155,6 +157,8 @@ export default function PostComments({ creatorId, postId, authenticated, followi
       setLocal((state) => ({ ...state, created: [...state.created, created] }))
       refreshQuietly()
     } catch (error) {
+      // 닉네임을 설정하지 않았으면 프로필 설정 화면으로 보낸다. 작성하던 내용은 돌아왔을 때 다시 쓴다.
+      if (redirectToProfileSetup(error)) return
       setPostError(describeCommentError(error, '댓글을 남기지 못했어요.'))
     } finally {
       setPosting(false)
@@ -173,6 +177,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
       setEditing(null)
       refreshQuietly()
     } catch (error) {
+      if (redirectToProfileSetup(error)) return
       setEditError(describeCommentError(error, '댓글을 수정하지 못했어요.'))
     } finally {
       setSavingEdit(false)

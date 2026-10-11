@@ -23,7 +23,7 @@ function modalSize(ratio, hasMedia) {
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
-export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin }) {
+export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostCountChange }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
@@ -98,11 +98,22 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     setLocal((current) => edited
       ? { ...current, updated: { ...current.updated, [saved.postId]: saved } }
       : { ...current, created: [saved, ...current.created] })
+    // 새 글은 프로필의 게시물 수도 바뀐다(수정은 개수가 그대로).
+    if (!edited) onPostCountChange?.()
     refreshQuietly()
   }
 
   function markDeleted(postId) {
     setLocal((current) => ({ ...current, deleted: [...current.deleted, postId] }))
+    onPostCountChange?.()
+    refreshQuietly()
+  }
+
+  // 이미지 주소는 10분만 유효하다. 썸네일이 실패하면 목록을 다시 받아 새 주소로 바꾼다(60초에 한 번만, 다시 실패해도 반복하지 않는다).
+  const lastThumbRefresh = useRef(0)
+  function handleThumbError() {
+    if (sync !== 'synced' || Date.now() - lastThumbRefresh.current < 60_000) return
+    lastThumbRefresh.current = Date.now()
     refreshQuietly()
   }
 
@@ -200,7 +211,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
       {!first.loading && !first.error && page && posts.length > 0 && (
         <div className="grid grid-cols-3 gap-0.5 md:gap-1">
           {posts.map((post) => (
-            <PostGridTile key={post.postId} post={post} onOpen={() => openDetail(post.postId)} />
+            <PostGridTile key={post.postId} post={post} onOpen={() => openDetail(post.postId)} onImageError={handleThumbError} />
           ))}
         </div>
       )}
@@ -301,10 +312,11 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
 }
 
 /** 그리드 한 칸: 첫 이미지를 정사각으로. 잠금·텍스트 전용·이미지 실패는 아이콘/본문 타일로 대신한다. */
-function PostGridTile({ post, onOpen }) {
-  const [failed, setFailed] = useState(false)
+function PostGridTile({ post, onOpen, onImageError }) {
+  // 실패한 "주소"를 기억해서, 목록을 다시 받아 새 주소가 오면 이미지를 다시 보여준다.
+  const [failedUrl, setFailedUrl] = useState(null)
   const thumb = post.images?.[0]?.url
-  const showImage = !post.locked && thumb && !failed
+  const showImage = !post.locked && thumb && failedUrl !== thumb
   return (
     <button
       type="button"
@@ -313,7 +325,7 @@ function PostGridTile({ post, onOpen }) {
       className="group relative block aspect-square w-full overflow-hidden bg-surface-container active:opacity-80"
     >
       {showImage ? (
-        <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" onError={() => setFailed(true)} />
+        <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" onError={() => { setFailedUrl(thumb); onImageError?.() }} />
       ) : post.locked ? (
         <span className="flex h-full w-full items-center justify-center bg-surface-container-high text-on-surface-variant">
           <MaterialIcon name="lock" className="text-[28px]" />

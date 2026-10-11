@@ -497,6 +497,7 @@ export default function CreatorSpace() {
         {tab === 'posts' && !sessionLoading && (
           <CreatorPosts
             key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}:${authenticated}:${following}:${isMine}`}
+            onPostCountChange={postTotal.reload}
             creatorId={creator.creatorId}
             creatorName={creator.creatorName}
             profileImageUrl={creator.profileImageUrl}

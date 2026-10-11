@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { currentImageKey, displayNickname, normalizeNickname, validateNickname } from '../src/utils/nickname.js'
+import { currentImageKey, displayNickname, normalizeMe, normalizeNickname, validateNickname } from '../src/utils/nickname.js'
 
 test('완성형 한글·영문·숫자·밑줄·하이픈 1~20자는 통과한다', () => {
   for (const nickname of ['유니', 'Yuni_01', 'a-b', '1', '가'.repeat(20), 'A'.repeat(20)]) {
@@ -39,3 +39,31 @@ test('표시할 닉네임은 닉네임이 없으면 null이고 구버전 BE 응�
   assert.equal(displayNickname({ name: '홍길동' }), '홍길동')
   assert.equal(displayNickname(null), null)
 })
+
+test('사진 key는 URL에 쿼리 문자열이나 해시가 붙어도 뽑는다', () => {
+  const base = 'https://cdn.example.com/member-profile-images/7/0d5c-e2.jpg'
+  assert.equal(currentImageKey({ profileImageUrl: `${base}?v=3&x=1` }), 'member-profile-images/7/0d5c-e2.jpg')
+  assert.equal(currentImageKey({ profileImageUrl: `${base}#top` }), 'member-profile-images/7/0d5c-e2.jpg')
+  assert.equal(currentImageKey({ profileImageUrl: `/member-profile-images/7/0d5c-e2.jpg?x=1` }), 'member-profile-images/7/0d5c-e2.jpg')
+  assert.equal(
+    currentImageKey({ profileImageUrl: 'http://localhost:9090/cking-local-uploads/member-profile-images/7/a.jpg' }),
+    'member-profile-images/7/a.jpg',
+  )
+  assert.equal(currentImageKey({ profileImageUrl: 'not a url ::::' }), null)
+})
+
+test('BE가 profileSetupRequired를 내려주면 profileConfigured로 통일한다', () => {
+  assert.equal(normalizeMe({ nickname: null, profileSetupRequired: true }).profileConfigured, false)
+  assert.equal(normalizeMe({ nickname: '유니', profileSetupRequired: false }).profileConfigured, true)
+  // 이미 profileConfigured가 있으면 그대로 둔다.
+  assert.equal(normalizeMe({ profileConfigured: true, profileSetupRequired: true }).profileConfigured, true)
+  // 두 필드가 모두 없으면(구버전 BE) 만들지 않는다.
+  assert.equal('profileConfigured' in normalizeMe({ name: '홍길동' }), false)
+  assert.equal(normalizeMe(null), null)
+})
+
+test('profileSetupRequired를 받은 닉네임 미설정 회원에게는 OAuth 이름을 보여주지 않는다', () => {
+  const me = normalizeMe({ name: 'OAuth 이름', nickname: null, profileSetupRequired: true })
+  assert.equal(displayNickname(me), null)
+})
+

@@ -1,6 +1,7 @@
 import { ApiError, apiClient, describeError } from './client.js'
 import { getMe } from './auth.js'
 import { profileMock } from '../dev/profileMock.js'
+import { normalizeMe } from '../utils/nickname.js'
 
 // 내 프로필 API(Cking-BE #518 닉네임 정책, #519 프로필 사진 업로드 및 내 프로필 수정 API).
 // 필드 이름·오류 코드는 BE 문서가 확정되면 맞춘다. 확정 전에는 `?mock=1`로 화면을 확인한다(dev/profileMock.js).
@@ -15,7 +16,7 @@ const mockActive = () => profileMock !== null && new URLSearchParams(window.loca
 
 /** GET /api/me. 프로필 필드(nickname, profileImageUrl, profileConfigured, nicknameChangeableAt, restorableNickname)를 포함한다. */
 export async function getMyProfile() {
-  const me = await getMe()
+  const me = normalizeMe(await getMe())
   return mockActive() ? profileMock.me(me) : me
 }
 
@@ -34,7 +35,7 @@ export function uploadProfileImage(file) {
  */
 export async function updateMyProfile({ nickname, profileImageKey }) {
   if (mockActive()) {
-    const me = await getMe()
+    const me = normalizeMe(await getMe())
     return profileMock.update(profileMock.me(me), { nickname, profileImageKey })
   }
   await apiClient.put('/api/me/profile', { nickname, profileImageKey })
@@ -49,11 +50,13 @@ export function isProfileSetupRequired(error) {
   return error?.code === PROFILE_SETUP_REQUIRED
 }
 
-/** 프로필 저장·사진 업로드 오류 코드별 문구. 확정되지 않은 코드는 서버 메시지나 상태 코드로 대신한다. */
+/**
+ * 프로필 저장·사진 업로드 오류 코드별 문구. NICKNAME_ALREADY_TAKEN·NICKNAME_CHANGE_TOO_SOON·PROFILE_SETUP_REQUIRED는 BE(#518)가 확정한 코드다.
+ * 사진 오류 코드(#519)는 아직 확정 전이라 모르는 코드는 서버 메시지나 상태 코드로 대신한다.
+ */
 export const PROFILE_ERROR_MESSAGES = {
   NICKNAME_ALREADY_TAKEN: '이미 사용 중인 닉네임이에요. 다른 닉네임을 입력해주세요.',
   NICKNAME_CHANGE_TOO_SOON: '닉네임은 마지막으로 바꾼 뒤 14일이 지나야 다시 바꿀 수 있어요.',
-  NICKNAME_NOT_RESTORABLE: '이전 닉네임으로 돌아갈 수 없어요. 다른 사람이 쓰고 있거나 되돌릴 수 있는 기간이 지났어요.',
   VALIDATION_FAILED: '입력한 내용을 확인해주세요. 닉네임은 1~20자, 한글·영문·숫자·_·-만 쓸 수 있어요.',
   INVALID_PROFILE_IMAGE: '이미지를 사용할 수 없어요. JPEG·PNG, 5MB 이하, 200×200px 이상인지 확인해주세요.',
   PROFILE_IMAGE_UNAVAILABLE: '사용할 수 없는 사진이에요. 사진을 다시 올려주세요.',

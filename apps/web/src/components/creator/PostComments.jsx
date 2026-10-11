@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import CommentReportSheet from './CommentReportSheet.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError } from '../../api/client.js'
 import {
   COMMENT_ERROR_MESSAGES,
   COMMENT_MAX_LENGTH,
+  COMMENT_REPORT_ERROR_MESSAGES,
   createComment,
   deleteComment,
   getCommentOriginal,
@@ -61,6 +63,8 @@ export default function PostComments({ creatorId, postId, authenticated, followi
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  // 신고 창을 연 댓글 ID(없으면 null).
+  const [reportingId, setReportingId] = useState(null)
   // 필터링된 댓글에서 사용자가 펼친 원문. 요청 시점의 updatedAt과 함께 저장해, 그 뒤 댓글이 고쳐져 다시 판정되면 이전 원문을 쓰지 않는다.
   const [originals, setOriginals] = useState({})
   const revealing = useRef(new Set())
@@ -269,7 +273,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                   ) : (
                     <p className="whitespace-pre-wrap break-words font-body-sm text-body-sm text-on-surface">{comment.content}</p>
                   )}
-                  {authenticated && (isOwn(comment) || isMine) && (
+                  {((authenticated && (isOwn(comment) || isMine)) || !isOwn(comment)) && (
                     <div className="mt-2 flex justify-end gap-3">
                       {/* 수정은 쓰기 권한이 있을 때만(팔로우를 끊은 작성자는 서버가 거절한다). 삭제는 팔로우와 무관하다. */}
                       {isOwn(comment) && canWrite && (
@@ -282,14 +286,26 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                           수정
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => remove(comment)}
-                        disabled={deletingId === comment.commentId}
-                        className="font-label-sm text-label-sm text-error disabled:opacity-50"
-                      >
-                        {deletingId === comment.commentId ? '삭제하는 중...' : '삭제'}
-                      </button>
+                      {authenticated && (isOwn(comment) || isMine) && (
+                        <button
+                          type="button"
+                          onClick={() => remove(comment)}
+                          disabled={deletingId === comment.commentId}
+                          className="font-label-sm text-label-sm text-error disabled:opacity-50"
+                        >
+                          {deletingId === comment.commentId ? '삭제하는 중...' : '삭제'}
+                        </button>
+                      )}
+                      {/* 본인 댓글은 신고할 수 없다(BE도 거절한다). 비로그인이면 로그인 안내로 보낸다. */}
+                      {!isOwn(comment) && (
+                        <button
+                          type="button"
+                          onClick={() => (authenticated ? setReportingId(comment.commentId) : onLogin())}
+                          className="font-label-sm text-label-sm text-on-surface-variant"
+                        >
+                          신고
+                        </button>
+                      )}
                     </div>
                   )}
                 </>
@@ -357,6 +373,24 @@ export default function PostComments({ creatorId, postId, authenticated, followi
           </div>
         )}
       </div>
+      {reportingId !== null && (
+        <CommentReportSheet
+          creatorId={creatorId}
+          postId={postId}
+          commentId={reportingId}
+          onClose={() => setReportingId(null)}
+          onReported={() => {
+            setReportingId(null)
+            showToast('신고가 접수됐어요.')
+          }}
+          onGone={(error) => {
+            setReportingId(null)
+            showToast(COMMENT_REPORT_ERROR_MESSAGES[error.code] ?? '신고할 수 없는 댓글이에요.', { icon: 'error' })
+            // 삭제된 댓글이면 목록에서도 사라지도록 서버 목록과 다시 맞춘다.
+            if (error.code === 'RESOURCE_NOT_FOUND') refreshQuietly()
+          }}
+        />
+      )}
     </section>
   )
 }

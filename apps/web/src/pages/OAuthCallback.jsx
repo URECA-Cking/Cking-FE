@@ -6,6 +6,7 @@ import { useUser } from '../context/useUser.js'
 import { exchangeLoginCode } from '../api/auth.js'
 import { describeError } from '../api/client.js'
 import { consumeLoginIntent } from '../utils/loginIntent.js'
+import { displayNickname } from '../utils/nickname.js'
 
 // 백엔드가 redirect로 넘기는 error 값(Cking-BE docs/domains/auth/api.md "OAuth 로그인 시작")
 const ERROR_MESSAGES = {
@@ -50,8 +51,14 @@ export default function OAuthCallback() {
         const me = await loadUser()
         if (!me) throw new Error('사용자 정보를 불러오지 못했어요.')
 
-        showToast(`${me.name}님, 환영해요.`)
+        showToast(displayNickname(me) ? `${displayNickname(me)}님, 환영해요.` : '환영해요.')
         const destination = intent.redirectTo || '/'
+        // 닉네임이 없으면(profileConfigured=false) 프로필 설정 화면이 먼저다. 설정을 마치면 온보딩이 남았을 때 온보딩으로, 아니면 destination으로 간다.
+        // 필드가 없으면(구버전 BE) 이동하지 않는다.
+        if (me.profileConfigured === false) {
+          navigate('/profile/edit', { replace: true, state: { from: destination } })
+          return
+        }
         // 신규 가입자는 BE가 onboardingCompleted=false로 내려준다. 필드가 없으면(구버전 BE) 이동하지 않는다.
         // 로그인 전에 가려던 화면은 온보딩을 마친 뒤 이어서 보내려고 state로 넘긴다.
         if (me.onboardingCompleted === false) navigate('/onboarding', { replace: true, state: { from: destination } })

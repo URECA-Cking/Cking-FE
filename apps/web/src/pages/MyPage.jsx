@@ -8,12 +8,14 @@ import { useTheme } from '../context/useTheme.js'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
+import { useProfileSetupRedirect } from '../hooks/useProfileSetupRedirect.js'
 import { loadCreatorDirectory } from '../api/creators.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { applyCreator, getMyCreatorApplications } from '../api/creatorApplications.js'
 import { describeError } from '../api/client.js'
 import { spacePath } from '../api/creatorSpace.js'
 import { formatDateTime, formatNumber } from '../utils/format.js'
+import { displayNickname } from '../utils/nickname.js'
 import { CREATOR_APPLICATION_STATUS_META } from '../utils/eventStatus.js'
 
 // 팔로우한 크리에이터가 많을 수 있어 처음엔 3명만 그리고 '더 보기'를 누르면 나머지를 모두 보여준다.
@@ -30,6 +32,7 @@ const ADMIN_BASE_URL = import.meta.env.VITE_ADMIN_BASE_URL || (import.meta.env.D
 export default function MyPage() {
   const navigate = useNavigate()
   const showToast = useToast()
+  const redirectToProfileSetup = useProfileSetupRedirect()
   const { user, isCreator, isAdmin, capabilities, clearUser, refreshCapabilities, followedCreators } = useUser()
   const { isDark, toggleTheme } = useTheme()
 
@@ -77,6 +80,7 @@ export default function MyPage() {
       )
       await Promise.all([applications.reload(), refreshCapabilities()])
     } catch (err) {
+      if (redirectToProfileSetup(err)) return
       showToast(describeError(err, '크리에이터 전환 신청에 실패했습니다.'), { icon: 'error' })
     } finally {
       setApplying(false)
@@ -92,11 +96,18 @@ export default function MyPage() {
   return (
     <div className="flex flex-col w-full px-margin pt-space-md pb-8 gap-space-lg md:mx-auto md:max-w-5xl md:px-8">
       <section className="flex items-center gap-space-md p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
-        <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center shrink-0">
-          <MaterialIcon name="person" className="text-on-primary text-[28px]" />
+        <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center shrink-0 overflow-hidden">
+          {user?.profileImageUrl ? (
+            <img src={user.profileImageUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <MaterialIcon name="person" className="text-on-primary text-[28px]" />
+          )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-title-lg text-title-lg text-on-surface font-bold truncate">{user?.name} 님</p>
+          {/* 공개 이름은 닉네임이다. 설정 전에는 OAuth 이름으로 대신하지 않고 안내만 보여준다. */}
+          <p className="font-title-lg text-title-lg text-on-surface font-bold truncate">
+            {displayNickname(user) ? `${displayNickname(user)} 님` : '닉네임 미설정'}
+          </p>
           <p className="font-label-sm text-label-sm text-on-surface-variant">{user?.email}</p>
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             <StatusPill label="팬" tone="bg-berry-tint text-primary" icon="favorite" />
@@ -107,14 +118,37 @@ export default function MyPage() {
             {!capabilities.checked && <span className="font-label-xs text-label-xs text-outline">권한 확인 중...</span>}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate('/login')}
-          className="px-3 py-2 rounded-xl bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-semibold active:scale-95 transition-all shrink-0"
-        >
-          계정 변경
-        </button>
+        <div className="flex shrink-0 flex-col gap-1.5">
+          <Link
+            to="/profile/edit"
+            state={{ from: '/my-page' }}
+            className="px-3 py-2 rounded-xl bg-primary text-on-primary text-center font-label-sm text-label-sm font-semibold active:scale-95 transition-all"
+          >
+            프로필 편집
+          </Link>
+          <button
+            type="button"
+            onClick={() => navigate('/login')}
+            className="px-3 py-2 rounded-xl bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-semibold active:scale-95 transition-all"
+          >
+            계정 변경
+          </button>
+        </div>
       </section>
+
+      {user?.profileConfigured === false && (
+        <Link
+          to="/profile/edit"
+          state={{ from: '/my-page' }}
+          className="flex items-center justify-between gap-3 rounded-2xl bg-berry-tint p-space-md active:scale-[0.99] transition-all"
+        >
+          <span className="flex flex-col gap-0.5">
+            <span className="font-label-md text-label-md font-semibold text-on-surface">닉네임을 설정해주세요</span>
+            <span className="font-body-sm text-body-sm text-on-surface-variant">댓글·응모·크리에이터 신청은 닉네임을 정한 뒤에 할 수 있어요.</span>
+          </span>
+          <MaterialIcon name="chevron_right" className="shrink-0 text-primary" />
+        </Link>
+      )}
 
       <section className="flex flex-col gap-space-sm">
         <div className="flex items-center justify-between">

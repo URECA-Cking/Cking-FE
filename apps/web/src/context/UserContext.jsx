@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { onUnauthorized } from '../api/client.js'
-import { getMe, logout, restoreSession } from '../api/auth.js'
+import { logout, restoreSession } from '../api/auth.js'
+import { getMyProfile } from '../api/profile.js'
 import { followCreator, getAllFollows, unfollowCreator } from '../api/follows.js'
 import UserContext from './userContext.js'
 import { OAUTH_CALLBACK_PATH } from '../utils/loginIntent.js'
@@ -39,7 +40,7 @@ export function UserProvider({ children }) {
     setUser(null)
     setStatus('loading')
     try {
-      const me = await getMe()
+      const me = await getMyProfile()
       if (sessionSeq.current !== seq) return null
       let follows
       try {
@@ -148,6 +149,12 @@ export function UserProvider({ children }) {
     setUser((current) => (current ? { ...current, onboardingCompleted: true } : current))
   }, [])
 
+  // 프로필 저장처럼 서버가 돌려준 사용자 값을 이미 가지고 있을 때 /api/me를 다시 읽지 않고(로딩 깜빡임 없이) 바꾼다.
+  // 다른 계정의 늦은 응답이 현재 계정을 덮지 않도록 같은 회원일 때만 적용한다.
+  const applyUser = useCallback((me) => {
+    setUser((current) => (current && current.memberId === me.memberId ? { ...current, ...me } : current))
+  }, [])
+
   const isFollowing = useCallback(
     (creatorId) => followedCreators.includes(Number(creatorId)),
     [followedCreators],
@@ -165,6 +172,7 @@ export function UserProvider({ children }) {
     // 크리에이터 승인처럼 권한이 바뀌었을 수 있을 때 /api/me를 다시 읽는다.
     refreshCapabilities: loadUser,
     markOnboardingCompleted,
+    applyUser,
     followedCreators,
     followsReady,
     followsError,
@@ -172,7 +180,7 @@ export function UserProvider({ children }) {
     pendingFollowIds,
     toggleFollow,
     isFollowing,
-  }), [user, status, capabilities, loadUser, clearUser, restore, markOnboardingCompleted, followedCreators, followsReady, followsError, reloadFollows, pendingFollowIds, toggleFollow, isFollowing])
+  }), [user, status, capabilities, loadUser, clearUser, restore, markOnboardingCompleted, applyUser, followedCreators, followsReady, followsError, reloadFollows, pendingFollowIds, toggleFollow, isFollowing])
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>
 }

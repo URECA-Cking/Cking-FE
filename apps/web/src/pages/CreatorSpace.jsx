@@ -379,6 +379,7 @@ export default function CreatorSpace() {
               <div className="hidden md:flex md:items-center md:gap-space-xs">{actions}</div>
             </div>
             <div className="md:col-start-2 md:row-start-3">
+              <span className="block font-label-xs text-label-xs text-outline">@{creator.slug}</span>
               <ProfileIntro text={creator.introText} />
             </div>
           </div>

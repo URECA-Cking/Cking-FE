@@ -88,3 +88,28 @@ export const COMMENT_ERROR_MESSAGES = {
   RESOURCE_NOT_FOUND: '댓글이나 게시글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
   VALIDATION_FAILED: '댓글은 1자 이상 500자 이하로 입력해주세요.',
 }
+
+/** 댓글 신고 사유(Cking-BE comment-api.md). OTHER일 때만 detail(1~200자)이 필수이고, 다른 사유에는 보내지 않는다. */
+export const COMMENT_REPORT_REASONS = [
+  { value: 'ABUSE', label: '욕설·혐오' },
+  { value: 'SPAM', label: '스팸·홍보' },
+  { value: 'PRIVACY', label: '개인정보 노출' },
+  { value: 'OTHER', label: '기타' },
+]
+export const COMMENT_REPORT_DETAIL_MAX = 200
+
+/** 신고 → { reportId, commentId, reason, createdAt }. 같은 댓글을 다시 신고해도 처음 접수된 신고가 201로 돌아온다. */
+export function reportComment(creatorId, postId, commentId, { reason, detail }) {
+  const body = reason === 'OTHER' ? { reason, detail } : { reason }
+  return apiClient.post(`${commentPath(creatorId, postId)}/${commentId}/reports`, body)
+}
+
+/** 댓글 신고 오류 코드별 문구. VALIDATION_FAILED가 작성용 문구와 달라 따로 둔다. */
+export const COMMENT_REPORT_ERROR_MESSAGES = {
+  COMMENT_REPORT_LIMIT_EXCEEDED: '짧은 시간에 너무 많이 신고했어요. 잠시 뒤에 다시 시도해주세요.',
+  COMMENT_REPORT_OWN_COMMENT: '내가 쓴 댓글은 신고할 수 없어요.',
+  POST_FOLLOWERS_ONLY: '팔로워에게만 공개된 게시글이에요.',
+  RESOURCE_NOT_FOUND: '댓글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
+  VALIDATION_FAILED: '신고 사유를 확인해주세요. 기타는 1~200자의 내용이 필요해요.',
+  UNAUTHORIZED: '로그인이 필요해요.',
+}

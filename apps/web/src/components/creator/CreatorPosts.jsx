@@ -173,6 +173,11 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     }
   }
 
+  // 댓글 쪽에서 팔로워 전용 오류를 받으면(다른 곳에서 팔로우를 해제한 경우 등) 상세를 닫고 목록을 다시 받아 잠금 상태를 반영한다.
+  const handlePostRestricted = () => {
+    closeDetail()
+    reloadFirst()
+  }
   const closeDetail = () => {
     detailSeq.current += 1
     setDetail(null)
@@ -299,6 +304,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
                       followDisabled={followDisabled}
                       onFollow={onFollow}
                       onLogin={onLogin}
+                      onPostRestricted={handlePostRestricted}
                     />
                   )}
                 </PostDetail>

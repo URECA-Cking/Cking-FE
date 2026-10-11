@@ -154,7 +154,12 @@ export default function ProfileEdit() {
 
   return (
     <div className="flex min-h-screen w-full flex-col pb-32 pt-safe">
-      <BackHeader title={setup ? '프로필 설정' : '프로필 편집'} onBack={handleBack} />
+      {/* BackHeader의 기본 오른쪽 영역(공유·마이페이지)은 이 화면에 맞지 않아 빈 자리로 대신한다. */}
+      <BackHeader
+        title={setup ? '프로필 설정' : '프로필 편집'}
+        onBack={handleBack}
+        right={<span className="h-11 w-11 shrink-0" aria-hidden="true" />}
+      />
       <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-[480px] flex-col gap-space-lg px-margin pt-[4.5rem] md:max-w-xl">
         {setup && (
           <div className="flex items-start gap-3 rounded-2xl bg-berry-tint p-space-md">
@@ -169,29 +174,39 @@ export default function ProfileEdit() {
         )}
 
         <section className="flex flex-col items-center gap-3" aria-label="프로필 사진">
-          <button
-            type="button"
-            onClick={() => fileInput.current?.click()}
-            disabled={uploading || saving}
-            aria-label="프로필 사진 바꾸기"
-            className="relative h-28 w-28 overflow-hidden rounded-full bg-surface-container active:scale-95 transition-transform disabled:opacity-70"
-          >
-            {shownImage ? (
-              <img src={shownImage} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <span className="flex h-full w-full items-center justify-center text-on-surface-variant">
-                <MaterialIcon name="person" className="text-[56px]" />
-              </span>
-            )}
-            {uploading && (
-              <span className="absolute inset-0 flex items-center justify-center bg-black/40">
-                <Spinner className="h-7 w-7 text-white" />
-              </span>
-            )}
-            <span className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary shadow-md">
+          {/* 배지가 원형 사진 영역(overflow-hidden)에 잘리지 않도록 사진과 배지를 한 래퍼 안에 나란히 둔다. */}
+          <div className="relative h-28 w-28">
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              disabled={uploading || saving}
+              aria-label="프로필 사진 바꾸기"
+              className="h-full w-full overflow-hidden rounded-full bg-surface-container active:scale-95 transition-transform disabled:opacity-70"
+            >
+              {shownImage ? (
+                <img src={shownImage} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-on-surface-variant">
+                  <MaterialIcon name="person" className="text-[56px]" />
+                </span>
+              )}
+              {uploading && (
+                <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                  <Spinner className="h-7 w-7 text-white" />
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-hidden="true"
+              onClick={() => fileInput.current?.click()}
+              disabled={uploading || saving}
+              className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full border-2 border-surface bg-primary text-on-primary shadow-md active:scale-95 transition-transform disabled:opacity-70"
+            >
               <MaterialIcon name="photo_camera" className="text-[18px]" />
-            </span>
-          </button>
+            </button>
+          </div>
           <input ref={fileInput} type="file" accept="image/jpeg,image/png" className="hidden" onChange={handleFile} />
           <div className="flex items-center gap-4">
             <button

@@ -41,7 +41,7 @@ const inputClass =
  * - 수정: 댓글 작성자 본인만. 삭제: 댓글 작성자 본인과 게시글 작성 크리에이터.
  * - 서버 페이지가 offset 방식이라 삭제 뒤에는 서버 목록과 다시 맞춘 뒤에만 '더 보기'를 연다.
  */
-export default function PostComments({ creatorId, postId, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin }) {
+export default function PostComments({ creatorId, postId, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostRestricted }) {
   const showToast = useToast()
   const first = useAsync(
     () => getPostComments(creatorId, postId),
@@ -388,6 +388,8 @@ export default function PostComments({ creatorId, postId, authenticated, followi
             showToast(COMMENT_REPORT_ERROR_MESSAGES[error.code] ?? '신고할 수 없는 댓글이에요.', { icon: 'error' })
             // 삭제된 댓글이면 목록에서도 사라지도록 서버 목록과 다시 맞춘다.
             if (error.code === 'RESOURCE_NOT_FOUND') refreshQuietly()
+            // 팔로우가 풀려 글을 더 볼 수 없으면 이미 떠 있는 상세와 댓글을 부모가 닫고 권한을 다시 확인한다.
+            if (error.code === 'POST_FOLLOWERS_ONLY') onPostRestricted?.()
           }}
         />
       )}

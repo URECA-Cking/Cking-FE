@@ -15,6 +15,7 @@ import {
   validateNickname,
 } from '../utils/nickname.js'
 import { formatDateTime } from '../utils/format.js'
+import { parseServerTime } from '../utils/serverTime.js'
 
 /**
  * 프로필 편집(Cking-BE #518·#519). 닉네임과 프로필 사진을 한 화면에서 고치고 한 번에 저장한다(`PUT /api/me/profile`, 전체 교체).
@@ -36,7 +37,8 @@ export default function ProfileEdit() {
   // 사진 URL은 있는데 key를 알 수 없으면 사진을 유지한 채 저장할 수 없다(null을 보내면 사진이 지워진다).
   const keyUnknown = Boolean(user?.profileImageUrl) && originalKey === null
 
-  const changeableAt = user?.nicknameChangeableAt ? new Date(user.nicknameChangeableAt) : null
+  // 서버 시각은 UTC다. 시간대가 없는 값도 현지 시간으로 어긋나지 않게 UTC로 읽는다.
+  const changeableAt = parseServerTime(user?.nicknameChangeableAt)
   const nicknameLocked = !setup && changeableAt !== null && Date.now() < changeableAt.getTime()
   const restorable = user?.restorableNickname ?? null
 
@@ -45,7 +47,10 @@ export default function ProfileEdit() {
   // undefined: 사진을 바꾸지 않음 / null: 기본 이미지로 / string: 새로 올린 사진의 key
   const [pendingKey, setPendingKey] = useState(undefined)
   const [previewUrl, setPreviewUrl] = useState(null)
-  const [uploading, setUploading] = useState(false)
+  // 파일을 고른 순간부터(검증·업로드 중) 켜진다. 이 동안은 저장·사진 변경·삭제를 막아 이전 선택의 결과가 나중 선택을 덮지 못하게 한다.
+  const [photoBusy, setPhotoBusy] = useState(false)
+  // 사진 선택 요청 번호. 가장 최근 선택의 결과만 반영한다.
+  const photoSeq = useRef(0)
   const [imageError, setImageError] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
@@ -70,29 +75,32 @@ export default function ProfileEdit() {
   const imageChanged = pendingKey !== undefined
   const dirty = nicknameChanged || imageChanged
   const shownImage = pendingKey === null ? null : (previewUrl ?? user?.profileImageUrl ?? null)
-  const canSave = !saving && !uploading && dirty && !nicknameError && !(keyUnknown && pendingKey === undefined)
+  const canSave = !saving && !photoBusy && dirty && !nicknameError && !(keyUnknown && pendingKey === undefined)
 
   async function handleFile(event) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
+    if (photoBusy) return
+    const seq = ++photoSeq.current
+    const isLatest = () => alive.current && seq === photoSeq.current
     setImageError('')
-    const reason = await validateProfileImage(file)
-    if (!alive.current) return
-    if (reason) {
-      setImageError(reason)
-      return
-    }
-    setUploading(true)
+    setPhotoBusy(true)
     try {
+      const reason = await validateProfileImage(file)
+      if (!isLatest()) return
+      if (reason) {
+        setImageError(reason)
+        return
+      }
       const { imageKey } = await uploadProfileImage(file)
-      if (!alive.current) return
+      if (!isLatest()) return
       setPendingKey(imageKey)
       setPreviewUrl(URL.createObjectURL(file))
     } catch (error) {
-      if (alive.current) setImageError(describeProfileError(error, '사진을 올리지 못했어요. 다시 시도해주세요.'))
+      if (isLatest()) setImageError(describeProfileError(error, '사진을 올리지 못했어요. 다시 시도해주세요.'))
     } finally {
-      if (alive.current) setUploading(false)
+      if (isLatest()) setPhotoBusy(false)
     }
   }
 
@@ -138,7 +146,7 @@ export default function ProfileEdit() {
   }
 
   function handleRestore() {
-    if (saving || uploading || !restorable) return
+    if (saving || photoBusy || !restorable) return
     setNickname(restorable)
     save(restorable)
   }
@@ -179,7 +187,7 @@ export default function ProfileEdit() {
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              disabled={uploading || saving}
+              disabled={photoBusy || saving}
               aria-label="프로필 사진 바꾸기"
               className="h-full w-full overflow-hidden rounded-full bg-surface-container active:scale-95 transition-transform disabled:opacity-70"
             >
@@ -190,7 +198,7 @@ export default function ProfileEdit() {
                   <MaterialIcon name="person" className="text-[56px]" />
                 </span>
               )}
-              {uploading && (
+              {photoBusy && (
                 <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
                   <Spinner className="h-7 w-7 text-white" />
                 </span>
@@ -201,7 +209,7 @@ export default function ProfileEdit() {
               tabIndex={-1}
               aria-hidden="true"
               onClick={() => fileInput.current?.click()}
-              disabled={uploading || saving}
+              disabled={photoBusy || saving}
               className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full border-2 border-surface bg-primary text-on-primary shadow-md active:scale-95 transition-transform disabled:opacity-70"
             >
               <MaterialIcon name="photo_camera" className="text-[18px]" />
@@ -212,7 +220,7 @@ export default function ProfileEdit() {
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              disabled={uploading || saving}
+              disabled={photoBusy || saving}
               className="font-label-md text-label-md font-semibold text-primary disabled:opacity-50"
             >
               사진 바꾸기
@@ -221,7 +229,7 @@ export default function ProfileEdit() {
               <button
                 type="button"
                 onClick={removeImage}
-                disabled={uploading || saving}
+                disabled={photoBusy || saving}
                 className="font-label-md text-label-md text-on-surface-variant disabled:opacity-50"
               >
                 사진 삭제
@@ -271,7 +279,7 @@ export default function ProfileEdit() {
             <button
               type="button"
               onClick={handleRestore}
-              disabled={saving || uploading}
+              disabled={saving || photoBusy}
               className="flex items-center gap-1.5 self-start font-label-md text-label-md font-semibold text-primary disabled:opacity-50"
             >
               <MaterialIcon name="undo" className="text-[18px]" />

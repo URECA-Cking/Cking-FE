@@ -108,9 +108,11 @@ export default function MyPage() {
           <p className="font-title-lg text-title-lg text-on-surface font-bold truncate">
             {displayNickname(user) ? `${displayNickname(user)} 님` : '닉네임 미설정'}
           </p>
-          <p className="font-label-sm text-label-sm text-on-surface-variant">{user?.email}</p>
-          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            <StatusPill label="팬" tone="bg-berry-tint text-primary" icon="favorite" />
+          {/* 역할마다 뱃지 하나: 크리에이터는 크리에이터, 관리자는 관리자, 그 외 일반 회원은 팬. 권한 확인 전에는 팬으로 단정하지 않는다. */}
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap empty:hidden">
+            {capabilities.checked && !isCreator && !isAdmin && (
+              <StatusPill label="팬" tone="bg-berry-tint text-primary" icon="favorite" />
+            )}
             {isCreator && <StatusPill label="크리에이터" tone="bg-secondary-fixed text-on-secondary-fixed" icon="mic" />}
             {isAdmin && (
               <StatusPill label="관리자" tone="bg-inverse-surface text-inverse-on-surface" icon="admin_panel_settings" />
@@ -135,6 +137,11 @@ export default function MyPage() {
           </button>
         </div>
       </section>
+
+      {/* 이메일은 공개 이름이 아니라 로그인 수단이라 프로필 영역 대신 계정 변경 근처에 작게 보여준다. */}
+      {user?.email && (
+        <p className="-mt-space-xs truncate px-1 font-label-xs text-label-xs text-outline">로그인 계정 {user.email}</p>
+      )}
 
       {user?.profileConfigured === false && (
         <Link

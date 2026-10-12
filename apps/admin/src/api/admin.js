@@ -203,6 +203,21 @@ export async function activateSpaceTemplate(templateId) {
   return post(`/api/admin/creator-space-templates/${templateId}/activate`)
 }
 
+/** 신고된 댓글을 댓글별로 모아 최근 신고 순으로 조회한다. status(PENDING·RESOLVED·REJECTED)를 생략하면 전체다. */
+export async function getCommentReports({ status, page = 0, size = 20 } = {}) {
+  return get('/api/admin/comment-reports', { status, page, size })
+}
+
+/** 신고된 댓글을 숨기고 그 댓글의 접수 신고를 모두 처리 완료로 바꾼다. 되돌릴 수 없고, 이미 숨겼으면 처리 수 0으로 성공한다. */
+export async function hideReportedComment(commentId) {
+  return post(`/api/admin/comment-reports/${commentId}/hide`)
+}
+
+/** 그 댓글의 접수 신고를 모두 반려한다. 댓글은 그대로 보인다. 이미 반려했으면 처리 수 0으로 성공하고, 숨긴 댓글은 409다. */
+export async function rejectCommentReports(commentId) {
+  return post(`/api/admin/comment-reports/${commentId}/reject`)
+}
+
 export const OPERATING_EVENT_STATUSES = ['SCHEDULED', 'OPEN', 'CLOSING', 'CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
 const DRAWING_READY_EVENT_STATUSES = ['CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
 

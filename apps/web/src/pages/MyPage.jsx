@@ -236,16 +236,6 @@ export default function MyPage() {
 
       <section className="flex flex-col rounded-2xl bg-surface-container-lowest shadow-card overflow-hidden">
         {isCreator && <MySpaceLink />}
-        {isCreator && (
-          <Link
-            to="/studio"
-            className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high"
-          >
-            <MaterialIcon name="dashboard" className="text-primary text-[20px]" />
-            <span className="font-label-md text-label-md text-on-surface flex-1">크리에이터 스튜디오</span>
-            <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
-          </Link>
-        )}
         {isAdmin && ADMIN_BASE_URL && (
           <a
             href={ADMIN_BASE_URL}

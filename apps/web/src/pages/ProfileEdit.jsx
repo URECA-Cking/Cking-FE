@@ -17,6 +17,8 @@ import { formatDateTime } from '../utils/format.js'
 import { toSafeHttpUrl } from '../utils/safeUrl.js'
 import { parseServerTime } from '../utils/serverTime.js'
 
+const PREVIEW_SIZE = 256
+
 /**
  * 프로필 편집(Cking-BE #518·#519). 닉네임과 프로필 사진을 한 화면에서 고치고 한 번에 저장한다(`PUT /api/me/profile`, 전체 교체).
  *
@@ -43,7 +45,9 @@ export default function ProfileEdit() {
   const [touched, setTouched] = useState(false)
   // undefined: 사진을 바꾸지 않음 / null: 기본 이미지로 / string: 새로 올린 사진의 key
   const [pendingKey, setPendingKey] = useState(undefined)
-  const [previewUrl, setPreviewUrl] = useState(null)
+  // 방금 올린 사진의 미리보기. <img src>에 파일 주소를 넣지 않고 <canvas>에 직접 그린다.
+  const [previewBitmap, setPreviewBitmap] = useState(null)
+  const previewCanvas = useRef(null)
   // 파일을 고른 순간부터(검증·업로드 중) 켜진다. 이 동안은 저장·사진 변경·삭제를 막아 이전 선택의 결과가 나중 선택을 덮지 못하게 한다.
   const [photoBusy, setPhotoBusy] = useState(false)
   // 사진 선택 요청 번호. 가장 최근 선택의 결과만 반영한다.
@@ -62,17 +66,38 @@ export default function ProfileEdit() {
     }
   }, [])
 
-  useEffect(() => () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-  }, [previewUrl])
+  // 미리보기는 가운데를 정사각형으로 잘라 그린다(원형 아바타에 맞춤). 비트맵은 참조가 없어지면 브라우저가 정리한다.
+  useEffect(() => {
+    const canvas = previewCanvas.current
+    if (!previewBitmap || !canvas) return undefined
+    const side = Math.min(previewBitmap.width, previewBitmap.height)
+    canvas.width = PREVIEW_SIZE
+    canvas.height = PREVIEW_SIZE
+    canvas
+      .getContext('2d')
+      ?.drawImage(
+        previewBitmap,
+        (previewBitmap.width - side) / 2,
+        (previewBitmap.height - side) / 2,
+        side,
+        side,
+        0,
+        0,
+        PREVIEW_SIZE,
+        PREVIEW_SIZE,
+      )
+    return undefined
+  }, [previewBitmap])
 
   const normalized = normalizeNickname(nickname)
   const nicknameChanged = normalized !== originalNickname
   const nicknameError = !nicknameLocked && (touched || nicknameChanged) ? validateNickname(normalized) : null
   const imageChanged = pendingKey !== undefined
   const dirty = nicknameChanged || imageChanged
-  // 미리보기는 방금 고른 파일의 blob: 주소이고, 서버가 준 사진 주소는 http(s)일 때만 <img>에 넣는다.
-  const shownImage = pendingKey === null ? null : (previewUrl ?? toSafeHttpUrl(user?.profileImageUrl))
+  // 새로 올린 사진은 <canvas>로, 저장돼 있는 사진은 서버 주소가 http(s)일 때만 <img>로 보여준다.
+  const serverImage = pendingKey === undefined ? toSafeHttpUrl(user?.profileImageUrl) : null
+  const showPreview = typeof pendingKey === 'string' && previewBitmap !== null
+  const hasImage = showPreview || Boolean(serverImage) || typeof pendingKey === 'string'
   // 오류 문구는 입력을 건드린 뒤에만 보이지만, 저장 가능 여부는 닉네임이 규칙을 지키는지로 항상 따진다(사진만 고른 설정 모드 방지).
   const nicknameInvalid = !nicknameLocked && validateNickname(normalized) !== null
   const canSave = !saving && !photoBusy && dirty && !nicknameInvalid
@@ -95,8 +120,13 @@ export default function ProfileEdit() {
       }
       const { imageKey } = await uploadProfileImage(file)
       if (!isLatest()) return
+      const bitmap = await createImageBitmap(file).catch(() => null)
+      if (!isLatest()) {
+        bitmap?.close()
+        return
+      }
       setPendingKey(imageKey)
-      setPreviewUrl(URL.createObjectURL(file))
+      setPreviewBitmap(bitmap)
     } catch (error) {
       if (isLatest()) setImageError(describeProfileError(error, '사진을 올리지 못했어요. 다시 시도해주세요.'))
     } finally {
@@ -106,7 +136,7 @@ export default function ProfileEdit() {
 
   function removeImage() {
     setImageError('')
-    setPreviewUrl(null)
+    setPreviewBitmap(null)
     setPendingKey(null)
   }
 
@@ -192,8 +222,10 @@ export default function ProfileEdit() {
               aria-label="프로필 사진 변경"
               className="h-full w-full overflow-hidden rounded-full bg-surface-container active:scale-95 transition-transform disabled:opacity-70"
             >
-              {shownImage ? (
-                <img src={shownImage} alt="" className="h-full w-full object-cover" />
+              {showPreview ? (
+                <canvas ref={previewCanvas} className="h-full w-full" aria-hidden="true" />
+              ) : serverImage ? (
+                <img src={serverImage} alt="" className="h-full w-full object-cover" />
               ) : (
                 <span className="flex h-full w-full items-center justify-center text-on-surface-variant">
                   <MaterialIcon name="person" className="text-[56px]" />
@@ -226,7 +258,7 @@ export default function ProfileEdit() {
             >
               사진 변경
             </button>
-            {shownImage && (
+            {hasImage && (
               <button
                 type="button"
                 onClick={removeImage}

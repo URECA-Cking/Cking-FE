@@ -10,6 +10,7 @@ import AdminWinners, { AdminWinnerDetail } from './pages/admin/AdminWinnerDetail
 import { AdminEventDetailPage, AdminEventsPage } from './pages/admin/AdminEvents.jsx'
 import { AdminAbuseDetectionDetailPage, AdminAbuseDetectionListPage } from './pages/admin/AdminAbuseDetections.jsx'
 import { ReviewDetailPage, ReviewListPage } from './pages/admin/ReviewPages.jsx'
+import AdminSpaceTemplates from './pages/admin/AdminSpaceTemplates.jsx'
 
 /** 관리자 도메인의 고정 URL과 로그인 보호 라우트를 등록한다. */
 export default function App() {
@@ -36,6 +37,7 @@ export default function App() {
       <Route path="/admin/redraws" element={protectedRoute(<AdminRedraws />)} />
       <Route path="/admin/redraws/:redrawRequestId" element={protectedRoute(<AdminRedrawDetailPage />)} />
       <Route path="/admin/dead-streams" element={protectedRoute(<AdminDeadStreams />)} />
+      <Route path="/admin/space-templates" element={protectedRoute(<AdminSpaceTemplates />)} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )

@@ -15,11 +15,7 @@ const SLUG_RULE_PATTERN = /^(?:[a-z0-9-]*[a-z-])?\{creatorId\}$/
 
 export const SLUG_RULE_HINT = '소문자·숫자·하이픈 접두사 뒤 맨 끝에 {creatorId}를 한 번 넣어요. 접두사의 마지막 글자는 숫자일 수 없어요. 예: creator-{creatorId}'
 
-export function emptyTemplate() {
-  return { introText: '', profileImageUrl: '', bannerImageUrl: '', slugRule: '' }
-}
-
-/** 서버 응답(또는 빈 값)에서 폼에 쓰는 네 필드만 뽑는다. */
+/** 서버 응답에서 폼에 쓰는 네 필드만 뽑는다. 템플릿이 없으면(추가) 모두 빈 문자열이다. */
 export function templateFields(template) {
   return {
     introText: template?.introText ?? '',

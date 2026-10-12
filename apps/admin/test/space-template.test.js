@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyTemplate, previewSlug, toTemplateRequest, validateTemplate } from '../src/utils/spaceTemplate.js'
+import { previewSlug, templateFields, toTemplateRequest, validateTemplate } from '../src/utils/spaceTemplate.js'
 
 const valid = {
   introText: '크리에이터와 함께하는 공간이에요',
@@ -14,7 +14,7 @@ test('네 필드를 모두 채우고 규칙을 지키면 오류가 없다', () =
 })
 
 test('빈 값과 공백뿐인 값은 필수 오류다', () => {
-  const errors = validateTemplate(emptyTemplate())
+  const errors = validateTemplate(templateFields(null))
   assert.deepEqual(Object.keys(errors).sort(), ['bannerImageUrl', 'introText', 'profileImageUrl', 'slugRule'])
   assert.ok(validateTemplate({ ...valid, introText: '   ' }).introText)
 })

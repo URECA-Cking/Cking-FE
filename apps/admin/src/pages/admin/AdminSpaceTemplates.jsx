@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ConfirmModal from '../../components/ConfirmModal.jsx'
 import { AdminPageHeader } from '../../components/AdminContent.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
@@ -52,6 +52,11 @@ export default function AdminSpaceTemplates() {
       await reload()
     } catch (err) {
       showToast(describeTemplateError(err, '활성화하지 못했습니다.'), { icon: 'error' })
+      // 다른 관리자가 먼저 바꿨을 수 있어 목록을 다시 읽고 확인 창은 닫는다.
+      if (err?.code === 'CONCURRENT_COMMAND' || err?.code === 'RESOURCE_NOT_FOUND') {
+        setActivating(null)
+        await reload()
+      }
     } finally {
       setBusy(false)
     }
@@ -163,6 +168,15 @@ function TemplateFormModal({ template, onCancel, onSaved }) {
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // Esc로 닫는다. 저장 중에는 닫지 않는다.
+  useEffect(() => {
+    function closeOnEscape(event) {
+      if (event.key === 'Escape' && !saving) onCancel()
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [saving, onCancel])
+
   function update(key, value) {
     setFields((current) => ({ ...current, [key]: value }))
     setErrors((current) => ({ ...current, [key]: undefined }))
@@ -189,6 +203,15 @@ function TemplateFormModal({ template, onCancel, onSaved }) {
   }
 
   const slugExample = previewSlug(fields.slugRule)
+  const fieldProps = (key) => ({
+    id: `template-${key}`,
+    value: fields[key],
+    disabled: saving,
+    'aria-invalid': Boolean(errors[key]),
+    'aria-describedby': `template-${key}-note`,
+    onChange: (event) => update(key, event.target.value),
+    className: inputClass,
+  })
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/35 p-4" role="presentation">
@@ -199,26 +222,26 @@ function TemplateFormModal({ template, onCancel, onSaved }) {
         )}
 
         <div className="mt-5 flex flex-col gap-4">
-          <label className="block text-sm font-medium text-slate-800">
-            {TEMPLATE_FIELD_LABELS.introText} <span className="text-error">*</span>
-            <textarea value={fields.introText} onChange={(event) => update('introText', event.target.value)} disabled={saving} rows="3" className={`${inputClass} resize-y`} />
-            <FieldNote error={errors.introText} note={`${fields.introText.trim().length}/${TEMPLATE_LIMITS.introText}`} />
-          </label>
-          <label className="block text-sm font-medium text-slate-800">
-            {TEMPLATE_FIELD_LABELS.profileImageUrl} <span className="text-error">*</span>
-            <input value={fields.profileImageUrl} onChange={(event) => update('profileImageUrl', event.target.value)} disabled={saving} placeholder="https://" className={inputClass} />
-            <FieldNote error={errors.profileImageUrl} />
-          </label>
-          <label className="block text-sm font-medium text-slate-800">
-            {TEMPLATE_FIELD_LABELS.bannerImageUrl} <span className="text-error">*</span>
-            <input value={fields.bannerImageUrl} onChange={(event) => update('bannerImageUrl', event.target.value)} disabled={saving} placeholder="https://" className={inputClass} />
-            <FieldNote error={errors.bannerImageUrl} />
-          </label>
-          <label className="block text-sm font-medium text-slate-800">
-            {TEMPLATE_FIELD_LABELS.slugRule} <span className="text-error">*</span>
-            <input value={fields.slugRule} onChange={(event) => update('slugRule', event.target.value)} disabled={saving} placeholder="creator-{creatorId}" autoComplete="off" spellCheck={false} className={inputClass} />
-            <FieldNote error={errors.slugRule} note={slugExample ? `만들어질 주소 예: /${slugExample}` : SLUG_RULE_HINT} />
-          </label>
+          <div>
+            <FieldLabel htmlFor="template-introText">{TEMPLATE_FIELD_LABELS.introText}</FieldLabel>
+            <textarea {...fieldProps('introText')} rows="3" className={`${inputClass} resize-y`} />
+            <FieldNote id="template-introText-note" error={errors.introText} note={`${fields.introText.trim().length}/${TEMPLATE_LIMITS.introText}`} />
+          </div>
+          <div>
+            <FieldLabel htmlFor="template-profileImageUrl">{TEMPLATE_FIELD_LABELS.profileImageUrl}</FieldLabel>
+            <input {...fieldProps('profileImageUrl')} placeholder="https://" />
+            <FieldNote id="template-profileImageUrl-note" error={errors.profileImageUrl} />
+          </div>
+          <div>
+            <FieldLabel htmlFor="template-bannerImageUrl">{TEMPLATE_FIELD_LABELS.bannerImageUrl}</FieldLabel>
+            <input {...fieldProps('bannerImageUrl')} placeholder="https://" />
+            <FieldNote id="template-bannerImageUrl-note" error={errors.bannerImageUrl} />
+          </div>
+          <div>
+            <FieldLabel htmlFor="template-slugRule">{TEMPLATE_FIELD_LABELS.slugRule}</FieldLabel>
+            <input {...fieldProps('slugRule')} placeholder="creator-{creatorId}" autoComplete="off" spellCheck={false} />
+            <FieldNote id="template-slugRule-note" error={errors.slugRule} note={slugExample ? `만들어질 주소 예: /${slugExample}` : SLUG_RULE_HINT} />
+          </div>
         </div>
 
         {formError && <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{formError}</p>}
@@ -232,7 +255,12 @@ function TemplateFormModal({ template, onCancel, onSaved }) {
   )
 }
 
-function FieldNote({ error, note }) {
-  if (error) return <span className="mt-1 block text-xs font-normal text-red-700" role="alert">{error}</span>
-  return note ? <span className="mt-1 block text-xs font-normal text-slate-500">{note}</span> : null
+function FieldLabel({ htmlFor, children }) {
+  return <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-800">{children} <span className="text-error" aria-hidden="true">*</span></label>
+}
+
+/** 입력칸 아래의 오류·안내 문구. 입력칸의 aria-describedby로 연결돼 라벨의 접근성 이름에는 섞이지 않는다. */
+function FieldNote({ id, error, note }) {
+  if (error) return <span id={id} className="mt-1 block text-xs font-normal text-red-700" role="alert">{error}</span>
+  return <span id={id} className="mt-1 block text-xs font-normal text-slate-500">{note}</span>
 }

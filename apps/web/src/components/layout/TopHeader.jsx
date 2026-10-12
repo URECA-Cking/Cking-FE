@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import ThemedImage from '../ui/ThemedImage.jsx'
+import BackButton from '../ui/BackButton.jsx'
 import { useToast } from '../../context/useToast.js'
 
 /** 현재 화면 주소를 공유한다. Web Share API가 없으면 클립보드로 복사한다. */
@@ -22,8 +23,20 @@ function useShare() {
   }
 }
 
-/** Main-tab app bar. Its centered title is intentionally independent from the right action. */
-export function TopHeader({ title, centered = false, unreadCount = 0, embedded = false, hidden = false }) {
+/**
+ * Main-tab app bar. Its centered title is intentionally independent from the right action.
+ * - onBack: 왼쪽에 뒤로 가기 버튼을 보여준다. centered와 함께 주면 제목은 가운데에 두고, 아니면 버튼 옆에 둔다(로고 대신).
+ * - showNotificationBell: 오른쪽 알림 종 아이콘. 알림 화면처럼 이미 그 화면이면 false로 숨긴다.
+ */
+export function TopHeader({
+  title,
+  centered = false,
+  unreadCount = 0,
+  embedded = false,
+  hidden = false,
+  onBack,
+  showNotificationBell = true,
+}) {
   return (
     <header
       className={
@@ -43,7 +56,15 @@ export function TopHeader({ title, centered = false, unreadCount = 0, embedded =
         }
       >
         {centered ? (
-          <h1 className="absolute left-1/2 -translate-x-1/2 text-on-surface font-title-md text-title-md">{title}</h1>
+          <>
+            {onBack && <BackButton onClick={onBack} />}
+            <h1 className="absolute left-1/2 -translate-x-1/2 text-on-surface font-title-md text-title-md">{title}</h1>
+          </>
+        ) : onBack ? (
+          <div className="flex min-w-0 items-center gap-space-xs">
+            <BackButton onClick={onBack} />
+            <h1 className="truncate text-on-surface font-title-md text-title-md font-semibold">{title}</h1>
+          </div>
         ) : (
           <div className="flex items-center gap-space-sm">
             <Link to="/" aria-label="Cking 홈">
@@ -58,21 +79,23 @@ export function TopHeader({ title, centered = false, unreadCount = 0, embedded =
           </div>
         )}
         <div className="ml-auto flex items-center">
-          <Link
-            to="/notifications"
-            className="relative w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
-            aria-label="알림"
-          >
-            <MaterialIcon name="notifications" className="text-[22px]" />
-            {unreadCount > 0 && (
-              <span
-                className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-error text-on-error font-label-xs text-[10px] leading-4 text-center font-bold"
-                aria-label={`읽지 않은 알림 ${unreadCount}개`}
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </Link>
+          {showNotificationBell && (
+            <Link
+              to="/notifications"
+              className="relative w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
+              aria-label="알림"
+            >
+              <MaterialIcon name="notifications" className="text-[22px]" />
+              {unreadCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-error text-on-error font-label-xs text-[10px] leading-4 text-center font-bold"
+                  aria-label={`읽지 않은 알림 ${unreadCount}개`}
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </Link>
+          )}
         </div>
       </div>
     </header>
@@ -87,14 +110,7 @@ export function BackHeader({ title, badge, onBack, right }) {
     <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
       <div className="h-14 px-margin md:px-8 flex items-center justify-between gap-space-sm">
         <div className="flex items-center gap-space-xs min-w-0">
-          <button
-            aria-label="뒤로가기"
-            className="w-10 h-10 -ml-1 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface shrink-0"
-            onClick={onBack ?? (() => window.history.back())}
-            type="button"
-          >
-            <MaterialIcon name="arrow_back" className="text-[22px]" />
-          </button>
+          <BackButton onClick={onBack ?? (() => window.history.back())} />
           <h1 className="font-title-md text-title-md text-on-surface font-semibold truncate">{title}</h1>
         </div>
         {badge ? (

@@ -8,17 +8,20 @@ import { useAsync } from '../../hooks/useAsync.js'
 import { getMyNotifications } from '../../api/notifications.js'
 import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
+import { useAppBack } from '../../hooks/useAppBack.js'
 
 const APP_BAR_TITLES = {
   '/': { title: 'Cking' },
   '/explore': { title: '탐색', centered: true },
-  '/notifications': { title: '알림' },
+  // back: 홈·스페이스 등 다른 화면에서 들어오므로 뒤로 가기 버튼을 보여준다. hideBell: 이미 알림 화면이라 알림 종 아이콘은 숨긴다.
+  '/notifications': { title: '알림', back: true, hideBell: true },
   '/my-entries': { title: '내 응모', centered: true },
   '/my-page': { title: '마이', centered: true },
 }
 
 export default function MainLayout() {
   const { pathname } = useLocation()
+  const goBack = useAppBack('/')
   const scrollRef = useRef(null)
   const { headerVisible, bottomCompact } = useScrollChrome(scrollRef)
   const online = useOnline()
@@ -40,6 +43,8 @@ export default function MainLayout() {
           unreadCount={unreadCount}
           embedded
           hidden={!headerVisible}
+          onBack={appBarTitle.back ? goBack : undefined}
+          showNotificationBell={!appBarTitle.hideBell}
         />
       )}
       <main

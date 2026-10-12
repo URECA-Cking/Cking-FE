@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import BackButton from '../components/ui/BackButton.jsx'
+import { useAppBack } from '../hooks/useAppBack.js'
 import EventCard from '../components/creator/EventCard.jsx'
 import CreatorPosts from '../components/creator/CreatorPosts.jsx'
 import SpaceEditSheet from '../components/creator/SpaceEditSheet.jsx'
@@ -79,6 +80,8 @@ function ProfileIntro({ text }) {
 export default function CreatorSpace() {
   const { creatorId: creatorIdParam, slug: slugParam } = useParams()
   const navigate = useNavigate()
+  // 공유 링크(/space/:slug)로 직접 열었거나 로그인 직후면 앱 밖으로 나가지 않고 홈으로 간다.
+  const goBack = useAppBack('/')
   const showToast = useToast()
   const location = useLocation()
   const { user, status, isCreator, isFollowing, toggleFollow, followsReady, pendingFollowIds } = useUser()
@@ -326,7 +329,7 @@ export default function CreatorSpace() {
       <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
         <div className="h-14 px-margin md:px-8 flex items-center justify-between gap-space-xs">
           <div className="flex items-center gap-space-xs min-w-0">
-            <BackButton onClick={() => navigate(-1)} />
+            <BackButton onClick={goBack} />
             <h1 className="font-title-md text-title-md text-on-surface font-semibold truncate">{creator.creatorName}</h1>
           </div>
           <div className="flex items-center gap-space-xs shrink-0">

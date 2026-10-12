@@ -80,21 +80,21 @@ export function TopHeader({
         )}
         <div className="ml-auto flex items-center">
           {showNotificationBell && (
-          <Link
-            to="/notifications"
-            className="relative w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
-            aria-label="알림"
-          >
-            <MaterialIcon name="notifications" className="text-[22px]" />
-            {unreadCount > 0 && (
-              <span
-                className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-error text-on-error font-label-xs text-[10px] leading-4 text-center font-bold"
-                aria-label={`읽지 않은 알림 ${unreadCount}개`}
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </Link>
+            <Link
+              to="/notifications"
+              className="relative w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
+              aria-label="알림"
+            >
+              <MaterialIcon name="notifications" className="text-[22px]" />
+              {unreadCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-error text-on-error font-label-xs text-[10px] leading-4 text-center font-bold"
+                  aria-label={`읽지 않은 알림 ${unreadCount}개`}
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </Link>
           )}
         </div>
       </div>

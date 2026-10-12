@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import MaterialIcon from '../../components/ui/MaterialIcon.jsx'
-import { BackHeader } from '../../components/layout/TopHeader.jsx'
-import { LoadingBlock, ErrorBlock } from '../../components/ui/States.jsx'
-import { useToast } from '../../context/useToast.js'
-import { useAsync } from '../../hooks/useAsync.js'
-import { createCreatorEvent, getMyCreatorEvents, updateCreatorEvent } from '../../api/creatorEvents.js'
-import { describeError, newRequestId } from '../../api/client.js'
-import { formatNumber } from '../../utils/format.js'
+import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import { BackHeader } from '../components/layout/TopHeader.jsx'
+import { LoadingBlock, ErrorBlock } from '../components/ui/States.jsx'
+import { useToast } from '../context/useToast.js'
+import { useAsync } from '../hooks/useAsync.js'
+import { useAppBack } from '../hooks/useAppBack.js'
+import { createCreatorEvent, getAllMyCreatorEvents, updateCreatorEvent } from '../api/creatorEvents.js'
+import { getMySpace, spacePath } from '../api/creatorSpace.js'
+import { describeError, newRequestId } from '../api/client.js'
+import { formatNumber } from '../utils/format.js'
 
 const EMPTY_PRIZE = { prizeKey: '', displayName: '', priority: 1, weight: 100, quantity: 1 }
 
@@ -39,32 +41,31 @@ function defaultRange() {
  * 이벤트 생성/수정 폼.
  *
  * 백엔드 검증 규칙을 그대로 따른다.
- *  - 제목 필수, 시작 < 종료, 당첨 인원 >= 1, 추첨 방식은 WEIGHTED
+ *  - 제목 필수, 시작 < 종료, 당첨 인원 >= 1, 추첨 방식은 새로 만들 때 WEIGHTED(수정 때는 기존 값을 유지)
  *  - 상품 등급: prizeKey는 영문·숫자·_·- 만, 중복 불가, priority/weight/quantity는 양수
  *  - 상품을 등록했다면 총 수량 >= 당첨 인원
  * 생성은 requestId(UUID)로 멱등 처리되므로, 같은 폼에서 재시도해도 중복 생성되지 않는다.
  */
-export default function StudioEventForm() {
+export default function CreatorEventForm() {
   const { eventId } = useParams()
   const isEdit = Boolean(eventId)
-  const navigate = useNavigate()
+  const goBack = useAppBack('/my-page')
 
-  // 수정 모드에서는 내 이벤트 목록에서 해당 이벤트를 찾아 초기값으로 쓴다.
-  // (크리에이터 이벤트 목록 응답에는 description이 없어 설명은 새로 입력해야 한다.)
-  const existing = useAsync(() => getMyCreatorEvents({ size: 100 }), [], {
+  // 수정 모드에서는 내 이벤트 목록을 끝까지 읽어 해당 이벤트를 찾아 초기값으로 쓴다.
+  const existing = useAsync(() => getAllMyCreatorEvents(), [], {
     enabled: isEdit,
     fallbackMessage: '이벤트 정보를 불러오지 못했습니다.',
   })
 
   const target = useMemo(
-    () => (existing.data?.items ?? []).find((item) => String(item.eventId) === String(eventId)) ?? null,
+    () => (existing.data ?? []).find((item) => String(item.eventId) === String(eventId)) ?? null,
     [existing.data, eventId],
   )
 
   if (isEdit && existing.loading) {
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe">
-        <BackHeader title="이벤트 수정" onBack={() => navigate('/studio')} />
+        <BackHeader title="이벤트 수정" onBack={goBack} />
         <LoadingBlock label="이벤트를 불러오는 중..." />
       </div>
     )
@@ -83,7 +84,10 @@ export default function StudioEventForm() {
 
 function EventFormBody({ eventId, isEdit, target }) {
   const navigate = useNavigate()
+  const goBack = useAppBack('/my-page')
   const showToast = useToast()
+  // 저장하면 내 스페이스의 이벤트 탭으로 돌아간다. 스페이스를 못 찾으면 마이페이지로 보낸다.
+  const mySpace = useAsync(() => getMySpace(), [])
 
   const [requestId] = useState(() => newRequestId())
   const [submitting, setSubmitting] = useState(false)
@@ -92,7 +96,8 @@ function EventFormBody({ eventId, isEdit, target }) {
     target
       ? {
           title: target.title ?? '',
-          description: '',
+          description: target.description ?? '',
+          drawMethod: target.drawMethod ?? 'WEIGHTED',
           winnerCount: target.winnerCount ?? 1,
           startAt: toLocalInput(target.startAt),
           endAt: toLocalInput(target.endAt),
@@ -103,6 +108,7 @@ function EventFormBody({ eventId, isEdit, target }) {
       : {
           title: '',
           description: '',
+          drawMethod: 'WEIGHTED',
           winnerCount: 1,
           prizes: [{ ...EMPTY_PRIZE, prizeKey: 'GRAND', displayName: '1등 상품' }],
           ...defaultRange(),
@@ -174,7 +180,7 @@ function EventFormBody({ eventId, isEdit, target }) {
       startAt: toInstant(form.startAt),
       endAt: toInstant(form.endAt),
       winnerCount: Number(form.winnerCount),
-      drawMethod: 'WEIGHTED',
+      drawMethod: form.drawMethod,
       prizes: form.prizes.map((prize) => ({
         prizeKey: prize.prizeKey.trim(),
         displayName: prize.displayName.trim(),
@@ -192,7 +198,7 @@ function EventFormBody({ eventId, isEdit, target }) {
         await createCreatorEvent({ ...payload, requestId })
         showToast('이벤트 초안을 만들었어요. 승인 요청을 보내면 심사가 시작돼요.')
       }
-      navigate('/studio', { replace: true })
+      navigate(mySpace.data ? spacePath(mySpace.data.slug) : '/my-page', { replace: true, state: { tab: 'events' } })
     } catch (err) {
       setFormError(describeError(err, '저장에 실패했습니다. 입력값을 확인해주세요.'))
     } finally {
@@ -206,7 +212,7 @@ function EventFormBody({ eventId, isEdit, target }) {
 
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-32">
-      <BackHeader title={isEdit ? '이벤트 수정' : '새 이벤트 만들기'} onBack={() => navigate('/studio')} />
+      <BackHeader title={isEdit ? '이벤트 수정' : '새 이벤트 만들기'} onBack={goBack} />
 
       <form onSubmit={handleSubmit} className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-4xl md:px-8">
         <div className="flex flex-col gap-1.5">

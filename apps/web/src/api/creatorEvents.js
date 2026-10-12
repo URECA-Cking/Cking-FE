@@ -7,6 +7,16 @@ export async function getMyCreatorEvents({ page = 0, size = 20 } = {}) {
   return apiClient.get('/api/creator/events', { page, size });
 }
 
+// 수정 화면처럼 한 건을 찾으려고 내 이벤트를 끝까지 읽는다(단건 조회 API가 없다). 응답의 hasNext가 false가 될 때까지 이어 읽는다.
+export async function getAllMyCreatorEvents() {
+  const items = [];
+  for (let page = 0; ; page += 1) {
+    const result = await getMyCreatorEvents({ page, size: 100 });
+    items.push(...(result.items ?? []));
+    if (!result.hasNext) return items;
+  }
+}
+
 // POST /api/creator/events - 이벤트 생성(requestId 멱등)
 export async function createCreatorEvent(payload) {
   return apiClient.post('/api/creator/events', payload);

@@ -71,7 +71,9 @@ export default function ProfileEdit() {
   const imageChanged = pendingKey !== undefined
   const dirty = nicknameChanged || imageChanged
   const shownImage = pendingKey === null ? null : (previewUrl ?? user?.profileImageUrl ?? null)
-  const canSave = !saving && !photoBusy && dirty && !nicknameError
+  // 오류 문구는 입력을 건드린 뒤에만 보이지만, 저장 가능 여부는 닉네임이 규칙을 지키는지로 항상 따진다(사진만 고른 설정 모드 방지).
+  const nicknameInvalid = !nicknameLocked && validateNickname(normalized) !== null
+  const canSave = !saving && !photoBusy && dirty && !nicknameInvalid
 
   async function handleFile(event) {
     const file = event.target.files?.[0]
@@ -113,8 +115,9 @@ export default function ProfileEdit() {
     setFormError('')
     try {
       const me = await updateMyProfile({ nickname: nextNickname, profileImageKey: pendingKey })
-      if (!alive.current) return
+      // 저장이 끝나기 전에 화면을 떠났어도 서버에는 반영됐으므로 사용자 정보는 항상 갱신한다.
       applyUser(me)
+      if (!alive.current) return
       showToast(setup ? '프로필을 설정했어요.' : '프로필을 저장했어요.')
       goNext(me)
     } catch (error) {
@@ -145,7 +148,9 @@ export default function ProfileEdit() {
   }
 
   function handleBack() {
-    if (dirty && !saving && !window.confirm('수정한 내용이 사라져요. 나갈까요?')) return
+    // 저장 중에 나가면 결과를 화면에 반영하지 못한다. 끝날 때까지 기다리게 한다.
+    if (saving) return
+    if (dirty && !window.confirm('수정한 내용이 사라져요. 나갈까요?')) return
     const canGoBack = (window.history.state?.idx ?? 0) > 0
     if (canGoBack) navigate(-1)
     else navigate(from, { replace: true })

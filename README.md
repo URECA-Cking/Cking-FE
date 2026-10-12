@@ -34,7 +34,7 @@ npm run dev:admin
 - 백엔드·로그인 없이 화면만 볼 때는 개발 서버 주소 끝에 `?mock=1`(팬), `?mock=creator`(크리에이터), `?mock=empty`(팔로우·이벤트 없음)를 붙입니다.
   `apps/web/src/dev/mockApi.js`가 `fetch`만 더미로 바꾸고, 개발 모드에서만 불러와 배포 빌드에는 들어가지 않습니다. `?mock=0`으로 끕니다.
 
-루트에서 `npm run lint`(shared/Web/Admin), `npm run test`(shared/Admin), `npm run build`(Web/Admin)를 실행합니다.
+루트에서 `npm run lint`(shared/Web/Admin), `npm run test`(shared/Web/Admin), `npm run build`(Web/Admin)를 실행합니다.
 `develop`에 머지되면 Web(`apps/web/dist`)은 `dev.cking.co.kr`, Admin(`apps/admin/dist`)은 `dev-admin.cking.co.kr`로 배포됩니다.
 기존 `npm run dev`와 `npm run preview`도 Web 앱을 실행합니다.
 

@@ -241,11 +241,15 @@ export default function CreatorSpace() {
     }
   }
 
+  /**
+   * 스페이스 편집의 저장 결과를 화면 상태에 반영한다. 저장은 프로필·주소·활동명을 따로 하고 서로 겹칠 수 있어서,
+   * 응답에 담긴 필드만 지금 상태 위에 병합한다(요청 당시의 전체 값으로 교체하면 먼저 끝난 다른 저장을 되돌린다).
+   */
   function handleSpaceSaved(updated) {
-    mySpace.setData(updated)
+    mySpace.setData((current) => ({ ...current, ...updated }))
     setCreator((current) => (current ? { ...current, ...updated } : current))
     // 공유 링크로 들어온 화면에서 slug를 바꾸면 이전 주소는 더 이상 열리지 않으므로 새 주소로 옮긴다.
-    if (slugParam && updated.slug !== slugParam) {
+    if (slugParam && updated.slug !== undefined && updated.slug !== slugParam) {
       navigate(spacePath(updated.slug), { replace: true })
     }
   }

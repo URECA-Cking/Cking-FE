@@ -49,7 +49,9 @@
 | Method | Endpoint | 화면/기능 | FE 상태 | BE 계약 |
 | --- | --- | --- | --- | --- |
 | POST/GET | `/api/creator/applications`, `/api/creator/applications/me` | Creator 전환 신청·내 신청 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
-| GET/PATCH | `/api/creator/space`, `/api/creator/space/slug` | 내 Space 편집·slug 변경 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| GET/PATCH | `/api/creator/space`, `/api/creator/space/slug` | 내 Space 편집·slug 변경. 프로필 사진은 `profileImageKey`로 교체·유지(생략)·기본 이미지 복귀(`null`) | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| POST | `/api/creator/space/profile-images` | 스페이스 프로필 사진 업로드(`imageKey` 반환, 스페이스 편집) | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| GET/PUT | `/api/creator/profile` | Creator 활동명 조회·설정·변경(스페이스 편집). 14일 변경 제한·이전 활동명 복귀, `ACTIVITY_NAME_SETUP_REQUIRED`(409) 상수 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
 | GET/PUT | `/api/creator/youtube-channel` | Space의 YouTube 구독 인증 대상 채널 최초 설정·수정 | 연동 | [Subscription Verification](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/subscription-verification/api.md) |
 | GET/POST/PATCH/DELETE | `/api/creator/events`, `/api/creator/events/{eventId}` | Creator 이벤트 CRUD(스페이스 이벤트 탭) | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | POST | `/api/creator/events/{eventId}/approval-request` | 이벤트 승인 요청 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |

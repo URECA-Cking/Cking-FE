@@ -168,14 +168,18 @@ function TemplateFormModal({ template, onCancel, onSaved }) {
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Esc로 닫는다. 저장 중에는 닫지 않는다.
+  // 입력한 값이 처음과 다른지. 달라졌으면 Esc를 잘못 눌러 입력이 사라지지 않게 Esc로는 닫지 않는다.
+  const initial = templateFields(template)
+  const dirty = Object.keys(initial).some((key) => fields[key] !== initial[key])
+
+  // Esc로 닫는다. 저장 중이거나 입력한 값이 있으면 닫지 않는다(취소 버튼으로만 닫는다).
   useEffect(() => {
     function closeOnEscape(event) {
-      if (event.key === 'Escape' && !saving) onCancel()
+      if (event.key === 'Escape' && !saving && !dirty) onCancel()
     }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [saving, onCancel])
+  }, [saving, dirty, onCancel])
 
   function update(key, value) {
     setFields((current) => ({ ...current, [key]: value }))

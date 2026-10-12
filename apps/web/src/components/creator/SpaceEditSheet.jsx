@@ -125,7 +125,7 @@ function SpaceEditForm({ space, onSaved }) {
       <section className="flex flex-col gap-space-sm">
         <h3 className="font-label-md text-label-md font-semibold text-on-surface">공유 주소</h3>
         <label className="flex flex-col gap-1">
-          <span className="font-label-xs text-label-xs text-on-surface-variant">/space/</span>
+          <span className="font-label-xs text-label-xs text-on-surface-variant">/</span>
           <input
             value={slug}
             onChange={(event) => setSlug(event.target.value.toLowerCase())}

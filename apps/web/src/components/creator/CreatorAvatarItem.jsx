@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import { spacePath } from '../../api/creatorSpace.js'
 
 /** 프로필 이미지가 없거나 불러오지 못하면 사람 아이콘으로 대신한다. */
 export function CreatorPhoto({ src }) {
@@ -29,7 +30,7 @@ export function CreatorPhoto({ src }) {
 export default function CreatorAvatarItem({ creator, isNew = false }) {
   return (
     <Link
-      to={`/creators/${creator.creatorId}`}
+      to={spacePath(creator.handle)}
       aria-label={isNew ? `${creator.name}, 새 소식` : creator.name}
       className="flex flex-col items-center flex-shrink-0 w-16 group"
     >

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
-import { getMySpace } from '../../api/creatorSpace.js'
+import { getMySpace, spacePath } from '../../api/creatorSpace.js'
 
 /**
  * Creator 본인의 Space로 가는 링크. GET /api/creator/space로 내 creatorId를 알아낸다.
@@ -18,7 +18,7 @@ export default function MySpaceLink({ variant = 'row' }) {
     if (loading || error || !space) return null
     return (
       <Link
-        to={`/creators/${space.creatorId}`}
+        to={spacePath(space.slug)}
         className="w-full h-12 rounded-xl bg-surface-container-highest text-on-surface font-label-md text-label-md font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all"
       >
         <MaterialIcon name="storefront" className="text-[20px]" />내 스페이스 보기
@@ -39,7 +39,7 @@ export default function MySpaceLink({ variant = 'row' }) {
     )
   }
   return (
-    <Link to={`/creators/${space.creatorId}`} className={rowClass}>
+    <Link to={spacePath(space.slug)} className={rowClass}>
       <MaterialIcon name="storefront" className="text-primary text-[20px]" />
       <span className="font-label-md text-label-md text-on-surface flex-1">내 스페이스</span>
       <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />

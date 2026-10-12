@@ -11,7 +11,7 @@ import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorSpace } from '../api/creators.js'
-import { getMySpace, spaceShareUrl } from '../api/creatorSpace.js'
+import { getMySpace, spacePath, spaceShareUrl } from '../api/creatorSpace.js'
 import { getCreatorPosts } from '../api/posts.js'
 import { withMockSpace } from '../dev/socialMock.js'
 import { completeCreatorMission, getCreatorMissions } from '../api/missions.js'
@@ -67,7 +67,7 @@ function ProfileIntro({ text }) {
 /**
  * 크리에이터 스페이스(시안 _5, toast).
  *
- * 경로: /creators/:creatorId(앱 안 이동, 로그인 필요), /space/:slug(공유 링크, 로그인 없이 열람 가능)
+ * 경로: /:slug(인스타식 주소, 로그인 없이 열람 가능), 예전 경로 /space/:slug·/creators/:creatorId도 유지
  * 공개 데이터: 프로필(GET /api/creators/{id}/space, GET /api/creator-spaces/{slug}), 이벤트(GET /api/events?creatorId=), 캘린더.
  * 로그인 사용자만: 응모권 잔액(GET /api/creators/{id}/tickets)·내역, LIKE 미션 참여(SHARE는 공유 UI 연동 전까지 숨긴다),
  * 관심 등록, 본인 편집. 비로그인이면 이 영역에 로그인 안내를 보여준다.
@@ -216,7 +216,7 @@ export default function CreatorSpace() {
     setCreator((current) => (current ? { ...current, ...updated } : current))
     // 공유 링크로 들어온 화면에서 slug를 바꾸면 이전 주소는 더 이상 열리지 않으므로 새 주소로 옮긴다.
     if (slugParam && updated.slug !== slugParam) {
-      navigate(`/space/${encodeURIComponent(updated.slug)}`, { replace: true })
+      navigate(spacePath(updated.slug), { replace: true })
     }
   }
 

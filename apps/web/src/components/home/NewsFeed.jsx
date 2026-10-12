@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { CreatorPhoto } from '../creator/CreatorAvatarItem.jsx'
+import { spacePath } from '../../api/creatorSpace.js'
 import SectionTitle from './SectionTitle.jsx'
 import { formatRelativeTime } from '../../utils/format.js'
 
@@ -34,7 +35,7 @@ export default function NewsFeed({ creators, posts }) {
           return (
             <Link
               key={post.postId}
-              to={`/creators/${creator.creatorId}`}
+              to={spacePath(creator.handle)}
               state={{ tab: 'posts' }}
               className="flex h-36 w-52 flex-shrink-0 flex-col rounded-2xl bg-surface-container p-3.5 active:opacity-80 transition-opacity"
             >

@@ -13,6 +13,7 @@ import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
 import { describeError } from '../api/client.js'
+import { spacePath } from '../api/creatorSpace.js'
 
 // 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
 const CREATOR_PAGE_SIZE = 30
@@ -158,7 +159,7 @@ export default function Explore() {
                   data-balance-creator-id={creator.creatorId}
                   className="min-w-[260px] max-w-[260px] md:min-w-0 md:max-w-none snap-center rounded-2xl bg-surface-container-lowest p-3 shadow-card flex flex-col"
                 >
-                  <Link to={`/creators/${creator.creatorId}`} className="block">
+                  <Link to={spacePath(creator.handle)} className="block">
                     <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
                       <img className="w-full h-full object-cover" src={creator.banner} alt={creator.name} loading="lazy" decoding="async" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
@@ -233,7 +234,7 @@ export default function Explore() {
                   data-balance-creator-id={creator.creatorId}
                   className="w-full p-3 rounded-2xl bg-surface-container-lowest shadow-card flex items-center justify-between gap-3"
                 >
-                  <Link to={`/creators/${creator.creatorId}`} className="flex items-center gap-3 min-w-0">
+                  <Link to={spacePath(creator.handle)} className="flex items-center gap-3 min-w-0">
                     <span className="font-metric-display text-metric-display text-primary w-4 text-center">
                       {index + 1}
                     </span>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import BottomSheet from '../components/ui/BottomSheet.jsx'
@@ -18,9 +18,13 @@ import { formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '.
 import { displayStatusMeta, eventStatusMeta, isEntryOpen } from '../utils/eventStatus.js'
 import {
   COUPON_TYPE,
+  EXPECTED_TTL_MS,
   applyExpectedBalances,
   clampEntryCount,
   entryLimit,
+  expectedValues,
+  planEntry,
+  pruneExpected,
   resolveCouponType,
   ticketBalances,
 } from '../utils/entryTickets.js'
@@ -42,19 +46,43 @@ export default function EventDetail() {
 
   const [ticketCount, setTicketCount] = useState(1)
   const [chosenType, setChosenType] = useState(null) // 사용자가 고른 응모권 종류. 고른 적 없으면 null
-  // 응모가 수락된 종류의 "응모 후 예상 잔액". DB 반영이 늦어 서버가 옛 값을 줘도 바로 차감된 값을 보여 주려는 것이다.
-  const [expected, setExpected] = useState({ eventId: null, values: {} })
+  // 응모가 수락된 종류의 "응모 후 예상 잔액"({ 종류: { value, at } }). DB 반영이 늦어 서버가 옛 값을 줘도 바로 차감된
+  // 값을 보여 주려는 것이다. 서버가 따라잡거나 시간이 지나면 해제한다(syncBalances).
+  const [expected, setExpected] = useState({ eventId: null, entries: {} })
   const [attempt, setAttempt] = useState(null) // 확인 시트를 연 시점에 확정한 응모 내용 { couponType, count, balance }
+  const [opening, setOpening] = useState(false) // 응모 확인 시트를 열기 전 최신 잔액을 불러오는 중(버튼 표시용)
+  const openingRef = useRef(false) // 같은 순간에 여러 번 눌려도 한 번만 처리하려는 잠금(state는 다음 렌더에야 바뀐다)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [phase, setPhase] = useState('idle') // idle | submitting | done
   const [result, setResult] = useState(null)
   const [requestId, setRequestId] = useState(() => newRequestId())
 
-  const { data: event, loading, error, reload } = useAsync(
+  const { data: event, loading, error, reload, setData: setEvent } = useAsync(
     () => getEvent(eventId),
     [eventId],
     { fallbackMessage: '이벤트 상세를 불러오지 못했습니다.' },
   )
+
+  // 응모 뒤 잔액을 조용히 다시 불러온다(화면 전체를 로딩 상태로 바꾸는 reload와 달리 시트와 입력을 그대로 둔다).
+  // 불러온 서버 잔액으로 서버가 차감을 반영한 종류, 또는 오래된 예상 값을 해제한다. 그래야 다른 곳에서 응모권이
+  // 늘어도 옛 예상 값이 계속 상한으로 남지 않는다.
+  // 불러온 최신 이벤트를 돌려준다(조회에 실패하면 null).
+  async function syncBalances() {
+    try {
+      const fresh = await getEvent(eventId)
+      // 그 사이 다른 이벤트 화면으로 바뀌었으면(같은 컴포넌트가 다른 eventId로 재사용될 때) 예전 이벤트로 덮어쓰지 않는다.
+      setEvent((current) => (current && String(current.eventId) === String(fresh?.eventId) ? fresh : current))
+      setExpected((prev) => {
+        if (prev.eventId !== eventId) return prev
+        const entries = pruneExpected(prev.entries, ticketBalances(fresh), Date.now())
+        return Object.keys(entries).length === Object.keys(prev.entries).length ? prev : { ...prev, entries }
+      })
+      return fresh
+    } catch {
+      // 조회에 실패해도 예상 값은 시간이 지나 다음 조회에서 해제된다. 화면은 마지막으로 불러온 값을 그대로 보여 준다.
+      return null
+    }
+  }
 
   const published = event?.status === 'PUBLISHED'
   const winners = useAsync(() => getPublicWinners(eventId), [eventId, published], {
@@ -74,7 +102,10 @@ export default function EventDetail() {
 
   // 응모권은 크리에이터 전용과 공용 두 종류다. 이벤트 상세 응답이 두 잔액을 함께 내려준다.
   // 크리에이터 응모권은 이벤트(크리에이터)마다 달라서 예상 잔액은 같은 이벤트에서만 쓴다.
-  const balances = applyExpectedBalances(ticketBalances(event), expected.eventId === eventId ? expected.values : null)
+  const balances = applyExpectedBalances(
+    ticketBalances(event),
+    expected.eventId === eventId ? expectedValues(expected.entries) : null,
+  )
   const couponType = resolveCouponType(balances, chosenType)
   const balance = balances[couponType]
   const limit = entryLimit(balance) // 한 번에 고를 수 있는 최대 장수: min(잔액, 100)
@@ -125,22 +156,40 @@ export default function EventDetail() {
     setTicketCount((count) => clampEntryCount(count, balances[type]))
   }
 
-  function openConfirm() {
+  async function openConfirm() {
+    if (openingRef.current) return
     if (!isEntryOpen(event)) {
       showToast('지금은 응모할 수 있는 상태가 아니에요.', { icon: 'error' })
       return
     }
-    if (balance <= 0) {
-      showToast('보유한 응모권이 없어요. 응모권을 먼저 모아주세요!', { icon: 'error' })
-      return
+    openingRef.current = true
+    setOpening(true)
+    try {
+      // 화면을 열어 둔 사이 다른 곳에서 응모권이 바뀌었을 수 있어, 응모 직전에 최신 잔액을 불러와 그 값으로 확정한다.
+      // 조회에 실패하면 지금 화면의 값으로 진행한다.
+      const fresh = await syncBalances()
+      const source = fresh ?? event
+      if (!isEntryOpen(source)) {
+        showToast('지금은 응모할 수 있는 상태가 아니에요.', { icon: 'error' })
+        return
+      }
+      const entries = expected.eventId === eventId ? expected.entries : {}
+      const plan = planEntry(source, entries, chosenType, ticketCount)
+      if (!plan) {
+        showToast('보유한 응모권이 없어요. 응모권을 먼저 모아주세요!', { icon: 'error' })
+        return
+      }
+      // 시트를 열 때 종류·수량·그때의 잔액을 확정해 둔다. 응모 성공 뒤 잔액이 바뀌어도 시트 표시와
+      // 재시도 요청(같은 requestId)이 달라지지 않게 하려는 것이다.
+      setAttempt(plan)
+      setPhase('idle')
+      setResult(null)
+      setRequestId(newRequestId())
+      setSheetOpen(true)
+    } finally {
+      openingRef.current = false
+      setOpening(false)
     }
-    // 시트를 열 때 종류·수량·그때의 잔액을 확정해 둔다. 응모 성공 뒤 잔액이 바뀌어도 시트 표시와
-    // 재시도 요청(같은 requestId)이 달라지지 않게 하려는 것이다.
-    setAttempt({ couponType, count: selectedCount, balance })
-    setPhase('idle')
-    setResult(null)
-    setRequestId(newRequestId())
-    setSheetOpen(true)
   }
 
   async function submitEntry() {
@@ -167,13 +216,17 @@ export default function EventDetail() {
       // 이벤트를 다시 불러와도 DB 반영 전이면 서버가 옛 잔액을 줄 수 있어, 방금 쓴 만큼 뺀 값을 먼저 기억해 둔다.
       setExpected((prev) => ({
         eventId,
-        values: {
-          ...(prev.eventId === eventId ? prev.values : {}),
-          [attempt.couponType]: attempt.balance - attempt.count,
+        entries: {
+          ...(prev.eventId === eventId ? prev.entries : {}),
+          [attempt.couponType]: { value: attempt.balance - attempt.count, at: Date.now() },
         },
       }))
-      await reload()
+      await syncBalances()
       setTimeout(() => setSheetOpen(false), 1200)
+      // DB 반영이 끝났을 즈음 한 번 더 불러와 서버가 따라잡은 예상 값을 일찍 해제하고, 시간 제한으로 해제되는 때에도
+      // 한 번 더 불러와 그 사이 다른 곳에서 바뀐 잔액을 화면에 반영한다.
+      setTimeout(syncBalances, EXPECTED_SYNC_MS)
+      setTimeout(syncBalances, EXPECTED_TTL_MS + 500)
     }
   }
 
@@ -242,13 +295,6 @@ export default function EventDetail() {
                 {event.description}
               </p>
             )}
-            <div className="mt-space-xs flex items-center gap-2 p-3 rounded-xl bg-surface-container-low text-on-surface-variant">
-              <MaterialIcon name="info" className="text-secondary text-[20px] shrink-0" />
-              <span className="font-body-sm text-body-sm leading-snug">
-                사용한 응모권이 많을수록 당첨 확률이 높아져요.{' '}
-                <span className="text-on-surface font-semibold">(조작 없는 공정 난수 추첨)</span>
-              </span>
-            </div>
           </div>
 
           <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-card flex items-center justify-between gap-space-sm">
@@ -367,38 +413,16 @@ export default function EventDetail() {
                   onClick={() => setTicketCount(limit)}
                   className="py-2.5 rounded-xl bg-primary/10 text-primary font-label-md text-label-md font-bold active:scale-95 hover:bg-primary hover:text-on-primary transition-all"
                 >
-                  전부 ({formatNumber(limit)}장)
+                  일괄 사용 ({formatNumber(limit)}장)
                 </button>
               </div>
 
-              <div className="p-4 rounded-xl bg-surface-rose-muted flex flex-col gap-3">
-                <div className="flex items-center justify-between text-on-surface">
-                  <span className="font-body-sm text-body-sm text-on-surface-variant">응모 후 잔여 응모권</span>
-                  <div className="flex items-center gap-1.5 font-label-md text-label-md">
-                    <span className="text-slate-muted">보유 {formatNumber(balance)}장</span>
-                    <MaterialIcon name="arrow_forward" className="text-[14px] text-outline" />
-                    <span className="font-bold text-primary">{formatNumber(balance - selectedCount)}장 남음</span>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5 pt-1">
-                  <div className="flex items-center justify-between font-label-sm text-label-sm">
-                    <span className="flex items-center gap-1 text-on-surface font-semibold">
-                      <MaterialIcon name="trending_up" className="text-[16px] text-secondary" />
-                      사용 비중
-                    </span>
-                    <span className="font-bold text-secondary">
-                      보유 응모권의 {Math.round((selectedCount / Math.max(1, balance)) * 100)}%
-                    </span>
-                  </div>
-                  <div className="w-full h-2.5 rounded-full bg-surface-container overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-secondary to-primary rounded-full transition-all duration-300"
-                      style={{ width: `${Math.round((selectedCount / Math.max(1, balance)) * 100)}%` }}
-                    />
-                  </div>
-                  <p className="font-label-xs text-label-xs text-slate-muted text-right">
-                    당첨 확률은 전체 응모량에 따라 달라져요
-                  </p>
+              <div className="p-4 rounded-xl bg-surface-rose-muted flex items-center justify-between gap-space-sm">
+                <span className="font-body-sm text-body-sm text-on-surface-variant">응모 후 잔여 응모권</span>
+                <div className="flex items-center gap-1.5 font-label-md text-label-md">
+                  <span className="text-on-surface-variant">{formatNumber(balance)}장</span>
+                  <MaterialIcon name="arrow_forward" className="text-[14px] text-on-surface-variant" />
+                  <span className="font-bold text-on-surface">{formatNumber(balance - selectedCount)}장</span>
                 </div>
               </div>
 
@@ -526,7 +550,7 @@ export default function EventDetail() {
           <button
             type="button"
             onClick={openConfirm}
-            disabled={!canApply}
+            disabled={!canApply || opening}
             className="w-full h-12 rounded-xl bg-gradient-to-r from-primary via-primary-container to-berry-glow text-on-primary font-title-md text-title-md font-bold flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             <MaterialIcon name="confirmation_number" filled className="text-[20px]" />
@@ -555,14 +579,11 @@ export default function EventDetail() {
           </div>
           <div className="flex flex-col min-w-0 flex-1">
             <div className="flex items-center gap-1">
-              <span className="font-label-sm text-label-sm text-primary font-bold tracking-tight">{creator.name}</span>
+              <span className="font-label-sm text-label-sm text-on-surface font-bold tracking-tight">{creator.name}</span>
               <MaterialIcon name="verified" filled className="text-[15px] text-primary" />
-              <span className="font-label-xs text-label-xs text-slate-muted ml-auto">{dday}</span>
+              <span className="font-label-xs text-label-xs text-on-surface-variant ml-auto">{dday}</span>
             </div>
             <h3 className="font-title-md text-title-md text-on-surface font-bold truncate mt-0.5">{event.title}</h3>
-            <p className="font-label-sm text-label-sm text-on-surface-variant truncate">
-              {formatNumber(event.winnerCount)}명 추첨 · 상품 {formatNumber(prizeCount)}개
-            </p>
           </div>
         </div>
 
@@ -591,13 +612,9 @@ export default function EventDetail() {
           </div>
           <div className="flex items-center justify-between">
             <span className="font-body-sm text-body-sm text-on-surface-variant">응모 후 잔여 수량</span>
-            <span className="font-label-md text-label-md text-slate-muted font-bold">
+            <span className="font-label-md text-label-md text-on-surface font-bold">
               {formatNumber(sheet.balance - sheet.count)}장
             </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="font-body-sm text-body-sm text-on-surface-variant">요청 번호(멱등키)</span>
-            <span className="font-label-xs text-label-xs text-outline truncate max-w-[160px]">{requestId}</span>
           </div>
         </div>
 

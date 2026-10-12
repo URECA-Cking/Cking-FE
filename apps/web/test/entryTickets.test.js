@@ -6,6 +6,9 @@ import {
   applyExpectedBalances,
   clampEntryCount,
   entryLimit,
+  expectedValues,
+  planEntry,
+  pruneExpected,
   resolveCouponType,
   ticketBalances,
 } from '../src/utils/entryTickets.js'
@@ -64,4 +67,68 @@ test('원본 잔액 객체는 바꾸지 않는다', () => {
   const server = { CREATOR: 5, COMMON: 3 }
   applyExpectedBalances(server, { CREATOR: 1 })
   assert.deepEqual(server, { CREATOR: 5, COMMON: 3 })
+})
+
+const T0 = 1_000_000
+
+test('서버가 차감을 반영하면(예상 값 이하) 그 종류의 예상 값을 해제한다', () => {
+  const entries = { CREATOR: { value: 4, at: T0 } }
+  assert.deepEqual(pruneExpected(entries, { CREATOR: 4, COMMON: 0 }, T0 + 1000), {})
+  assert.deepEqual(pruneExpected(entries, { CREATOR: 3, COMMON: 0 }, T0 + 1000), {})
+})
+
+test('서버가 아직 옛 값이고 시간이 지나지 않았으면 예상 값을 유지한다', () => {
+  const entries = { CREATOR: { value: 4, at: T0 } }
+  assert.deepEqual(pruneExpected(entries, { CREATOR: 5, COMMON: 0 }, T0 + 1000), entries)
+})
+
+test('시간 제한이 지나면 서버 잔액이 더 커도 예상 값을 해제한다', () => {
+  const entries = { CREATOR: { value: 4, at: T0 } }
+  assert.deepEqual(pruneExpected(entries, { CREATOR: 7, COMMON: 0 }, T0 + 10_001), {})
+  assert.deepEqual(pruneExpected(entries, { CREATOR: 7, COMMON: 0 }, T0 + 10_000), entries)
+})
+
+test('차감이 반영된 뒤 다른 곳에서 늘어난 잔액은 정상으로 보인다(회귀)', () => {
+  let entries = { CREATOR: { value: 4, at: T0 } }
+  // 1) 서버가 차감을 반영(4장) → 예상 값 해제
+  entries = pruneExpected(entries, { CREATOR: 4, COMMON: 0 }, T0 + 500)
+  // 2) 다른 탭에서 3장 적립 → 서버 7장. 예상 값이 없으니 7장 그대로
+  const shown = applyExpectedBalances({ CREATOR: 7, COMMON: 0 }, expectedValues(entries))
+  assert.deepEqual(shown, { CREATOR: 7, COMMON: 0 })
+})
+
+test('다른 종류의 예상 값은 서로 영향을 주지 않는다', () => {
+  const entries = { CREATOR: { value: 4, at: T0 }, COMMON: { value: 0, at: T0 } }
+  const next = pruneExpected(entries, { CREATOR: 5, COMMON: 0 }, T0 + 1000)
+  assert.deepEqual(Object.keys(next), ['CREATOR'])
+  assert.deepEqual(expectedValues(next), { CREATOR: 4 })
+})
+
+test('응모 직전 최신 잔액으로 확정한다: 다른 곳에서 늘어난 잔액이 반영된다(리뷰 시나리오)', () => {
+  // 앞선 응모의 예상 값은 서버가 따라잡아 이미 해제된 상태에서, 다른 탭의 적립으로 서버가 7장이 됐다.
+  assert.deepEqual(planEntry({ myTicketBalance: 7, myCommonTicketBalance: 0 }, {}, null, 1), {
+    couponType: 'CREATOR',
+    count: 1,
+    balance: 7,
+  })
+})
+
+test('서버가 아직 차감을 반영하지 않은 동안은 예상 잔액으로 확정한다', () => {
+  const entries = { CREATOR: { value: 4, at: T0 } }
+  const plan = planEntry({ myTicketBalance: 5, myCommonTicketBalance: 0 }, entries, null, 1, T0 + 500)
+  assert.equal(plan.balance, 4)
+})
+
+test('응모권이 없으면 null이고, 고른 종류가 0장이면 다른 종류로 확정한다', () => {
+  assert.equal(planEntry({ myTicketBalance: 0, myCommonTicketBalance: 0 }, {}, null, 1), null)
+  assert.deepEqual(planEntry({ myTicketBalance: 0, myCommonTicketBalance: 2 }, {}, 'CREATOR', 1), {
+    couponType: 'COMMON',
+    count: 1,
+    balance: 2,
+  })
+})
+
+test('고른 수량이 최신 잔액을 넘으면 최신 잔액으로 맞춘다', () => {
+  assert.equal(planEntry({ myTicketBalance: 3, myCommonTicketBalance: 0 }, {}, null, 9).count, 3)
+  assert.equal(planEntry({ myTicketBalance: 250, myCommonTicketBalance: 0 }, {}, null, 150).count, 100)
 })

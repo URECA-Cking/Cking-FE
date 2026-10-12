@@ -131,7 +131,7 @@ export function UserProvider({ children }) {
         return {
           ...current,
           ids: result.following
-            ? [...new Set([...current.ids, id])]
+            ? [id, ...current.ids.filter((value) => value !== id)] // 서버 목록(최근 팔로우 순)과 같게 맨 앞에 둔다
             : current.ids.filter((value) => value !== id),
         }
       })

@@ -79,7 +79,8 @@ export function useRecommendationEvents(requestId) {
     if (!s.observer) {
       s.observer = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
-          if (!entry.isIntersecting) return
+          // threshold는 콜백 호출 경계일 뿐이라 첫 알림에는 10%만 보여도 isIntersecting이 true다. 절반 이상일 때만 센다.
+          if (!entry.isIntersecting || entry.intersectionRatio < 0.5) return
           const id = Number(entry.target.dataset.recCreatorId)
           const key = `${s.requestId}:${id}`
           if (s.seen.has(key)) return

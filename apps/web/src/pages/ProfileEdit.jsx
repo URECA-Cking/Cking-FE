@@ -170,11 +170,12 @@ export default function ProfileEdit() {
       />
       <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-[480px] flex-col gap-space-lg px-margin pt-[4.5rem] md:max-w-xl">
         {setup && (
-          <div className="flex items-start gap-3 rounded-2xl bg-berry-tint p-space-md">
+          // bg-berry-tint는 테마와 무관한 연한 분홍이라 글자색도 고정색(berry-deep)을 써야 다크 모드에서 읽힌다.
+          <div className="flex items-start gap-3 rounded-2xl bg-berry-tint border border-border-rose p-space-md">
             <MaterialIcon name="waving_hand" className="mt-0.5 text-[22px] text-primary" />
             <div className="flex flex-col gap-0.5">
-              <p className="font-label-md text-label-md font-semibold text-on-surface">닉네임을 정해주세요</p>
-              <p className="font-body-sm text-body-sm text-on-surface-variant">
+              <p className="font-label-md text-label-md font-bold text-berry-deep">닉네임을 정해주세요</p>
+              <p className="font-body-sm text-body-sm text-berry-deep/80">
                 댓글 남기기, 이벤트 응모, 크리에이터 신청은 닉네임을 정한 뒤에 할 수 있어요.
               </p>
             </div>

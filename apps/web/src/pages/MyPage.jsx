@@ -147,11 +147,12 @@ export default function MyPage() {
         <Link
           to="/profile/edit"
           state={{ from: '/my-page' }}
-          className="flex items-center justify-between gap-3 rounded-2xl bg-berry-tint p-space-md active:scale-[0.99] transition-all"
+          className="flex items-center justify-between gap-3 rounded-2xl bg-berry-tint border border-border-rose p-space-md active:scale-[0.99] transition-all"
         >
+          {/* bg-berry-tint는 테마와 무관한 연한 분홍이라 글자색도 고정색(berry-deep)을 써야 다크 모드에서 읽힌다. */}
           <span className="flex flex-col gap-0.5">
-            <span className="font-label-md text-label-md font-semibold text-on-surface">닉네임을 설정해주세요</span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant">댓글·응모·크리에이터 신청은 닉네임을 정한 뒤에 할 수 있어요.</span>
+            <span className="font-label-md text-label-md font-bold text-berry-deep">닉네임을 설정해주세요</span>
+            <span className="font-body-sm text-body-sm text-berry-deep/80">댓글·응모·크리에이터 신청은 닉네임을 정한 뒤에 할 수 있어요.</span>
           </span>
           <MaterialIcon name="chevron_right" className="shrink-0 text-primary" />
         </Link>

@@ -68,14 +68,6 @@ function toScheduleRequestBody(fields) {
   };
 }
 
-/** GET /api/creator/calendar/schedules - 내 일정 중 기간과 겹치는 것(조회 기간 365일 이하). */
-export async function getMySchedules(from, to) {
-  return apiClient.get('/api/creator/calendar/schedules', {
-    from: from.toISOString(),
-    to: to.toISOString(),
-  });
-}
-
 /** POST /api/creator/calendar/schedules - 관리자 승인 없이 생성 즉시 공개된다. */
 export function createSchedule(fields) {
   return apiClient.post('/api/creator/calendar/schedules', toScheduleRequestBody(fields));

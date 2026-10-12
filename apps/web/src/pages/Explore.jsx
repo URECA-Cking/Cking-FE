@@ -14,6 +14,9 @@ import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
 import { describeError } from '../api/client.js'
 
+// 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
+const CREATOR_PAGE_SIZE = 30
+
 const EVENT_FILTERS = [
   { id: '', label: '전체' },
   { id: 'IN_PROGRESS', label: '진행 중' },
@@ -42,6 +45,7 @@ export default function Explore() {
   const [query, setQuery] = useState('')
   const [creatorFilter, setCreatorFilter] = useState('전체')
   const [eventFilter, setEventFilter] = useState('IN_PROGRESS')
+  const [creatorLimit, setCreatorLimit] = useState(CREATOR_PAGE_SIZE)
 
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터를 불러오지 못했습니다.',
@@ -76,8 +80,9 @@ export default function Explore() {
   )
 
   const events = eventList.data?.items ?? []
+  const shownCreators = useMemo(() => filteredCreators.slice(0, creatorLimit), [filteredCreators, creatorLimit])
   const renderedBalanceIds = [
-    ...filteredCreators.map((creator) => creator.creatorId),
+    ...shownCreators.map((creator) => creator.creatorId),
     ...trending.map((creator) => creator.creatorId),
   ]
   const visibleBalanceIds = useVisibleCreatorIds(pageRef, renderedBalanceIds)
@@ -101,7 +106,7 @@ export default function Explore() {
           </div>
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => { setQuery(event.target.value); setCreatorLimit(CREATOR_PAGE_SIZE) }}
             className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-all shadow-sm"
             placeholder="크리에이터를 검색해봐 (아티스트, 유튜버, 스트리머)"
             type="search"
@@ -110,7 +115,7 @@ export default function Explore() {
             <button
               type="button"
               aria-label="지우기"
-              onClick={() => setQuery('')}
+              onClick={() => { setQuery(''); setCreatorLimit(CREATOR_PAGE_SIZE) }}
               className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-outline hover:text-on-surface transition-colors"
             >
               <MaterialIcon name="cancel" className="text-[18px]" />
@@ -145,7 +150,7 @@ export default function Explore() {
         )}
         {!directory.loading && !directory.error && filteredCreators.length > 0 && (
           <div className="flex overflow-x-auto md:grid md:grid-cols-2 xl:grid-cols-3 md:overflow-visible gap-space-md px-margin no-scrollbar snap-x snap-mandatory pt-1 pb-3">
-            {filteredCreators.map((creator) => {
+            {shownCreators.map((creator) => {
               const followed = isFollowing(creator.creatorId)
               return (
                 <div
@@ -155,7 +160,7 @@ export default function Explore() {
                 >
                   <Link to={`/creators/${creator.creatorId}`} className="block">
                     <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
-                      <img className="w-full h-full object-cover" src={creator.banner} alt={creator.name} />
+                      <img className="w-full h-full object-cover" src={creator.banner} alt={creator.name} loading="lazy" decoding="async" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
                       {creator.openEventCount > 0 && (
                         <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-xs text-label-xs font-semibold flex items-center gap-1">
@@ -193,6 +198,19 @@ export default function Explore() {
                 </div>
               )
             })}
+            {filteredCreators.length > shownCreators.length && (
+              <button
+                type="button"
+                onClick={() => setCreatorLimit((limit) => limit + CREATOR_PAGE_SIZE)}
+                className="min-w-[120px] snap-center rounded-2xl bg-surface-container-low text-primary font-label-md text-label-md flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"
+              >
+                <MaterialIcon name="add_circle" className="text-[28px]" />
+                <span>더 보기</span>
+                <span className="font-label-xs text-label-xs text-outline">
+                  {formatNumber(filteredCreators.length - shownCreators.length)}명 남음
+                </span>
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -220,7 +238,7 @@ export default function Explore() {
                       {index + 1}
                     </span>
                     <div className="relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                      <img className="w-full h-full object-cover" src={creator.avatar} alt={creator.name} />
+                      <img className="w-full h-full object-cover" src={creator.avatar} alt={creator.name} loading="lazy" decoding="async" />
                     </div>
                     <div className="min-w-0 flex flex-col">
                       <div className="flex items-center gap-1">
@@ -270,7 +288,7 @@ export default function Explore() {
             <button
               key={item}
               type="button"
-              onClick={() => setCreatorFilter(item)}
+              onClick={() => { setCreatorFilter(item); setCreatorLimit(CREATOR_PAGE_SIZE) }}
               className={`px-4 py-2 rounded-full font-label-md text-label-md font-semibold whitespace-nowrap transition-all active:scale-95 ${
                 creatorFilter === item
                   ? 'bg-primary text-on-primary shadow-sm'

@@ -43,6 +43,8 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             src={getEventBanner(event.eventId)}
             alt=""
+            loading="lazy"
+            decoding="async"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
 

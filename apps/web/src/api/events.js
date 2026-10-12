@@ -14,3 +14,19 @@ export async function getEvent(eventId) {
 export async function closeEvent(eventId) {
   return apiClient.post(`/api/events/${eventId}/close`);
 }
+
+/**
+ * GET /api/events?status=IN_PROGRESS - 진행 중 이벤트를 모두 모은다.
+ * 목록은 createdAt 내림차순이라 마감 임박순을 만들려면 일부만 받아서는 안 되므로 hasNext가 끝날 때까지 이어 받는다.
+ * 비정상적으로 많아도 무한히 돌지 않게 maxPages에서 멈춘다.
+ * @returns {Promise<object[]>}
+ */
+export async function getInProgressEvents({ size = 100, maxPages = 10 } = {}) {
+  const items = [];
+  for (let page = 0; page < maxPages; page += 1) {
+    const result = await getEvents({ status: 'IN_PROGRESS', page, size });
+    items.push(...(result?.items ?? []));
+    if (!result?.hasNext) break;
+  }
+  return items;
+}

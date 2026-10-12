@@ -15,6 +15,9 @@ import { describeError } from '../api/client.js'
 import { formatDateTime, formatNumber } from '../utils/format.js'
 import { CREATOR_APPLICATION_STATUS_META } from '../utils/eventStatus.js'
 
+// 팔로우한 크리에이터가 많을 수 있어 처음엔 3명만 그리고 '더 보기'를 누르면 나머지를 모두 보여준다.
+const CREATOR_PAGE_SIZE = 3
+
 const ADMIN_BASE_URL = import.meta.env.VITE_ADMIN_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5174' : null)
 
 /**
@@ -31,11 +34,19 @@ export default function MyPage() {
 
   const [applying, setApplying] = useState(false)
   const [ledgerTarget, setLedgerTarget] = useState(null)
+  const [creatorLimit, setCreatorLimit] = useState(CREATOR_PAGE_SIZE)
 
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '응모권 정보를 불러오지 못했습니다.',
   })
-  const { balances, failedIds, retry: retryBalances, loading: balancesLoading } = useCreatorBalances(followedCreators, user?.memberId)
+  // 팔로우가 많을 수 있어 일부만 그린다. 잔액도 화면에 그린 크리에이터만 조회한다.
+  const followedProfiles = useMemo(
+    () => (directory.data?.creators ?? []).filter((creator) => followedCreators.includes(creator.creatorId)),
+    [directory.data, followedCreators],
+  )
+  const shownProfiles = useMemo(() => followedProfiles.slice(0, creatorLimit), [followedProfiles, creatorLimit])
+  const shownIds = useMemo(() => shownProfiles.map((creator) => creator.creatorId), [shownProfiles])
+  const { balances, failedIds, retry: retryBalances, loading: balancesLoading } = useCreatorBalances(shownIds, user?.memberId)
   const applications = useAsync(
     () => getMyCreatorApplications({ size: 5 }),
     [],
@@ -43,15 +54,13 @@ export default function MyPage() {
   )
 
   const creators = useMemo(
-    () => (directory.data?.creators ?? [])
-      .filter((creator) => followedCreators.includes(creator.creatorId))
-      .map((creator) => ({
-        ...creator,
-        balance: balances.get(creator.creatorId)?.balance,
-        balanceUpdatedAt: balances.get(creator.creatorId)?.updatedAt,
-        balanceError: failedIds.has(creator.creatorId),
-      })),
-    [directory.data, followedCreators, balances, failedIds],
+    () => shownProfiles.map((creator) => ({
+      ...creator,
+      balance: balances.get(creator.creatorId)?.balance,
+      balanceUpdatedAt: balances.get(creator.creatorId)?.updatedAt,
+      balanceError: failedIds.has(creator.creatorId),
+    })),
+    [shownProfiles, balances, failedIds],
   )
   const latestApplication = applications.data?.items?.[0] ?? null
   const hasPending = latestApplication?.status === 'PENDING'
@@ -155,6 +164,15 @@ export default function MyPage() {
               </button>
             </div>
           ))}
+          {followedProfiles.length > shownProfiles.length && (
+            <button
+              type="button"
+              onClick={() => setCreatorLimit(Infinity)}
+              className="md:col-span-2 h-10 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md font-semibold active:scale-95 transition-all"
+            >
+              더 보기 ({formatNumber(followedProfiles.length - shownProfiles.length)}명 남음)
+            </button>
+          )}
           </div>
         )}
       </section>

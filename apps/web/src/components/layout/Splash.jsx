@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useUser } from '../../context/useUser.js'
 import { markSplashDone, splashOnLoad } from '../../utils/splashState.js'
+import ThemedImage from '../ui/ThemedImage.jsx'
 
 // 스플래시가 떠 있는 동안 아래 화면의 로고를 숨기는 표식(index.css). 로고가 두 개로 겹쳐 보이지 않게 한다.
 const ACTIVE_CLASS = 'splash-active'
@@ -97,7 +98,7 @@ export default function Splash() {
         {/* 로고를 왕관과 몸통 두 장(같은 캔버스 크기)으로 나눠 겹쳐 둔다. 왕관이 위에서 떨어져 씌워진다.
             크기는 Login의 data-splash-target 로고와 같아야 dock 이동이 어긋나지 않는다. */}
         <div className="splash-stack relative w-[232px]">
-          <img src="/cking-logo-body.png" alt="" className="splash-body block w-full" />
+          <ThemedImage dark="/cking-logo-body.png" light="/cking-logo-body-light.png" className="splash-body w-full" />
           <img src="/cking-crown.png" alt="" className="splash-crown absolute inset-0 w-full h-full" />
         </div>
       </div>

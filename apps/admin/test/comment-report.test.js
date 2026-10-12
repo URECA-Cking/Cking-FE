@@ -7,6 +7,7 @@ import {
   reasonLabel,
   reasonSummary,
   reportStatusLabel,
+  viewAfterRefresh,
 } from '../src/utils/commentReport.js'
 
 test('신고 사유는 아는 코드를 한국어로, 모르는 코드는 그대로 보여준다', () => {
@@ -60,4 +61,29 @@ test('성공 안내는 처리한 건수가 있으면 건수를, 0이면 이미 �
   assert.equal(actionSuccessMessage('hide', 0), '이미 숨긴 댓글이에요.')
   assert.equal(actionSuccessMessage('reject', 1), '신고 1건을 반려했어요.')
   assert.equal(actionSuccessMessage('reject', 0), '이미 반려한 신고예요.')
+})
+
+test('다시 읽은 목록이 비고 시작한 탭·페이지에 그대로 있으면 한 페이지 줄인다', () => {
+  const view = { status: 'PENDING', page: 2 }
+  assert.deepEqual(viewAfterRefresh(view, { status: 'PENDING', page: 2 }, 0), { status: 'PENDING', page: 1 })
+})
+
+test('목록이 비어 있지 않거나 첫 페이지이면 위치를 바꾸지 않는다', () => {
+  const view = { status: '', page: 1 }
+  assert.deepEqual(viewAfterRefresh(view, { status: '', page: 1 }, 3), { status: '', page: 1 })
+  const first = { status: 'PENDING', page: 0 }
+  assert.deepEqual(viewAfterRefresh(first, { status: 'PENDING', page: 0 }, 0), { status: 'PENDING', page: 0 })
+})
+
+test('재조회 중에 탭을 바꿨다면 늦게 끝난 빈 결과로 페이지를 줄이지 않는다(페이지가 -1이 되지 않는다)', () => {
+  const started = { status: 'PENDING', page: 1 }
+  // 접수 탭 2페이지에서 조치한 뒤 재조회가 끝나기 전에 전체 탭으로 바꾼 상태(탭을 바꾸면 페이지는 0이 된다)
+  const current = { status: '', page: 0 }
+  assert.deepEqual(viewAfterRefresh(started, current, 0), current)
+})
+
+test('재조회 중에 페이지를 옮겼다면 위치를 바꾸지 않는다', () => {
+  const started = { status: 'PENDING', page: 2 }
+  const current = { status: 'PENDING', page: 1 }
+  assert.deepEqual(viewAfterRefresh(started, current, 0), current)
 })

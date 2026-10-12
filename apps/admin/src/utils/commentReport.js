@@ -74,6 +74,21 @@ export function actionSuccessMessage(action, handledReportCount) {
   return handledReportCount > 0 ? `신고 ${handledReportCount}건을 반려했어요.` : '이미 반려한 신고예요.'
 }
 
+/**
+ * 조치 뒤 다시 읽은 목록이 비었을 때 보여줄 화면 위치(탭·페이지). 읽은 결과가 비었고 이전 페이지가 있으며, 조회를 시작한 탭·페이지에
+ * 아직 머물러 있을 때만 한 페이지 줄인다. 재조회 중에 탭이나 페이지를 바꿨다면 그 결과는 지금 화면과 무관하므로 그대로 둔다
+ * (페이지가 0 아래로 내려가면 API가 400을 돌려준다).
+ *
+ * @param {{ status: string, page: number }} started 재조회를 시작할 때의 화면 위치
+ * @param {{ status: string, page: number }} current 재조회가 끝난 지금의 화면 위치
+ * @param {number} refreshedCount 다시 읽은 목록의 항목 수
+ */
+export function viewAfterRefresh(started, current, refreshedCount) {
+  if (refreshedCount > 0 || started.page <= 0) return current
+  if (current.status !== started.status || current.page !== started.page) return current
+  return { ...current, page: current.page - 1 }
+}
+
 /** 조치 실패 오류 코드별 문구. 이 코드들은 최신 상태를 다시 읽어 확인해야 한다. */
 export const COMMENT_REPORT_ERROR_MESSAGES = {
   COMMENT_REPORT_ALREADY_HANDLED: '이미 다른 조치로 처리된 신고예요. 최신 상태를 확인해주세요.',

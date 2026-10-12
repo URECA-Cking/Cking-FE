@@ -15,6 +15,7 @@ import {
   canHandle,
   reasonSummary,
   reportStatusLabel,
+  viewAfterRefresh,
 } from '../../utils/commentReport.js'
 
 const PAGE_SIZE = 20
@@ -33,8 +34,9 @@ const STATUS_OPTIONS = [
  */
 export default function AdminCommentReports() {
   const showToast = useToast()
-  const [status, setStatus] = useState('PENDING')
-  const [page, setPage] = useState(0)
+  // 탭과 페이지는 함께 바뀌므로 한 상태로 둔다. 재조회가 끝난 뒤 시작할 때와 같은 위치일 때만 페이지를 줄이기 위해서다.
+  const [view, setView] = useState({ status: 'PENDING', page: 0 })
+  const { status, page } = view
   // pending: null | { action: 'hide' | 'reject', item }
   const [pending, setPending] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -46,8 +48,7 @@ export default function AdminCommentReports() {
   const items = data?.items ?? []
 
   function changeStatus(next) {
-    setStatus(next)
-    setPage(0)
+    setView({ status: next, page: 0 })
   }
 
   async function run() {
@@ -76,8 +77,9 @@ export default function AdminCommentReports() {
    * 페이지가 줄었을 때) 이전 페이지로 간다. 전체 탭에서는 처리한 댓글이 목록에 남으므로 같은 페이지에 머문다.
    */
   async function refresh() {
+    const started = view
     const refreshed = await reload()
-    if (refreshed && (refreshed.items ?? []).length === 0 && page > 0) setPage((current) => current - 1)
+    if (refreshed) setView((current) => viewAfterRefresh(started, current, (refreshed.items ?? []).length))
   }
 
   const confirm = pending ? actionConfirm(pending.action, pending.item.pendingReportCount) : null
@@ -123,8 +125,8 @@ export default function AdminCommentReports() {
             page={data?.page ?? page}
             hasNext={data?.hasNext === true}
             totalElements={data?.totalElements}
-            onPrevious={() => setPage((current) => Math.max(0, current - 1))}
-            onNext={() => setPage((current) => current + 1)}
+            onPrevious={() => setView((current) => ({ ...current, page: Math.max(0, current.page - 1) }))}
+            onNext={() => setView((current) => ({ ...current, page: current.page + 1 }))}
           />
         )}
       </section>

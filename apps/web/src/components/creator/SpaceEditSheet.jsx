@@ -123,6 +123,12 @@ function SpaceEditForm({ space, onSaved }) {
     setPendingKey(null)
   }
 
+  /** 기본 이미지로 되돌리려던 선택을 취소해 현재 사진을 그대로 둔다. */
+  function cancelRemoveImage() {
+    setImageError('')
+    setPendingKey(undefined)
+  }
+
   async function saveProfile() {
     setSavingProfile(true)
     try {
@@ -210,8 +216,10 @@ function SpaceEditForm({ space, onSaved }) {
               {shownImage ? (
                 <img src={shownImage} alt="" className="h-full w-full object-cover" />
               ) : (
+                // 기본 이미지로 되돌리는 중이면 사람 아이콘이 아니라 되돌림 표시를 보여준다. BE가 기본 이미지 주소를 응답으로 주지 않아
+                // 복귀 결과는 저장한 뒤에야 알 수 있다.
                 <span className="flex h-full w-full items-center justify-center text-on-surface-variant">
-                  <MaterialIcon name="person" className="text-[40px]" />
+                  <MaterialIcon name={pendingKey === null ? 'restart_alt' : 'person'} className="text-[40px]" />
                 </span>
               )}
               {photoBusy && (
@@ -230,7 +238,7 @@ function SpaceEditForm({ space, onSaved }) {
               >
                 사진 변경
               </button>
-              {pendingKey !== null && (
+              {pendingKey !== null ? (
                 <button
                   type="button"
                   onClick={removeImage}
@@ -239,9 +247,20 @@ function SpaceEditForm({ space, onSaved }) {
                 >
                   기본 이미지로
                 </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={cancelRemoveImage}
+                  disabled={savingProfile}
+                  className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
+                >
+                  되돌리기 취소
+                </button>
               )}
               <p className="font-label-xs text-label-xs text-on-surface-variant">
-                {pendingKey === null ? '저장하면 기본 이미지로 돌아가요.' : 'JPEG·PNG, 5MB 이하, 200×200px 이상'}
+                {pendingKey === null
+                  ? '저장하면 스페이스 기본 이미지로 돌아가요. 기본 이미지는 저장한 뒤에 확인할 수 있어요.'
+                  : 'JPEG·PNG, 5MB 이하, 200×200px 이상'}
               </p>
             </div>
           </div>

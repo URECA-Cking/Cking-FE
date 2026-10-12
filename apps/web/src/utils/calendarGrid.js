@@ -1,4 +1,4 @@
-// 월 단위 캘린더 그리드 공용 로직. 일정이 있는 날짜에 점을 찍는 화면(CreatorCalendar, StudioCalendar)에서 함께 쓴다.
+// 월 단위 캘린더 그리드 공용 로직. 일정이 있는 날짜에 점을 찍는 화면(CreatorCalendar, MyCalendar)에서 함께 쓴다.
 // 날짜 구분·표시는 사용자 브라우저 시간대 기준이다(일정의 startAt·endAt은 UTC Instant).
 
 export const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -35,7 +35,7 @@ export function buildMonthCells(month) {
 
 /**
  * offset만큼 달을 옮긴 뒤 선택할 날짜를 정한다 — 옮긴 달이 실제 이번 달이면 오늘, 아니면 1일.
- * 월 이동 버튼을 쓰는 화면(CreatorCalendar, StudioCalendar)에서 공통으로 쓴다.
+ * 월 이동 버튼을 쓰는 화면(CreatorCalendar, MyCalendar)에서 공통으로 쓴다.
  */
 export function moveMonthSelection(month, offset, today) {
   const next = new Date(month.getFullYear(), month.getMonth() + offset, 1)

@@ -8,6 +8,7 @@ import { useToast } from '../context/useToast.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { getEvent } from '../api/events.js'
 import { applyEntry, describeEntryResult } from '../api/entries.js'
+import { useProfileSetupRedirect } from '../hooks/useProfileSetupRedirect.js'
 import { getPublicWinners } from '../api/winners.js'
 import { getMyWinners } from '../api/myWinners.js'
 import { newRequestId } from '../api/client.js'
@@ -37,6 +38,7 @@ export default function EventDetail() {
   const { eventId } = useParams()
   const navigate = useNavigate()
   const showToast = useToast()
+  const redirectToProfileSetup = useProfileSetupRedirect()
 
   const [ticketCount, setTicketCount] = useState(1)
   const [chosenType, setChosenType] = useState(null) // 사용자가 고른 응모권 종류. 고른 적 없으면 null
@@ -150,6 +152,12 @@ export default function EventDetail() {
       ticketCount: attempt.count,
       couponType: attempt.couponType,
     })
+    // 닉네임을 설정하지 않은 회원은 응모할 수 없다. 응모 시트를 닫고 프로필 설정 화면으로 보낸다.
+    if (redirectToProfileSetup(envelope)) {
+      setPhase('idle')
+      setSheetOpen(false)
+      return
+    }
     const outcome = describeEntryResult(envelope)
     setResult(outcome)
     setPhase('done')

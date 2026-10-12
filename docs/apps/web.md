@@ -2,18 +2,19 @@
 
 ## 현재 구조
 
-Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서 빌드·실행한다. Web 화면은 `apps/web/src/pages/`, Creator 운영 화면은 `apps/web/src/pages/studio/`와 `apps/web/src/components/creator/`에 있다. 루트에서는 `npm run dev:web`, `npm run build:web`, `npm run lint:web`로 Web workspace를 실행·검증한다.
+Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서 빌드·실행한다. Web 화면은 `apps/web/src/pages/`, Creator 운영 기능(이벤트·일정 관리)은 내 스페이스 화면과 `apps/web/src/components/creator/`에 있다. 루트에서는 `npm run dev:web`, `npm run build:web`, `npm run lint:web`로 Web workspace를 실행·검증한다.
 
 ### 책임과 라우트
 
 | 영역 | 현재 라우트 | 책임 |
 | --- | --- | --- |
 | 인증 | `/login`, `/oauth/callback` | Google/Kakao OAuth 시작과 Login Code 교환 |
+| 프로필 | `/profile/edit` | 닉네임·프로필 사진 편집, 닉네임 미설정 회원의 최초 설정 |
 | 사용자 | `/`, `/explore`, `/my-entries`, `/my-winners`, `/notifications`, `/my-page`, `/my-calendar` | 탐색, 응모, 알림, 개인 정보·캘린더·당첨 관리 |
 | 온보딩·공개 Space | `/onboarding`, `/onboarding/creators`, `/creators/:creatorId`, `/space/:slug`, `/events/:eventId` | 관심 분야·추천, 팔로우, Creator Space, 이벤트·응모 |
-| Creator 운영 | `/studio`, `/studio/events/new`, `/studio/events/:eventId/edit`, `/studio/calendar` | 이벤트·일정·Space 운영 |
+| Creator 운영 | `/creator/events/new`, `/creator/events/:eventId/edit` | 이벤트 작성·수정. 이벤트 목록·일정 관리는 내 스페이스의 이벤트·캘린더 탭에서 한다 |
 
-`/space/:slug`는 비로그인 공개 조회를 허용한다. 그 밖의 사용자 경로는 `RequireUser`, Creator 운영은 추가로 `RequireRole role="creator"`를 사용한다.
+`/studio*`는 내 스페이스로 리다이렉트한다. `/space/:slug`는 비로그인 공개 조회를 허용한다. 그 밖의 사용자 경로는 `RequireUser`, Creator 운영은 추가로 `RequireRole role="creator"`를 사용한다.
 
 ### 상태와 인증
 

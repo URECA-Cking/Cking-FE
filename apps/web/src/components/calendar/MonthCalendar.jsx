@@ -2,7 +2,7 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { scheduleTypeMeta } from '../../api/calendar.js'
 import { WEEKDAYS, formatScheduleTime } from '../../utils/calendarGrid.js'
 
-// 월 단위 캘린더 화면(StudioCalendar, MyCalendar)이 함께 쓰는 표시 컴포넌트.
+// 월 단위 캘린더 화면(MyCalendar)이 쓰는 표시 컴포넌트.
 // 상태(선택한 날짜·조회 데이터)는 각 화면이 들고 있고, 여기서는 받은 값을 그리기만 한다.
 
 /** 이전/다음 달 이동과 "오늘" 버튼. */

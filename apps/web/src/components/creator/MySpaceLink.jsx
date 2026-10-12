@@ -5,26 +5,12 @@ import { getMySpace, spacePath } from '../../api/creatorSpace.js'
 
 /**
  * Creator 본인의 Space로 가는 링크. GET /api/creator/space로 내 creatorId를 알아낸다.
- * Space가 아직 없으면(RESOURCE_NOT_FOUND 등) 이동할 수 없다는 안내만 보여준다.
- *
- * @param {'row'|'button'} variant row: 마이페이지 메뉴 행, button: 스튜디오 버튼
+ * Space가 아직 없으면(RESOURCE_NOT_FOUND 등) 이동할 수 없다는 안내만 보여준다. 마이페이지 메뉴 행으로 쓴다.
  */
-export default function MySpaceLink({ variant = 'row' }) {
+export default function MySpaceLink() {
   const { data: space, loading, error } = useAsync(() => getMySpace(), [], {
     fallbackMessage: '내 스페이스를 불러오지 못했어요.',
   })
-
-  if (variant === 'button') {
-    if (loading || error || !space) return null
-    return (
-      <Link
-        to={spacePath(space.slug)}
-        className="w-full h-12 rounded-xl bg-surface-container-highest text-on-surface font-label-md text-label-md font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all"
-      >
-        <MaterialIcon name="storefront" className="text-[20px]" />내 스페이스 보기
-      </Link>
-    )
-  }
 
   const rowClass = 'flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high'
   if (loading || error || !space) {

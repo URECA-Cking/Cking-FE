@@ -2,10 +2,14 @@ import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
+import ScheduleEditorSheet from './ScheduleEditorSheet.jsx'
+import ConfirmSheet from '../ui/ConfirmSheet.jsx'
+import { useToast } from '../../context/useToast.js'
 import { useUser } from '../../context/useUser.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useMyCalendarEntries } from '../../hooks/useMyCalendarEntries.js'
-import { getCreatorSchedules, scheduleTypeMeta } from '../../api/calendar.js'
+import { deleteSchedule, getCreatorSchedules, scheduleTypeMeta } from '../../api/calendar.js'
+import { describeError } from '../../api/client.js'
 import { toSafeHttpUrl } from '../../utils/safeUrl.js'
 import {
   WEEKDAYS,
@@ -20,8 +24,11 @@ import {
 const UPCOMING_DAYS = 60
 const EMPTY_MESSAGE = '현재 열려있는 게 없습니다.'
 
-/** calendar: 로그인 사용자의 "내 캘린더 담기" 상태({ ready, added, busy, onToggle }), 비로그인이면 null. */
-function ScheduleCard({ schedule, calendar }) {
+/**
+ * calendar: 로그인 사용자의 "내 캘린더 담기" 상태({ ready, added, busy, onToggle }), 비로그인이면 null.
+ * manage: 내 스페이스일 때만 { busy, onEdit, onDelete }, 아니면 null.
+ */
+function ScheduleCard({ schedule, calendar, manage }) {
   const meta = scheduleTypeMeta(schedule.scheduleType)
   // 크리에이터가 입력한 값이라 javascript: 같은 스킴이 들어올 수 있어 http(s)일 때만 링크로 그린다.
   const externalUrl = toSafeHttpUrl(schedule.externalUrl)
@@ -63,6 +70,26 @@ function ScheduleCard({ schedule, calendar }) {
             {calendar.added ? '내 캘린더에 담음' : '내 캘린더에 담기'}
           </button>
         )}
+        {manage && (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={manage.busy}
+              onClick={manage.onEdit}
+              className="h-10 rounded-xl bg-surface-container font-label-sm text-label-sm font-semibold text-on-surface transition-all active:scale-[0.98] disabled:opacity-40"
+            >
+              수정
+            </button>
+            <button
+              type="button"
+              disabled={manage.busy}
+              onClick={manage.onDelete}
+              className="h-10 rounded-xl bg-error-container font-label-sm text-label-sm font-semibold text-on-error-container transition-all active:scale-[0.98] disabled:opacity-40"
+            >
+              {manage.busy ? '삭제하는 중...' : '삭제'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -71,10 +98,16 @@ function ScheduleCard({ schedule, calendar }) {
 /**
  * 크리에이터 캘린더 탭. 월 단위로 GET /api/creators/{creatorId}/calendar/schedules를 조회하고,
  * 일정이 있는 날에 점을 찍어 고른 날의 일정을 보여준다.
+ * 내 스페이스(isMine)면 일정 등록·수정·삭제도 여기서 한다(POST·PATCH·DELETE /api/creator/calendar/schedules).
  */
-export default function CreatorCalendar({ creatorId }) {
+export default function CreatorCalendar({ creatorId, isMine = false }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const showToast = useToast()
+  // editor: null(닫힘) | { schedule: null }(등록) | { schedule }(수정) — CreatorPosts.jsx와 같은 패턴.
+  const [editor, setEditor] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const { status } = useUser()
   const authenticated = status === 'authenticated'
   // 로그인 상태를 복원하는 동안(loading)에는 로그인 안내를 띄우지 않아 로그인 사용자에게 깜빡이지 않게 한다.
@@ -115,11 +148,39 @@ export default function CreatorCalendar({ creatorId }) {
     setSelectedKey(nextSelectedKey)
   }
 
+  async function handleDelete(schedule) {
+    setDeletingId(schedule.scheduleId)
+    try {
+      await deleteSchedule(schedule.scheduleId)
+      showToast('일정을 삭제했어요.')
+      await reload()
+    } catch (err) {
+      showToast(describeError(err, '삭제하지 못했어요.'), { icon: 'error' })
+    } finally {
+      setDeletingId(null)
+      setDeleteTarget(null)
+    }
+  }
+
+  function handleSaved() {
+    setEditor(null)
+    reload()
+  }
+
   const selectedSchedules = schedulesByDay.get(selectedKey) ?? []
   const selectedDate = cells.find((cell) => !cell.blank && cell.key === selectedKey)
 
   return (
     <div className="flex flex-col gap-space-md px-margin py-space-sm md:mx-auto md:w-full md:max-w-3xl">
+      {isMine && (
+        <button
+          type="button"
+          onClick={() => setEditor({ schedule: null })}
+          className="flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-primary font-label-md text-label-md font-bold text-on-primary shadow-md transition-all active:scale-[0.98]"
+        >
+          <MaterialIcon name="add" className="text-[20px]" />새 일정 등록
+        </button>
+      )}
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -198,6 +259,15 @@ export default function CreatorCalendar({ creatorId }) {
         <ScheduleCard
           key={schedule.scheduleId}
           schedule={schedule}
+          manage={
+            isMine
+              ? {
+                  busy: deletingId === schedule.scheduleId,
+                  onEdit: () => setEditor({ schedule }),
+                  onDelete: () => setDeleteTarget(schedule),
+                }
+              : null
+          }
           calendar={
             authenticated
               ? {
@@ -248,6 +318,25 @@ export default function CreatorCalendar({ creatorId }) {
         <MaterialIcon name="info" className="text-secondary text-[18px]" />
         <span className="font-label-xs text-label-xs text-on-surface-variant">응모가 있는 추첨 행사는 이벤트 탭에서 확인해요.</span>
       </div>
+
+      {isMine && (
+        <ConfirmSheet
+          open={deleteTarget !== null}
+          title="일정을 삭제할까요?"
+          message={deleteTarget ? `"${deleteTarget.title}" 일정을 삭제하면 되돌릴 수 없어요.` : ''}
+          busy={deletingId !== null}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={() => handleDelete(deleteTarget)}
+        />
+      )}
+      {isMine && (
+        <ScheduleEditorSheet
+          open={editor !== null}
+          onClose={() => setEditor(null)}
+          schedule={editor?.schedule ?? null}
+          onSaved={handleSaved}
+        />
+      )}
     </div>
   )
 }

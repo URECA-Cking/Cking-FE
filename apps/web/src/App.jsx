@@ -10,12 +10,12 @@ import MyPage from './pages/MyPage.jsx'
 import Login from './pages/Login.jsx'
 import OAuthCallback from './pages/OAuthCallback.jsx'
 import Onboarding from './pages/Onboarding.jsx'
+import ProfileEdit from './pages/ProfileEdit.jsx'
 import CreatorSpace from './pages/CreatorSpace.jsx'
 import EventDetail from './pages/EventDetail.jsx'
 import RequireRole from './components/auth/RequireRole.jsx'
-import CreatorStudio from './pages/studio/CreatorStudio.jsx'
-import StudioEventForm from './pages/studio/StudioEventForm.jsx'
-import StudioCalendar from './pages/studio/StudioCalendar.jsx'
+import CreatorEventForm from './pages/CreatorEventForm.jsx'
+import StudioRedirect from './components/creator/StudioRedirect.jsx'
 import MyCalendar from './pages/MyCalendar.jsx'
 
 function App() {
@@ -56,6 +56,14 @@ function App() {
         }
       />
       <Route
+        path="/profile/edit"
+        element={
+          <RequireUser>
+            <ProfileEdit />
+          </RequireUser>
+        }
+      />
+      <Route
         path="/creators/:creatorId"
         element={
           <RequireUser>
@@ -86,41 +94,32 @@ function App() {
       />
 
       <Route
-        path="/studio"
+        path="/creator/events/new"
         element={
           <RequireUser>
             <RequireRole role="creator">
-              <CreatorStudio />
+              <CreatorEventForm />
             </RequireRole>
           </RequireUser>
         }
       />
       <Route
-        path="/studio/events/new"
+        path="/creator/events/:eventId/edit"
         element={
           <RequireUser>
             <RequireRole role="creator">
-              <StudioEventForm />
+              <CreatorEventForm />
             </RequireRole>
           </RequireUser>
         }
       />
+      {/* 예전 크리에이터 스튜디오 주소는 내 스페이스로 보낸다. */}
       <Route
-        path="/studio/events/:eventId/edit"
+        path="/studio/*"
         element={
           <RequireUser>
             <RequireRole role="creator">
-              <StudioEventForm />
-            </RequireRole>
-          </RequireUser>
-        }
-      />
-      <Route
-        path="/studio/calendar"
-        element={
-          <RequireUser>
-            <RequireRole role="creator">
-              <StudioCalendar />
+              <StudioRedirect />
             </RequireRole>
           </RequireUser>
         }

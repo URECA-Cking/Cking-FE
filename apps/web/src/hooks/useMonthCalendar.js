@@ -10,7 +10,7 @@ import {
 import { useAsync } from './useAsync.js'
 
 /**
- * 월 달력 화면(StudioCalendar, MyCalendar)의 공통 상태: 보이는 달·선택한 날짜, 일정 조회,
+ * 월 달력 화면(MyCalendar)의 공통 상태: 보이는 달·선택한 날짜, 일정 조회,
  * 날짜별 일정·고른 날 일정·"다음 일정" 계산, 월/날짜 이동.
  *
  * @param {(from: Date, to: Date) => Promise<Array>} fetchSchedules 기간과 겹치는 일정을 조회하는 API 함수

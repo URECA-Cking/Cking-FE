@@ -3,7 +3,7 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { getEventBanner } from '../../data/eventBanners.js'
 import { useCreatorProfile } from '../../hooks/useCreatorProfile.js'
 import { formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '../../utils/format.js'
-import { displayStatusMeta } from '../../utils/eventStatus.js'
+import { displayStatusMeta, eventStatusMeta } from '../../utils/eventStatus.js'
 
 /**
  * 이벤트(래플) 요약 카드. 백엔드 EventSummary( eventId, creatorId, title, startAt,
@@ -11,14 +11,19 @@ import { displayStatusMeta } from '../../utils/eventStatus.js'
  *
  * 응모 누적 건수는 공개 API가 제공하지 않아, 대신 실제 값이 있는 당첨 인원과
  * 상품 등급 구성을 보여준다.
+ *
+ * 내 스페이스에서는 크리에이터 본인 목록의 이벤트를 같은 카드로 보여준다. 표시 상태(displayStatus)가 없으면
+ * 아직 공개되지 않은 이벤트(초안·승인 대기·거절됨)라 상태 뱃지와 거절 사유를 보여주고 상세로 가지 않는다.
+ * onManage를 주면 카드 왼쪽 위에 관리 메뉴(⋯) 버튼이 생긴다.
  */
-export default function EventCard({ event, ticketsOwned, showCreatorTag = false, variant = 'carousel' }) {
+export default function EventCard({ event, ticketsOwned, showCreatorTag = false, variant = 'carousel', onManage }) {
   const navigate = useNavigate()
   const creator = useCreatorProfile(event.creatorId)
-  const status = displayStatusMeta(event.displayStatus)
+  const published = Boolean(event.displayStatus)
+  const status = published ? displayStatusMeta(event.displayStatus) : eventStatusMeta(event.status)
   const closed = event.displayStatus === 'CLOSED'
   const dday = formatDday(event.endAt, { closed })
-  const urgent = !closed && (dday === 'D-DAY' || dday === 'D-1')
+  const urgent = published && !closed && (dday === 'D-DAY' || dday === 'D-1')
   const prizeCount = totalPrizeQuantity(event.prizes)
 
   const cta = closed
@@ -33,11 +38,11 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
 
   return (
     <div
-      className={`bg-surface-container-lowest rounded-2xl overflow-hidden shadow-card flex flex-col group ${
+      className={`relative bg-surface-container-lowest rounded-2xl overflow-hidden shadow-card flex flex-col group ${
         variant === 'carousel' ? 'snap-center min-w-[270px] max-w-[280px] flex-shrink-0' : 'w-full'
       }`}
     >
-      <button type="button" onClick={open} className="text-left">
+      <button type="button" onClick={open} disabled={!published} className="text-left">
         <div className="relative h-36 w-full overflow-hidden bg-surface-container-high">
           <img
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -61,7 +66,7 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
             }`}
           >
             <MaterialIcon name={urgent ? 'alarm' : status.icon} className="text-[12px]" />
-            <span className="font-bold">{closed ? status.label : dday || status.label}</span>
+            <span className="font-bold">{!published || closed ? status.label : dday || status.label}</span>
           </div>
 
           <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-white">
@@ -80,6 +85,9 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
         <div className="p-3.5 flex flex-col gap-2.5">
           <div>
             <h4 className="font-title-md text-title-md text-on-surface font-bold line-clamp-1">{event.title}</h4>
+            {event.rejectReason && (
+              <p className="font-label-sm text-label-sm text-error line-clamp-2 mt-1">거절 사유: {event.rejectReason}</p>
+            )}
             <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
               {event.prizes?.length
                 ? event.prizes.map((prize) => prize.displayName).join(' · ')
@@ -97,20 +105,33 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
         </div>
       </button>
 
-      <div className="px-3.5 pb-3.5">
+      {published && (
+        <div className="px-3.5 pb-3.5">
+          <button
+            type="button"
+            onClick={open}
+            className={`w-full py-2.5 rounded-xl font-label-md text-label-md font-semibold shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 ${
+              closed
+                ? 'bg-surface-container text-on-surface-variant'
+                : 'bg-gradient-to-r from-primary to-[#e11d48] text-on-primary'
+            }`}
+          >
+            <span>{cta.label}</span>
+            <MaterialIcon name={cta.icon} className="text-[16px]" />
+          </button>
+        </div>
+      )}
+
+      {onManage && (
         <button
           type="button"
-          onClick={open}
-          className={`w-full py-2.5 rounded-xl font-label-md text-label-md font-semibold shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 ${
-            closed
-              ? 'bg-surface-container text-on-surface-variant'
-              : 'bg-gradient-to-r from-primary to-[#e11d48] text-on-primary'
-          }`}
+          aria-label="이벤트 관리"
+          onClick={onManage}
+          className="absolute top-2 left-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md active:scale-95"
         >
-          <span>{cta.label}</span>
-          <MaterialIcon name={cta.icon} className="text-[16px]" />
+          <MaterialIcon name="more_horiz" className="text-[20px]" />
         </button>
-      </div>
+      )}
     </div>
   )
 }

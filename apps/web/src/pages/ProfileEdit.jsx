@@ -14,6 +14,7 @@ import {
   validateNickname,
 } from '../utils/nickname.js'
 import { formatDateTime } from '../utils/format.js'
+import { toSafeHttpUrl } from '../utils/safeUrl.js'
 import { parseServerTime } from '../utils/serverTime.js'
 
 /**
@@ -70,7 +71,8 @@ export default function ProfileEdit() {
   const nicknameError = !nicknameLocked && (touched || nicknameChanged) ? validateNickname(normalized) : null
   const imageChanged = pendingKey !== undefined
   const dirty = nicknameChanged || imageChanged
-  const shownImage = pendingKey === null ? null : (previewUrl ?? user?.profileImageUrl ?? null)
+  // 미리보기는 방금 고른 파일의 blob: 주소이고, 서버가 준 사진 주소는 http(s)일 때만 <img>에 넣는다.
+  const shownImage = pendingKey === null ? null : (previewUrl ?? toSafeHttpUrl(user?.profileImageUrl))
   // 오류 문구는 입력을 건드린 뒤에만 보이지만, 저장 가능 여부는 닉네임이 규칙을 지키는지로 항상 따진다(사진만 고른 설정 모드 방지).
   const nicknameInvalid = !nicknameLocked && validateNickname(normalized) !== null
   const canSave = !saving && !photoBusy && dirty && !nicknameInvalid

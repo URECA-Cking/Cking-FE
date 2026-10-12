@@ -9,7 +9,7 @@ export async function getCreatorSpace(creatorId) {
   return apiClient.get(`/api/creators/${creatorId}/space`);
 }
 
-// GET /api/creator-spaces/{slug} - slug로 공개 조회(공유 링크 /space/{slug})
+// GET /api/creator-spaces/{slug} - slug로 공개 조회(공유 링크 /{slug})
 export async function getCreatorSpaceBySlug(slug) {
   return apiClient.get(`/api/creator-spaces/${encodeURIComponent(slug)}`);
 }
@@ -37,7 +37,12 @@ export const SLUG_ERROR_MESSAGES = {
   SLUG_CHANGE_TOO_SOON: 'slug는 마지막 변경 후 14일이 지나야 다시 바꿀 수 있어요.',
 };
 
-/** 공유 링크(/space/{slug}) 전체 주소. */
+/** 크리에이터 스페이스 경로. 인스타처럼 /{slug}. 예전 공유 링크 /space/{slug}도 계속 열린다. */
+export function spacePath(slug) {
+  return `/${encodeURIComponent(slug)}`;
+}
+
+/** 공유 링크(/{slug}) 전체 주소. */
 export function spaceShareUrl(slug) {
-  return `${window.location.origin}/space/${encodeURIComponent(slug)}`;
+  return `${window.location.origin}${spacePath(slug)}`;
 }

@@ -126,6 +126,8 @@ function App() {
         }
       />
 
+      {/* 인스타식 주소 /{slug}. 위의 고정 경로가 먼저 매칭되므로 그 외 한 단계 경로만 slug로 본다(BE가 예약어를 막는다). */}
+      <Route path="/:slug" element={<CreatorSpace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

@@ -12,6 +12,7 @@ import { loadCreatorDirectory } from '../api/creators.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { applyCreator, getMyCreatorApplications } from '../api/creatorApplications.js'
 import { describeError } from '../api/client.js'
+import { spacePath } from '../api/creatorSpace.js'
 import { formatDateTime, formatNumber } from '../utils/format.js'
 import { CREATOR_APPLICATION_STATUS_META } from '../utils/eventStatus.js'
 
@@ -138,7 +139,7 @@ export default function MyPage() {
               key={creator.creatorId}
               className="flex items-center justify-between p-space-sm rounded-xl bg-surface-container-lowest shadow-card"
             >
-              <Link to={`/creators/${creator.creatorId}`} className="flex items-center gap-space-sm min-w-0 flex-1">
+              <Link to={spacePath(creator.handle)} className="flex items-center gap-space-sm min-w-0 flex-1">
                 <img src={creator.avatar} alt={creator.name} className="w-9 h-9 rounded-full object-cover" />
                 <div className="min-w-0">
                   <span className="font-label-md text-label-md text-on-surface font-semibold truncate block">

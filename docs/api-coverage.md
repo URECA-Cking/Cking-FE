@@ -39,8 +39,8 @@
 | GET | `/api/interests`, `/api/me/interests` | 온보딩 관심 분야 조회 | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
 | PUT | `/api/me/interests` | 온보딩 관심 분야 저장(0~3개) | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
 | GET | `/api/me/creator-recommendations` | 온보딩 AI 크리에이터 추천 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
-| POST | `/api/me/profile-images` | 프로필 편집의 사진 업로드(`imageKey` 반환) | 연동(BE 확정 전 `?mock=1`) | [Member 프로필 API](https://github.com/URECA-Cking/Cking-BE/issues/519) |
-| PUT | `/api/me/profile` | 프로필 편집(닉네임·사진 전체 교체), `PROFILE_SETUP_REQUIRED`(409) 처리 | 연동(BE 확정 전 `?mock=1`) | [Member 프로필 API](https://github.com/URECA-Cking/Cking-BE/issues/519), [닉네임 정책](https://github.com/URECA-Cking/Cking-BE/issues/518) |
+| POST | `/api/me/profile-images` | 프로필 편집의 사진 업로드(`imageKey` 반환) | 연동 | [Member](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/member/api.md) |
+| PUT | `/api/me/profile` | 프로필 편집(닉네임 저장, 사진은 key를 보낼 때만 교체), `PROFILE_SETUP_REQUIRED`(409) 처리 | 연동 | [Member](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/member/api.md) |
 | PUT | `/api/me/onboarding/complete` | 온보딩 완료·건너뛰기 기록 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md) |
 
 ## Web — CREATOR

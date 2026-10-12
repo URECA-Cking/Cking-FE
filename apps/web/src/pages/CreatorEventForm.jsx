@@ -11,6 +11,12 @@ import { getMySpace, spacePath } from '../api/creatorSpace.js'
 import { describeError, newRequestId } from '../api/client.js'
 import { formatNumber } from '../utils/format.js'
 
+// 추첨 방식은 고를 수 없고 새로 만들 때는 WEIGHTED, 수정할 때는 기존 값을 보여준다.
+const DRAW_METHOD_LABELS = {
+  WEIGHTED: 'WEIGHTED (응모권 수 비례 추첨)',
+  UNIFORM: 'UNIFORM (후보 동일 확률 추첨)',
+}
+
 const EMPTY_PRIZE = { prizeKey: '', displayName: '', priority: 1, weight: 100, quantity: 1 }
 
 /** Instant(ISO, UTC) -> datetime-local 입력값(로컬 시각). */
@@ -244,11 +250,6 @@ function EventFormBody({ eventId, isEdit, target }) {
             onChange={(e) => updateField('description', e.target.value)}
             placeholder="이벤트 상세 설명, 당첨 혜택 등을 적어주세요."
           />
-          {isEdit && (
-            <p className="font-label-xs text-label-xs text-outline">
-              크리에이터 이벤트 목록 API가 설명을 내려주지 않아 수정 시에는 설명을 다시 입력해야 해요.
-            </p>
-          )}
         </div>
 
         <div className="grid grid-cols-2 gap-space-sm">
@@ -299,7 +300,7 @@ function EventFormBody({ eventId, isEdit, target }) {
             <input
               id="event-draw-method"
               className={`${inputClass} opacity-70`}
-              value="WEIGHTED (응모권 가중 추첨)"
+              value={DRAW_METHOD_LABELS[form.drawMethod] ?? form.drawMethod}
               readOnly
             />
           </div>

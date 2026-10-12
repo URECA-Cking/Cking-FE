@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import EntryStatusCard from '../components/ticket/EntryStatusCard.jsx'
 import BottomSheet from '../components/ui/BottomSheet.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock, StatusPill, Spinner } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { getEvent } from '../api/events.js'
-import { applyEntry, describeEntryResult } from '../api/entries.js'
+import { applyEntry, describeEntryResult, getEntryStatus } from '../api/entries.js'
 import { useProfileSetupRedirect } from '../hooks/useProfileSetupRedirect.js'
 import { getPublicWinners } from '../api/winners.js'
 import { getMyWinners } from '../api/myWinners.js'
@@ -41,6 +42,12 @@ export default function EventDetail() {
     [eventId],
     { fallbackMessage: '이벤트 상세를 불러오지 못했습니다.' },
   )
+
+  // 예정 이벤트는 응모가 없어 조회하지 않는다. 응모 후 상세를 다시 받으면(event가 새 객체) 현황도 다시 받는다.
+  const entryStatus = useAsync(() => getEntryStatus(eventId), [eventId, event], {
+    enabled: Boolean(event) && event.displayStatus !== 'UPCOMING',
+    fallbackMessage: '응모 현황을 불러오지 못했습니다.',
+  })
 
   const published = event?.status === 'PUBLISHED'
   const winners = useAsync(() => getPublicWinners(eventId), [eventId, published], {
@@ -191,6 +198,11 @@ export default function EventDetail() {
               <span className="text-outline-variant">•</span>
               <span>{formatEventDate(event.endAt)} 마감</span>
             </div>
+            {event.displayStatus !== 'UPCOMING' && !(entryStatus.error && !entryStatus.data) && (
+              <div className="pt-space-xs">
+                <EntryStatusCard status={entryStatus.data} />
+              </div>
+            )}
             {event.description && (
               <p className="font-body-md text-body-md text-on-surface-variant pt-1 leading-relaxed whitespace-pre-wrap">
                 {event.description}

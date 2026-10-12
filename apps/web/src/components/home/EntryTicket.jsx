@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
+import { getEntryStatus } from '../../api/entries.js'
 import { getEventBanner } from '../../data/eventBanners.js'
+import { useAsync } from '../../hooks/useAsync.js'
 import { useCreatorProfile } from '../../hooks/useCreatorProfile.js'
 import { formatDday, formatNumber } from '../../utils/format.js'
 
@@ -9,6 +11,9 @@ import { formatDday, formatNumber } from '../../utils/format.js'
  */
 export default function EntryTicket({ event, ticketsOwned, applied = null, featured = false }) {
   const creator = useCreatorProfile(event.creatorId)
+  // 참여자 수는 표시용이라 조회 중이거나 실패하면 그 문구만 뺀다(응모 버튼과 무관).
+  const status = useAsync(() => getEntryStatus(event.eventId), [event.eventId])
+  const participants = status.data?.participantCount
 
   return (
     <Link
@@ -29,8 +34,12 @@ export default function EntryTicket({ event, ticketsOwned, applied = null, featu
             <span className="truncate">{creator.name}</span>
           </p>
           <p className="font-label-md text-label-md text-on-surface line-clamp-1">{event.title}</p>
-          {typeof ticketsOwned === 'number' && (
-            <p className="font-label-sm text-label-sm text-on-surface-variant font-normal">보유 {formatNumber(ticketsOwned)}장</p>
+          {(typeof ticketsOwned === 'number' || typeof participants === 'number') && (
+            <p className="font-label-sm text-label-sm text-on-surface-variant font-normal line-clamp-1">
+              {typeof ticketsOwned === 'number' && `보유 ${formatNumber(ticketsOwned)}장`}
+              {typeof ticketsOwned === 'number' && typeof participants === 'number' && ' · '}
+              {typeof participants === 'number' && `${formatNumber(participants)}명 참여`}
+            </p>
           )}
         </div>
         {/* 같은 이벤트에 여러 번 응모할 수 있어 응모한 뒤에도 눌리고, 칩만 채움에서 윤곽으로 바뀐다.

@@ -41,7 +41,7 @@ function defaultRange() {
  * 이벤트 생성/수정 폼.
  *
  * 백엔드 검증 규칙을 그대로 따른다.
- *  - 제목 필수, 시작 < 종료, 당첨 인원 >= 1, 추첨 방식은 새로 만들 때 WEIGHTED(수정 때는 기존 값을 유지)
+ *  - 제목 필수, 시작 < 종료, 당첨 인원 >= 1, 추첨 방식·상품 배정 알고리즘 버전은 새로 만들 때 BE 기본값(WEIGHTED), 수정 때는 기존 값을 유지
  *  - 상품 등급: prizeKey는 영문·숫자·_·- 만, 중복 불가, priority/weight/quantity는 양수
  *  - 상품을 등록했다면 총 수량 >= 당첨 인원
  * 생성은 requestId(UUID)로 멱등 처리되므로, 같은 폼에서 재시도해도 중복 생성되지 않는다.
@@ -98,6 +98,7 @@ function EventFormBody({ eventId, isEdit, target }) {
           title: target.title ?? '',
           description: target.description ?? '',
           drawMethod: target.drawMethod ?? 'WEIGHTED',
+          prizeAlgorithmVersion: target.prizeAlgorithmVersion ?? null,
           winnerCount: target.winnerCount ?? 1,
           startAt: toLocalInput(target.startAt),
           endAt: toLocalInput(target.endAt),
@@ -181,6 +182,8 @@ function EventFormBody({ eventId, isEdit, target }) {
       endAt: toInstant(form.endAt),
       winnerCount: Number(form.winnerCount),
       drawMethod: form.drawMethod,
+      // PATCH는 전체 교체라 생략하면 BE가 PRIZE_WEIGHTED_V1로 되돌린다. 수정 때는 기존 값을 그대로 보낸다.
+      ...(form.prizeAlgorithmVersion ? { prizeAlgorithmVersion: form.prizeAlgorithmVersion } : {}),
       prizes: form.prizes.map((prize) => ({
         prizeKey: prize.prizeKey.trim(),
         displayName: prize.displayName.trim(),

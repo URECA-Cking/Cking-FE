@@ -73,6 +73,7 @@
 | GET/POST | `/api/admin/events/{eventId}/redraw-requests`, `/api/admin/redraw-requests`, `/{id}`, `/{id}/approve`, `/{id}/reject`, `/{id}/execute` | 재추첨 요청 생성·목록·상세·심사·실행 | 연동 | [Redraw](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/redraw/api.md) |
 | GET/POST | `/api/admin/dead-streams`, `/api/admin/dead-streams/{id}/replay` | Dead Stream 조회·replay | 연동 | [Stream](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/stream/api.md) |
 | GET/POST/PATCH | `/api/admin/creator-space-templates`, `/{templateId}`, `/{templateId}/activate` | Creator Space 템플릿 목록·추가·수정·활성화 | 연동 | [Creator Space Template](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-template-api.md) |
+| GET/POST | `/api/admin/comment-reports`, `/api/admin/comment-reports/{commentId}/hide`, `/reject` | 신고된 댓글 목록(처리 상태 필터)·숨김·신고 반려 | 연동 | [Post Comment](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/comment-api.md) |
 | GET/PATCH | `/api/admin/abuse-detections`, `/api/admin/abuse-detections/{id}`, `/api/admin/abuse-detections/{id}/review` | Detection 목록·Evidence 상세·관리자 검토 | 연동 | [Abuse Detection](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/abuse-detection/api.md) |
 
 ## 미연동 또는 확인이 필요한 BE 기능

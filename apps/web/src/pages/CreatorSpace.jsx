@@ -5,6 +5,7 @@ import BackButton from '../components/ui/BackButton.jsx'
 import { useAppBack } from '../hooks/useAppBack.js'
 import EventCard from '../components/creator/EventCard.jsx'
 import CreatorPosts from '../components/creator/CreatorPosts.jsx'
+import MyEventManager from '../components/creator/MyEventManager.jsx'
 import SpaceEditSheet from '../components/creator/SpaceEditSheet.jsx'
 import CreatorCalendar, { UpcomingSchedules } from '../components/creator/CreatorCalendar.jsx'
 import TicketLedgerSheet from '../components/ticket/TicketLedgerSheet.jsx'
@@ -75,7 +76,8 @@ function ProfileIntro({ text }) {
  * 관심 등록, 본인 편집. 비로그인이면 이 영역에 로그인 안내를 보여준다.
  * 캘린더 탭·홈의 다가오는 일정은 GET /api/creators/{id}/calendar/schedules(추첨 이벤트와 별개인 크리에이터 일정)를 쓴다.
  * 게시물 탭은 공개 Post API로 조회하며 팔로워 공개 게시글은 권한에 따라 잠금 상태로 표시한다.
- * 내 Space면(GET /api/creator/space의 creatorId가 같으면) 편집할 수 있다.
+ * 내 Space면(GET /api/creator/space의 creatorId가 같으면) 편집할 수 있고, 이벤트 탭에서 이벤트를,
+ * 캘린더 탭에서 일정을 관리한다(예전 크리에이터 스튜디오 기능).
  */
 export default function CreatorSpace() {
   const { creatorId: creatorIdParam, slug: slugParam } = useParams()
@@ -489,7 +491,7 @@ export default function CreatorSpace() {
           <div className="flex flex-col gap-space-sm px-margin py-space-sm">{missionList}</div>
         )}
 
-        {tab === 'calendar' && <CreatorCalendar creatorId={creator.creatorId} />}
+        {tab === 'calendar' && <CreatorCalendar creatorId={creator.creatorId} isMine={isMine} />}
 
         {tab === 'posts' && sessionLoading && <LoadingBlock label="로그인 상태를 확인하는 중..." />}
 
@@ -512,7 +514,9 @@ export default function CreatorSpace() {
 
         {tab === 'events' && (
           <div className="flex flex-col gap-space-md px-margin py-space-sm">
-            {creator.eventsError ? (
+            {isMine ? (
+              <MyEventManager />
+            ) : creator.eventsError ? (
               <ErrorBlock message="이벤트를 불러오지 못했어요." onRetry={reload} />
             ) : events.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">

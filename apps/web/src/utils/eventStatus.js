@@ -7,9 +7,9 @@ export const DISPLAY_STATUS_META = {
 }
 
 export const EVENT_STATUS_META = {
-  DRAFT: { label: '초안', tone: 'bg-surface-container-high text-on-surface-variant' },
-  PENDING_APPROVAL: { label: '승인 대기', tone: 'bg-gold-badge-bg text-gold-badge' },
-  REJECTED: { label: '거절됨', tone: 'bg-error-container text-on-error-container' },
+  DRAFT: { label: '초안', tone: 'bg-surface-container-high text-on-surface-variant', icon: 'edit_note' },
+  PENDING_APPROVAL: { label: '승인 대기', tone: 'bg-gold-badge-bg text-gold-badge', icon: 'hourglass_top' },
+  REJECTED: { label: '거절됨', tone: 'bg-error-container text-on-error-container', icon: 'block' },
   SCHEDULED: { label: '오픈 예정', tone: 'bg-secondary-fixed text-on-secondary-fixed' },
   OPEN: { label: '응모 진행 중', tone: 'bg-primary text-on-primary' },
   CLOSING: { label: '마감 처리 중', tone: 'bg-tertiary-fixed text-on-tertiary-fixed' },
@@ -41,6 +41,26 @@ export function displayStatusMeta(status) {
 
 export function eventStatusMeta(status) {
   return EVENT_STATUS_META[status] ?? { label: status ?? '-', tone: 'bg-surface-container text-on-surface-variant' }
+}
+
+/**
+ * 크리에이터 본인 목록(GET /api/creator/events)의 이벤트에는 표시 상태(displayStatus)가 없어서 공개 API와 같은 규칙으로 구한다.
+ * 아직 공개되지 않은 상태(초안·승인 대기·거절됨)는 null이다.
+ */
+export function toDisplayStatus(event, now = Date.now()) {
+  switch (event?.status) {
+    case 'SCHEDULED':
+      return 'UPCOMING'
+    case 'OPEN':
+      return new Date(event.endAt).getTime() > now ? 'IN_PROGRESS' : 'CLOSED'
+    case 'CLOSING':
+    case 'CLOSED':
+    case 'DRAW_COMPLETED':
+    case 'PUBLISHED':
+      return 'CLOSED'
+    default:
+      return null
+  }
 }
 
 /** 응모 가능 여부: 백엔드는 OPEN 상태이고 종료 전인 이벤트에만 응모를 허용한다. */

@@ -15,8 +15,11 @@
 | `/admin/redraws`, `/admin/redraws/:redrawRequestId` | 재추첨 요청 생성·Table 목록(심사/실행 상태 분리)·상세 심사·실행·실패 Drawing 재시도 |
 | `/admin/abuse-detections`, `/admin/abuse-detections/:detectionId` | 이상행위 탐지 목록·Evidence 상세·`CONFIRMED`/`FALSE_POSITIVE` 검토 |
 | `/admin/dead-streams` | Dead Stream 조회·replay |
+| `/admin/space-templates` | Creator Space 템플릿 목록·추가·수정·활성화 (활성 템플릿은 항상 하나, Creator 승인 시 복사해 스페이스 생성) |
 
 `/admin/reviews/events`는 `PENDING_APPROVAL` 상태만 처리하는 심사 큐다. `/admin/events`는 기존 `/api/admin/events`의 상태별 조회를 합쳐 승인 완료 뒤 `SCHEDULED`부터 `PUBLISHED`까지의 이벤트를 추적한다. `SCHEDULED`는 오픈 예정 상태로 표시하되, `OPEN`부터 시작하는 실제 운영 흐름과는 구분하고 별도 관리자 작업을 노출하지 않는다. 단건 이벤트 조회 계약이 없으므로 상세도 같은 운영 목록에서 현재 서버 응답을 다시 찾아 구성한다. 심사 이력 필드의 제공 범위는 해당 API 계약을 확인한 뒤 결정한다.
+
+Creator 신청 승인은 활성 Creator Space 템플릿이 있어야 한다. 없으면 `NO_ACTIVE_SPACE_TEMPLATE`, 있어도 주소 규칙이 잘못됐으면 `INVALID_ACTIVE_SPACE_TEMPLATE`(둘 다 409)로 BE가 막으므로, 심사 상세 화면이 템플릿 관리로 안내한다. 템플릿은 값을 복사해 쓰므로 활성 템플릿을 바꾸거나 수정해도 이미 만든 스페이스는 바뀌지 않는다. `slugRule` 형식 검증은 BE 규칙을 따라 화면에서 먼저 안내하고 최종 판단은 서버가 한다.
 
 관리자 Winner 전체 목록·단건 조회 계약은 현재 제공되지 않는다. 따라서 `/admin/winners`는 모든 Drawing 결과를 순회하는 목록을 만들지 않고 추첨 관리로 안내하며, Winner 상세는 Drawing 결과가 전달한 범위와 상태 이력 API를 사용한다. 새로고침 뒤에도 기본 정보 전체를 복원할 수 있는 단건 조회 계약이 필요하다.
 

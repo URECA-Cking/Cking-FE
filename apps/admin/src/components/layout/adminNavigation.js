@@ -31,6 +31,6 @@ export const ADMIN_NAVIGATION = [
   },
   {
     label: '시스템 관리',
-    items: [{ label: 'Creator Space Template', icon: 'space_dashboard', unavailable: true }],
+    items: [{ label: 'Creator Space Template', icon: 'space_dashboard', to: '/admin/space-templates', matches: (location) => location.pathname === '/admin/space-templates' }],
   },
 ]

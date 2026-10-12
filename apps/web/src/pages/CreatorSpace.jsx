@@ -25,6 +25,7 @@ import { formatNumber } from '../utils/format.js'
 import FollowStatus from '../components/creator/FollowStatus.jsx'
 import YoutubeChannelSheet from '../components/creator/YoutubeChannelSheet.jsx'
 import YoutubeSubscriptionMissionCard from '../components/creator/YoutubeSubscriptionMissionCard.jsx'
+import { isYoutubeChannelForCreator } from '../utils/subscriptionVerificationState.js'
 
 // 탭은 항상 노출하고, 내용이 없으면 EMPTY_TAB_MESSAGE를 보여준다(Cking-BE #290).
 // 순서: 응모권을 모으는 미션과 응모하는 이벤트를 앞에, 캘린더 일정(추첨 이벤트와 별개)과 게시물을 뒤에 둔다.
@@ -146,6 +147,8 @@ export default function CreatorSpace() {
     () => (missions ?? []).find((mission) => mission.type === 'YOUTUBE_SUBSCRIPTION') ?? null,
     [missions],
   )
+  // useAsync는 재조회 중 이전 data를 유지한다. Creator를 이동했을 때 이전 채널을 새 Space에 보이지 않게 응답의 소유 Creator를 확인한다.
+  const currentYoutubeChannel = isYoutubeChannelForCreator(youtubeChannel.data, creatorId) ? youtubeChannel.data : null
   const goLogin = () => navigate('/login', { state: { from: location.pathname + location.search } })
   // 크리에이터인 경우에만 내 Space를 조회해 지금 보는 Space가 내 것인지 판별한다.
   const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator })
@@ -351,12 +354,18 @@ export default function CreatorSpace() {
           </div>
         )
       })}
-      {!missionsLoading && !missionsError && youtubeSubscriptionMission && youtubeChannel.data && (
+      {!missionsLoading && !missionsError && youtubeSubscriptionMission && youtubeChannel.loading && (
+        <LoadingBlock label="YouTube 인증 채널을 확인하는 중..." />
+      )}
+      {!missionsLoading && !missionsError && youtubeSubscriptionMission && !youtubeChannel.loading && youtubeChannel.error && (
+        <ErrorBlock message={youtubeChannel.error} onRetry={youtubeChannel.reload} />
+      )}
+      {!missionsLoading && !missionsError && youtubeSubscriptionMission && !youtubeChannel.loading && !youtubeChannel.error && currentYoutubeChannel && (
         <YoutubeSubscriptionMissionCard
           key={`${creator.creatorId}:${youtubeSubscriptionMission.missionId}`}
           creatorId={creator.creatorId}
           mission={youtubeSubscriptionMission}
-          channel={youtubeChannel.data}
+          channel={currentYoutubeChannel}
           onRewarded={balance.reload}
         />
       )}

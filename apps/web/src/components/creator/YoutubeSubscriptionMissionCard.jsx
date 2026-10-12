@@ -9,6 +9,11 @@ import {
   submitSubscriptionVerification,
   validateSubscriptionVerificationImage,
 } from '../../api/subscriptionVerification.js'
+import {
+  canResubmitSubscriptionVerification,
+  isSubscriptionRewardRecovery,
+  shouldPollSubscriptionVerification,
+} from '../../utils/subscriptionVerificationState.js'
 
 const POLL_INTERVAL_MS = 3000
 
@@ -43,6 +48,13 @@ const STATUS = {
     detail: '처리 또는 보상 지급을 자동으로 다시 시도하고 있어요. 잠시 후 다시 확인해주세요.',
     tone: 'bg-surface-container-high text-on-surface',
   },
+}
+
+const FAILED_STATUS = {
+  icon: 'error_outline',
+  title: '인증 처리가 완료되지 않았어요',
+  detail: '잠시 후 새 이미지로 다시 제출해주세요.',
+  tone: 'bg-tertiary-container text-on-tertiary-container',
 }
 
 function reasonMessage(reasonCode) {
@@ -96,10 +108,10 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
   }, [verification?.status, onRewarded])
 
   useEffect(() => {
-    if (verification?.status !== 'VERIFYING') return undefined
+    if (!shouldPollSubscriptionVerification(verification)) return undefined
     const timer = window.setInterval(reloadLatest, POLL_INTERVAL_MS)
     return () => window.clearInterval(timer)
-  }, [verification?.status, reloadLatest])
+  }, [verification, reloadLatest])
 
   function selectFile(event) {
     const file = event.target.files?.[0]
@@ -108,7 +120,14 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
     const error = validateSubscriptionVerificationImage(file)
     setFileError(error ?? '')
     setSubmitError('')
-    setSelectedFile(error ? null : file)
+    if (error) {
+      setSelectedFile(null)
+      return
+    }
+    // 네트워크 오류 뒤 같은 파일은 선택 상태를 유지해 같은 requestId로 재시도한다.
+    // 사용자가 파일 선택을 다시 하면 새 요청으로 간주해 멱등성 충돌을 막는다.
+    requestIdRef.current = null
+    setSelectedFile(file)
   }
 
   async function submit() {
@@ -142,8 +161,10 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
   }
 
   const status = verification?.status ?? null
-  const statusInfo = status ? STATUS[status] : null
-  const canSubmit = status === null || status === 'REJECTED' || status === 'RETRY_REQUIRED'
+  const statusInfo = status === 'TEMPORARY_ERROR' && !isSubscriptionRewardRecovery(verification)
+    ? FAILED_STATUS
+    : status ? STATUS[status] : null
+  const canSubmit = canResubmitSubscriptionVerification(verification)
 
   return (
     <article className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-card">
@@ -170,7 +191,7 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
         <>
           {statusInfo && (
             <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 ${statusInfo.tone}`}>
-              <MaterialIcon name={statusInfo.icon} className={`mt-0.5 text-[18px] ${status === 'VERIFYING' ? 'animate-spin' : ''}`} />
+              <MaterialIcon name={statusInfo.icon} className={`mt-0.5 text-[18px] ${shouldPollSubscriptionVerification(verification) ? 'animate-spin' : ''}`} />
               <div>
                 <p className="font-label-sm text-label-sm font-bold">{statusInfo.title}</p>
                 <p className="mt-0.5 font-label-xs text-label-xs leading-relaxed opacity-80">{reasonMessage(verification.reasonCode) ?? statusInfo.detail}</p>

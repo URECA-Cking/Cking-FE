@@ -18,10 +18,13 @@ import { getMySpace, spacePath, spaceShareUrl } from '../api/creatorSpace.js'
 import { getCreatorPosts } from '../api/posts.js'
 import { withMockSpace } from '../dev/socialMock.js'
 import { completeCreatorMission, getCreatorMissions } from '../api/missions.js'
+import { getCreatorYoutubeChannel } from '../api/subscriptionVerification.js'
 import { getTicketBalance } from '../api/tickets.js'
 import { ApiError, describeError } from '../api/client.js'
 import { formatNumber } from '../utils/format.js'
 import FollowStatus from '../components/creator/FollowStatus.jsx'
+import YoutubeChannelSheet from '../components/creator/YoutubeChannelSheet.jsx'
+import YoutubeSubscriptionMissionCard from '../components/creator/YoutubeSubscriptionMissionCard.jsx'
 
 // 탭은 항상 노출하고, 내용이 없으면 EMPTY_TAB_MESSAGE를 보여준다(Cking-BE #290).
 // 순서: 응모권을 모으는 미션과 응모하는 이벤트를 앞에, 캘린더 일정(추첨 이벤트와 별개)과 게시물을 뒤에 둔다.
@@ -72,7 +75,7 @@ function ProfileIntro({ text }) {
  *
  * 경로: /:slug(인스타식 주소, 로그인 없이 열람 가능), 예전 경로 /space/:slug·/creators/:creatorId도 유지
  * 공개 데이터: 프로필(GET /api/creators/{id}/space, GET /api/creator-spaces/{slug}), 이벤트(GET /api/events?creatorId=), 캘린더.
- * 로그인 사용자만: 응모권 잔액(GET /api/creators/{id}/tickets)·내역, LIKE 미션 참여(SHARE는 공유 UI 연동 전까지 숨긴다),
+ * 로그인 사용자만: 응모권 잔액(GET /api/creators/{id}/tickets)·내역, LIKE·YouTube 구독 인증 미션 참여(SHARE는 공유 UI 연동 전까지 숨긴다),
  * 관심 등록, 본인 편집. 비로그인이면 이 영역에 로그인 안내를 보여준다.
  * 캘린더 탭·홈의 다가오는 일정은 GET /api/creators/{id}/calendar/schedules(추첨 이벤트와 별개인 크리에이터 일정)를 쓴다.
  * 게시물 탭은 공개 Post API로 조회하며 팔로워 공개 게시글은 권한에 따라 잠금 상태로 표시한다.
@@ -96,6 +99,7 @@ export default function CreatorSpace() {
   const [tab, setTab] = useState(location.state?.tab ?? 'home')
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [youtubeChannelSettingsOpen, setYoutubeChannelSettingsOpen] = useState(false)
   const [missionBusyId, setMissionBusyId] = useState(null)
 
   const { data: loaded, loading, error, reload, setData: setCreator } = useAsync(
@@ -117,6 +121,19 @@ export default function CreatorSpace() {
     [creatorId, authenticated],
     { enabled: authenticated && creatorId !== null, fallbackMessage: '오늘의 미션을 불러오지 못했어요.' },
   )
+  // 채널이 없는 Creator는 구독 인증 미션을 팬 화면에 노출하지 않는다. 공개 Space에서도 같은 API를 쓸 수 있다.
+  const youtubeChannel = useAsync(
+    async () => {
+      try {
+        return await getCreatorYoutubeChannel(creatorId)
+      } catch (channelError) {
+        if (channelError instanceof ApiError && channelError.code === 'CREATOR_CHANNEL_NOT_CONFIGURED') return null
+        throw channelError
+      }
+    },
+    [creatorId],
+    { enabled: creatorId !== null },
+  )
   // 프로필 통계의 게시물 수는 목록 응답의 totalElements를 쓴다(1건만 요청). 실패하면 그 칸만 숨긴다.
   const postTotal = useAsync(
     () => getCreatorPosts(creatorId, { size: 1 }),
@@ -125,6 +142,10 @@ export default function CreatorSpace() {
   )
   const ticketBalance = balance.data?.balance ?? 0
   const likeMissions = useMemo(() => (missions ?? []).filter((mission) => mission.type === 'LIKE'), [missions])
+  const youtubeSubscriptionMission = useMemo(
+    () => (missions ?? []).find((mission) => mission.type === 'YOUTUBE_SUBSCRIPTION') ?? null,
+    [missions],
+  )
   const goLogin = () => navigate('/login', { state: { from: location.pathname + location.search } })
   // 크리에이터인 경우에만 내 Space를 조회해 지금 보는 Space가 내 것인지 판별한다.
   const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator })
@@ -267,6 +288,16 @@ export default function CreatorSpace() {
           <span className="font-label-md text-label-md font-semibold">스페이스 편집</span>
         </button>
       )}
+      {isMine && (
+        <button
+          type="button"
+          onClick={() => setYoutubeChannelSettingsOpen(true)}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-container-highest py-2 text-on-surface transition-all active:scale-95 md:flex-none md:px-5"
+        >
+          <MaterialIcon name="subscriptions" className="text-[18px]" />
+          <span className="font-label-md text-label-md font-semibold">YouTube 채널</span>
+        </button>
+      )}
       <button
         type="button"
         aria-label="공유하기"
@@ -291,7 +322,7 @@ export default function CreatorSpace() {
     </div>
   )
 
-  // Creator 미션 조회에 SHARE가 포함돼도, 공유 행동을 검증하는 UI가 연결되기 전에는 LIKE만 보여준다.
+  // SHARE는 공유 행동 검증 UI가 연결되기 전까지 숨긴다. YouTube 구독 인증은 채널이 설정된 경우에만 별도로 노출한다.
   const missionList = sessionLoading ? <LoadingBlock label="로그인 상태를 확인하는 중..." /> : anonymous ? loginPrompt('로그인하면 미션에 참여하고 응모권을 모을 수 있어요.') : (
     <>
       {missionsLoading && <LoadingBlock label="오늘의 미션을 불러오는 중..." />}
@@ -320,7 +351,16 @@ export default function CreatorSpace() {
           </div>
         )
       })}
-      {!missionsLoading && !missionsError && likeMissions.length === 0 && (
+      {!missionsLoading && !missionsError && youtubeSubscriptionMission && youtubeChannel.data && (
+        <YoutubeSubscriptionMissionCard
+          key={`${creator.creatorId}:${youtubeSubscriptionMission.missionId}`}
+          creatorId={creator.creatorId}
+          mission={youtubeSubscriptionMission}
+          channel={youtubeChannel.data}
+          onRewarded={balance.reload}
+        />
+      )}
+      {!missionsLoading && !missionsError && likeMissions.length === 0 && !youtubeSubscriptionMission && (
         <EmptyBlock icon="bolt" message={EMPTY_TAB_MESSAGE} />
       )}
     </>
@@ -546,6 +586,16 @@ export default function CreatorSpace() {
           onClose={() => setEditOpen(false)}
           space={mySpace.data}
           onSaved={handleSpaceSaved}
+        />
+      )}
+      {isMine && (
+        <YoutubeChannelSheet
+          open={youtubeChannelSettingsOpen}
+          onClose={() => {
+            setYoutubeChannelSettingsOpen(false)
+            youtubeChannel.reload()
+            reloadMissions()
+          }}
         />
       )}
     </div>

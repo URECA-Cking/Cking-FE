@@ -29,6 +29,7 @@
 | GET/PATCH | `/api/me/notifications`, `/api/me/notifications/{id}/read` | 알림 목록·읽음 | 연동 | [Notification](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/notification/api.md) |
 | GET | `/api/creators/{creatorId}/tickets`, `/api/creators/{creatorId}/tickets/history` | 잔액·응모권 원장 | 연동 | [Ticket](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/ticket/api.md) |
 | GET/POST | `/api/creators/{creatorId}/missions`, `/api/creators/{creatorId}/missions/{missionId}/complete` | Creator Space 미션 조회·완료 | 연동 | [Mission](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/mission/api.md) |
+| GET/POST | `/api/creators/{creatorId}/youtube-channel`, `/api/creators/{creatorId}/missions/{missionId}/subscription-verifications`, `.../me/latest` | Creator Space의 YouTube 구독 인증 채널 안내·이미지 제출·비동기 상태 조회 | 연동 | [Subscription Verification](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/subscription-verification/api.md) |
 | GET/POST | `/api/missions`, `/api/missions/{missionId}/complete` | 홈 공용 출석 미션 조회·완료 | 연동 | [Mission](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/mission/api.md) |
 | GET | `/api/tickets/common/history` | 홈 출석 도장(최근 7일 출석 적립 기록) | 연동 | [Ticket](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/ticket/api.md) |
 | GET | `/api/creators/{creatorId}/calendar/schedules` | Creator Space 공개 캘린더 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
@@ -49,6 +50,7 @@
 | --- | --- | --- | --- | --- |
 | POST/GET | `/api/creator/applications`, `/api/creator/applications/me` | Creator 전환 신청·내 신청 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
 | GET/PATCH | `/api/creator/space`, `/api/creator/space/slug` | 내 Space 편집·slug 변경 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| GET/PUT | `/api/creator/youtube-channel` | Space의 YouTube 구독 인증 대상 채널 최초 설정·수정 | 연동 | [Subscription Verification](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/subscription-verification/api.md) |
 | GET/POST/PATCH/DELETE | `/api/creator/events`, `/api/creator/events/{eventId}` | Creator 이벤트 CRUD(스페이스 이벤트 탭) | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | POST | `/api/creator/events/{eventId}/approval-request` | 이벤트 승인 요청 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | POST | `/api/events/{eventId}/close` | 이벤트 수동 마감 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
@@ -77,4 +79,4 @@
 
 ## 미연동 또는 확인이 필요한 BE 기능
 
-현재 UI/API 모듈에서 사용하지 않는 API를 새로 연동할 때는 먼저 API 인덱스에서 역할과 계약 문서를 확인하고, 해당 행을 이 문서에 추가한다. 예: Subscription Verification, Ticket/Lua 내부 처리 API는 현재 FE 화면 사용 범위가 아니다.
+현재 UI/API 모듈에서 사용하지 않는 API를 새로 연동할 때는 먼저 API 인덱스에서 역할과 계약 문서를 확인하고, 해당 행을 이 문서에 추가한다. Ticket/Lua 내부 처리 API처럼 화면에서 직접 호출하지 않는 내부 API는 연동 대상으로 보지 않는다.

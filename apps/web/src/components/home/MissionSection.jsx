@@ -24,8 +24,9 @@ export default function MissionSection({ memberId }) {
     [memberId],
     { enabled: memberId != null, fallbackMessage: '미션을 불러오지 못했습니다.' },
   )
-  // 도장 칸은 원장의 출석 적립으로 그린다. 조회에 실패해도 오늘 완료 여부(completedToday)만으로 오늘 도장은 보여준다.
-  const { data: ledger } = useAsync(
+  // 도장 칸은 원장의 출석 적립으로 그린다. 조회가 끝나기 전이나 실패했을 때는 출석 일수를 알 수 없으므로
+  // 0일로 단정하지 않고 도장 칸을 비운 채 안내(로딩·재시도)만 보여준다.
+  const { data: ledger, loading: ledgerLoading, error: ledgerError, reload: reloadLedger } = useAsync(
     () => getCommonTicketHistorySince(Date.now() - STAMP_WINDOW_MS),
     [memberId],
     { enabled: memberId != null },
@@ -75,8 +76,13 @@ export default function MissionSection({ memberId }) {
       {missions.map((mission) => {
         const done = mission.completedToday
         const busy = busyId === mission.missionId
+        const stampsReady = ledger != null && !ledgerError
         const stamps = mission.type === 'ATTENDANCE'
-          ? buildStampSlots({ ledgerItems: ledger?.items, missionId: mission.missionId, completedToday: done })
+          ? buildStampSlots({
+              ledgerItems: stampsReady ? ledger.items : [],
+              missionId: mission.missionId,
+              completedToday: stampsReady && done,
+            }).map((slot) => (stampsReady ? slot : { ...slot, next: false }))
           : null
         const stampedCount = stamps ? stamps.filter((slot) => slot.stamped).length : 0
         return (
@@ -114,9 +120,20 @@ export default function MissionSection({ memberId }) {
                     </li>
                   ))}
                 </ol>
-                <p className="mt-2 font-label-xs text-label-xs text-on-primary/80 font-normal">
-                  최근 7일 중 {stampedCount}일 출석 · 매일 오전 9시에 초기화돼요
-                </p>
+                {stampsReady ? (
+                  <p className="mt-2 font-label-xs text-label-xs text-on-primary/80 font-normal">
+                    최근 7일 중 {stampedCount}일 출석 · 매일 오전 9시에 초기화돼요
+                  </p>
+                ) : ledgerError && !ledgerLoading ? (
+                  <p className="mt-2 flex items-center justify-between gap-2 font-label-xs text-label-xs text-on-primary/80 font-normal">
+                    <span>출석 현황을 불러오지 못했어요.</span>
+                    <button type="button" onClick={reloadLedger} className="shrink-0 font-semibold text-on-primary underline underline-offset-2 active:opacity-70">
+                      다시 시도
+                    </button>
+                  </p>
+                ) : (
+                  <p className="mt-2 font-label-xs text-label-xs text-on-primary/80 font-normal">출석 현황을 불러오는 중...</p>
+                )}
               </>
             )}
           </div>

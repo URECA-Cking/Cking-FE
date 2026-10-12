@@ -10,7 +10,6 @@ import { validateProfileImage } from '../utils/imageFile.js'
 import {
   NICKNAME_MAX_LENGTH,
   NICKNAME_RULE_HINT,
-  currentImageKey,
   normalizeNickname,
   validateNickname,
 } from '../utils/nickname.js'
@@ -22,7 +21,7 @@ import { parseServerTime } from '../utils/serverTime.js'
  *
  * - 닉네임이 없는 회원(`profileConfigured === false`)이면 설정 모드다. 저장하면 온보딩이 남았을 때 온보딩으로, 아니면 원래 가려던 화면으로 간다.
  * - 닉네임은 마지막 변경 뒤 14일 동안 바꿀 수 없다(`nicknameChangeableAt`). 이때도 사진은 언제든 바꿀 수 있고, 직전 닉네임(`restorableNickname`)으로는 되돌릴 수 있다.
- * - 사진은 고르는 즉시 올려 key를 받고, 저장할 때 key를 보낸다. 바꾸지 않으면 현재 key를 다시 보내고, 지우면 null을 보낸다.
+ * - 사진은 고르는 즉시 올려 key를 받고, 저장할 때 key를 보낸다. 바꾸지 않으면 key를 보내지 않아 서버가 현재 사진을 유지하고, 지우면 null을 보낸다.
  */
 export default function ProfileEdit() {
   const { user, applyUser } = useUser()
@@ -33,9 +32,6 @@ export default function ProfileEdit() {
   const setup = user?.profileConfigured === false
   const from = location.state?.from ?? (setup ? '/' : '/my-page')
   const originalNickname = user?.nickname ?? ''
-  const originalKey = currentImageKey(user)
-  // 사진 URL은 있는데 key를 알 수 없으면 사진을 유지한 채 저장할 수 없다(null을 보내면 사진이 지워진다).
-  const keyUnknown = Boolean(user?.profileImageUrl) && originalKey === null
 
   // 서버 시각은 UTC다. 시간대가 없는 값도 현지 시간으로 어긋나지 않게 UTC로 읽는다.
   const changeableAt = parseServerTime(user?.nicknameChangeableAt)
@@ -75,7 +71,7 @@ export default function ProfileEdit() {
   const imageChanged = pendingKey !== undefined
   const dirty = nicknameChanged || imageChanged
   const shownImage = pendingKey === null ? null : (previewUrl ?? user?.profileImageUrl ?? null)
-  const canSave = !saving && !photoBusy && dirty && !nicknameError && !(keyUnknown && pendingKey === undefined)
+  const canSave = !saving && !photoBusy && dirty && !nicknameError
 
   async function handleFile(event) {
     const file = event.target.files?.[0]
@@ -110,16 +106,13 @@ export default function ProfileEdit() {
     setPendingKey(null)
   }
 
-  /** 서버가 원래 사진 그대로 두는 경우(바꾸지 않음)엔 현재 key를 다시 보낸다. */
-  const keyToSend = () => (pendingKey === undefined ? originalKey : pendingKey)
-
   async function save(nextNickname) {
     if (savingRef.current) return
     savingRef.current = true
     setSaving(true)
     setFormError('')
     try {
-      const me = await updateMyProfile({ nickname: nextNickname, profileImageKey: keyToSend() })
+      const me = await updateMyProfile({ nickname: nextNickname, profileImageKey: pendingKey })
       if (!alive.current) return
       applyUser(me)
       showToast(setup ? '프로필을 설정했어요.' : '프로필을 저장했어요.')
@@ -189,7 +182,7 @@ export default function ProfileEdit() {
               type="button"
               onClick={() => fileInput.current?.click()}
               disabled={photoBusy || saving}
-              aria-label="프로필 사진 바꾸기"
+              aria-label="프로필 사진 변경"
               className="h-full w-full overflow-hidden rounded-full bg-surface-container active:scale-95 transition-transform disabled:opacity-70"
             >
               {shownImage ? (
@@ -224,7 +217,7 @@ export default function ProfileEdit() {
               disabled={photoBusy || saving}
               className="font-label-md text-label-md font-semibold text-primary disabled:opacity-50"
             >
-              사진 바꾸기
+              사진 변경
             </button>
             {shownImage && (
               <button
@@ -238,11 +231,6 @@ export default function ProfileEdit() {
             )}
           </div>
           {imageError && <p className="text-center font-label-xs text-label-xs text-error" role="alert">{imageError}</p>}
-          {keyUnknown && pendingKey === undefined && (
-            <p className="text-center font-label-xs text-label-xs text-error" role="alert">
-              현재 사진 정보를 확인하지 못했어요. 닉네임을 저장하려면 사진을 다시 올리거나 삭제해주세요.
-            </p>
-          )}
         </section>
 
         <section className="flex flex-col gap-2" aria-label="닉네임">
@@ -273,7 +261,7 @@ export default function ProfileEdit() {
           </div>
           {nicknameLocked && (
             <p className="rounded-xl bg-surface-container-low px-3 py-2.5 font-body-sm text-body-sm text-on-surface-variant">
-              닉네임은 {formatDateTime(changeableAt.toISOString())} 이후에 다시 바꿀 수 있어요. 사진은 언제든 바꿀 수 있어요.
+              닉네임은 {formatDateTime(changeableAt.toISOString())} 이후에 다시 바꿀 수 있어요. 사진은 언제든 변경할 수 있어요.
             </p>
           )}
           {restorable && (

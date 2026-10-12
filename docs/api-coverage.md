@@ -8,7 +8,7 @@
 
 | Method | Endpoint | 사용 앱 | 화면/기능 | FE 상태 | BE 계약 |
 | --- | --- | --- | --- | --- | --- |
-| GET | `/api/me` | Web | 세션 복원·역할 판정, 신규 가입자 판별(`onboardingCompleted`) | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
+| GET | `/api/me` | Web | 세션 복원·역할 판정, 신규 가입자 판별(`onboardingCompleted`), 프로필(`nickname`·`profileImageUrl`·`profileConfigured`·`nicknameChangeableAt`·`restorableNickname`) | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
 | POST | `/api/auth/token`, `/api/auth/refresh`, `/api/auth/logout` | Web | OAuth Login Code 교환·갱신·로그아웃 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
 | GET | `/oauth2/authorization/{provider}` | Web | OAuth 로그인 시작 페이지 이동 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
 | - | 공통 HTTP·오류 규약 | Web | `apps/web/src/api/client.js`: Bearer JWT, `credentials: include`, 401 1회 갱신 | 연동 | [API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md) |
@@ -39,6 +39,8 @@
 | GET | `/api/interests`, `/api/me/interests` | 온보딩 관심 분야 조회 | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
 | PUT | `/api/me/interests` | 온보딩 관심 분야 저장(0~3개) | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
 | GET | `/api/me/creator-recommendations` | 온보딩 AI 크리에이터 추천 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
+| POST | `/api/me/profile-images` | 프로필 편집의 사진 업로드(`imageKey` 반환) | 연동 | [Member](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/member/api.md) |
+| PUT | `/api/me/profile` | 프로필 편집(닉네임 저장, 사진은 key를 보낼 때만 교체), `PROFILE_SETUP_REQUIRED`(409) 처리 | 연동 | [Member](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/member/api.md) |
 | PUT | `/api/me/onboarding/complete` | 온보딩 완료·건너뛰기 기록 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md) |
 
 ## Web — CREATOR

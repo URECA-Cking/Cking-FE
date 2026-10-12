@@ -10,6 +10,7 @@ import MyPage from './pages/MyPage.jsx'
 import Login from './pages/Login.jsx'
 import OAuthCallback from './pages/OAuthCallback.jsx'
 import Onboarding from './pages/Onboarding.jsx'
+import ProfileEdit from './pages/ProfileEdit.jsx'
 import CreatorSpace from './pages/CreatorSpace.jsx'
 import EventDetail from './pages/EventDetail.jsx'
 import RequireRole from './components/auth/RequireRole.jsx'
@@ -51,6 +52,14 @@ function App() {
         element={
           <RequireUser>
             <Onboarding manage />
+          </RequireUser>
+        }
+      />
+      <Route
+        path="/profile/edit"
+        element={
+          <RequireUser>
+            <ProfileEdit />
           </RequireUser>
         }
       />

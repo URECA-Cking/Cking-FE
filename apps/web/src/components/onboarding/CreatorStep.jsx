@@ -91,7 +91,8 @@ function CreatorRow({ creator, reason, followed, disabled, onToggle, subtags = [
   return (
     <li className="flex items-center gap-3 p-3 rounded-2xl bg-surface-container-lowest shadow-card">
       {/* 플로우: 추천·검색 결과에서 크리에이터 스페이스를 둘러본 뒤 팔로우를 정한다. 팔로우 버튼은 링크 밖에 둔다. */}
-      <Link to={spacePath(creator.handle)} className="min-w-0 flex-1 flex items-center gap-3">
+      {/* 추천 API 응답에는 slug가 없어 handle이 비어 있다. 그때는 creatorId 경로로 연다. */}
+      <Link to={creator.handle ? spacePath(creator.handle) : `/creators/${creator.creatorId}`} className="min-w-0 flex-1 flex items-center gap-3">
         <Avatar src={creator.avatar} name={creator.name} />
         <div className="min-w-0 flex-1 flex flex-col gap-0.5">
           <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>

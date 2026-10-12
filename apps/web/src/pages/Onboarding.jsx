@@ -6,6 +6,7 @@ import CreatorStep from '../components/onboarding/CreatorStep.jsx'
 import { completeOnboarding } from '../api/auth.js'
 import { describeError } from '../api/client.js'
 import { useToast } from '../context/useToast.js'
+import { canGoBackInApp } from '../hooks/useAppBack.js'
 import { useUser } from '../context/useUser.js'
 
 /**
@@ -57,7 +58,7 @@ export default function Onboarding({ manage = false }) {
   function handleBack() {
     // 앱 안에서 뒤로 갈 곳이 있는지: react-router가 이 앱에서 쌓은 위치를 history.state.idx에 기록한다.
     // 로그인 직후에는 이전 기록이 Google·BE 로그인 중간 페이지라 idx가 0이고, 그쪽으로 돌아가면 안 된다.
-    const canGoBack = (window.history.state?.idx ?? 0) > 0
+    const canGoBack = canGoBackInApp()
     if (canGoBack) {
       // 1단계에서 "다음"으로 쌓은 기록을 그대로 되돌린다. 덮어쓰면 1단계 항목이 중복으로 남아 다시 뒤로가도 변화가 없다.
       navigate(-1)

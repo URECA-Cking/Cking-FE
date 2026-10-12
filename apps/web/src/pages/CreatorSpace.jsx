@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import BackButton from '../components/ui/BackButton.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
 import CreatorPosts from '../components/creator/CreatorPosts.jsx'
 import SpaceEditSheet from '../components/creator/SpaceEditSheet.jsx'
@@ -325,14 +326,7 @@ export default function CreatorSpace() {
       <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
         <div className="h-14 px-margin md:px-8 flex items-center justify-between gap-space-xs">
           <div className="flex items-center gap-space-xs min-w-0">
-            <button
-              type="button"
-              aria-label="뒤로가기"
-              onClick={() => navigate(-1)}
-              className="w-10 h-10 -ml-1 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface shrink-0"
-            >
-              <MaterialIcon name="arrow_back" className="text-[22px]" />
-            </button>
+            <BackButton onClick={() => navigate(-1)} />
             <h1 className="font-title-md text-title-md text-on-surface font-semibold truncate">{creator.creatorName}</h1>
           </div>
           <div className="flex items-center gap-space-xs shrink-0">

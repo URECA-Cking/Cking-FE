@@ -58,23 +58,26 @@ export default function AdminCommentReports() {
       const result = action === 'hide' ? await hideReportedComment(item.commentId) : await rejectCommentReports(item.commentId)
       showToast(actionSuccessMessage(action, result?.handledReportCount ?? 0))
       setPending(null)
-      await refreshAfterAction()
+      await refresh()
     } catch (err) {
       showToast(actionErrorMessage(err), { icon: 'error' })
       // 다른 관리자가 먼저 처리했거나 댓글이 사라졌을 수 있어 확인 창을 닫고 최신 상태를 다시 읽는다.
       if (err instanceof ApiError && COMMENT_REPORT_ERROR_MESSAGES[err.code]) {
         setPending(null)
-        await refreshAfterAction()
+        await refresh()
       }
     } finally {
       setBusy(false)
     }
   }
 
-  /** 마지막 한 건을 처리해 현재 페이지가 비면 이전 페이지로 가고, 아니면 같은 페이지를 다시 읽는다. */
-  async function refreshAfterAction() {
-    if (items.length === 1 && page > 0) setPage((current) => current - 1)
-    else await reload()
+  /**
+   * 현재 페이지를 다시 읽는다. 읽은 결과가 비었을 때만(접수 탭에서 마지막 한 건을 처리했거나 다른 관리자가 처리·삭제해
+   * 페이지가 줄었을 때) 이전 페이지로 간다. 전체 탭에서는 처리한 댓글이 목록에 남으므로 같은 페이지에 머문다.
+   */
+  async function refresh() {
+    const refreshed = await reload()
+    if (refreshed && (refreshed.items ?? []).length === 0 && page > 0) setPage((current) => current - 1)
   }
 
   const confirm = pending ? actionConfirm(pending.action, pending.item.pendingReportCount) : null
@@ -106,7 +109,7 @@ export default function AdminCommentReports() {
               </button>
             ))}
           </div>
-          <button type="button" onClick={() => void reload()} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button>
+          <button type="button" onClick={() => void refresh()} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button>
         </div>
 
         {loading && <LoadingBlock label="신고된 댓글을 불러오는 중..." />}

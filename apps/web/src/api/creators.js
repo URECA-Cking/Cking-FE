@@ -88,6 +88,8 @@ export async function getMyCreatorRecommendations({ size = 10 } = {}) {
   const result = await apiClient.get('/api/me/creator-recommendations', { size });
   return {
     personalized: result.policyVersion !== POPULAR_FALLBACK,
+    // 노출·클릭 수집(sendRecommendationEvents)에 쓰는 응답 ID. 스냅샷 저장에 실패하면 null이고 이때는 수집하지 않는다.
+    requestId: result.recommendationRequestId ?? null,
     items: (result.items ?? []).map((item) => ({
       creatorId: item.creatorId,
       name: item.creatorName,
@@ -138,4 +140,23 @@ export async function loadCreatorSpace({ creatorId, slug }) {
   } catch {
     return { ...space, events: [], eventsError: true };
   }
+}
+
+/**
+ * GET /api/creators/{creatorId}/similar?size - 저장된 유사 크리에이터 후보(인증 불필요, size 1~20, 기본 5).
+ * 후보가 없으면 BE가 빈 배열을 200으로 준다. 이름·순위만 오므로 이미지 등은 호출하는 쪽에서 목록과 합친다.
+ * @returns {Promise<{ similarCreatorId: number, name: string, rank: number }[]>}
+ */
+export async function getSimilarCreators(creatorId, { size = 5 } = {}) {
+  const result = await apiClient.get(`/api/creators/${creatorId}/similar`, { size });
+  return result.candidates ?? [];
+}
+
+/**
+ * POST /api/me/creator-recommendation-events - 추천 카드 노출(IMPRESSION)·클릭(CLICK)을 한 번에 최대 50건 수집한다.
+ * 배치는 원자적이고 eventId가 멱등 키라, 실패하면 같은 eventId·내용으로 배치 전체를 다시 보낸다.
+ * @param {{ eventId: string, recommendationRequestId: string, creatorId: number, eventType: 'IMPRESSION'|'CLICK' }[]} events
+ */
+export function sendRecommendationEvents(events) {
+  return apiClient.post('/api/me/creator-recommendation-events', { events });
 }

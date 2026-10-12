@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useRef } from 'react'
 import BottomNav from './BottomNav.jsx'
 import { TopHeader } from './TopHeader.jsx'
@@ -12,13 +12,15 @@ import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 const APP_BAR_TITLES = {
   '/': { title: 'Cking' },
   '/explore': { title: '탐색', centered: true },
-  '/notifications': { title: '알림' },
+  // back: 홈·스페이스 등 다른 화면에서 들어오므로 뒤로 가기 버튼을 보여준다.
+  '/notifications': { title: '알림', back: true },
   '/my-entries': { title: '내 응모', centered: true },
   '/my-page': { title: '마이', centered: true },
 }
 
 export default function MainLayout() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const scrollRef = useRef(null)
   const { headerVisible, bottomCompact } = useScrollChrome(scrollRef)
   const online = useOnline()
@@ -31,6 +33,13 @@ export default function MainLayout() {
   const notifications = data?.items ?? []
   const unreadCount = notifications.filter((item) => !item.readAt).length
 
+  function goBack() {
+    // 앱 안에서 뒤로 갈 곳이 있는지: react-router가 이 앱에서 쌓은 위치를 history.state.idx에 기록한다.
+    // 로그인 직후나 주소로 직접 연 경우는 이전 기록이 앱 밖(로그인 중간 페이지 등)이라 idx가 0이고, 그쪽으로 돌아가면 안 되므로 홈으로 간다.
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1)
+    else navigate('/', { replace: true })
+  }
+
   return (
     <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
       {appBarTitle && (
@@ -40,6 +49,7 @@ export default function MainLayout() {
           unreadCount={unreadCount}
           embedded
           hidden={!headerVisible}
+          onBack={appBarTitle.back ? goBack : undefined}
         />
       )}
       <main

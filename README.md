@@ -82,10 +82,10 @@ npm run test:e2e:admin
 | 내 응모 | `/my-entries` | `GET /api/creators/{id}/tickets/history`, `GET /api/events/{id}/winners` |
 | 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH /api/me/notifications/{id}/read` |
 | 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/creator/applications/me`, `POST /api/creator/applications` |
-| 크리에이터 스튜디오 | `/studio` | `GET /api/creator/events`, `DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
-| 이벤트 작성 | `/studio/events/new` | `POST /api/creator/events` |
-| 이벤트 수정 | `/studio/events/:eventId/edit` | `GET /api/creator/events`, `PATCH /api/creator/events/{id}` |
-| 캘린더 관리 | `/studio/calendar` | `GET /api/creator/calendar/schedules`, `POST·PATCH·DELETE /api/creator/calendar/schedules(/{id})` |
+| 이벤트 관리 (내 스페이스 이벤트 탭) | `/:slug` | `GET /api/creator/events`, `DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
+| 이벤트 작성 | `/creator/events/new` | `POST /api/creator/events` |
+| 이벤트 수정 | `/creator/events/:eventId/edit` | `GET /api/creator/events`, `PATCH /api/creator/events/{id}` |
+| 일정 관리 (내 스페이스 캘린더 탭) | `/:slug` | `POST·PATCH·DELETE /api/creator/calendar/schedules(/{id})` |
 | 내 캘린더 | `/my-calendar` | `GET /api/me/calendar/schedules`, `PUT·DELETE /api/me/calendar/schedules/{id}` |
 | 관리자 콘솔 | `/admin` | `GET /api/admin/events/pending`, `POST .../approve·reject`, `GET /api/admin/creator-applications`, `POST .../approve·reject`, `GET .../closing-status`, `GET .../snapshot`, `POST .../drawings`, `GET /api/admin/drawings/{id}`, `GET .../result` |
 
@@ -135,7 +135,7 @@ apps/web/src/
   context/    로그인 세션(UserContext), 토스트, 화면 모드(ThemeContext, 다크/일반)
   data/       이벤트 배너·이미지 헬퍼
   hooks/      useAsync(조회 공통), useOnline
-  pages/      화면 (studio/, admin/ 하위 포함)
+  pages/      화면 (admin/ 하위 포함)
   pwa/        서비스 워커 등록, 설치 프롬프트
   utils/      날짜·숫자 포맷, 상태 매핑
 ```

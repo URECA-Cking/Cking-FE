@@ -47,10 +47,10 @@
 | --- | --- | --- | --- | --- |
 | POST/GET | `/api/creator/applications`, `/api/creator/applications/me` | Creator 전환 신청·내 신청 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
 | GET/PATCH | `/api/creator/space`, `/api/creator/space/slug` | 내 Space 편집·slug 변경 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
-| GET/POST/PATCH/DELETE | `/api/creator/events`, `/api/creator/events/{eventId}` | Creator Studio 이벤트 CRUD | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
+| GET/POST/PATCH/DELETE | `/api/creator/events`, `/api/creator/events/{eventId}` | Creator 이벤트 CRUD(스페이스 이벤트 탭) | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | POST | `/api/creator/events/{eventId}/approval-request` | 이벤트 승인 요청 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | POST | `/api/events/{eventId}/close` | 이벤트 수동 마감 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
-| GET/POST/PATCH/DELETE | `/api/creator/calendar/schedules`, `/api/creator/calendar/schedules/{scheduleId}` | Creator 일정 관리 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
+| POST/PATCH/DELETE | `/api/creator/calendar/schedules`, `/api/creator/calendar/schedules/{scheduleId}` | Creator 일정 관리(스페이스 캘린더 탭). 목록은 공개 조회를 쓰고 `GET /api/creator/calendar/schedules`는 쓰지 않는다 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
 | POST | `/api/creator/posts/images` | 게시물 이미지 업로드 | 연동 | [Post](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/api.md) |
 | POST/PATCH/DELETE | `/api/creator/posts`, `/api/creator/posts/{postId}` | 게시물 작성·수정·삭제 | 연동 | [Post](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/api.md) |
 

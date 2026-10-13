@@ -52,6 +52,8 @@ export default function EventDetail() {
     refreshKey: event,
     // 이미 접수된 요청의 재시도(DUPLICATE_REPLAY)는 응모권이 다시 늘지 않는다.
     replay: result?.code === 'DUPLICATE_REPLAY',
+    // 응모 요청을 보내는 동안의 수치를 응모 전 기준으로 삼는다.
+    entering: phase === 'submitting',
   })
 
   const published = event?.status === 'PUBLISHED'

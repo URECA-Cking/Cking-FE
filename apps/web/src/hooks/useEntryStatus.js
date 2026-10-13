@@ -16,15 +16,23 @@ const INITIAL = { eventId: null, data: null, failed: false, waiting: false }
  * - refreshKey가 바뀌면(응모 후 이벤트 상세를 다시 받음) 내 응모권 수가 늘 때까지 제한적으로 다시 조회한다.
  *   그동안과, 끝까지 늘지 않았을 때는 응모 전 수치를 최신처럼 보여주지 않으려고 값을 내보내지 않는다.
  *   이후 주기 조회에서 증가가 확인되면 다시 보여준다.
+ * - entering이 true가 되는 순간(응모 요청을 보내기 시작)의 내 응모권 수를 응모 전 기준으로 고정한다.
+ *   응모 후 상세 재조회가 끝나기 전에 주기 조회가 먼저 증가한 값을 받아도 그 값이 기준이 되지 않게 하려는 것이다.
  * - replay가 true면(DUPLICATE_REPLAY: 이미 접수된 요청의 재시도) 응모권이 다시 늘지 않으므로 증가를 기다리지 않는다.
  * - 조회가 겹치면 가장 최근에 시작한 요청의 응답만 반영한다.
  * @returns {{ status: object|null, failed: boolean }} status가 null이면 값이 없거나 믿을 수 없는 상태
  */
-export function useEntryStatus(eventId, { enabled, live, refreshKey, replay = false }) {
+export function useEntryStatus(eventId, { enabled, live, refreshKey, replay = false, entering = false }) {
   const [state, setState] = useState(INITIAL)
   const latest = useRef(null)
   const prevKey = useRef(undefined)
   const owner = useRef(null)
+  const frozenBaseline = useRef(null)
+
+  // 응모 요청을 보내기 시작하는 순간의 수치를 응모 전 기준으로 고정한다(이후 조회가 latest를 바꿔도 기준은 그대로).
+  useEffect(() => {
+    if (entering) frozenBaseline.current = latest.current?.myTicketCount ?? null
+  }, [entering])
 
   useEffect(() => {
     if (!enabled) return undefined
@@ -33,6 +41,7 @@ export function useEntryStatus(eventId, { enabled, live, refreshKey, replay = fa
       owner.current = eventId
       latest.current = null
       prevKey.current = undefined
+      frozenBaseline.current = null
     }
     let cancelled = false
     // 응모 직후 증가를 확인하지 못한 동안은 주기 조회가 옛 값을 다시 보여주지 못하게 막는다.
@@ -40,8 +49,9 @@ export function useEntryStatus(eventId, { enabled, live, refreshKey, replay = fa
     // 응모 직후 재조회가 진행 중일 때는 주기 조회를 쉬어 두 조회가 값을 덮어쓰지 않게 한다.
     let bursting = false
     const begin = createLatestGate()
-    const baseline = latest.current?.myTicketCount ?? null
+    const baseline = frozenBaseline.current ?? latest.current?.myTicketCount ?? null
     const afterEntry = !replay && prevKey.current !== undefined && prevKey.current !== refreshKey && baseline !== null
+    if (prevKey.current !== refreshKey) frozenBaseline.current = null
     prevKey.current = refreshKey
 
     // 성공이면 응답, 실패면 undefined, 이미 정리된 뒤면 null

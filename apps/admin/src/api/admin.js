@@ -223,7 +223,7 @@ export function getAdminTicketBalance({ memberId, couponType, creatorId }) {
   return get('/api/admin/tickets/balance', { memberId, couponType, ...(couponType === 'CREATOR' ? { creatorId } : {}) })
 }
 
-/** Redis 잔액 조회 장애를 일반 잔액 조회 오류와 구분한다. */
+/** useAsync가 보존한 원본 오류에서 Redis 잔액 조회 장애를 구분한다. */
 export function isRedisBalanceQueryFailed(error) {
   return error?.code === 'REDIS_BALANCE_QUERY_FAILED'
 }

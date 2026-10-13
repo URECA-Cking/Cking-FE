@@ -52,8 +52,9 @@ test('관리자 응모권 조회와 수동 보정은 종류별 계약 필드와 
   }
 })
 
-test('Redis 잔액 조회 실패는 키 미존재와 다른 오류 코드로 판별한다', () => {
+test('Redis 잔액 조회 실패는 useAsync가 보존한 원본 오류 코드로 판별한다', () => {
   assert.equal(isRedisBalanceQueryFailed(new ApiError('REDIS_BALANCE_QUERY_FAILED')), true)
   assert.equal(isRedisBalanceQueryFailed(new ApiError('RESOURCE_NOT_FOUND')), false)
+  assert.equal(isRedisBalanceQueryFailed('Redis 잔액을 조회하지 못했습니다.'), false)
   assert.equal(isRedisBalanceQueryFailed(null), false)
 })

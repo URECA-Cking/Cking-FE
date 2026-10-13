@@ -2,15 +2,16 @@ import { requestEnvelope } from './client';
 
 /**
  * POST /api/events/{eventId}/entries - 이벤트 응모 신청
+ * couponType(CREATOR | COMMON)은 이 요청이 쓸 응모권 종류를 정한다(이벤트가 정하지 않는다). 생략하면 BE는 CREATOR로 본다.
  *
  * 성공 코드가 반드시 "SUCCESS"만은 아니다(같은 requestId 재전송은 DUPLICATE_REPLAY로
  * 200을 돌려준다). 그래서 apiClient가 아닌 requestEnvelope를 직접 써서 envelope 전체를
  * 그대로 반환하고, 결과 코드 해석은 화면에서 ENTRY_RESULT로 처리한다.
  */
-export async function applyEntry(eventId, { requestId, ticketCount }) {
+export async function applyEntry(eventId, { requestId, ticketCount, couponType = 'CREATOR' }) {
   return requestEnvelope(`/api/events/${eventId}/entries`, {
     method: 'POST',
-    body: { requestId, ticketCount },
+    body: { requestId, ticketCount, couponType },
   });
 }
 

@@ -109,7 +109,8 @@ export default function CreatorSpace() {
   // 홈의 게시물 카드처럼 특정 탭을 가리키며 들어오면(location.state.tab) 그 탭으로 연다.
   const [tab, setTab] = useState(location.state?.tab ?? 'home')
   const [ledgerOpen, setLedgerOpen] = useState(false)
-  // 미션 적립이 접수됐지만 잔액 반영을 확인하지 못했을 때: { creatorId, expected(반영됐다고 볼 잔액, 적립 전 잔액을 몰랐으면 null), seen(마지막으로 본 잔액) }.
+  // 미션 적립이 접수됐지만 잔액 반영을 확인하지 못했을 때: { creatorId, expected }. expected는 반영됐다고 볼 잔액이고,
+  // 적립 전 잔액을 몰라 숫자로 판단할 수 없으면 null이다(이때는 적립 내역에서 확인하도록 안내한다).
   const [balancePending, setBalancePending] = useState(null)
   const [balanceRechecking, setBalanceRechecking] = useState(false)
   const followerRefreshSeq = useRef(0)
@@ -301,10 +302,11 @@ export default function CreatorSpace() {
 
   /**
    * 적립은 Redis에서 먼저 접수되고 DB 잔액은 비동기로 반영되므로, 응답 직후 조회한 잔액은 이전 값일 수 있다.
-   * 잔액이 (적립 전 잔액 + 보상액) 이상이 된 것이 확인될 때까지 몇 번 다시 조회한다. 끝까지 확인되지 않으면 적립 중이라고 알린다.
-   * 적립 전 잔액(before)을 모르면(첫 조회가 끝나지 않았거나 실패) 반영 여부를 판단할 수 없으므로 증가로 멈추지 않고
-   * 정해진 횟수만큼 화면 잔액만 갱신하다가, 그동안 본 잔액보다 늘어난 것을 확인하면 반영된 것으로 본다.
-   * 어느 쪽이든 끝까지 확인하지 못하면 잔액 줄에 '반영 중' 표시와 다시 확인 버튼을 남긴다.
+   * 잔액 조회는 일반 조회와 같은 useAsync의 reload로 해서, 나중에 시작한 요청이 이기고 오래된 응답은 버려지게 한다.
+   * 잔액이 (적립 전 잔액 + 보상액) 이상이 된 것이 확인될 때까지 몇 번 다시 조회하고, 끝까지 확인하지 못하면 잔액 줄에
+   * '반영 중' 표시와 다시 확인 버튼을 남긴다.
+   * 적립 전 잔액(before)을 모르면(첫 조회가 끝나지 않았거나 실패) 숫자만으로는 반영 여부를 알 수 없다. 그동안 본 잔액보다
+   * 늘어나면 반영된 것으로 보고, 아니면 적립 내역에서 확인하도록 안내만 남긴다.
    */
   async function syncBalanceAfterEarn(targetId, before, reward) {
     const seq = ++balanceSyncSeq.current
@@ -314,41 +316,41 @@ export default function CreatorSpace() {
     for (const delay of BALANCE_SYNC_DELAYS_MS) {
       await new Promise((resolve) => setTimeout(resolve, delay))
       if (balanceSyncSeq.current !== seq) return
-      try {
-        const latest = await getTicketBalance(targetId)
-        if (balanceSyncSeq.current !== seq) return
-        balance.setData(latest)
-        if (isEarnReflected(latest.balance, expected, seen)) return
-        seen = latest.balance
-      } catch {
-        // 다음 시도에서 다시 확인한다.
-      }
+      const latest = await balance.reload()
+      if (balanceSyncSeq.current !== seq) return
+      if (latest?.creatorId !== targetId) continue
+      if (isEarnReflected(latest.balance, expected, seen)) return
+      seen = latest.balance
     }
-    if (balanceSyncSeq.current === seq) setBalancePending({ creatorId: targetId, expected, seen })
+    if (balanceSyncSeq.current === seq) setBalancePending({ creatorId: targetId, expected })
   }
 
-  // 잔액 줄의 '다시 확인': 한 번 조회한다. 반영이 확인되면 표시를 거두고, 아니면 최신 잔액만 보여 주고 표시를 유지한다.
+  // 잔액 줄의 '다시 확인'(적립 전 잔액을 알았던 경우): 한 번 조회해 반영이 확인되면 표시를 거두고, 아니면 표시를 유지한다.
   async function recheckBalance() {
     const pending = balancePending
-    if (!pending || balanceRechecking) return
+    if (!pending || pending.expected === null || balanceRechecking) return
     const seq = balanceSyncSeq.current
     setBalanceRechecking(true)
     try {
-      const latest = await getTicketBalance(pending.creatorId)
-      // 확인하는 사이 다른 Creator로 이동했거나 새 적립 확인이 시작됐으면 이 응답은 버린다.
+      const latest = await balance.reload()
+      // 확인하는 사이 다른 Creator로 이동했거나 새 적립 확인이 시작됐으면 이 응답은 쓰지 않는다.
       if (balanceSyncSeq.current !== seq) return
-      balance.setData(latest)
-      if (isEarnReflected(latest.balance, pending.expected, pending.seen)) {
+      if (latest?.creatorId !== pending.creatorId) {
+        showToast('응모권 잔액을 불러오지 못했어요.', { icon: 'error' })
+      } else if (latest.balance >= pending.expected) {
         setBalancePending(null)
       } else {
-        setBalancePending({ ...pending, seen: latest.balance })
         showToast('아직 반영 중이에요. 잠시 뒤 다시 확인해주세요.')
       }
-    } catch (recheckError) {
-      if (balanceSyncSeq.current === seq) showToast(describeError(recheckError, '응모권 잔액을 불러오지 못했어요.'), { icon: 'error' })
     } finally {
       setBalanceRechecking(false)
     }
+  }
+
+  // 잔액 반영을 숫자로 확인할 수 없는 경우: 적립 내역을 열고 안내는 거둔다.
+  function openLedgerFromPending() {
+    setBalancePending(null)
+    setLedgerOpen(true)
   }
 
   // 게시글 좋아요 응답의 missionAwarded가 true일 때: 미션 완료 표시를 바꾸고 잔액이 반영될 때까지 확인한다.
@@ -560,15 +562,21 @@ export default function CreatorSpace() {
                   🎟 {creator.creatorName} 응모권 {formatNumber(ticketBalance)}장
                   {balancePending?.creatorId === creator.creatorId && (
                     <span className="ml-1.5 inline-flex items-center gap-1 font-label-xs text-label-xs font-normal text-on-surface-variant">
-                      적립 반영 중
-                      <button
-                        type="button"
-                        onClick={recheckBalance}
-                        disabled={balanceRechecking}
-                        className="text-primary underline disabled:opacity-60"
-                      >
-                        {balanceRechecking ? '확인 중...' : '다시 확인'}
-                      </button>
+                      {balancePending.expected === null ? '적립을 접수했어요' : '적립 반영 중'}
+                      {balancePending.expected === null ? (
+                        <button type="button" onClick={openLedgerFromPending} className="text-primary underline">
+                          내역 보기
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={recheckBalance}
+                          disabled={balanceRechecking}
+                          className="text-primary underline disabled:opacity-60"
+                        >
+                          {balanceRechecking ? '확인 중...' : '다시 확인'}
+                        </button>
+                      )}
                     </span>
                   )}
                 </span>

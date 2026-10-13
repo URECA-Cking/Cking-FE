@@ -98,7 +98,7 @@ function TicketResults({ scope }) {
   async function resync(event) {
     event.preventDefault()
     const trimmedReason = reason.trim()
-    if (!trimmedReason || trimmedReason.length > 500 || busy) return
+    if (!canResync || !trimmedReason || trimmedReason.length > 500 || busy) return
     setBusy(true)
     try {
       if (scope.couponType === 'CREATOR') await resyncCreatorTickets(scope.memberId, scope.creatorId, trimmedReason)
@@ -121,6 +121,7 @@ function TicketResults({ scope }) {
   const data = balance.data
   const difference = data?.balanceDifference
   const differenceLabel = difference == null ? '비교 불가' : difference === 0 ? '일치' : '차이 있음'
+  const canResync = !balance.loading && !balance.error && data?.mysqlBalanceRowExists === true
 
   return (
     <div className="flex flex-col gap-6">
@@ -139,7 +140,8 @@ function TicketResults({ scope }) {
               <BalanceCard label="잔액 비교" value={differenceLabel} detail={difference == null ? '저장소에 없는 값이 있어 비교할 수 없습니다.' : `Redis − MySQL: ${formatNumber(difference)}장`} />
             </div>
             <p className="mt-4 text-xs text-slate-500">관측 시각: {formatDateTime(data.observedAt)} · 두 저장소는 서로 다른 시점에 읽습니다. 일시적인 차이만으로 장애를 판단하지 마세요.</p>
-            <button type="button" onClick={() => setConfirming(true)} className="mt-5 rounded-md border border-pink-700 px-4 py-2 text-sm font-semibold text-pink-700 hover:bg-pink-50">수동 재동기화</button>
+            <button type="button" onClick={() => setConfirming(true)} disabled={!canResync} className="mt-5 rounded-md border border-pink-700 px-4 py-2 text-sm font-semibold text-pink-700 hover:bg-pink-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400 disabled:hover:bg-white">수동 재동기화</button>
+            {data.mysqlBalanceRowExists === false && <p className="mt-2 text-sm text-slate-600">보정할 MySQL 잔액 행이 없어 수동 재동기화를 할 수 없습니다.</p>}
           </div>
         )}
       </section>
@@ -153,7 +155,23 @@ function TicketResults({ scope }) {
         {!history.loading && !history.error && history.data && <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3"><span className="text-sm text-slate-500">{previousCursors.length + 1}페이지</span><div className="flex gap-2"><button type="button" disabled={previousCursors.length === 0} onClick={previousPage} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40">이전</button><button type="button" disabled={!history.data.hasNext || !history.data.nextCursor} onClick={nextPage} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40">다음</button></div></div>}
       </section>
 
-      {confirming && <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/35 p-4" role="presentation"><form onSubmit={resync} role="dialog" aria-modal="true" aria-labelledby="ticket-resync-title" className="w-full max-w-md rounded-lg bg-white p-6 shadow-floating"><h2 id="ticket-resync-title" className="text-lg font-semibold">수동 재동기화 확인</h2><p className="mt-2 text-sm leading-6 text-slate-600">회원 #{scope.memberId}의 {scope.couponType === 'CREATOR' ? `Creator #${scope.creatorId} 응모권` : '공용 응모권'} Redis 잔액을 DB 기준으로 맞춥니다. 미반영 메시지가 있으면 서버가 보정을 거부합니다.</p><label className="mt-5 block text-sm font-medium text-slate-800">보정 사유 <span className="text-red-700">*</span><textarea value={reason} onChange={(event) => setReason(event.target.value)} required maxLength={500} disabled={busy} rows={4} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></label><p className="mt-1 text-right text-xs text-slate-500">{reason.length}/500자</p><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setConfirming(false)} disabled={busy} className="rounded-md border border-slate-300 px-3 py-2 text-sm disabled:opacity-50">취소</button><button type="submit" disabled={busy || !reason.trim()} className="rounded-md bg-pink-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? '처리 중...' : '재동기화'}</button></div></form></div>}
+      {confirming && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/35 p-4" role="presentation">
+          <form onSubmit={resync} role="dialog" aria-modal="true" aria-labelledby="ticket-resync-title" className="w-full max-w-md rounded-lg bg-white p-6 shadow-floating">
+            <h2 id="ticket-resync-title" className="text-lg font-semibold">수동 재동기화 확인</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">회원 #{scope.memberId}의 {scope.couponType === 'CREATOR' ? `Creator #${scope.creatorId} 응모권` : '공용 응모권'} Redis 잔액을 DB 기준으로 맞춥니다. 미반영 메시지가 있으면 서버가 보정을 거부합니다.</p>
+            <dl className="mt-4 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 rounded-md bg-slate-50 p-4 text-sm">
+              <dt className="text-slate-600">Redis 잔액</dt><dd className="text-right font-medium">{balanceText(data?.redisBalance, data?.redisKeyExists)}</dd>
+              <dt className="text-slate-600">MySQL 잔액</dt><dd className="text-right font-medium">{balanceText(data?.mysqlBalance, data?.mysqlBalanceRowExists)}</dd>
+              <dt className="text-slate-600">차이 (Redis − MySQL)</dt><dd className="text-right font-medium">{difference == null ? '비교 불가' : `${formatNumber(difference)}장`}</dd>
+            </dl>
+            <p className="mt-2 text-xs leading-5 text-slate-500">{formatDateTime(data?.observedAt)}에 관측한 값입니다. 실시간 확정 잔액이 아니며, 두 저장소의 조회 시점도 다릅니다.</p>
+            <label className="mt-5 block text-sm font-medium text-slate-800">보정 사유 <span className="text-red-700">*</span><textarea value={reason} onChange={(event) => setReason(event.target.value)} required maxLength={500} disabled={busy} rows={4} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></label>
+            <p className="mt-1 text-right text-xs text-slate-500">{reason.length}/500자</p>
+            <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setConfirming(false)} disabled={busy} className="rounded-md border border-slate-300 px-3 py-2 text-sm disabled:opacity-50">취소</button><button type="submit" disabled={!canResync || busy || !reason.trim()} className="rounded-md bg-pink-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? '처리 중...' : '재동기화'}</button></div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

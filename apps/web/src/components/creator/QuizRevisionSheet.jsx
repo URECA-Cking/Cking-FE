@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import BottomSheet from '../ui/BottomSheet.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { ErrorBlock, LoadingBlock, Spinner, StatusPill } from '../ui/States.jsx'
@@ -28,10 +28,15 @@ import {
   judgeAction,
   judgeFailureMessage,
   judgeRequestFor,
+  judgeStartBlocked,
   pollDelay,
+  quizJobsKey,
   readQuizJobs,
-  updateQuizJobs,
-  withJudge,
+  readQuizJobsChecked,
+  updateQuizJobsLocked,
+  withJudgeIf,
+  withJudgePost,
+  withJudgePostFailure,
 } from '../../utils/quizJobs.js'
 
 const JUDGE_LABELS = {
@@ -145,6 +150,7 @@ function useJudgeEvaluation(creatorId, quizId, revisionId, onRevisionStale) {
   const showToast = useToast()
   const storage = browserStorage()
   const [stored, setStored] = useState(() => readQuizJobs(storage, creatorId, Date.now()).judges[String(revisionId)] ?? null)
+  const storedRef = useRef(stored)
   const [evaluation, setEvaluation] = useState(null)
   const [polls, setPolls] = useState(0)
   const [pollFailures, setPollFailures] = useState(0)
@@ -157,16 +163,42 @@ function useJudgeEvaluation(creatorId, quizId, revisionId, onRevisionStale) {
   }, [onRevisionStale])
 
   const evaluationId = stored?.evaluationId ?? null
+  const storedRequestId = stored?.requestId ?? null
   const tracked = evaluation && evaluation.evaluationId === evaluationId ? evaluation : null
   // 저장값을 지운 뒤(승인·반려 후)나 응답 불확실한 재요청 중에도 마지막으로 받은 평가는 계속 보여준다.
   const shown = tracked ?? (evaluationId === null ? evaluation : null)
   const tracking = evaluationId !== null && (tracked === null || isActiveJob(tracked))
   const pollStopped = pollFailures >= POLL_FAILURE_MAX
 
-  function save(entry) {
-    const next = updateQuizJobs(storage, creatorId, withJudge(revisionId, entry), Date.now()).judges[String(revisionId)] ?? null
-    setStored(next)
-  }
+  const update = useCallback(async (updater, memoryOnFailure = false) => {
+    const changed = await updateQuizJobsLocked(storage, creatorId, updater, Date.now())
+    if (changed.ok) {
+      storedRef.current = changed.jobs.judges[String(revisionId)] ?? null
+      setStored(storedRef.current)
+    } else if (memoryOnFailure) {
+      const current = { generation: null, judges: storedRef.current ? { [revisionId]: storedRef.current } : {} }
+      const next = updater(current)
+      changed.applied = next !== current
+      storedRef.current = next.judges[String(revisionId)] ?? null
+      setStored(storedRef.current)
+    }
+    return changed
+  }, [storage, creatorId, revisionId])
+
+  // 다른 탭이 이 Creator의 저장값을 바꾸면 이 revision의 평가 요청을 다시 읽는다.
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const key = quizJobsKey(creatorId)
+    function handleStorage(event) {
+      if (event.key !== null && event.key !== key) return
+      const snapshot = readQuizJobsChecked(storage, creatorId, Date.now())
+      if (!snapshot.ok) return
+      storedRef.current = snapshot.jobs.judges[String(revisionId)] ?? null
+      setStored(storedRef.current)
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [storage, creatorId, revisionId])
 
   useEffect(() => {
     if (!tracking || pollStopped) return undefined
@@ -180,7 +212,7 @@ function useJudgeEvaluation(creatorId, quizId, revisionId, onRevisionStale) {
       } catch (error) {
         if (cancelled) return
         if (error?.status === 404 || error?.status === 403) {
-          setStored(updateQuizJobs(storage, creatorId, withJudge(revisionId, null), Date.now()).judges[String(revisionId)] ?? null)
+          await update(withJudgeIf(revisionId, storedRequestId, null), true)
           showToast(creatorQuizErrorMessage(error, '평가 기록을 찾을 수 없어요.'), { icon: 'error' })
         } else {
           setPollFailures((count) => count + 1)
@@ -193,29 +225,50 @@ function useJudgeEvaluation(creatorId, quizId, revisionId, onRevisionStale) {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [tracking, pollStopped, evaluationId, tracked, polls, quizId, revisionId, storage, creatorId, showToast])
+  }, [tracking, pollStopped, evaluationId, storedRequestId, tracked, polls, quizId, revisionId, storage, creatorId, showToast, update])
 
   async function request() {
     if (inFlight.current) return
-    const previous = stored
+    // 다른 탭이 그 사이 평가를 요청했을 수 있어 화면 상태가 아니라 저장소의 최신 값으로 판단한다.
+    const snapshot = readQuizJobsChecked(storage, creatorId, Date.now())
+    const previous = snapshot.ok ? snapshot.jobs.judges[String(revisionId)] ?? null : storedRef.current
+    storedRef.current = previous
+    setStored(previous)
+    if (judgeStartBlocked(previous, evaluation)) {
+      setNotice('진행 중이거나 상태를 확인하고 있는 평가가 있어요. 결과를 확인한 뒤 다시 요청해 주세요.')
+      return
+    }
     // 응답을 받지 못한 같은 대상의 요청이면 같은 requestId로 다시 보낸다(BE가 기존 Job을 돌려준다).
     const entry = judgeRequestFor(previous, quizId, revisionId, newRequestId, Date.now())
-    save(entry)
+    const replaying = entry === previous
+    const postId = newRequestId()
     inFlight.current = true
     setRequesting(true)
+    {
+      const reserved = await update(replaying
+        ? withJudgePost(revisionId, entry.requestId, entry.evaluationId, postId)
+        : withJudgeIf(revisionId, previous?.requestId ?? null, { ...entry, pendingPosts: { [postId]: 'WAITING' } }), replaying)
+      if (!reserved.applied || (!replaying && !reserved.ok)) {
+        inFlight.current = false
+        setRequesting(false)
+        setNotice('평가 요청 정보를 안전하게 저장하지 못했어요. 저장소 상태나 다른 탭의 작업을 확인해 주세요.')
+        return
+      }
+    }
     setNotice(null)
     try {
       const job = await requestJudgeEvaluation(quizId, revisionId, { requestId: entry.requestId })
-      save({ ...entry, evaluationId: job.evaluationId })
+      if (!(await update(withJudgeIf(revisionId, entry.requestId, { ...entry, evaluationId: job.evaluationId, pendingPosts: {} }), true)).applied) return
       // 끝난 Job의 재요청이면 문항별 결과를 상세 조회로 다시 읽는다.
       setEvaluation(isActiveJob(job) ? job : null)
       setPolls(0)
       setPollFailures(0)
     } catch (error) {
+      await update(withJudgePostFailure(revisionId, entry.requestId, postId, error, replaying ? null : previous), true)
       if (isUncertainError(error)) {
         setNotice('평가 요청 결과를 확인하지 못했어요. 다시 확인하면 같은 요청으로 이어서 처리해요.')
       } else {
-        save(previous)
+        // 개별 거절 응답만으로 다른 탭의 접수·진행 상태를 삭제하지 않는다.
         setNotice(creatorQuizErrorMessage(error, 'GPT Judge 평가를 요청하지 못했어요.'))
         if (STALE_CODES.has(error?.code)) onStaleRef.current?.()
       }
@@ -237,7 +290,7 @@ function useJudgeEvaluation(creatorId, quizId, revisionId, onRevisionStale) {
     retryPoll: () => setPollFailures(0),
     request,
     // 승인·반려로 평가가 더 필요 없으면 저장값만 지운다.
-    forget: () => save(null),
+    forget: () => update(withJudgeIf(revisionId, storedRequestId, null)),
   }
 }
 
@@ -271,7 +324,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged }) {
       showToast(successMessage)
       setConfirming(null)
       setReason('')
-      if (forgetJudge) judge.forget()
+      if (forgetJudge) await judge.forget()
       revision.reload()
       onChanged()
     } catch (error) {

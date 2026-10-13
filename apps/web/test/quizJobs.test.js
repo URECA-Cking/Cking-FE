@@ -3,13 +3,16 @@ import assert from 'node:assert/strict'
 import { ApiError } from '@cking/shared/api'
 import {
   canApprove,
+  canDropUnconfirmedGeneration,
   canPublish,
   creatorQuizErrorMessage,
   generationInput,
   generationRequestFor,
+  generationStartBlock,
   isUncertainError,
   judgeAction,
   judgeRequestFor,
+  judgeStartBlocked,
   parseQuizJobs,
   parseYoutubeVideoId,
   quizJobsKey,
@@ -17,7 +20,9 @@ import {
   updateQuizJobs,
   validateGenerationInput,
   withGeneration,
+  withGenerationIf,
   withJudge,
+  withJudgeIf,
 } from '../src/utils/quizJobs.js'
 
 const NOW = Date.UTC(2026, 9, 13, 0, 0, 0)
@@ -274,4 +279,105 @@ test('저장소를 쓸 수 없어도 바뀐 값을 돌려줘 이번 화면에서
   assert.deepEqual(updateQuizJobs(failing, 10, withGeneration(request), NOW).generation, request)
   assert.deepEqual(readQuizJobs(failing, 10, NOW).generation, null)
   assert.deepEqual(updateQuizJobs(null, 10, withGeneration(request), NOW).generation, request)
+})
+
+// ---- PR #138 리뷰: 미확인 요청 보존과 여러 탭 ----
+
+test('결과를 확인하지 못한 생성 요청이 있으면 다른 입력의 새 요청을 막고, 같은 입력은 같은 requestId로 다시 보낸다', () => {
+  const next = ids()
+  const unconfirmed = generationRequestFor(null, input(), next, NOW)
+  assert.equal(generationStartBlock(unconfirmed, input({ title: '다른 Quiz' }), null), 'UNCONFIRMED')
+  assert.equal(generationStartBlock(unconfirmed, input(), null), null)
+  assert.equal(generationRequestFor(unconfirmed, input(), next, NOW).requestId, unconfirmed.requestId)
+  assert.equal(next.count(), 1)
+})
+
+test('미확인 생성 요청은 BE가 requestId를 먼저 찾고 거절한 오류에서만 정리하고, 그 밖의 오류에서는 보존한다', () => {
+  for (const code of ['QUIZ_GENERATION_DISABLED', 'QUIZ_GENERATION_IN_PROGRESS', 'QUIZ_GENERATION_REQUEST_CONFLICT']) {
+    assert.equal(canDropUnconfirmedGeneration(new ApiError(code, 'x', code === 'QUIZ_GENERATION_DISABLED' ? 503 : 409)), true, code)
+  }
+  for (const error of [
+    new ApiError('VALIDATION_FAILED', 'x', 400),
+    new ApiError('UNAUTHORIZED', 'x', 401),
+    new ApiError('FORBIDDEN', 'x', 403),
+    new ApiError('INTERNAL_ERROR', 'x', 500),
+    new ApiError('NETWORK_ERROR', 'x'),
+    new TypeError('Failed to fetch'),
+  ]) {
+    assert.equal(canDropUnconfirmedGeneration(error), false, error.code ?? error.name)
+  }
+})
+
+test('다른 탭이 저장한 진행 중 작업은 이 탭에서 끝난 것을 확인하기 전까지 새 생성을 막는다', () => {
+  const storage = memoryStorage()
+  const next = ids()
+  // 탭 1이 작업을 시작해 저장했다.
+  updateQuizJobs(storage, 10, withGeneration({ ...generationRequestFor(null, input(), next, NOW), generationId: 7 }), NOW)
+  // 탭 2는 요청 직전에 저장소를 다시 읽는다.
+  const latest = readQuizJobs(storage, 10, NOW).generation
+  assert.equal(latest.generationId, 7)
+  assert.equal(generationStartBlock(latest, input({ title: '탭 2' }), null), 'ACTIVE')
+  assert.equal(generationStartBlock(latest, input({ title: '탭 2' }), { generationId: 7, status: 'RUNNING' }), 'ACTIVE')
+  assert.equal(generationStartBlock(latest, input({ title: '탭 2' }), { generationId: 6, status: 'FAILED' }), 'ACTIVE')
+  // 이 탭에서 그 작업이 끝난 것을 확인했으면 새 요청을 보낼 수 있다(실패 뒤 다시 만들기).
+  assert.equal(generationStartBlock(latest, input({ title: '탭 2' }), { generationId: 7, status: 'FAILED' }), null)
+})
+
+test('409로 거절된 요청을 되돌릴 때 다른 탭이 그 사이 저장한 작업을 덮어쓰거나 지우지 않는다', () => {
+  const storage = memoryStorage()
+  const next = ids()
+  const tabOneRequest = generationRequestFor(null, input({ title: '탭 1' }), next, NOW)
+  updateQuizJobs(storage, 10, withGenerationIf(null, tabOneRequest), NOW)
+  // 탭 2가 최신 작업을 저장했다.
+  const tabTwoJob = { ...generationRequestFor(null, input({ title: '탭 2' }), next, NOW), generationId: 9 }
+  updateQuizJobs(storage, 10, withGeneration(tabTwoJob), NOW)
+  // 탭 1의 요청이 409로 거절돼 직전 값(null)으로 되돌리려 해도, 저장값이 이미 탭 1의 요청이 아니므로 바꾸지 않는다.
+  updateQuizJobs(storage, 10, withGenerationIf(tabOneRequest.requestId, null), NOW)
+  assert.deepEqual(readQuizJobs(storage, 10, NOW).generation, tabTwoJob)
+  // 저장값이 아직 자기 요청이면 되돌린다.
+  updateQuizJobs(storage, 10, withGenerationIf(tabTwoJob.requestId, null), NOW)
+  assert.equal(readQuizJobs(storage, 10, NOW).generation, null)
+})
+
+test('먼저 끝난 탭이 완료 처리로 지울 때 다른 탭이 저장한 새 요청은 남긴다', () => {
+  const storage = memoryStorage()
+  const next = ids()
+  const finished = { ...generationRequestFor(null, input(), next, NOW), generationId: 7 }
+  const newer = generationRequestFor(null, input({ title: '새 요청' }), next, NOW)
+  updateQuizJobs(storage, 10, withGeneration(newer), NOW)
+  updateQuizJobs(storage, 10, withGenerationIf(finished.requestId, null), NOW)
+  assert.equal(readQuizJobs(storage, 10, NOW).generation.requestId, newer.requestId)
+})
+
+test('조건부 저장도 Creator별 저장값만 바꾼다', () => {
+  const storage = memoryStorage()
+  const next = ids()
+  const ten = generationRequestFor(null, input(), next, NOW)
+  const eleven = generationRequestFor(null, input(), next, NOW)
+  updateQuizJobs(storage, 10, withGenerationIf(null, ten), NOW)
+  updateQuizJobs(storage, 11, withGenerationIf(null, eleven), NOW)
+  updateQuizJobs(storage, 11, withGenerationIf(eleven.requestId, null), NOW)
+  assert.equal(readQuizJobs(storage, 10, NOW).generation.requestId, ten.requestId)
+  assert.equal(readQuizJobs(storage, 11, NOW).generation, null)
+})
+
+test('평가도 다른 탭의 진행 중 평가가 있으면 새 요청을 막고, 거절된 요청은 다른 탭의 최신 평가를 지우지 않는다', () => {
+  const storage = memoryStorage()
+  const next = ids()
+  const tabOne = { ...judgeRequestFor(null, 1, 100, next, NOW), evaluationId: 40 }
+  updateQuizJobs(storage, 10, withJudge(100, tabOne), NOW)
+  const latest = readQuizJobs(storage, 10, NOW).judges['100']
+  assert.equal(judgeStartBlocked(latest, null), true)
+  assert.equal(judgeStartBlocked(latest, { evaluationId: 40, status: 'RUNNING' }), true)
+  assert.equal(judgeStartBlocked(latest, { evaluationId: 40, status: 'FAILED' }), false)
+  // 응답 불확실 요청(평가 ID 없음)은 같은 requestId로 다시 보내므로 막지 않는다.
+  assert.equal(judgeStartBlocked({ ...tabOne, evaluationId: null }, null), false)
+
+  // 탭 2의 오래된 요청이 거절돼 되돌려도 탭 1의 평가는 남는다.
+  const staleTabTwo = judgeRequestFor(null, 1, 100, next, NOW)
+  updateQuizJobs(storage, 10, withJudgeIf(100, staleTabTwo.requestId, null), NOW)
+  assert.equal(readQuizJobs(storage, 10, NOW).judges['100'].evaluationId, 40)
+  // 다른 revision의 저장값은 건드리지 않는다.
+  updateQuizJobs(storage, 10, withJudgeIf(101, null, { ...judgeRequestFor(null, 1, 101, next, NOW) }), NOW)
+  assert.deepEqual(Object.keys(readQuizJobs(storage, 10, NOW).judges).sort(), ['100', '101'])
 })

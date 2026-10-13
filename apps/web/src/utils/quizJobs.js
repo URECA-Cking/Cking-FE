@@ -252,6 +252,16 @@ function fresh(savedAt, tracked, now) {
   return now - savedAt <= (tracked ? TRACKED_TTL_MS : PENDING_TTL_MS)
 }
 
+function pendingPostsOf(value) {
+  if (!value || typeof value !== 'object') return {}
+  return Object.fromEntries(Object.entries(value).filter(([id, state]) => isUuid(id) && ['WAITING', 'UNCERTAIN'].includes(state)))
+}
+
+function pendingPostFields(value) {
+  const pendingPosts = pendingPostsOf(value)
+  return Object.keys(pendingPosts).length ? { pendingPosts } : {}
+}
+
 function sanitizeGeneration(value, now) {
   if (!value || typeof value !== 'object' || !isUuid(value.requestId)) return null
   const input = value.input
@@ -265,6 +275,7 @@ function sanitizeGeneration(value, now) {
     input: { youtubeUrl: input.youtubeUrl, title: input.title, questionCount: input.questionCount },
     generationId,
     savedAt: value.savedAt,
+    ...pendingPostFields(value.pendingPosts),
   }
 }
 
@@ -274,7 +285,8 @@ function sanitizeJudge(value, now) {
   const evaluationId = value.evaluationId ?? null
   if (evaluationId !== null && !isPositiveId(evaluationId)) return null
   if (!fresh(value.savedAt, evaluationId !== null, now)) return null
-  return { quizId: value.quizId, revisionId: value.revisionId, requestId: value.requestId, evaluationId, savedAt: value.savedAt }
+  return { quizId: value.quizId, revisionId: value.revisionId, requestId: value.requestId, evaluationId, savedAt: value.savedAt,
+    ...pendingPostFields(value.pendingPosts) }
 }
 
 /** 저장 문자열을 읽는다. 형식이 틀리거나 오래된 항목은 버린다. */
@@ -298,11 +310,45 @@ export function parseQuizJobs(raw, now) {
 }
 
 export function readQuizJobs(storage, creatorId, now) {
-  if (!storage) return EMPTY_JOBS
+  return readQuizJobsChecked(storage, creatorId, now).jobs
+}
+
+/** 정상적인 빈 저장값과 저장소 접근 실패를 구분한다. */
+export function readQuizJobsChecked(storage, creatorId, now) {
+  if (!storage) return { ok: false, jobs: EMPTY_JOBS }
   try {
-    return parseQuizJobs(storage.getItem(quizJobsKey(creatorId)), now)
+    return { ok: true, jobs: parseQuizJobs(storage.getItem(quizJobsKey(creatorId)), now) }
   } catch {
-    return EMPTY_JOBS
+    return { ok: false, jobs: EMPTY_JOBS }
+  }
+}
+
+/** 조건부 변경과 쓰기·재조회가 성공했을 때만 applied다. 탭 사이의 원자적 잠금을 제공하지는 않는다. */
+export function updateQuizJobsChecked(storage, creatorId, update, now) {
+  const current = readQuizJobsChecked(storage, creatorId, now)
+  if (!current.ok) return { ...current, applied: false }
+  const updated = update(current.jobs)
+  if (updated === current.jobs) return { ...current, applied: false }
+  const next = parseQuizJobs(JSON.stringify(updated), now)
+  const raw = JSON.stringify(next)
+  try {
+    storage.setItem(quizJobsKey(creatorId), raw)
+    const saved = storage.getItem(quizJobsKey(creatorId))
+    return { ok: true, applied: saved === raw, jobs: parseQuizJobs(saved, now) }
+  } catch {
+    return { ok: false, applied: false, jobs: current.jobs }
+  }
+}
+
+/** 같은 출처의 탭들이 읽기·조건 비교·쓰기를 하나의 Creator 잠금 안에서 수행한다. 미지원 환경은 신규 요청을 차단한다. */
+export async function updateQuizJobsLocked(storage, creatorId, update, now) {
+  if (typeof navigator === 'undefined' || !navigator.locks?.request) {
+    return { ok: false, applied: false, jobs: EMPTY_JOBS }
+  }
+  try {
+    return await navigator.locks.request(quizJobsKey(creatorId), () => updateQuizJobsChecked(storage, creatorId, update, now))
+  } catch {
+    return { ok: false, applied: false, jobs: EMPTY_JOBS }
   }
 }
 
@@ -331,4 +377,83 @@ export const withJudge = (revisionId, entry) => (jobs) => {
   if (entry) judges[String(revisionId)] = entry
   else delete judges[String(revisionId)]
   return { ...jobs, judges }
+}
+
+// 같은 Creator 화면을 여러 탭에서 열면 다른 탭이 그 사이 저장값을 바꿀 수 있다. 지우거나 되돌릴 때는 저장값이 아직
+// 이 화면이 알던 요청(expectedRequestId, 없으면 null)일 때만 바꿔 다른 탭의 최신 요청을 덮어쓰거나 지우지 않는다.
+export const withGenerationIf = (expectedRequestId, generation) => (jobs) => (
+  (jobs.generation?.requestId ?? null) === expectedRequestId ? { ...jobs, generation } : jobs
+)
+
+export const withJudgeIf = (revisionId, expectedRequestId, entry) => (jobs) => (
+  (jobs.judges[String(revisionId)]?.requestId ?? null) === expectedRequestId ? withJudge(revisionId, entry)(jobs) : jobs
+)
+
+// 같은 UUID 재전송도 개별 POST의 대기 상태를 공유한다. 작업 ID가 바뀌었으면 보내지 않는다.
+export const withGenerationPost = (requestId, generationId, postId) => (jobs) => {
+  const current = jobs.generation
+  if (current?.requestId !== requestId || current.generationId !== generationId) return jobs
+  return { ...jobs, generation: { ...current, pendingPosts: { ...pendingPostsOf(current.pendingPosts), [postId]: 'WAITING' } } }
+}
+
+export const withJudgePost = (revisionId, requestId, evaluationId, postId) => (jobs) => {
+  const current = jobs.judges[String(revisionId)]
+  if (current?.requestId !== requestId || current.evaluationId !== evaluationId) return jobs
+  return withJudge(revisionId, { ...current, pendingPosts: { ...pendingPostsOf(current.pendingPosts), [postId]: 'WAITING' } })(jobs)
+}
+
+/** 개별 실패는 공유 작업의 실패가 아니다. 작업 ID·다른 대기/불확실 시도를 우선 보존한다. */
+function failedPostEntry(current, idField, requestId, postId, error, settled, fallback) {
+  if (current?.requestId !== requestId) return current
+  const pendingPosts = pendingPostsOf(current.pendingPosts)
+  const owned = Object.hasOwn(pendingPosts, postId)
+  if (owned && isUncertainError(error)) pendingPosts[postId] = 'UNCERTAIN'
+  else delete pendingPosts[postId]
+  // 이 POST의 예약이 아직 있고, 접수된 작업도 다른 미확인 POST도 없을 때만 명확한 거절로 정리한다.
+  if (current[idField] === null && owned && settled && Object.keys(pendingPosts).length === 0) return fallback
+  return { ...current, pendingPosts }
+}
+
+export const withGenerationPostFailure = (requestId, postId, error, fallback) => (jobs) => {
+  const next = failedPostEntry(jobs.generation, 'generationId', requestId, postId, error, canDropUnconfirmedGeneration(error), fallback)
+  return next === jobs.generation ? jobs : { ...jobs, generation: next }
+}
+
+const JUDGE_REPLAY_SETTLED = new Set(['QUIZ_JUDGE_DISABLED', 'QUIZ_JUDGE_NOT_CONFIGURED', 'QUIZ_JUDGE_IN_PROGRESS',
+  'QUIZ_JUDGE_REQUEST_CONFLICT', 'QUIZ_JUDGE_ATTEMPT_LIMIT_REACHED', 'QUIZ_JUDGE_EVALUATION_COMPLETED',
+  'QUIZ_JUDGE_REVISION_APPROVED', 'QUIZ_JUDGE_SETTINGS_MISMATCH'])
+
+export const withJudgePostFailure = (revisionId, requestId, postId, error, fallback) => (jobs) => {
+  const current = jobs.judges[String(revisionId)]
+  const next = failedPostEntry(current, 'evaluationId', requestId, postId, error, JUDGE_REPLAY_SETTLED.has(error?.code), fallback)
+  return next === current ? jobs : withJudge(revisionId, next)(jobs)
+}
+
+/**
+ * 새 생성 요청을 막아야 하는 이유. 요청 직전에 저장소에서 다시 읽은 값(latest)으로 판단한다.
+ * - ACTIVE: 작업 ID를 받은 요청이 있고 이 화면에서 아직 끝난 것을 확인하지 못했다(다른 탭이 시작한 작업 포함)
+ * - UNCONFIRMED: 결과를 확인하지 못한 요청이 있는데 입력이 다르다. 그 요청이 접수됐을 수 있어 먼저 확인해야 한다
+ * null이면 보낼 수 있다(같은 입력의 미확인 요청이면 generationRequestFor가 그 requestId를 다시 쓴다).
+ */
+export function generationStartBlock(latest, input, knownJob) {
+  if (!latest) return null
+  if (latest.generationId !== null) {
+    return knownJob?.generationId === latest.generationId && !isActiveJob(knownJob) ? null : 'ACTIVE'
+  }
+  return generationInputKey(latest.input) === generationInputKey(input) ? null : 'UNCONFIRMED'
+}
+
+/** 평가 요청을 막아야 하는지. 평가 ID를 받은 요청이 있고 이 화면에서 아직 끝난 것을 확인하지 못했으면 막는다. */
+export function judgeStartBlocked(latest, knownEvaluation) {
+  if (!latest || latest.evaluationId === null) return false
+  return !(knownEvaluation?.evaluationId === latest.evaluationId && !isActiveJob(knownEvaluation))
+}
+
+// BE가 기존 requestId를 확인한 뒤 반환하는 명확한 거절 코드다. 이 분류만으로 공유 요청을 삭제하지 않는다.
+// 작업 ID가 없고 다른 POST가 대기·불확실 상태가 아닐 때만 withGenerationPostFailure가 정리한다.
+const GENERATION_REPLAY_SETTLED = new Set(['QUIZ_GENERATION_DISABLED', 'QUIZ_GENERATION_IN_PROGRESS', 'QUIZ_GENERATION_REQUEST_CONFLICT'])
+
+/** 미확인 생성 요청을 같은 requestId로 다시 보냈을 때 받은 오류로 그 요청을 정리해도 되는지. */
+export function canDropUnconfirmedGeneration(error) {
+  return GENERATION_REPLAY_SETTLED.has(error?.code)
 }

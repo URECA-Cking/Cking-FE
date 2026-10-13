@@ -13,6 +13,7 @@ import CreatorCalendar, { UpcomingSchedules } from '../components/creator/Creato
 import TicketLedgerSheet from '../components/ticket/TicketLedgerSheet.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
+import { useMyTickets } from '../context/useMyTickets.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorSpace } from '../api/creators.js'
@@ -100,6 +101,7 @@ export default function CreatorSpace() {
   // 공유 링크(/space/:slug)로 직접 열었거나 로그인 직후면 앱 밖으로 나가지 않고 홈으로 간다.
   const goBack = useAppBack('/')
   const showToast = useToast()
+  const { refresh: refreshMyTickets } = useMyTickets() // 좋아요 미션 적립 뒤 헤더의 총 응모권 개수를 갱신한다
   const location = useLocation()
   const { user, status, isCreator, isFollowing, toggleFollow, followsReady, pendingFollowIds } = useUser()
   const authenticated = status === 'authenticated'
@@ -363,6 +365,7 @@ export default function CreatorSpace() {
     // 잔액 데이터가 다른 Creator의 것이면(이동 직후 재조회 전) 적립 전 잔액으로 쓰지 않는다.
     const before = balance.data?.creatorId === creator.creatorId ? balance.data.balance : undefined
     syncBalanceAfterEarn(creator.creatorId, before, reward)
+    refreshMyTickets()
   }
 
   // 관심 등록·편집·공유 버튼 행. 좁은 화면에서는 소개 아래에 가로로 꽉 차게, md 이상에서는 이름 옆에 놓는다.

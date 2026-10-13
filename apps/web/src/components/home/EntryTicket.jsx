@@ -50,7 +50,7 @@ export default function EntryTicket({ event, ticketsOwned, applied = null, featu
               : applied ? 'border border-primary/60 text-primary' : 'bg-primary text-on-primary'
           }`}
         >
-          {applied === null ? '확인 중' : applied ? '응모함' : '응모'}
+          {applied === null ? '확인 중' : applied ? '응모 완료' : '응모'}
         </span>
       </div>
     </Link>

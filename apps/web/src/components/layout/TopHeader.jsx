@@ -3,6 +3,7 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 import ThemedImage from '../ui/ThemedImage.jsx'
 import BackButton from '../ui/BackButton.jsx'
 import { useToast } from '../../context/useToast.js'
+import { formatTicketBadge } from '../../utils/myTickets.js'
 
 /** 현재 화면 주소를 공유한다. Web Share API가 없으면 클립보드로 복사한다. */
 function useShare() {
@@ -27,6 +28,9 @@ function useShare() {
  * Main-tab app bar. Its centered title is intentionally independent from the right action.
  * - onBack: 왼쪽에 뒤로 가기 버튼을 보여준다. centered와 함께 주면 제목은 가운데에 두고, 아니면 버튼 옆에 둔다(로고 대신).
  * - showNotificationBell: 오른쪽 알림 종 아이콘. 알림 화면처럼 이미 그 화면이면 false로 숨긴다.
+ * - showTicketButton / ticketCount: 알림 종 왼쪽의 응모권 버튼과 현재 총 응모권 개수. 개수를 아직 모르면(null) 자리 표시를 보여 준다.
+ *   내 응모권 화면처럼 이미 그 화면이면 false로 숨긴다.
+ * - ticketPartial: 일부 응모권을 조회하지 못해 개수가 실제보다 적을 수 있으면 true. 개수 뒤에 "+"를 붙인다.
  */
 export function TopHeader({
   title,
@@ -36,6 +40,9 @@ export function TopHeader({
   hidden = false,
   onBack,
   showNotificationBell = true,
+  showTicketButton = true,
+  ticketCount = null,
+  ticketPartial = false,
 }) {
   return (
     <header
@@ -79,6 +86,22 @@ export function TopHeader({
           </div>
         )}
         <div className="ml-auto flex items-center">
+          {showTicketButton && (
+            <Link
+              to="/my-tickets"
+              className="h-11 px-2 flex items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors"
+              aria-label={
+                ticketCount === null
+                  ? '내 응모권'
+                  : `내 응모권 ${ticketCount}장${ticketPartial ? ' 이상, 일부를 불러오지 못했어요' : ''}`
+              }
+            >
+              <MaterialIcon name="confirmation_number" className="text-[22px]" />
+              <span className="font-label-sm text-label-sm font-semibold tabular-nums text-on-surface">
+                {ticketCount === null ? '–' : formatTicketBadge(ticketCount, ticketPartial)}
+              </span>
+            </Link>
+          )}
           {showNotificationBell && (
             <Link
               to="/notifications"

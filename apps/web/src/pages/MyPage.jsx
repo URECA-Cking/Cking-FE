@@ -277,6 +277,14 @@ export default function MyPage() {
       </section>
 
       <section className="flex flex-col rounded-2xl bg-surface-container-lowest shadow-card overflow-hidden">
+        <Link
+          to="/my-tickets"
+          className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high"
+        >
+          <MaterialIcon name="confirmation_number" className="text-primary text-[20px]" />
+          <span className="font-label-md text-label-md text-on-surface flex-1">내 응모권</span>
+          <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
+        </Link>
         {isCreator && <MySpaceLink />}
         {isAdmin && ADMIN_BASE_URL && (
           <a

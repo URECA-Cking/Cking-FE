@@ -5,6 +5,7 @@ import App from './App.jsx'
 import PullToRefresh from './components/layout/PullToRefresh.jsx'
 import Splash from './components/layout/Splash.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
+import { MyTicketsProvider } from './context/MyTicketsContext.jsx'
 import { ToastProvider } from './context/ToastContext.jsx'
 import { UserProvider } from './context/UserContext.jsx'
 import { registerServiceWorker } from './pwa/registerServiceWorker.js'
@@ -25,9 +26,11 @@ async function start() {
         <BrowserRouter>
           <ToastProvider>
             <UserProvider>
-              <App />
-              <Splash />
-              <PullToRefresh />
+              <MyTicketsProvider>
+                <App />
+                <Splash />
+                <PullToRefresh />
+              </MyTicketsProvider>
             </UserProvider>
           </ToastProvider>
         </BrowserRouter>

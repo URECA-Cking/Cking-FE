@@ -51,10 +51,10 @@ npm run test:e2e:admin -- --grep 'TC-08'
 | FE lint/build | 통과 | `npm run lint`, `npm run build`, `npx oxlint apps/admin/e2e/tickets.spec.js` (2026-10-13, FE `27fd63b` 기반 작업 브랜치) |
 | Admin 단위 테스트 | 통과 | `npm run test:admin` 31개 통과 |
 | 관리자 로그인·세션 복원·로그아웃 | 통과 | 2026-10-13 개발 배포 E2E 1개 통과. 계정 값은 기록하지 않음 |
-| 관리자 메뉴·Creator 전용/공용 조회 | 부분 확인 | 개발 배포에서 관리자 메뉴와 Creator 전용 실제 API 조회까지 도달. 예시 대상에 Redis 키가 없어 E2E 데이터 전제조건 불충족. 공용 대상은 미확인 |
-| EARN·SPEND 이력 | 미실행 | 원장이 준비된 테스트 대상 ID 미확보 |
-| 미반영 Stream 보정 거부 | 미실행 | 격리된 테스트 데이터와 관리자 계정 미설정으로 Playwright `skipped` |
-| 안전한 수동 보정 | 미실행 | 격리된 테스트 데이터와 관리자 계정 미설정으로 Playwright `skipped` |
+| 관리자 메뉴·Creator 전용/공용 조회 | 부분 확인 | 2026-10-13 개발 배포에서 제공된 회원·Creator ID로 두 종류의 잔액·이력 API가 모두 200을 반환. 둘 다 Redis 키·MySQL 잔액 행이 없고 잔액은 `null`이므로 데이터 전제조건 불충족 |
+| EARN·SPEND 이력 | 미확인 | 제공된 회원의 Creator 전용·공용 이력이 각각 0건. 적립·사용 원장이 준비된 대상 필요 |
+| 미반영 Stream 보정 거부 | 미실행 | 격리된 불일치·미반영 Stream 대상이 준비되지 않아 변경 요청을 보내지 않음 |
+| 안전한 수동 보정 | 미실행 | 격리된 지속 불일치 대상과 Stream 안전 조건이 준비되지 않아 변경 요청을 보내지 않음 |
 | Redis·MySQL 직접 재확인 | 미실행 | 대상별 잔액·원장 ID (비밀값 제외) |
 
 실행할 때 날짜·환경·FE/BE SHA와 각 항목의 `통과`/`실패`/`미실행`을 기록한다. Playwright 결과만으로 저장소의 직접 확인을 완료로 표시하지 않는다.

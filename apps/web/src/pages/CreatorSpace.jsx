@@ -87,6 +87,12 @@ function ProfileIntro({ text }) {
 // 좋아요 미션 적립 뒤 잔액을 다시 확인하는 간격(ms). 합계 약 10초.
 const BALANCE_SYNC_DELAYS_MS = [500, 1500, 3000, 5000]
 
+/** 적립 전 잔액을 알면 (적립 전 잔액 + 보상액) 이상, 모르면 지금까지 본 잔액보다 늘어났을 때만 반영된 것으로 본다. */
+function isEarnReflected(latest, expected, seen) {
+  if (expected !== null) return latest >= expected
+  return seen !== null && latest > seen
+}
+
 export default function CreatorSpace() {
   const { creatorId: creatorIdParam, slug: slugParam } = useParams()
   const navigate = useNavigate()
@@ -103,6 +109,9 @@ export default function CreatorSpace() {
   // 홈의 게시물 카드처럼 특정 탭을 가리키며 들어오면(location.state.tab) 그 탭으로 연다.
   const [tab, setTab] = useState(location.state?.tab ?? 'home')
   const [ledgerOpen, setLedgerOpen] = useState(false)
+  // 미션 적립이 접수됐지만 잔액 반영을 확인하지 못했을 때: { creatorId, expected(반영됐다고 볼 잔액, 적립 전 잔액을 몰랐으면 null), seen(마지막으로 본 잔액) }.
+  const [balancePending, setBalancePending] = useState(null)
+  const [balanceRechecking, setBalanceRechecking] = useState(false)
   const followerRefreshSeq = useRef(0)
   const balanceSyncSeq = useRef(0)
   const [editOpen, setEditOpen] = useState(false)
@@ -294,11 +303,14 @@ export default function CreatorSpace() {
    * 적립은 Redis에서 먼저 접수되고 DB 잔액은 비동기로 반영되므로, 응답 직후 조회한 잔액은 이전 값일 수 있다.
    * 잔액이 (적립 전 잔액 + 보상액) 이상이 된 것이 확인될 때까지 몇 번 다시 조회한다. 끝까지 확인되지 않으면 적립 중이라고 알린다.
    * 적립 전 잔액(before)을 모르면(첫 조회가 끝나지 않았거나 실패) 반영 여부를 판단할 수 없으므로 증가로 멈추지 않고
-   * 정해진 횟수만큼 화면 잔액만 갱신하며, 반영 중이라는 안내도 띄우지 않는다.
+   * 정해진 횟수만큼 화면 잔액만 갱신하다가, 그동안 본 잔액보다 늘어난 것을 확인하면 반영된 것으로 본다.
+   * 어느 쪽이든 끝까지 확인하지 못하면 잔액 줄에 '반영 중' 표시와 다시 확인 버튼을 남긴다.
    */
   async function syncBalanceAfterEarn(targetId, before, reward) {
     const seq = ++balanceSyncSeq.current
+    setBalancePending(null)
     const expected = typeof before === 'number' ? before + (reward > 0 ? reward : 1) : null
+    let seen = typeof before === 'number' ? before : null
     for (const delay of BALANCE_SYNC_DELAYS_MS) {
       await new Promise((resolve) => setTimeout(resolve, delay))
       if (balanceSyncSeq.current !== seq) return
@@ -306,12 +318,37 @@ export default function CreatorSpace() {
         const latest = await getTicketBalance(targetId)
         if (balanceSyncSeq.current !== seq) return
         balance.setData(latest)
-        if (expected !== null && latest.balance >= expected) return
+        if (isEarnReflected(latest.balance, expected, seen)) return
+        seen = latest.balance
       } catch {
         // 다음 시도에서 다시 확인한다.
       }
     }
-    if (expected !== null && balanceSyncSeq.current === seq) showToast('응모권 적립이 아직 반영 중이에요. 잠시 뒤 잔액을 다시 확인해주세요.')
+    if (balanceSyncSeq.current === seq) setBalancePending({ creatorId: targetId, expected, seen })
+  }
+
+  // 잔액 줄의 '다시 확인': 한 번 조회한다. 반영이 확인되면 표시를 거두고, 아니면 최신 잔액만 보여 주고 표시를 유지한다.
+  async function recheckBalance() {
+    const pending = balancePending
+    if (!pending || balanceRechecking) return
+    const seq = balanceSyncSeq.current
+    setBalanceRechecking(true)
+    try {
+      const latest = await getTicketBalance(pending.creatorId)
+      // 확인하는 사이 다른 Creator로 이동했거나 새 적립 확인이 시작됐으면 이 응답은 버린다.
+      if (balanceSyncSeq.current !== seq) return
+      balance.setData(latest)
+      if (isEarnReflected(latest.balance, pending.expected, pending.seen)) {
+        setBalancePending(null)
+      } else {
+        setBalancePending({ ...pending, seen: latest.balance })
+        showToast('아직 반영 중이에요. 잠시 뒤 다시 확인해주세요.')
+      }
+    } catch (recheckError) {
+      if (balanceSyncSeq.current === seq) showToast(describeError(recheckError, '응모권 잔액을 불러오지 못했어요.'), { icon: 'error' })
+    } finally {
+      setBalanceRechecking(false)
+    }
   }
 
   // 게시글 좋아요 응답의 missionAwarded가 true일 때: 미션 완료 표시를 바꾸고 잔액이 반영될 때까지 확인한다.
@@ -319,7 +356,9 @@ export default function CreatorSpace() {
     const reward = likeMissions[0]?.rewardAmount
     setMissions((current) => (current ?? []).map((item) => (item.type === 'LIKE' ? { ...item, completedToday: true } : item)))
     showToast(reward ? `좋아요 미션 완료! 응모권 ${reward}장을 적립하고 있어요.` : '좋아요 미션 완료! 응모권을 적립하고 있어요.')
-    syncBalanceAfterEarn(creator.creatorId, balance.data?.balance, reward)
+    // 잔액 데이터가 다른 Creator의 것이면(이동 직후 재조회 전) 적립 전 잔액으로 쓰지 않는다.
+    const before = balance.data?.creatorId === creator.creatorId ? balance.data.balance : undefined
+    syncBalanceAfterEarn(creator.creatorId, before, reward)
   }
 
   // 관심 등록·편집·공유 버튼 행. 좁은 화면에서는 소개 아래에 가로로 꽉 차게, md 이상에서는 이름 옆에 놓는다.
@@ -517,8 +556,21 @@ export default function CreatorSpace() {
             {anonymous && loginPrompt(`로그인하면 ${creator.creatorName} 전용 응모권을 확인하고 이벤트에 응모할 수 있어요.`)}
             {authenticated && (
               <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-container-low px-space-md py-3">
-                <span className="font-label-md text-label-md font-semibold text-on-surface">
+                <span className="min-w-0 font-label-md text-label-md font-semibold text-on-surface">
                   🎟 {creator.creatorName} 응모권 {formatNumber(ticketBalance)}장
+                  {balancePending?.creatorId === creator.creatorId && (
+                    <span className="ml-1.5 inline-flex items-center gap-1 font-label-xs text-label-xs font-normal text-on-surface-variant">
+                      적립 반영 중
+                      <button
+                        type="button"
+                        onClick={recheckBalance}
+                        disabled={balanceRechecking}
+                        className="text-primary underline disabled:opacity-60"
+                      >
+                        {balanceRechecking ? '확인 중...' : '다시 확인'}
+                      </button>
+                    </span>
+                  )}
                 </span>
                 <button
                   type="button"

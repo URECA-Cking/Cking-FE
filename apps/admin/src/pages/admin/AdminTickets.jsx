@@ -223,7 +223,7 @@ function TicketResults({ scope }) {
 
       {confirming && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/35 p-4" role="presentation">
-          <form onSubmit={resync} role="dialog" aria-modal="true" aria-labelledby="ticket-resync-title" className="w-full max-w-md rounded-lg bg-white p-6 shadow-floating">
+          <form onSubmit={resync} role="dialog" aria-modal="true" aria-labelledby="ticket-resync-title" className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-6 shadow-floating">
             <h2 id="ticket-resync-title" className="text-lg font-semibold">수동 재동기화 확인</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">회원 #{scope.memberId}의 {scope.couponType === 'CREATOR' ? `Creator #${scope.creatorId} 전용 응모권` : '공용 응모권'} Redis 잔액을 DB 기준으로 맞춥니다. 미반영 메시지가 있으면 서버가 보정을 거부합니다.</p>
             <p className="mt-4 text-sm font-semibold">처음 조회한 잔액</p>

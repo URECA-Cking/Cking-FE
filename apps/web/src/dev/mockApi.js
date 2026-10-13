@@ -3,6 +3,9 @@
 //
 // 사용: 개발 서버에서 주소 끝에 ?mock=1(팬) / ?mock=creator(크리에이터) / ?mock=empty(팔로우·이벤트 없음)를 붙인다.
 // 선택은 sessionStorage에 남아 이동해도 유지되고, ?mock=0으로 끈다.
+// AI Quiz(생성·검토·Judge·게시, 팬 응시)는 quizMock.js가 맡는다.
+
+import { quizMockRoutes } from './quizMock.js'
 
 const STORAGE_KEY = 'cking.mock'
 const HOUR = 3600 * 1000
@@ -119,6 +122,9 @@ export function installMockApiIfRequested() {
       },
     ],
     ['GET', /^\/api\/me\/winners$/, () => (empty ? [] : [{ winnerId: 100, eventId: 16, winnerManagementStatus: 'SELECTED' }])],
+    // 크리에이터 모드의 내 Space(크리에이터 1). 내 Space 화면(Quiz 관리 등)을 확인할 때 쓴다.
+    ['GET', /^\/api\/creator\/space$/, () => (creatorMode ? CREATORS[0] : { status: 403, code: 'FORBIDDEN', data: null })],
+    ...quizMockRoutes({ myCreatorId: creatorMode ? 1 : null, memberId: me.memberId }),
   ]
 
   const realFetch = window.fetch.bind(window)
@@ -130,9 +136,9 @@ export function installMockApiIfRequested() {
     for (const [routeMethod, pattern, handler] of routes) {
       const match = routeMethod === method && url.pathname.match(pattern)
       if (!match) continue
-      const result = handler(...match.slice(1), url)
+      const result = await handler(...match.slice(1), url, init)
       const status = result?.status ?? 200
-      const body = result?.code ? { code: result.code, data: result.data, message: null } : { code: 'SUCCESS', data: result, message: null }
+      const body = result?.code ? { code: result.code, data: result.data, message: result.message ?? null } : { code: 'SUCCESS', data: result, message: null }
       return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
     }
     return new Response(JSON.stringify({ code: 'RESOURCE_NOT_FOUND', data: null, message: '더미 API에 없는 요청입니다.' }), {

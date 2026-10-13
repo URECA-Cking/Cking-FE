@@ -39,7 +39,7 @@ HTTP 전송·토큰 저장소·MaterialIcon·포맷터·조회 훅은 `packages/
 
 목록의 탐지 기간은 `datetime-local` 입력을 UTC RFC 3339로 변환해 전달한다. 종료 시각은 사용자가 고른 분의 마지막 시각(`:59.999999999`)까지 포함하며, 동일 조건으로 조회를 다시 실행하면 최신 서버 목록을 다시 읽는다.
 
-응모권 관리는 대상 회원 ID와 종류를 직접 입력해 조회한다. Creator 전용 응모권일 때만 Creator ID를 전달하며, 이력은 서버 cursor로 페이지를 이동한다. Redis·MySQL 잔액 중 하나가 없으면 비교 불가로 표시하고, Redis 키 미존재는 Redis 조회 실패(`REDIS_BALANCE_QUERY_FAILED`)와 별도로 안내한다. Redis 조회 실패 시에는 응답이 없어 MySQL 잔액과 비교 결과를 표시하지 않는다. 두 값의 차이는 비동기 반영 지연일 수 있으므로 자동 보정하지 않는다. 수동 재동기화는 운영자가 사유를 입력하고 확인한 뒤에만 호출하며, 성공 후 잔액과 이력을 다시 조회한다. 요청·응답·오류 규약은 [BE Ticket API](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/ticket/api.md)를 따른다.
+응모권 관리는 대상 회원 ID와 종류를 직접 입력해 조회한다. Creator 전용 응모권일 때만 Creator ID를 전달한다. 이력은 발생 시각·유형·증감량·이벤트/미션/요청 ID·사유를 표시하며, 서버 cursor를 이용한 더보기로 이전 목록 아래에 추가한다. 추가 조회가 실패하면 이미 읽은 이력은 유지하고 재시도할 수 있다. Redis·MySQL 잔액 중 하나가 없으면 비교 불가로 표시하고, Redis 키 미존재는 Redis 조회 실패(`REDIS_BALANCE_QUERY_FAILED`)와 별도로 안내한다. Redis 조회 실패 시에는 응답이 없어 MySQL 잔액과 비교 결과를 표시하지 않는다. 두 값의 차이는 비동기 반영 지연일 수 있으므로 자동 보정하지 않는다. 수동 재동기화는 운영자가 사유를 입력하고 확인한 뒤에만 호출하며, 성공 후 잔액과 이력을 첫 페이지부터 다시 조회한다. 요청·응답·오류 규약은 [BE Ticket API](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/ticket/api.md)를 따른다.
 
 ## 로컬 E2E 확인
 

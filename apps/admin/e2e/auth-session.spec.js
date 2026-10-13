@@ -14,7 +14,7 @@ test('관리자 로그인, Refresh Cookie 세션 복원, 로그아웃을 실제 
   await page.getByLabel('비밀번호').fill(password)
   await page.getByRole('button', { name: '로그인' }).click()
   await expect(page).toHaveURL(/\/admin$/)
-  await expect(page.getByText('관리자 콘솔')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '관리자 대시보드' })).toBeVisible()
 
   await page.evaluate(() => sessionStorage.removeItem('cking.admin.accessToken'))
   const refreshResponse = page.waitForResponse((response) => {
@@ -24,7 +24,7 @@ test('관리자 로그인, Refresh Cookie 세션 복원, 로그아웃을 실제 
   await page.reload()
   await refreshResponse
   await expect(page).toHaveURL(/\/admin$/)
-  await expect(page.getByText('관리자 콘솔')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '관리자 대시보드' })).toBeVisible()
 
   const cookies = await context.cookies()
   const cookieMetadata = cookies.map(({ name, domain, path, sameSite, secure, httpOnly }) => ({ name, domain, path, sameSite, secure, httpOnly }))

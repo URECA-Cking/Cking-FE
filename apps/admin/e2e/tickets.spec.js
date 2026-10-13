@@ -30,7 +30,7 @@ async function openTicketPage(page) {
   await page.getByLabel('비밀번호').fill(password)
   await page.getByRole('button', { name: '로그인' }).click()
   await expect(page).toHaveURL(/\/admin$/)
-  await page.getByRole('link', { name: '응모권 관리' }).first().click()
+  await page.getByRole('link', { name: /응모권 관리/ }).first().click()
   await expect(page).toHaveURL(/\/admin\/tickets$/)
   await expect(page.getByRole('heading', { name: '응모권 관리' })).toBeVisible()
 }

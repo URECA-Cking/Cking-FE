@@ -355,7 +355,8 @@ export default function CreatorSpace() {
 
   // 게시글 좋아요 응답의 missionAwarded가 true일 때: 미션 완료 표시를 바꾸고 잔액이 반영될 때까지 확인한다.
   function handleLikeMissionAwarded() {
-    const reward = likeMissions[0]?.rewardAmount
+    // useAsync는 재조회 중 이전 data를 유지하고 미션 응답에는 creatorId가 없으므로, 조회 중에는 보상액을 쓰지 않는다.
+    const reward = missionsLoading ? undefined : likeMissions[0]?.rewardAmount
     setMissions((current) => (current ?? []).map((item) => (item.type === 'LIKE' ? { ...item, completedToday: true } : item)))
     showToast(reward ? `좋아요 미션 완료! 응모권 ${reward}장을 적립하고 있어요.` : '좋아요 미션 완료! 응모권을 적립하고 있어요.')
     // 잔액 데이터가 다른 Creator의 것이면(이동 직후 재조회 전) 적립 전 잔액으로 쓰지 않는다.

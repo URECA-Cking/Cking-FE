@@ -2,14 +2,16 @@ import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
+import InterestEditor from '../components/creator/InterestEditor.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
-import { loadCreatorDirectory } from '../api/creators.js'
+import { getMyCreatorRecommendations, getSimilarCreators, loadCreatorDirectory } from '../api/creators.js'
 import { getMySpace } from '../api/creatorSpace.js'
 import { getEvents } from '../api/events.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
+import { useRecommendationEvents } from '../hooks/useRecommendationEvents.js'
 import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
 import { describeError } from '../api/client.js'
@@ -17,6 +19,10 @@ import { spacePath } from '../api/creatorSpace.js'
 
 // 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
 const CREATOR_PAGE_SIZE = 30
+// 추천은 BE 상한(20)까지 한 번에 받고 화면에서 나눠 보여준다. 더 보기마다 다시 받으면 응답 ID(수집 단위)가 바뀐다.
+const RECOMMEND_MAX = 20
+const RECOMMEND_PAGE_SIZE = 10
+const SIMILAR_SIZE = 5
 
 const EVENT_FILTERS = [
   { id: '', label: '전체' },
@@ -58,6 +64,34 @@ export default function Explore() {
   )
 
   const creators = useMemo(() => directory.data?.creators ?? [], [directory.data])
+  const creatorsById = useMemo(() => new Map(creators.map((creator) => [creator.creatorId, creator])), [creators])
+
+  // AI 추천 응답은 이름·이미지·소개만 주므로 카드(배너·진행 중 이벤트)는 전체 목록의 같은 크리에이터로 그린다.
+  const recommendation = useAsync(
+    () => getMyCreatorRecommendations({ size: RECOMMEND_MAX }),
+    [user?.memberId],
+    { enabled: Boolean(user), fallbackMessage: '추천 크리에이터를 불러오지 못했어요.' },
+  )
+  const { impressionRef, trackClick } = useRecommendationEvents(recommendation.data?.requestId ?? null)
+  const [recommendLimit, setRecommendLimit] = useState(RECOMMEND_PAGE_SIZE)
+  const recommendedCreators = useMemo(
+    () => (recommendation.data?.items ?? []).map((item) => creatorsById.get(item.creatorId)).filter(Boolean),
+    [recommendation.data, creatorsById],
+  )
+  const shownRecommended = recommendedCreators.slice(0, recommendLimit)
+
+  // 유사 크리에이터는 기준이 필요해서 가장 최근에 관심 등록한 크리에이터를 기준으로 삼는다(followedCreators는 최근 팔로우 순). 관심이 없으면 숨긴다.
+  const similarBaseId = followsReady ? (followedCreators[0] ?? null) : null
+  const similar = useAsync(
+    () => getSimilarCreators(similarBaseId, { size: SIMILAR_SIZE }),
+    [similarBaseId],
+    { enabled: similarBaseId !== null },
+  )
+  const similarCreators = useMemo(
+    () => (similar.data ?? []).map((candidate) => creatorsById.get(candidate.similarCreatorId)).filter(Boolean),
+    [similar.data, creatorsById],
+  )
+  const similarBase = creatorsById.get(similarBaseId)
 
   const filteredCreators = useMemo(() => {
     const keyword = query.trim().toLowerCase()
@@ -83,6 +117,7 @@ export default function Explore() {
   const events = eventList.data?.items ?? []
   const shownCreators = useMemo(() => filteredCreators.slice(0, creatorLimit), [filteredCreators, creatorLimit])
   const renderedBalanceIds = [
+    ...shownRecommended.map((creator) => creator.creatorId),
     ...shownCreators.map((creator) => creator.creatorId),
     ...trending.map((creator) => creator.creatorId),
   ]
@@ -96,6 +131,57 @@ export default function Explore() {
     } catch (error) {
       showToast(describeError(error, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
     }
+  }
+
+  // 추천 섹션과 전체 목록이 같은 카드를 쓴다. 추천 카드만 노출·클릭 수집용 ref/onClick을 받는다.
+  function renderCreatorCard(creator, { impressionRef, onOpen } = {}) {
+    const followed = isFollowing(creator.creatorId)
+    return (
+      <div
+        key={creator.creatorId}
+        data-balance-creator-id={creator.creatorId}
+        ref={impressionRef?.(creator.creatorId)}
+        className="min-w-[260px] max-w-[260px] md:min-w-0 md:max-w-none snap-center rounded-2xl bg-surface-container-lowest p-3 shadow-card flex flex-col"
+      >
+        <Link to={spacePath(creator.handle)} onClick={onOpen ? () => onOpen(creator.creatorId) : undefined} className="block">
+          <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
+            <img className="w-full h-full object-cover" src={creator.banner} alt={creator.name} loading="lazy" decoding="async" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+            {creator.openEventCount > 0 && (
+              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-xs text-label-xs font-semibold flex items-center gap-1">
+                <MaterialIcon name="stars" filled className="text-[12px]" />
+                진행 중 {creator.openEventCount}
+              </span>
+            )}
+            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white">
+              <span className="font-label-xs text-label-xs bg-black/40 px-2 py-0.5 rounded-md backdrop-blur-sm">
+                🎟 {balances.has(creator.creatorId)
+                  ? `${formatNumber(balances.get(creator.creatorId).balance)}장`
+                  : failedIds.has(creator.creatorId) ? '조회 실패' : '조회 중'}
+              </span>
+            </div>
+          </div>
+          <div className="mb-1.5">
+            <div className="flex items-center gap-1">
+              <h3 className="font-title-md text-title-md text-on-surface truncate">{creator.name}</h3>
+              <MaterialIcon name="verified" filled className="text-[16px] text-primary" />
+            </div>
+          </div>
+          <p className="font-body-sm text-body-sm text-outline line-clamp-1 mb-3">{creator.bio}</p>
+        </Link>
+        <button
+          type="button"
+          onClick={() => handleToggleFollow(creator)}
+          disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
+          className={`mt-auto w-full h-9 rounded-xl font-label-md text-label-md flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-60 ${
+            followed ? 'bg-primary text-on-primary' : 'bg-berry-tint text-primary'
+          }`}
+        >
+          <MaterialIcon name="favorite" filled={followed} className="text-[18px]" />
+          <span>{followed ? '관심 중' : '관심 추가'}</span>
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -133,9 +219,75 @@ export default function Explore() {
         </div>
       </div>
 
+      {user && (
+        <section className="mt-space-md flex flex-col">
+          <div className="px-margin">
+            <SectionHeader icon="auto_awesome" title="나를 위한 추천" action="관심 관리" actionTo="/onboarding/creators" />
+          </div>
+          <InterestEditor onSaved={() => { setRecommendLimit(RECOMMEND_PAGE_SIZE); recommendation.reload() }} />
+          {recommendation.loading && <LoadingBlock label="추천 크리에이터를 찾는 중..." />}
+          {!recommendation.loading && recommendation.error && (
+            <ErrorBlock message={recommendation.error} onRetry={recommendation.reload} />
+          )}
+          {!recommendation.loading && !recommendation.error && shownRecommended.length === 0 && (
+            <EmptyBlock icon="auto_awesome" message="아직 보여드릴 추천이 없어요. 관심 분야를 골라 보세요." />
+          )}
+          {!recommendation.loading && !recommendation.error && shownRecommended.length > 0 && (
+            <div className="flex overflow-x-auto md:grid md:grid-cols-2 xl:grid-cols-3 md:overflow-visible gap-space-md px-margin no-scrollbar snap-x snap-mandatory pt-1 pb-3">
+              {shownRecommended.map((creator) => renderCreatorCard(creator, { impressionRef, onOpen: trackClick }))}
+              {recommendedCreators.length > shownRecommended.length && (
+                <button
+                  type="button"
+                  onClick={() => setRecommendLimit((limit) => limit + RECOMMEND_PAGE_SIZE)}
+                  className="min-w-[120px] snap-center rounded-2xl bg-surface-container-low text-primary font-label-md text-label-md flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"
+                >
+                  <MaterialIcon name="add_circle" className="text-[28px]" />
+                  <span>더 보기</span>
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {similarBase && similarCreators.length > 0 && (
+        <section className="mt-space-md px-margin flex flex-col">
+          <SectionHeader icon="group" title={`${similarBase.name}와 비슷한 크리에이터`} />
+          <div className="flex flex-col gap-2.5">
+            {similarCreators.map((creator) => {
+              const followed = isFollowing(creator.creatorId)
+              return (
+                <div key={creator.creatorId} className="w-full p-3 rounded-2xl bg-surface-container-lowest shadow-card flex items-center justify-between gap-3">
+                  <Link to={spacePath(creator.handle)} className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                      <img className="w-full h-full object-cover" src={creator.avatar} alt={creator.name} loading="lazy" decoding="async" />
+                    </div>
+                    <div className="min-w-0 flex flex-col">
+                      <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
+                      <span className="font-label-xs text-label-xs text-outline line-clamp-1">{creator.bio}</span>
+                    </div>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleFollow(creator)}
+                    disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
+                    className={`flex-shrink-0 px-3 h-8 rounded-full font-label-sm text-label-sm flex items-center gap-1 transition-all active:scale-95 disabled:opacity-60 ${
+                      followed ? 'bg-primary text-on-primary' : 'bg-berry-tint text-primary'
+                    }`}
+                  >
+                    <MaterialIcon name={followed ? 'done' : 'add'} className="text-[16px]" />
+                    <span>{followed ? '완료' : '관심'}</span>
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       <section className="mt-space-md flex flex-col">
         <div className="px-margin">
-          <SectionHeader icon="auto_awesome" title="추천 크리에이터" action="관심 관리" actionTo="/onboarding/creators" />
+          <SectionHeader icon="groups" title="전체 크리에이터" />
         </div>
         {directory.loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}
         {!directory.loading && directory.error && (
@@ -151,54 +303,7 @@ export default function Explore() {
         )}
         {!directory.loading && !directory.error && filteredCreators.length > 0 && (
           <div className="flex overflow-x-auto md:grid md:grid-cols-2 xl:grid-cols-3 md:overflow-visible gap-space-md px-margin no-scrollbar snap-x snap-mandatory pt-1 pb-3">
-            {shownCreators.map((creator) => {
-              const followed = isFollowing(creator.creatorId)
-              return (
-                <div
-                  key={creator.creatorId}
-                  data-balance-creator-id={creator.creatorId}
-                  className="min-w-[260px] max-w-[260px] md:min-w-0 md:max-w-none snap-center rounded-2xl bg-surface-container-lowest p-3 shadow-card flex flex-col"
-                >
-                  <Link to={spacePath(creator.handle)} className="block">
-                    <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
-                      <img className="w-full h-full object-cover" src={creator.banner} alt={creator.name} loading="lazy" decoding="async" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
-                      {creator.openEventCount > 0 && (
-                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-xs text-label-xs font-semibold flex items-center gap-1">
-                          <MaterialIcon name="stars" filled className="text-[12px]" />
-                          진행 중 {creator.openEventCount}
-                        </span>
-                      )}
-                      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white">
-                        <span className="font-label-xs text-label-xs bg-black/40 px-2 py-0.5 rounded-md backdrop-blur-sm">
-                          🎟 {balances.has(creator.creatorId)
-                            ? `${formatNumber(balances.get(creator.creatorId).balance)}장`
-                            : failedIds.has(creator.creatorId) ? '조회 실패' : '조회 중'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mb-1.5">
-                      <div className="flex items-center gap-1">
-                        <h3 className="font-title-md text-title-md text-on-surface truncate">{creator.name}</h3>
-                        <MaterialIcon name="verified" filled className="text-[16px] text-primary" />
-                      </div>
-                    </div>
-                    <p className="font-body-sm text-body-sm text-outline line-clamp-1 mb-3">{creator.bio}</p>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleFollow(creator)}
-                    disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
-                    className={`mt-auto w-full h-9 rounded-xl font-label-md text-label-md flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-60 ${
-                      followed ? 'bg-primary text-on-primary' : 'bg-berry-tint text-primary'
-                    }`}
-                  >
-                    <MaterialIcon name="favorite" filled={followed} className="text-[18px]" />
-                    <span>{followed ? '관심 중' : '관심 추가'}</span>
-                  </button>
-                </div>
-              )
-            })}
+            {shownCreators.map((creator) => renderCreatorCard(creator))}
             {filteredCreators.length > shownCreators.length && (
               <button
                 type="button"

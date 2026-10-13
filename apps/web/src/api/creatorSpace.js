@@ -1,4 +1,5 @@
-import { apiClient } from './client';
+import { ApiError, apiClient, describeError } from './client';
+import { spaceUpdateBody } from '../utils/spaceProfile.js';
 
 // Creator Space API(Cking-BE docs/domains/creator/space-api.md).
 // 공개 조회 응답: { creatorId, creatorName, slug, introText, profileImageUrl, bannerImageUrl }
@@ -20,8 +21,28 @@ export async function getMySpace() {
 }
 
 // PATCH /api/creator/space - 내 Space 홈·프로필 수정(모든 필드를 한 번에 교체)
-export async function updateMySpace({ introText, profileImageUrl, bannerImageUrl }) {
-  return apiClient.patch('/api/creator/space', { introText, profileImageUrl, bannerImageUrl });
+export async function updateMySpace(fields) {
+  return apiClient.patch('/api/creator/space', spaceUpdateBody(fields));
+}
+
+// POST /api/creator/space/profile-images - 프로필 사진 1장 업로드 → { imageKey }. 24시간 안에 연결하지 않으면 서버가 지운다.
+export function uploadSpaceProfileImage(file) {
+  const form = new FormData();
+  form.append('image', file);
+  return apiClient.post('/api/creator/space/profile-images', form);
+}
+
+/** 스페이스 프로필 사진 업로드·저장 오류 코드별 문구. 모르는 코드는 서버 메시지나 상태 코드로 대신한다. */
+export const SPACE_IMAGE_ERROR_MESSAGES = {
+  INVALID_SPACE_PROFILE_IMAGE: '이미지를 사용할 수 없어요. JPEG·PNG, 5MB 이하, 200×200px 이상인지 확인하고 사진을 다시 올려주세요.',
+  UPLOAD_TOO_LARGE: '이미지가 너무 커요. 5MB 이하 이미지를 올려주세요.',
+  IMAGE_PROCESSING_BUSY: '지금 사진을 처리하는 요청이 많아요. 잠시 뒤에 다시 시도해주세요.',
+  VALIDATION_FAILED: '입력한 내용을 확인해주세요. 소개와 이미지 주소는 비워둘 수 없고 500자 이하여야 해요.',
+};
+
+export function describeSpaceImageError(error, fallback) {
+  if (error instanceof ApiError && SPACE_IMAGE_ERROR_MESSAGES[error.code]) return SPACE_IMAGE_ERROR_MESSAGES[error.code];
+  return describeError(error, fallback);
 }
 
 // PATCH /api/creator/space/slug - 내 Space slug 변경

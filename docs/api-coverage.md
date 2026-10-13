@@ -38,9 +38,11 @@
 | GET | `/api/creators/{creatorId}/posts`, `/api/creators/{creatorId}/posts/{postId}` | Space 게시물 목록·상세 | 연동 | [Post](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/api.md) |
 | GET/POST/PATCH/DELETE | `/api/creators/{creatorId}/posts/{postId}/comments`, `/api/creators/{creatorId}/posts/{postId}/comments/{commentId}/original` | 게시물 댓글 조회·작성·수정·삭제, 필터링된 댓글 원문 보기 | 연동 | [Comment](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/comment-api.md) |
 | POST | `/api/creators/{creatorId}/posts/{postId}/comments/{commentId}/reports` | 게시물 댓글 신고 | 연동 | [Comment](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/comment-api.md) |
-| GET | `/api/interests`, `/api/me/interests` | 온보딩 관심 분야 조회 | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
-| PUT | `/api/me/interests` | 온보딩 관심 분야 저장(0~3개) | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
-| GET | `/api/me/creator-recommendations` | 온보딩 AI 크리에이터 추천 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
+| GET | `/api/interests`, `/api/me/interests` | 온보딩·탐색 분야 편집의 관심 분야 조회 | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
+| PUT | `/api/me/interests` | 온보딩·탐색 분야 편집의 관심 분야 저장(0~3개) | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
+| GET | `/api/me/creator-recommendations` | 온보딩·탐색 "나를 위한 추천"(AI 개인화, 20명을 받아 10명씩 노출), 응답의 `recommendationRequestId`를 노출·클릭 수집에 사용 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
+| POST | `/api/me/creator-recommendation-events` | 탐색 추천 카드의 노출(`IMPRESSION`, 화면에 절반 이상 보일 때)·클릭(`CLICK`) 수집. 행동마다 UUID `eventId`, 최대 50건 묶음, 5xx·네트워크 오류만 같은 `eventId`로 재시도 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/recommendation-events.md) |
+| GET | `/api/creators/{creatorId}/similar` | 탐색 "○○와 비슷한 크리에이터"(가장 최근 관심 등록한 크리에이터 기준, 후보가 없으면 숨김) | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
 | POST | `/api/me/profile-images` | 프로필 편집의 사진 업로드(`imageKey` 반환) | 연동 | [Member](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/member/api.md) |
 | PUT | `/api/me/profile` | 프로필 편집(닉네임 저장, 사진은 key를 보낼 때만 교체), `PROFILE_SETUP_REQUIRED`(409) 처리 | 연동 | [Member](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/member/api.md) |
 | PUT | `/api/me/onboarding/complete` | 온보딩 완료·건너뛰기 기록 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md) |
@@ -50,7 +52,9 @@
 | Method | Endpoint | 화면/기능 | FE 상태 | BE 계약 |
 | --- | --- | --- | --- | --- |
 | POST/GET | `/api/creator/applications`, `/api/creator/applications/me` | Creator 전환 신청·내 신청 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
-| GET/PATCH | `/api/creator/space`, `/api/creator/space/slug` | 내 Space 편집·slug 변경 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| GET/PATCH | `/api/creator/space`, `/api/creator/space/slug` | 내 Space 편집·slug 변경. 프로필 사진은 `profileImageKey`로 교체·유지(생략)·기본 이미지 복귀(`null`) | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| POST | `/api/creator/space/profile-images` | 스페이스 프로필 사진 업로드(`imageKey` 반환, 스페이스 편집) | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| GET/PUT | `/api/creator/profile` | Creator 활동명 조회·설정·변경(스페이스 편집). 14일 변경 제한·이전 활동명 복귀, `ACTIVITY_NAME_SETUP_REQUIRED`(409) 상수 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
 | GET/PUT | `/api/creator/youtube-channel` | Space의 YouTube 구독 인증 대상 채널 최초 설정·수정 | 연동 | [Subscription Verification](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/subscription-verification/api.md) |
 | GET/POST/PATCH/DELETE | `/api/creator/events`, `/api/creator/events/{eventId}` | Creator 이벤트 CRUD(스페이스 이벤트 탭) | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | POST | `/api/creator/events/{eventId}/approval-request` | 이벤트 승인 요청 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |

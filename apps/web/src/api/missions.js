@@ -13,10 +13,6 @@ async function postComplete(path, requestId) {
   return response.data;
 }
 
-export async function completeCreatorMission(creatorId, missionId) {
-  return postComplete(`/api/creators/${creatorId}/missions/${missionId}/complete`, newRequestId());
-}
-
 /** GET /api/missions - 크리에이터와 무관한 공용 미션(현재 출석 한 유형) 조회 */
 export async function getCommonMissions() {
   return apiClient.get('/api/missions');

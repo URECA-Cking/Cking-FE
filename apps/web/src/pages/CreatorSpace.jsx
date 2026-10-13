@@ -18,7 +18,7 @@ import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorSpace } from '../api/creators.js'
 import { getCreatorSpace, getMySpace, spacePath, spaceShareUrl } from '../api/creatorSpace.js'
 import { getCreatorPosts } from '../api/posts.js'
-import { completeCreatorMission, getCreatorMissions } from '../api/missions.js'
+import { getCreatorMissions } from '../api/missions.js'
 import { getCreatorYoutubeChannel } from '../api/subscriptionVerification.js'
 import { getTicketBalance } from '../api/tickets.js'
 import { ApiError, describeError } from '../api/client.js'
@@ -85,6 +85,15 @@ function ProfileIntro({ text }) {
  * 내 Space면(GET /api/creator/space의 creatorId가 같으면) 편집할 수 있고, 이벤트 탭에서 이벤트를,
  * 캘린더 탭에서 일정을 관리한다(예전 크리에이터 스튜디오 기능). Quiz 탭에서는 AI Quiz를 만들고 검토·게시한다.
  */
+// 좋아요 미션 적립 뒤 잔액을 다시 확인하는 간격(ms). 합계 약 10초.
+const BALANCE_SYNC_DELAYS_MS = [500, 1500, 3000, 5000]
+
+/** 적립 전 잔액을 알면 (적립 전 잔액 + 보상액) 이상, 모르면 지금까지 본 잔액보다 늘어났을 때만 반영된 것으로 본다. */
+function isEarnReflected(latest, expected, seen) {
+  if (expected !== null) return latest >= expected
+  return seen !== null && latest > seen
+}
+
 export default function CreatorSpace() {
   const { creatorId: creatorIdParam, slug: slugParam } = useParams()
   const navigate = useNavigate()
@@ -101,10 +110,14 @@ export default function CreatorSpace() {
   // 홈의 게시물 카드처럼 특정 탭을 가리키며 들어오면(location.state.tab) 그 탭으로 연다.
   const [tab, setTab] = useState(location.state?.tab ?? 'home')
   const [ledgerOpen, setLedgerOpen] = useState(false)
+  // 미션 적립이 접수됐지만 잔액 반영을 확인하지 못했을 때: { creatorId, expected }. expected는 반영됐다고 볼 잔액이고,
+  // 적립 전 잔액을 몰라 숫자로 판단할 수 없으면 null이다(이때는 적립 내역에서 확인하도록 안내한다).
+  const [balancePending, setBalancePending] = useState(null)
+  const [balanceRechecking, setBalanceRechecking] = useState(false)
   const followerRefreshSeq = useRef(0)
+  const balanceSyncSeq = useRef(0)
   const [editOpen, setEditOpen] = useState(false)
   const [youtubeChannelSettingsOpen, setYoutubeChannelSettingsOpen] = useState(false)
-  const [missionBusyId, setMissionBusyId] = useState(null)
 
   const { data: loaded, loading, error, reload, setData: setCreator } = useAsync(
     () => loadSpaceOrNotFound({ creatorId: creatorIdParam, slug: slugParam }),
@@ -156,6 +169,8 @@ export default function CreatorSpace() {
   // 크리에이터인 경우에만 내 Space를 조회해 지금 보는 Space가 내 것인지 판별한다.
   const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator })
   const isMine = creatorId !== null && mySpace.data?.creatorId === creatorId
+  // 내 게시글의 좋아요는 보상 대상이 아니므로(BE가 자기 Space의 좋아요 미션 보상을 주지 않는다) 내 Space에서는 좋아요 미션을 숨긴다.
+  const shownLikeMissions = isMine ? [] : likeMissions
 
   const events = useMemo(() => creator?.events ?? [], [creator])
   const liveEvents = useMemo(
@@ -165,6 +180,11 @@ export default function CreatorSpace() {
   const publishedEvent = useMemo(() => events.find((event) => event.status === 'PUBLISHED'), [events])
 
   const following = creatorId !== null && isFollowing(creatorId)
+
+  // 다른 Creator로 이동하거나 화면을 떠나면 진행 중인 잔액 확인을 멈춘다.
+  useEffect(() => () => {
+    balanceSyncSeq.current += 1
+  }, [creatorId])
 
   // 탭 제목을 인스타처럼 "이름 (@slug) • Cking"으로 보여주고, 떠날 때 원래 제목으로 되돌린다.
   const creatorName = creator?.creatorName
@@ -275,21 +295,74 @@ export default function CreatorSpace() {
     }
   }
 
-  async function completeMission(mission) {
-    if (!authenticated || mission.type !== 'LIKE') return
-    setMissionBusyId(mission.missionId)
-    try {
-      await completeCreatorMission(creator.creatorId, mission.missionId)
-      setMissions((current) => (current ?? []).map((item) => (
-        item.missionId === mission.missionId ? { ...item, completedToday: true } : item
-      )))
-      balance.reload()
-      showToast(`응모권 ${mission.rewardAmount}장을 적립했어요.`)
-    } catch (missionError) {
-      showToast(describeError(missionError, '미션을 완료하지 못했어요.'), { icon: 'error' })
-    } finally {
-      setMissionBusyId(null)
+  // 좋아요 미션은 서버가 게시글 좋아요를 확인해야 완료로 인정하므로 완료 API를 호출하지 않고 게시글로 안내한다.
+  function goLikePosts() {
+    setTab('posts')
+    showToast('게시글에 좋아요를 누르면 미션이 완료돼요.')
+  }
+
+  /**
+   * 적립은 Redis에서 먼저 접수되고 DB 잔액은 비동기로 반영되므로, 응답 직후 조회한 잔액은 이전 값일 수 있다.
+   * 잔액 조회는 일반 조회와 같은 useAsync의 reload로 해서, 나중에 시작한 요청이 이기고 오래된 응답은 버려지게 한다.
+   * 잔액이 (적립 전 잔액 + 보상액) 이상이 된 것이 확인될 때까지 몇 번 다시 조회하고, 끝까지 확인하지 못하면 잔액 줄에
+   * '반영 중' 표시와 다시 확인 버튼을 남긴다.
+   * 적립 전 잔액(before)을 모르면(첫 조회가 끝나지 않았거나 실패) 숫자만으로는 반영 여부를 알 수 없다. 그동안 본 잔액보다
+   * 늘어나면 반영된 것으로 보고, 아니면 적립 내역에서 확인하도록 안내만 남긴다.
+   */
+  async function syncBalanceAfterEarn(targetId, before, reward) {
+    const seq = ++balanceSyncSeq.current
+    setBalancePending(null)
+    const expected = typeof before === 'number' ? before + (reward > 0 ? reward : 1) : null
+    let seen = typeof before === 'number' ? before : null
+    for (const delay of BALANCE_SYNC_DELAYS_MS) {
+      await new Promise((resolve) => setTimeout(resolve, delay))
+      if (balanceSyncSeq.current !== seq) return
+      const latest = await balance.reload()
+      if (balanceSyncSeq.current !== seq) return
+      if (latest?.creatorId !== targetId) continue
+      if (isEarnReflected(latest.balance, expected, seen)) return
+      seen = latest.balance
     }
+    if (balanceSyncSeq.current === seq) setBalancePending({ creatorId: targetId, expected })
+  }
+
+  // 잔액 줄의 '다시 확인'(적립 전 잔액을 알았던 경우): 한 번 조회해 반영이 확인되면 표시를 거두고, 아니면 표시를 유지한다.
+  async function recheckBalance() {
+    const pending = balancePending
+    if (!pending || pending.expected === null || balanceRechecking) return
+    const seq = balanceSyncSeq.current
+    setBalanceRechecking(true)
+    try {
+      const latest = await balance.reload()
+      // 확인하는 사이 다른 Creator로 이동했거나 새 적립 확인이 시작됐으면 이 응답은 쓰지 않는다.
+      if (balanceSyncSeq.current !== seq) return
+      if (latest?.creatorId !== pending.creatorId) {
+        showToast('응모권 잔액을 불러오지 못했어요.', { icon: 'error' })
+      } else if (latest.balance >= pending.expected) {
+        setBalancePending(null)
+      } else {
+        showToast('아직 반영 중이에요. 잠시 뒤 다시 확인해주세요.')
+      }
+    } finally {
+      setBalanceRechecking(false)
+    }
+  }
+
+  // 잔액 반영을 숫자로 확인할 수 없는 경우: 적립 내역을 열고 안내는 거둔다.
+  function openLedgerFromPending() {
+    setBalancePending(null)
+    setLedgerOpen(true)
+  }
+
+  // 게시글 좋아요 응답의 missionAwarded가 true일 때: 미션 완료 표시를 바꾸고 잔액이 반영될 때까지 확인한다.
+  function handleLikeMissionAwarded() {
+    // useAsync는 재조회 중 이전 data를 유지하고 미션 응답에는 creatorId가 없으므로, 조회 중에는 보상액을 쓰지 않는다.
+    const reward = missionsLoading ? undefined : likeMissions[0]?.rewardAmount
+    setMissions((current) => (current ?? []).map((item) => (item.type === 'LIKE' ? { ...item, completedToday: true } : item)))
+    showToast(reward ? `좋아요 미션 완료! 응모권 ${reward}장을 적립하고 있어요.` : '좋아요 미션 완료! 응모권을 적립하고 있어요.')
+    // 잔액 데이터가 다른 Creator의 것이면(이동 직후 재조회 전) 적립 전 잔액으로 쓰지 않는다.
+    const before = balance.data?.creatorId === creator.creatorId ? balance.data.balance : undefined
+    syncBalanceAfterEarn(creator.creatorId, before, reward)
   }
 
   // 관심 등록·편집·공유 버튼 행. 좁은 화면에서는 소개 아래에 가로로 꽉 차게, md 이상에서는 이름 옆에 놓는다.
@@ -355,7 +428,7 @@ export default function CreatorSpace() {
     <>
       {missionsLoading && <LoadingBlock label="오늘의 미션을 불러오는 중..." />}
       {!missionsLoading && missionsError && <ErrorBlock message={missionsError} onRetry={reloadMissions} />}
-      {!missionsLoading && !missionsError && likeMissions.map((mission) => {
+      {!missionsLoading && !missionsError && shownLikeMissions.map((mission) => {
         const completed = mission.completedToday
         return (
           <div key={mission.missionId} className="flex items-center justify-between gap-3 p-space-md rounded-xl bg-surface-container-lowest shadow-card">
@@ -370,11 +443,11 @@ export default function CreatorSpace() {
             </div>
             <button
               type="button"
-              disabled={completed || missionBusyId === mission.missionId}
-              onClick={() => completeMission(mission)}
+              disabled={completed}
+              onClick={goLikePosts}
               className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 ${completed ? 'bg-surface-container-high text-outline' : 'bg-berry-tint text-primary'}`}
             >
-              {missionBusyId === mission.missionId ? '처리 중...' : completed ? '완료' : '참여하기'}
+              {completed ? '완료' : '좋아요 하러 가기'}
             </button>
           </div>
         )
@@ -394,7 +467,7 @@ export default function CreatorSpace() {
           onRewarded={balance.reload}
         />
       )}
-      {!missionsLoading && !missionsError && likeMissions.length === 0 && !youtubeSubscriptionMission && (
+      {!missionsLoading && !missionsError && shownLikeMissions.length === 0 && !youtubeSubscriptionMission && (
         <EmptyBlock icon="bolt" message={EMPTY_TAB_MESSAGE} />
       )}
     </>
@@ -487,8 +560,27 @@ export default function CreatorSpace() {
             {anonymous && loginPrompt(`로그인하면 ${creator.creatorName} 전용 응모권을 확인하고 이벤트에 응모할 수 있어요.`)}
             {authenticated && (
               <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-container-low px-space-md py-3">
-                <span className="font-label-md text-label-md font-semibold text-on-surface">
+                <span className="min-w-0 font-label-md text-label-md font-semibold text-on-surface">
                   🎟 {creator.creatorName} 응모권 {formatNumber(ticketBalance)}장
+                  {balancePending?.creatorId === creator.creatorId && (
+                    <span className="ml-1.5 inline-flex items-center gap-1 font-label-xs text-label-xs font-normal text-on-surface-variant">
+                      {balancePending.expected === null ? '적립을 접수했어요' : '적립 반영 중'}
+                      {balancePending.expected === null ? (
+                        <button type="button" onClick={openLedgerFromPending} className="text-primary underline">
+                          내역 보기
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={recheckBalance}
+                          disabled={balanceRechecking}
+                          className="text-primary underline disabled:opacity-60"
+                        >
+                          {balanceRechecking ? '확인 중...' : '다시 확인'}
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </span>
                 <button
                   type="button"
@@ -589,6 +681,7 @@ export default function CreatorSpace() {
           <CreatorPosts
             key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}:${authenticated}:${following}:${isMine}`}
             onPostCountChange={postTotal.reload}
+            onMissionAwarded={handleLikeMissionAwarded}
             creatorId={creator.creatorId}
             creatorName={creator.creatorName}
             profileImageUrl={creator.profileImageUrl}

@@ -5,9 +5,8 @@ import PostComments from './PostComments.jsx'
 import PostEditorSheet from './PostEditorSheet.jsx'
 import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError } from '../../api/client.js'
-import { POST_ERROR_MESSAGES, deletePost, getCreatorPost, getCreatorPosts } from '../../api/posts.js'
+import { POST_ERROR_MESSAGES, POST_LIKE_ERROR_MESSAGES, deletePost, getCreatorPost, getCreatorPosts, likePost, unlikePost } from '../../api/posts.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { withMockPost } from '../../dev/socialMock.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 
 // 웹 상세 모달의 사진 칸은 첫 사진의 비율(인스타처럼 4:5~1.91:1로 제한)에 맞추고, 오른쪽 정보 칸은 400px로 고정한다.
@@ -23,7 +22,7 @@ function modalSize(ratio, hasMedia) {
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
-export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostCountChange }) {
+export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostCountChange, onMissionAwarded }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
@@ -32,6 +31,11 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   const [editor, setEditor] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
   const [local, setLocal] = useState(NO_LOCAL_CHANGES)
+  // 좋아요·취소 응답으로 받은 liked·likeCount. 목록과 상세에 같은 값을 보이려고 postId별로 덮어쓴다.
+  const [likeOverrides, setLikeOverrides] = useState({})
+  const [likingId, setLikingId] = useState(null)
+  // 열려 있는 상세의 postId. 목록을 새로 받아도 상세가 들고 있는 값과 어긋나지 않게 그 게시글의 덮어쓰기 값은 남긴다.
+  const detailPostId = useRef(null)
   // 저장·삭제 뒤 서버 목록과 맞추는 상태: 'synced' | 'refreshing' | 'failed'.
   // 삭제로 서버의 페이지 경계가 당겨지므로 맞춰지기 전에는 기존 페이지 번호로 '더 보기'를 하지 않는다.
   const [sync, setSync] = useState('synced')
@@ -56,11 +60,18 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     return true
   }) : []
   const deletedIds = new Set(local.deleted)
+  const applyLike = (post) => (likeOverrides[post.postId] ? { ...post, ...likeOverrides[post.postId] } : post)
   const posts = [...local.created.filter((post) => !seenPostIds.has(post.postId)), ...loadedPosts]
     .filter((post) => !deletedIds.has(post.postId))
-    .map((post) => withMockPost(local.updated[post.postId] ?? post))
+    .map((post) => applyLike(local.updated[post.postId] ?? post))
 
   // 로컬 변경분과 이어 붙인 페이지는 새 조회가 성공한 뒤에만 지운다. 실패하면 방금 저장·삭제한 결과를 그대로 둔다.
+  // 새 목록 응답에는 서버의 최신 좋아요 값이 들어 있으므로 이전 덮어쓰기 값을 정리한다(열린 상세의 값은 유지).
+  function clearListLikeOverrides() {
+    const keep = detailPostId.current
+    setLikeOverrides((current) => (keep != null && keep in current ? { [keep]: current[keep] } : {}))
+  }
+
   async function reloadFirst() {
     const generation = ++listGeneration.current
     loadingMore.current = false
@@ -69,6 +80,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     if (fresh && listGeneration.current === generation) {
       setExtraState({ pages: [], loading: false, error: '' })
       setLocal(NO_LOCAL_CHANGES)
+      clearListLikeOverrides()
       setSync('synced')
     }
   }
@@ -85,6 +97,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
       first.setData(fresh)
       setExtraState({ pages: [], loading: false, error: '' })
       setLocal(NO_LOCAL_CHANGES)
+      clearListLikeOverrides()
       setSync('synced')
     } catch {
       if (listGeneration.current === generation) {
@@ -136,11 +149,18 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
 
   async function openDetail(postId) {
     const seq = ++detailSeq.current
+    detailPostId.current = postId
     setMediaRatio(1)
     setDetail({ postId, loading: true, post: null, error: '' })
     try {
       const post = await getCreatorPost(creatorId, postId)
-      if (detailSeq.current === seq) setDetail({ postId, loading: false, post: withMockPost(post), error: '' })
+      if (detailSeq.current === seq) {
+        // 방금 받은 상세가 서버의 최신 값이므로 목록에도 같은 값을 보이도록 덮어쓰기 값으로 맞춘다.
+        if (typeof post.likeCount === 'number') {
+          setLikeOverrides((current) => ({ ...current, [postId]: { liked: Boolean(post.liked), likeCount: post.likeCount } }))
+        }
+        setDetail({ postId, loading: false, post, error: '' })
+      }
     } catch (error) {
       if (detailSeq.current === seq) {
         const restricted = error instanceof ApiError && error.code === 'POST_FOLLOWERS_ONLY'
@@ -152,6 +172,27 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
           restricted,
         })
       }
+    }
+  }
+
+  // 좋아요·취소는 서버 응답의 liked·likeCount를 그대로 반영한다(낙관적 갱신 없음). 처리 중에는 버튼을 막아 연타로 상태가 어긋나지 않게 한다.
+  async function handleLike(post) {
+    if (!authenticated) {
+      onLogin()
+      return
+    }
+    if (likingId != null) return
+    setLikingId(post.postId)
+    try {
+      const result = post.liked ? await unlikePost(creatorId, post.postId) : await likePost(creatorId, post.postId)
+      setLikeOverrides((current) => ({ ...current, [post.postId]: { liked: result.liked, likeCount: result.likeCount } }))
+      if (result.missionAwarded) onMissionAwarded?.()
+    } catch (error) {
+      const code = error instanceof ApiError ? error.code : null
+      showToast(POST_LIKE_ERROR_MESSAGES[code] ?? describeError(error, '좋아요를 처리하지 못했어요.'), { icon: 'error' })
+      if (code === 'POST_FOLLOWERS_ONLY') handlePostRestricted()
+    } finally {
+      setLikingId(null)
     }
   }
 
@@ -180,6 +221,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }
   const closeDetail = () => {
     detailSeq.current += 1
+    detailPostId.current = null
     setDetail(null)
   }
   const lockedAction = () => {
@@ -280,7 +322,9 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
               )}
               {!detail.loading && detail.post && (
                 <PostDetail
-                  post={detail.post}
+                  post={applyLike(detail.post)}
+                  onLike={() => handleLike(applyLike(detail.post))}
+                  liking={likingId === detail.post.postId}
                   creatorName={creatorName}
                   profileImageUrl={profileImageUrl}
                   onLockedAction={lockedAction}
@@ -432,10 +476,8 @@ function AuthorRow({ creatorName, profileImageUrl, isMine, onEdit, onDelete, del
  * 상세 본문. 좁은 화면에서는 작성자 → 이미지 → 정보·댓글 순으로 쌓고,
  * 넓은 화면(md 이상)에서는 왼쪽 이미지, 오른쪽 작성자·본문·댓글(children)의 2단으로 나눈다.
  */
-function PostDetail({ post, creatorName, profileImageUrl, onLockedAction, lockedLabel, lockedDisabled, isMine, onEdit, onDelete, deleting, onMediaRatio, children }) {
+function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLockedAction, lockedLabel, lockedDisabled, isMine, onEdit, onDelete, deleting, onMediaRatio, children }) {
   const [restricted, setRestricted] = useState(false)
-  // 좋아요 토글은 BE API가 생기기 전까지 화면 안에서만 바뀐다(값이 내려오는 mock 환경에서만 보인다).
-  const [liked, setLiked] = useState(Boolean(post.liked))
   const handleRestricted = useCallback(() => setRestricted(true), [])
   const commentsRef = useRef(null)
   // 인스타처럼 댓글은 접어 두고, 댓글 아이콘·개수를 누르면 펼친다.
@@ -446,7 +488,7 @@ function PostDetail({ post, creatorName, profileImageUrl, onLockedAction, locked
   const locked = post.locked || restricted
   const hasMedia = !locked && post.imageCount > 0
   const hasLikes = typeof post.likeCount === 'number'
-  const likeCount = hasLikes ? post.likeCount + (liked ? 1 : 0) - (post.liked ? 1 : 0) : 0
+  const liked = Boolean(post.liked)
   const author = (
     <AuthorRow creatorName={creatorName} profileImageUrl={profileImageUrl} isMine={isMine} onEdit={onEdit} onDelete={onDelete} deleting={deleting} />
   )
@@ -486,11 +528,12 @@ function PostDetail({ post, creatorName, profileImageUrl, onLockedAction, locked
                     type="button"
                     aria-pressed={liked}
                     aria-label={liked ? '좋아요 취소' : '좋아요'}
-                    onClick={() => setLiked((current) => !current)}
-                    className={`flex items-center gap-1.5 font-label-md text-label-md active:scale-95 ${liked ? 'text-error' : 'text-on-surface'}`}
+                    onClick={onLike}
+                    disabled={liking}
+                    className={`flex items-center gap-1.5 font-label-md text-label-md active:scale-95 disabled:opacity-60 ${liked ? 'text-error' : 'text-on-surface'}`}
                   >
                     <MaterialIcon name="favorite" filled={liked} className="text-[24px]" />
-                    {formatNumber(likeCount)}
+                    {formatNumber(post.likeCount)}
                   </button>
                 )}
                 <button

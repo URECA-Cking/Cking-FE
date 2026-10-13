@@ -292,10 +292,13 @@ export default function CreatorSpace() {
 
   /**
    * 적립은 Redis에서 먼저 접수되고 DB 잔액은 비동기로 반영되므로, 응답 직후 조회한 잔액은 이전 값일 수 있다.
-   * 잔액이 늘어난 것이 확인될 때까지 몇 번 다시 조회한다. 끝까지 확인되지 않으면 적립 중이라고 알린다.
+   * 잔액이 (적립 전 잔액 + 보상액) 이상이 된 것이 확인될 때까지 몇 번 다시 조회한다. 끝까지 확인되지 않으면 적립 중이라고 알린다.
+   * 적립 전 잔액(before)을 모르면(첫 조회가 끝나지 않았거나 실패) 반영 여부를 판단할 수 없으므로 증가로 멈추지 않고
+   * 정해진 횟수만큼 화면 잔액만 갱신하며, 반영 중이라는 안내도 띄우지 않는다.
    */
-  async function syncBalanceAfterEarn(targetId, before) {
+  async function syncBalanceAfterEarn(targetId, before, reward) {
     const seq = ++balanceSyncSeq.current
+    const expected = typeof before === 'number' ? before + (reward > 0 ? reward : 1) : null
     for (const delay of BALANCE_SYNC_DELAYS_MS) {
       await new Promise((resolve) => setTimeout(resolve, delay))
       if (balanceSyncSeq.current !== seq) return
@@ -303,12 +306,12 @@ export default function CreatorSpace() {
         const latest = await getTicketBalance(targetId)
         if (balanceSyncSeq.current !== seq) return
         balance.setData(latest)
-        if (latest.balance > before) return
+        if (expected !== null && latest.balance >= expected) return
       } catch {
         // 다음 시도에서 다시 확인한다.
       }
     }
-    if (balanceSyncSeq.current === seq) showToast('응모권 적립이 아직 반영 중이에요. 잠시 뒤 잔액을 다시 확인해주세요.')
+    if (expected !== null && balanceSyncSeq.current === seq) showToast('응모권 적립이 아직 반영 중이에요. 잠시 뒤 잔액을 다시 확인해주세요.')
   }
 
   // 게시글 좋아요 응답의 missionAwarded가 true일 때: 미션 완료 표시를 바꾸고 잔액이 반영될 때까지 확인한다.
@@ -316,7 +319,7 @@ export default function CreatorSpace() {
     const reward = likeMissions[0]?.rewardAmount
     setMissions((current) => (current ?? []).map((item) => (item.type === 'LIKE' ? { ...item, completedToday: true } : item)))
     showToast(reward ? `좋아요 미션 완료! 응모권 ${reward}장을 적립하고 있어요.` : '좋아요 미션 완료! 응모권을 적립하고 있어요.')
-    syncBalanceAfterEarn(creator.creatorId, ticketBalance)
+    syncBalanceAfterEarn(creator.creatorId, balance.data?.balance, reward)
   }
 
   // 관심 등록·편집·공유 버튼 행. 좁은 화면에서는 소개 아래에 가로로 꽉 차게, md 이상에서는 이름 옆에 놓는다.

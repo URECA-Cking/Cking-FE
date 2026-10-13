@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getEntryStatus } from '../api/entries.js'
+import { waitForIncrease } from '../utils/entryStatusSettle.js'
 
 // BE가 DB 집계 경로에서 응답을 5초 캐시하므로 그보다 길게 잡는다.
 const POLL_MS = 10_000
@@ -12,8 +13,9 @@ const INITIAL = { eventId: null, data: null, failed: false, waiting: false }
 /**
  * 이벤트 응모 현황(GET /api/events/{id}/entry-status)을 조회한다. 표시용 값이다.
  * - live(진행 중)이면 화면이 보이는 동안 POLL_MS마다 다시 조회한다.
- * - refreshKey가 바뀌면(응모 후 이벤트 상세를 다시 받음) 내 응모권 수가 늘 때까지 제한적으로 다시 조회하고,
- *   그동안·조회에 실패했을 때는 이전 값을 내보내지 않는다(응모 전 수치를 최신처럼 보여주지 않으려는 것).
+ * - refreshKey가 바뀌면(응모 후 이벤트 상세를 다시 받음) 내 응모권 수가 늘 때까지 제한적으로 다시 조회한다.
+ *   그동안과, 끝까지 늘지 않았을 때는 응모 전 수치를 최신처럼 보여주지 않으려고 값을 내보내지 않는다.
+ *   이후 주기 조회에서 증가가 확인되면 다시 보여준다.
  * @returns {{ status: object|null, failed: boolean }} status가 null이면 값이 없거나 믿을 수 없는 상태
  */
 export function useEntryStatus(eventId, { enabled, live, refreshKey }) {
@@ -31,7 +33,9 @@ export function useEntryStatus(eventId, { enabled, live, refreshKey }) {
       prevKey.current = undefined
     }
     let cancelled = false
-    let timer
+    // 응모 직후 증가를 확인하지 못한 동안은 주기 조회가 옛 값을 다시 보여주지 못하게 막는다.
+    let unconfirmed = false
+    // 응모 직후 재조회가 진행 중일 때는 주기 조회를 쉬어 두 조회가 값을 덮어쓰지 않게 한다.
     let bursting = false
     const baseline = latest.current?.myTicketCount ?? null
     const afterEntry = prevKey.current !== undefined && prevKey.current !== refreshKey && baseline !== null
@@ -41,42 +45,52 @@ export function useEntryStatus(eventId, { enabled, live, refreshKey }) {
     async function fetchStatus() {
       try {
         const data = await getEntryStatus(eventId)
-        if (cancelled) return null
-        latest.current = data
-        return data
+        return cancelled ? null : data
       } catch {
         return cancelled ? null : undefined
       }
     }
 
-    function apply(data) {
-      setState((prev) => {
-        const base = prev.eventId === eventId ? prev : { ...INITIAL, eventId }
-        return data ? { eventId, data, failed: false, waiting: false } : { ...base, failed: true, waiting: false }
-      })
+    const base = (prev) => (prev.eventId === eventId ? prev : { ...INITIAL, eventId })
+    function show(data) {
+      latest.current = data
+      setState({ eventId, data, failed: false, waiting: false })
+    }
+    function hide() {
+      setState((prev) => ({ ...base(prev), failed: true, waiting: false }))
     }
 
     async function refresh() {
       const data = await fetchStatus()
-      if (data !== null) apply(data)
-    }
-
-    async function settleAfterEntry(attempt) {
-      const data = await fetchStatus()
       if (data === null) return
-      const notYet = data === undefined || data.myTicketCount <= baseline
-      if (notYet && attempt < MAX_RETRIES) {
-        timer = setTimeout(() => settleAfterEntry(attempt + 1), RETRY_MS)
-        return
+      if (!data) return hide()
+      if (unconfirmed) {
+        if (data.myTicketCount <= baseline) return
+        unconfirmed = false
       }
-      bursting = false
-      apply(data)
+      show(data)
     }
 
     if (afterEntry) {
+      unconfirmed = true
       bursting = true
-      setState((prev) => ({ ...(prev.eventId === eventId ? prev : { ...INITIAL, eventId }), waiting: true }))
-      settleAfterEntry(0)
+      setState((prev) => ({ ...base(prev), waiting: true }))
+      waitForIncrease({
+        fetchStatus,
+        baseline,
+        maxRetries: MAX_RETRIES,
+        retryMs: RETRY_MS,
+        cancelled: () => cancelled,
+      }).then((result) => {
+        if (!result) return
+        bursting = false
+        if (result.confirmed) {
+          unconfirmed = false
+          show(result.data)
+        } else {
+          hide()
+        }
+      })
     } else {
       refresh()
     }
@@ -93,7 +107,6 @@ export function useEntryStatus(eventId, { enabled, live, refreshKey }) {
 
     return () => {
       cancelled = true
-      clearTimeout(timer)
       if (poll) clearInterval(poll)
       document.removeEventListener('visibilitychange', onVisible)
     }

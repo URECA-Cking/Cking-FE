@@ -35,12 +35,14 @@ $env:E2E_TICKET_BLOCKED_MEMBER_ID='<거부 대상 회원 ID>'
 $env:E2E_TICKET_BLOCKED_CREATOR_ID='<거부 대상 Creator ID>'
 $env:E2E_TICKET_RESYNC_MEMBER_ID='<보정 대상 회원 ID>'
 $env:E2E_TICKET_RESYNC_CREATOR_ID='<보정 대상 Creator ID>'
+# 변경 작업(거부·보정) 테스트까지 실행할 때만 설정합니다. 기본값은 미설정이며 해당 테스트는 skipped 됩니다.
+# $env:E2E_TICKET_MUTATION_READY='1'
 npm run lint:admin
 npm run build:admin
 npm run test:e2e:admin -- --grep 'TC-08'
 ```
 
-테스트는 준비되지 않은 시나리오를 `skipped`로 표시한다. `skipped`는 통과가 아니다. 변경 작업을 수행하는 거부·보정 테스트는 환경 변수 `E2E_TICKET_MUTATION_READY=1`도 필요하다. Creator 전용·공용 보정 대상은 같은 회원 ID를 사용할 수 있으나, 거부 대상과 보정 대상은 서로 달라야 한다. 실행 뒤 BE에서 Redis 키, MySQL Balance 행, COMPENSATE Ledger를 직접 조회해 브라우저/API 관측과 대조한다.
+테스트는 준비되지 않은 시나리오를 `skipped`로 표시한다. `skipped`는 통과가 아니다. 변경 작업을 수행하는 거부·보정 테스트는 환경 변수 `E2E_TICKET_MUTATION_READY=1`도 필요하다. Creator 전용·공용 보정 대상은 같은 회원 ID를 사용할 수 있으나, 조회·거부·보정 대상 회원은 서로 달라야 한다. 실행 뒤 BE에서 Redis 키, MySQL Balance 행, COMPENSATE Ledger를 직접 조회해 브라우저/API 관측과 대조한다.
 
 ## 결과 기록
 

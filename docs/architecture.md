@@ -34,4 +34,4 @@ admin┘
 
 두 앱이 같은 기능을 필요로 하고 앱별 정책 없이 재사용 가능한 경우에만 shared로 옮긴다. 한 앱에서만 사용하는 코드는 재사용 가능성만으로 옮기지 않는다. 인증·권한 정책과 도메인별 화면 조합은 각 앱에 둔다.
 
-현재 shared에는 HTTP 응답 봉투 전송과 `ApiError`, 앱별 storage key를 주입하는 Access Token 저장소, MaterialIcon, 공통 날짜·숫자 포맷터, 앱별 오류 문구 함수를 주입하는 `useAsync`가 있다. Web의 OAuth refresh/401 후 로그인 이동과 Admin의 전용 refresh/권한 처리는 각 앱의 API client에 남긴다. `UserContext`·`AdminSessionContext`, 앱별 화면·상태 UI·도메인별 API는 공유하지 않는다.
+현재 shared에는 HTTP 응답 봉투 전송과 `ApiError`, 앱별 storage key를 주입하는 Access Token 저장소, MaterialIcon, 공통 날짜·숫자 포맷터, 앱별 오류 문구 함수를 주입하는 `useAsync`가 있다. `useAsync`는 화면 표시용 `error` 문자열과 도메인별 오류 분기에 쓸 원본 `errorObject`를 함께 제공한다. Web의 OAuth refresh/401 후 로그인 이동과 Admin의 전용 refresh/권한 처리는 각 앱의 API client에 남긴다. `UserContext`·`AdminSessionContext`, 앱별 화면·상태 UI·도메인별 API는 공유하지 않는다.

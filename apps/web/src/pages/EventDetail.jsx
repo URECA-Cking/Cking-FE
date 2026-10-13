@@ -50,6 +50,8 @@ export default function EventDetail() {
     enabled: Boolean(event) && event.displayStatus !== 'UPCOMING',
     live: event?.displayStatus === 'IN_PROGRESS',
     refreshKey: event,
+    // 이미 접수된 요청의 재시도(DUPLICATE_REPLAY)는 응모권이 다시 늘지 않는다.
+    replay: result?.code === 'DUPLICATE_REPLAY',
   })
 
   const published = event?.status === 'PUBLISHED'

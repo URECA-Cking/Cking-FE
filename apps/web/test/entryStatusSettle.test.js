@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { waitForIncrease } from '../src/utils/entryStatusSettle.js'
+import { createLatestGate, waitForIncrease } from '../src/utils/entryStatusSettle.js'
 
 const noWait = () => Promise.resolve()
 const sequence = (...responses) => {
@@ -49,4 +49,15 @@ test('중간에 정리되면 null을 돌려주고 더 조회하지 않는다', a
   })
   assert.equal(result, null)
   assert.equal(s.calls(), 1)
+})
+
+test('나중에 시작한 요청이 있으면 먼저 시작한 요청의 응답은 반영하지 않는다', () => {
+  const begin = createLatestGate()
+  const first = begin()
+  const second = begin()
+  assert.equal(first(), false)
+  assert.equal(second(), true)
+  const third = begin()
+  assert.equal(second(), false)
+  assert.equal(third(), true)
 })

@@ -25,3 +25,16 @@ export async function waitForIncrease({
   }
   return { confirmed: false }
 }
+
+/**
+ * 가장 최근에 시작한 요청의 응답만 반영하게 하는 문지기. 주기 조회와 탭 복귀 조회가 겹칠 때
+ * 늦게 도착한 오래된 응답이 최신 값을 덮어쓰지 못하게 한다.
+ * @returns {() => () => boolean} begin()을 호출해 요청을 시작하고, 돌려받은 함수가 true일 때만 응답을 반영한다
+ */
+export function createLatestGate() {
+  let seq = 0
+  return () => {
+    const mine = ++seq
+    return () => mine === seq
+  }
+}

@@ -218,6 +218,26 @@ export async function rejectCommentReports(commentId) {
   return post(`/api/admin/comment-reports/${commentId}/reject`)
 }
 
+/** 지정 회원의 Creator 전용 또는 공용 응모권 Redis·MySQL 잔액을 비교 조회한다. */
+export function getAdminTicketBalance({ memberId, couponType, creatorId }) {
+  return get('/api/admin/tickets/balance', { memberId, couponType, ...(couponType === 'CREATOR' ? { creatorId } : {}) })
+}
+
+/** 지정 회원의 응모권 원장을 커서 기준으로 조회한다. */
+export function getAdminTicketHistory({ memberId, couponType, creatorId, cursor, size = 20 }) {
+  return get('/api/admin/tickets/history', { memberId, couponType, ...(couponType === 'CREATOR' ? { creatorId } : {}), cursor, size })
+}
+
+/** Creator 전용 응모권의 Redis 잔액을 DB 기준으로 수동 재동기화한다. */
+export function resyncCreatorTickets(memberId, creatorId, reason) {
+  return post('/api/admin/tickets/resync', { memberId, creatorId, reason })
+}
+
+/** 공용 응모권의 Redis 잔액을 DB 기준으로 수동 재동기화한다. */
+export function resyncCommonTickets(memberId, reason) {
+  return post('/api/admin/tickets/common/resync', { memberId, reason })
+}
+
 export const OPERATING_EVENT_STATUSES = ['SCHEDULED', 'OPEN', 'CLOSING', 'CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
 const DRAWING_READY_EVENT_STATUSES = ['CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
 

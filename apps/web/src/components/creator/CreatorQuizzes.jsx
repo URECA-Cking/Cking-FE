@@ -4,9 +4,16 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../ui/States.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
-import { ApiError, describeError, newRequestId } from '../../api/client.js'
+import { describeError, newRequestId } from '../../api/client.js'
 import { getCreatorQuiz, getCreatorQuizzes, getMyQuizAttempt, submitQuizAttempt } from '../../api/quizzes.js'
 import { formatDateTime } from '../../utils/format.js'
+import {
+  QUIZ_PAGE_SIZE,
+  appendQuizPage,
+  classifySubmitError,
+  quizListView,
+  submitRequestFor,
+} from '../../utils/fanQuiz.js'
 
 // 지급 처리 중(PENDING)이면 이 간격으로 이 횟수만큼만 다시 조회한다. 그 뒤에는 사용자가 직접 다시 확인한다.
 const PAYMENT_POLL_INTERVAL_MS = 3000
@@ -50,11 +57,42 @@ export default function CreatorQuizzes({ creatorId, authenticated, sessionLoadin
     onRewardPaid?.()
   }, [onRewardPaid])
   const { data, loading, error, reload } = useAsync(
-    () => getCreatorQuizzes(creatorId),
+    () => getCreatorQuizzes(creatorId, { page: 0, size: QUIZ_PAGE_SIZE }),
     [creatorId],
     { fallbackMessage: 'Quiz 목록을 불러오지 못했어요.' },
   )
-  const quizzes = data?.items ?? []
+  // "더 보기"로 이어 읽은 페이지. 첫 페이지를 다시 읽거나 Creator가 바뀌면(data가 바뀌면) quizListView가 버린다.
+  const [more, setMore] = useState(null)
+  const [moreLoading, setMoreLoading] = useState(false)
+  // 다음 페이지 오류도 어느 첫 페이지에서 난 것인지 함께 둔다. 첫 페이지가 바뀌면 이전 오류는 보이지 않는다.
+  const [moreFailure, setMoreFailure] = useState(null)
+  const moreError = moreFailure && moreFailure.base === data ? moreFailure.message : null
+  const moreInFlight = useRef(false)
+  const { items: quizzes, hasNext, nextPage } = quizListView(data, more)
+  // 요청 도중 첫 페이지가 바뀌었는지 응답 시점에 확인하려고 최신 data를 ref로 둔다.
+  const latestData = useRef(data)
+  useEffect(() => {
+    latestData.current = data
+  }, [data])
+
+  async function loadMore() {
+    // 같은 페이지를 겹쳐 요청하지 않는다. 실패하면 목록은 그대로 두고 같은 페이지를 다시 요청할 수 있다.
+    if (moreInFlight.current || !data || !hasNext) return
+    moreInFlight.current = true
+    const base = data
+    const page = nextPage
+    setMoreLoading(true)
+    setMoreFailure(null)
+    try {
+      const response = await getCreatorQuizzes(creatorId, { page, size: QUIZ_PAGE_SIZE })
+      setMore((current) => appendQuizPage(current, base, latestData.current, page, response))
+    } catch (moreLoadError) {
+      setMoreFailure({ base, message: describeError(moreLoadError, 'Quiz를 더 불러오지 못했어요.') })
+    } finally {
+      moreInFlight.current = false
+      setMoreLoading(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-space-sm px-margin py-space-sm">
@@ -80,6 +118,17 @@ export default function CreatorQuizzes({ creatorId, authenticated, sessionLoadin
           <MaterialIcon name="chevron_right" className="text-[20px] text-outline" />
         </button>
       ))}
+      {!loading && !error && moreError && <ErrorBlock message={moreError} onRetry={loadMore} />}
+      {!loading && !error && hasNext && !moreError && (
+        <button
+          type="button"
+          onClick={loadMore}
+          disabled={moreLoading}
+          className="self-center rounded-xl bg-surface-container px-4 py-2 font-label-sm text-label-sm font-semibold text-on-surface active:scale-95 transition-all disabled:opacity-60"
+        >
+          {moreLoading ? '불러오는 중...' : '더 보기'}
+        </button>
+      )}
 
       {openQuizId !== null && (
         <QuizSheet
@@ -117,6 +166,8 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
   const [submitting, setSubmitting] = useState(false)
   // 응답을 받지 못해 다시 보낼 때는 같은 답안이면 같은 requestId를 쓴다. 답안이 바뀌면 새 요청이다.
   const pending = useRef(null)
+  // 연타로 같은 요청이 겹쳐 나가지 않게 한다(상태 값은 다음 렌더 전까지 바뀌지 않는다).
+  const submitInFlight = useRef(false)
 
   const attempt = result ?? mine.data ?? null
   const questions = detail.data?.questions ?? []
@@ -127,13 +178,13 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
       onLogin()
       return
     }
-    if (!allAnswered || submitting) return
+    if (!allAnswered || submitInFlight.current) return
     const body = questions.map((question) => ({
       questionNo: question.questionNo,
       selectedOptionIndex: answers[question.questionNo],
     }))
-    const key = JSON.stringify(body)
-    if (pending.current?.key !== key) pending.current = { key, requestId: newRequestId() }
+    pending.current = submitRequestFor(pending.current, body, newRequestId)
+    submitInFlight.current = true
     setSubmitting(true)
     try {
       const saved = await submitQuizAttempt(creatorId, quizId, {
@@ -146,36 +197,37 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
     } catch (error) {
       await handleSubmitError(error)
     } finally {
+      submitInFlight.current = false
       setSubmitting(false)
     }
   }
 
   async function handleSubmitError(error) {
-    if (!(error instanceof ApiError)) {
-      // 네트워크 오류 등 응답을 받지 못했다. 같은 답안으로 다시 누르면 같은 requestId로 재전송한다.
-      showToast(describeError(error, '제출하지 못했어요. 다시 시도해 주세요.'), { icon: 'error' })
-      return
+    switch (classifySubmitError(error)) {
+      case 'UNCERTAIN':
+        // 응답을 받지 못했거나(NETWORK_ERROR 등) 서버 오류라 저장 여부를 모른다. 요청을 유지해 같은 답안으로 다시
+        // 누르면 같은 requestId로 재전송하고, 이미 저장됐다면 BE가 저장된 결과를 돌려준다.
+        showToast(describeError(error, '제출하지 못했어요. 다시 시도해 주세요.'), { icon: 'error' })
+        return
+      case 'ALREADY_ATTEMPTED':
+        pending.current = null
+        showToast('이미 응시한 Quiz예요. 저장된 결과를 보여드릴게요.')
+        mine.reload()
+        return
+      case 'REVISION_CHANGED':
+        pending.current = null
+        setAnswers({})
+        showToast('Quiz 내용이 바뀌었어요. 새 문항으로 다시 풀어 주세요.', { icon: 'error' })
+        detail.reload()
+        return
+      case 'NOT_FOUND':
+        showToast('더 이상 공개되지 않은 Quiz예요.', { icon: 'error' })
+        onUnavailable()
+        return
+      default:
+        pending.current = null
+        showToast(describeError(error, '제출하지 못했어요.'), { icon: 'error' })
     }
-    if (error.code === 'QUIZ_ALREADY_ATTEMPTED' || error.code === 'QUIZ_ATTEMPT_REQUEST_CONFLICT') {
-      pending.current = null
-      showToast('이미 응시한 Quiz예요. 저장된 결과를 보여드릴게요.')
-      mine.reload()
-      return
-    }
-    if (error.code === 'QUIZ_PUBLISHED_REVISION_CHANGED') {
-      pending.current = null
-      setAnswers({})
-      showToast('Quiz 내용이 바뀌었어요. 새 문항으로 다시 풀어 주세요.', { icon: 'error' })
-      detail.reload()
-      return
-    }
-    if (error.code === 'QUIZ_NOT_FOUND') {
-      showToast('더 이상 공개되지 않은 Quiz예요.', { icon: 'error' })
-      onUnavailable()
-      return
-    }
-    pending.current = null
-    showToast(describeError(error, '제출하지 못했어요.'), { icon: 'error' })
   }
 
   const title = attempt?.title ?? detail.data?.title ?? 'Quiz'

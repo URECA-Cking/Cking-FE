@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { ErrorBlock, LoadingBlock } from '../components/ui/States.jsx'
@@ -9,7 +9,10 @@ import { loadCreatorDirectory } from '../api/creators.js'
 import { spacePath } from '../api/creatorSpace.js'
 import { formatNumber } from '../utils/format.js'
 
-const cardClass = 'flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card'
+// 팔로우한 크리에이터가 많아도 화면이 길어지지 않게 처음에는 이만큼만 보여 주고 나머지는 "더보기"로 펼친다.
+const INITIAL_CREATOR_COUNT = 5
+
+const cardClass ='flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card'
 
 /**
  * 내 응모권. 팔로우한 크리에이터별 응모권과 공용 응모권의 개수를 보여 준다.
@@ -27,6 +30,10 @@ export default function MyTickets() {
     () => (directory.data?.creators ?? []).filter((creator) => followedCreators.includes(creator.creatorId)),
     [directory.data, followedCreators],
   )
+
+  const [showAllCreators, setShowAllCreators] = useState(false)
+  const visibleProfiles = showAllCreators ? followedProfiles : followedProfiles.slice(0, INITIAL_CREATOR_COUNT)
+  const hiddenCount = followedProfiles.length - visibleProfiles.length
 
   if (!ready) {
     // 팔로우 목록을 불러오지 못하면 어느 크리에이터의 응모권을 조회할지 몰라 응모권도 불러올 수 없다. 영원히 로딩만 보이지 않게 다시 시도를 제공한다.
@@ -52,9 +59,10 @@ export default function MyTickets() {
             type="button"
             onClick={refresh}
             disabled={loading}
-            className="font-label-sm text-label-sm text-primary font-semibold disabled:opacity-50"
+            aria-label={loading ? '불러오는 중' : '다시 불러오기'}
+            className="-m-2 p-2 text-primary disabled:opacity-50"
           >
-            {loading ? '불러오는 중...' : '다시 불러오기'}
+            <MaterialIcon name="refresh" className={`text-[20px] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
         <div className="flex items-baseline gap-1">
@@ -111,7 +119,7 @@ export default function MyTickets() {
         {hasFollows && !directory.error && (
           <div className="flex flex-col gap-space-sm md:grid md:grid-cols-2">
             {directory.loading && followedProfiles.length === 0 && <LoadingBlock label="크리에이터를 불러오는 중..." />}
-            {followedProfiles.map((creator) => {
+            {visibleProfiles.map((creator) => {
               const entry = balances.get(creator.creatorId)
               const failed = failedIds.has(creator.creatorId)
               return (
@@ -134,6 +142,16 @@ export default function MyTickets() {
                 </Link>
               )
             })}
+            {hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllCreators(true)}
+                className="flex items-center justify-center gap-1 py-space-sm rounded-xl bg-surface-container-lowest shadow-card font-label-md text-label-md text-primary font-semibold md:col-span-2"
+              >
+                더보기 ({formatNumber(hiddenCount)}명)
+                <MaterialIcon name="expand_more" className="text-[18px]" />
+              </button>
+            )}
           </div>
         )}
       </section>

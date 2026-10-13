@@ -1,136 +1,44 @@
 import { useEffect, useRef, useState } from 'react'
 import { getEntryStatus } from '../api/entries.js'
-import { createLatestGate, waitForIncrease } from '../utils/entryStatusSettle.js'
+import { createEntryStatusController } from '../utils/entryStatusController.js'
 
-// BE가 DB 집계 경로에서 응답을 5초 캐시하므로 그보다 길게 잡는다.
-const POLL_MS = 10_000
-// 응모 직후에는 DB 반영(비동기)과 캐시 만료를 기다리며 짧게 다시 묻는다. 6번 × 1.5초 ≈ 9초로 5초 캐시를 넘긴다.
-const RETRY_MS = 1_500
-const MAX_RETRIES = 6
-
-const INITIAL = { eventId: null, data: null, failed: false, waiting: false }
+const INITIAL = { eventId: null, status: null, failed: false }
 
 /**
  * 이벤트 응모 현황(GET /api/events/{id}/entry-status)을 조회한다. 표시용 값이다.
- * - live(진행 중)이면 화면이 보이는 동안 POLL_MS마다 다시 조회한다.
- * - refreshKey가 바뀌면(응모 후 이벤트 상세를 다시 받음) 내 응모권 수가 늘 때까지 제한적으로 다시 조회한다.
- *   그동안과, 끝까지 늘지 않았을 때는 응모 전 수치를 최신처럼 보여주지 않으려고 값을 내보내지 않는다.
- *   이후 주기 조회에서 증가가 확인되면 다시 보여준다.
- * - entering이 true가 되는 순간(응모 요청을 보내기 시작)의 내 응모권 수를 응모 전 기준으로 고정한다.
- *   응모 후 상세 재조회가 끝나기 전에 주기 조회가 먼저 증가한 값을 받아도 그 값이 기준이 되지 않게 하려는 것이다.
- * - replay가 true면(DUPLICATE_REPLAY: 이미 접수된 요청의 재시도) 응모권이 다시 늘지 않으므로 증가를 기다리지 않는다.
- * - 조회가 겹치면 가장 최근에 시작한 요청의 응답만 반영한다.
+ * 조회·갱신·응모 직후 대기 규칙은 entryStatusController에 있고(단위 테스트됨), 여기서는 React 상태에 연결만 한다.
  * @returns {{ status: object|null, failed: boolean }} status가 null이면 값이 없거나 믿을 수 없는 상태
  */
 export function useEntryStatus(eventId, { enabled, live, refreshKey, replay = false, entering = false }) {
-  const [state, setState] = useState(INITIAL)
-  const latest = useRef(null)
-  const prevKey = useRef(undefined)
-  const owner = useRef(null)
-  const frozenBaseline = useRef(null)
-  // 응모 직후 아직 증가를 확인하지 못한 기준값. effect가 다시 실행돼도(live·replay 변경 등) 확인 전까지는 유지한다.
-  const pending = useRef(null)
-
-  // 응모 요청을 보내기 시작하는 순간의 수치를 응모 전 기준으로 고정한다(이후 조회가 latest를 바꿔도 기준은 그대로).
-  useEffect(() => {
-    if (entering) frozenBaseline.current = latest.current?.myTicketCount ?? null
-  }, [entering])
+  const [view, setView] = useState(INITIAL)
+  const controller = useRef(null)
 
   useEffect(() => {
     if (!enabled) return undefined
-    // 다른 이벤트로 바뀌면 이전 이벤트의 기준값을 버린다(상태는 eventId로 걸러 읽는다).
-    if (owner.current !== eventId) {
-      owner.current = eventId
-      latest.current = null
-      prevKey.current = undefined
-      frozenBaseline.current = null
-      pending.current = null
-    }
-    let cancelled = false
-    // 응모 직후 재조회가 진행 중일 때는 주기 조회를 쉬어 두 조회가 값을 덮어쓰지 않게 한다.
-    let bursting = false
-    const begin = createLatestGate()
-    const baseline = frozenBaseline.current ?? latest.current?.myTicketCount ?? null
-    const afterEntry = !replay && prevKey.current !== undefined && prevKey.current !== refreshKey && baseline !== null
-    if (prevKey.current !== refreshKey) frozenBaseline.current = null
-    prevKey.current = refreshKey
-    if (afterEntry) pending.current = baseline
-    // 이미 접수된 요청의 재시도는 응모권이 다시 늘지 않으므로 이전에 남은 증가 대기를 풀어 준다.
-    if (replay) pending.current = null
-
-    // 성공이면 응답, 실패면 undefined, 이미 정리된 뒤면 null
-    async function fetchStatus() {
-      try {
-        const data = await getEntryStatus(eventId)
-        return cancelled ? null : data
-      } catch {
-        return cancelled ? null : undefined
-      }
-    }
-
-    const base = (prev) => (prev.eventId === eventId ? prev : { ...INITIAL, eventId })
-    function show(data) {
-      latest.current = data
-      setState({ eventId, data, failed: false, waiting: false })
-    }
-    function hide() {
-      setState((prev) => ({ ...base(prev), failed: true, waiting: false }))
-    }
-
-    async function refresh() {
-      const isLatest = begin()
-      const data = await fetchStatus()
-      if (data === null || !isLatest()) return
-      if (!data) return hide()
-      // 응모 직후 증가를 확인하지 못한 동안은 주기 조회가 옛 값을 다시 보여주지 못하게 막는다.
-      if (pending.current !== null) {
-        if (data.myTicketCount <= pending.current) return
-        pending.current = null
-      }
-      show(data)
-    }
-
-    if (pending.current !== null) {
-      bursting = true
-      setState((prev) => ({ ...base(prev), waiting: true }))
-      waitForIncrease({
-        fetchStatus,
-        baseline: pending.current,
-        maxRetries: MAX_RETRIES,
-        retryMs: RETRY_MS,
-        cancelled: () => cancelled,
-      }).then((result) => {
-        if (!result) return
-        bursting = false
-        if (result.confirmed) {
-          pending.current = null
-          show(result.data)
-        } else {
-          hide()
-        }
-      })
-    } else {
-      refresh()
-    }
-
-    const poll = live
-      ? setInterval(() => {
-          if (document.visibilityState === 'visible' && !bursting) refresh()
-        }, POLL_MS)
-      : null
-    const onVisible = () => {
-      if (live && document.visibilityState === 'visible' && !bursting) refresh()
-    }
+    const created = createEntryStatusController({
+      fetchStatus: () => getEntryStatus(eventId),
+      onChange: (next) => setView({ eventId, ...next }),
+      isVisible: () => document.visibilityState === 'visible',
+    })
+    controller.current = created
+    const onVisible = () => created.onVisible()
     document.addEventListener('visibilitychange', onVisible)
-
     return () => {
-      cancelled = true
-      if (poll) clearInterval(poll)
       document.removeEventListener('visibilitychange', onVisible)
+      created.dispose()
+      controller.current = null
     }
-  }, [eventId, enabled, live, refreshKey, replay])
+  }, [eventId, enabled])
+
+  useEffect(() => {
+    controller.current?.setEntering(entering)
+  }, [entering, eventId, enabled])
+
+  useEffect(() => {
+    controller.current?.sync({ live, replay, refreshKey })
+  }, [eventId, enabled, live, replay, refreshKey])
 
   // 다른 이벤트에서 받은 값은 이 이벤트의 것이 아니므로 쓰지 않는다.
-  const mine = state.eventId === eventId ? state : INITIAL
-  return { status: mine.failed || mine.waiting ? null : mine.data, failed: mine.failed }
+  const mine = view.eventId === eventId ? view : INITIAL
+  return { status: mine.status, failed: mine.failed }
 }

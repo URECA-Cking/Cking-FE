@@ -18,6 +18,7 @@ import { formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '.
 import { displayStatusMeta, eventStatusMeta, isEntryOpen } from '../utils/eventStatus.js'
 import {
   COUPON_TYPE,
+  EXPECTED_SYNC_MS,
   EXPECTED_TTL_MS,
   applyExpectedBalances,
   clampEntryCount,

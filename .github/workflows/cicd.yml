@@ -34,10 +34,20 @@ jobs:
       - run: npm run test
       - run: npm run build
 
+  # 배포 워크플로는 develop에 머지된 뒤에야 실행되어, 오류가 배포 때 드러난다.
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: >
+          docker run --rm -v "$PWD:/repo:ro" -w /repo
+          rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+          -no-color
+
   deploy:
     name: Deploy ${{ matrix.app }}
     # 검증이 끝나야 배포한다. lint가 실패한 커밋이 배포되지 않도록 한 워크플로에 묶는다.
-    needs: build
+    needs: [build, actionlint]
     # develop만 배포한다. PR에서는 이 job을 건너뛴다.
     # 실제 차단은 IAM 신뢰 정책(sub = develop)이 하고, 이 조건은 실패가 아닌 skipped로 드러내기 위한 것이다.
     if: github.ref == 'refs/heads/develop'

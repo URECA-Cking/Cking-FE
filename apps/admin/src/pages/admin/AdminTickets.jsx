@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getAdminTicketBalance, getAdminTicketHistory, resyncCommonTickets, resyncCreatorTickets } from '../../api/admin.js'
+import { getAdminTicketBalance, getAdminTicketHistory, isRedisBalanceQueryFailed, resyncCommonTickets, resyncCreatorTickets } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
 import { AdminPageHeader } from '../../components/AdminContent.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
@@ -131,7 +131,8 @@ function TicketResults({ scope }) {
           <button type="button" onClick={() => void balance.reload()} disabled={balance.loading} className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-50">잔액 새로고침</button>
         </div>
         {balance.loading && <LoadingBlock label="잔액을 조회하는 중..." />}
-        {!balance.loading && balance.error && <ErrorBlock message={balance.error} onRetry={balance.reload} />}
+        {!balance.loading && isRedisBalanceQueryFailed(balance.error) && <RedisBalanceQueryError onRetry={balance.reload} />}
+        {!balance.loading && balance.error && !isRedisBalanceQueryFailed(balance.error) && <ErrorBlock message={balance.error} onRetry={balance.reload} />}
         {!balance.loading && !balance.error && data && (
           <div className="p-5">
             <div className="grid gap-4 sm:grid-cols-3">
@@ -179,6 +180,17 @@ function TicketResults({ scope }) {
 /** 한 저장소의 잔액 또는 비교 상태를 카드로 표시한다. */
 function BalanceCard({ label, value, detail }) {
   return <div className="rounded-md bg-slate-50 p-4"><p className="text-sm text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold text-slate-950">{value}</p>{detail && <p className="mt-1 text-xs text-slate-500">{detail}</p>}</div>
+}
+
+/** Redis 통신·명령·잔액 파싱 실패로 잔액 비교를 할 수 없는 상태를 알린다. */
+function RedisBalanceQueryError({ onRetry }) {
+  return (
+    <div className="py-space-xl text-center">
+      <p className="text-body-sm font-medium text-red-700">Redis 잔액을 조회하지 못했습니다.</p>
+      <p className="mt-1 text-body-sm text-on-surface-variant">Redis 조회가 실패해 MySQL 잔액과의 비교 결과를 표시할 수 없습니다.</p>
+      <button type="button" onClick={onRetry} className="mt-2 rounded-xl bg-surface-container px-4 py-2 text-label-sm text-on-surface">다시 시도</button>
+    </div>
+  )
 }
 
 /** 응모권 원장 항목의 유형·증감·관련 ID·사유를 표시한다. */

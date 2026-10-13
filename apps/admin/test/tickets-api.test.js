@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getAdminTicketBalance, getAdminTicketHistory, resyncCommonTickets, resyncCreatorTickets } from '../src/api/admin.js'
+import { getAdminTicketBalance, getAdminTicketHistory, isRedisBalanceQueryFailed, resyncCommonTickets, resyncCreatorTickets } from '../src/api/admin.js'
+import { ApiError } from '../src/api/client.js'
 import { clearAccessToken, setAccessToken } from '../src/api/token.js'
 
 /** 테스트 응답을 관리자 API의 공통 봉투 형식으로 만든다. */
@@ -49,4 +50,10 @@ test('관리자 응모권 조회와 수동 보정은 종류별 계약 필드와 
     globalThis.fetch = previousFetch
     restoreStorage()
   }
+})
+
+test('Redis 잔액 조회 실패는 키 미존재와 다른 오류 코드로 판별한다', () => {
+  assert.equal(isRedisBalanceQueryFailed(new ApiError('REDIS_BALANCE_QUERY_FAILED')), true)
+  assert.equal(isRedisBalanceQueryFailed(new ApiError('RESOURCE_NOT_FOUND')), false)
+  assert.equal(isRedisBalanceQueryFailed(null), false)
 })

@@ -223,6 +223,11 @@ export function getAdminTicketBalance({ memberId, couponType, creatorId }) {
   return get('/api/admin/tickets/balance', { memberId, couponType, ...(couponType === 'CREATOR' ? { creatorId } : {}) })
 }
 
+/** Redis 잔액 조회 장애를 일반 잔액 조회 오류와 구분한다. */
+export function isRedisBalanceQueryFailed(error) {
+  return error?.code === 'REDIS_BALANCE_QUERY_FAILED'
+}
+
 /** 지정 회원의 응모권 원장을 커서 기준으로 조회한다. */
 export function getAdminTicketHistory({ memberId, couponType, creatorId, cursor, size = 20 }) {
   return get('/api/admin/tickets/history', { memberId, couponType, ...(couponType === 'CREATOR' ? { creatorId } : {}), cursor, size })

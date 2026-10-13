@@ -18,9 +18,9 @@
 | Method | Endpoint | 화면/기능 | FE 상태 | BE 계약 |
 | --- | --- | --- | --- | --- |
 | GET | `/api/creators` | 홈·탐색·온보딩·마이페이지의 Creator 목록/프로필 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
-| GET | `/api/creators/{id}/space`, `/api/creator-spaces/{slug}` | Creator Space·공유 링크 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| GET | `/api/creators/{id}/space`, `/api/creator-spaces/{slug}` | Creator Space·공유 링크. 응답의 `followerCount`를 프로필 팔로워 통계로 표시(0 포함, 값이 없으면 칸 숨김) | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
 | GET | `/api/events`, `/api/events/{eventId}` | 홈·탐색·이벤트 상세 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
-| POST | `/api/events/{eventId}/entries` | 이벤트 응모(멱등 키) | 연동 | [Entry](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/entry-api.md) |
+| POST | `/api/events/{eventId}/entries` | 이벤트 응모(멱등 키, `couponType`으로 크리에이터·공용 응모권 선택) | 연동 | [Entry](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/entry-api.md) |
 | GET | `/api/events/{eventId}/entries/me` | 내 응모 조회 | 연동 | [Entry](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/entry-api.md) |
 | GET | `/api/events/{eventId}/entry-status` | 이벤트 상세의 응모 현황 카드(참여자·누적 응모권·내가 응모한 수, `realtime`이면 "실시간"·아니면 "집계")와 홈 응모 티켓의 "N명 참여". 표시용이라 응모 판단에는 쓰지 않고, 예정 이벤트는 조회하지 않음 | 연동 | [Entry](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/entry-api.md) |
 | GET | `/api/events/{eventId}/winners`, `/api/me/winners` | 이벤트 상세·내 당첨 | 연동 | [Winner](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/winner/api.md) |
@@ -31,12 +31,13 @@
 | GET | `/api/creators/{creatorId}/tickets`, `/api/creators/{creatorId}/tickets/history` | 잔액·응모권 원장 | 연동 | [Ticket](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/ticket/api.md) |
 | GET/POST | `/api/creators/{creatorId}/missions`, `/api/creators/{creatorId}/missions/{missionId}/complete` | Creator Space 미션 조회·완료 | 연동 | [Mission](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/mission/api.md) |
 | GET/POST | `/api/creators/{creatorId}/youtube-channel`, `/api/creators/{creatorId}/missions/{missionId}/subscription-verifications`, `.../me/latest` | Creator Space의 YouTube 구독 인증 채널 안내·이미지 제출·비동기 상태 조회 | 연동 | [Subscription Verification](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/subscription-verification/api.md) |
+| GET/POST | `/api/creators/{creatorId}/quizzes`, `/api/creators/{creatorId}/quizzes/{quizId}`, `/api/creators/{creatorId}/quizzes/{quizId}/attempts`, `.../my-attempt` | Creator Space Quiz 탭. 게시 Quiz 목록·상세는 공개, 답안 제출·채점 결과·내 응시 결과·응모권 지급 상태(`reward.paymentStatus`)는 로그인 | 연동 | [AI Quiz](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/api.md), [Fan Quiz 응시](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/attempt-api.md) |
 | GET/POST | `/api/missions`, `/api/missions/{missionId}/complete` | 홈 공용 출석 미션 조회·완료 | 연동 | [Mission](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/mission/api.md) |
 | GET | `/api/tickets/common/history` | 홈 출석 도장(최근 7일 출석 적립 기록) | 연동 | [Ticket](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/ticket/api.md) |
 | GET | `/api/creators/{creatorId}/calendar/schedules` | Creator Space 공개 캘린더 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
 | GET/PUT/DELETE | `/api/me/calendar/schedules`, `/api/me/calendar/schedules/{scheduleId}` | 내 캘린더 조회·담기·빼기 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
 | GET | `/api/creators/{creatorId}/posts`, `/api/creators/{creatorId}/posts/{postId}` | Space 게시물 목록·상세 | 연동 | [Post](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/api.md) |
-| GET/POST/PATCH/DELETE | `/api/creators/{creatorId}/posts/{postId}/comments`, `/api/creators/{creatorId}/posts/{postId}/comments/{commentId}/original` | 게시물 댓글 조회·작성·수정·삭제, 필터링된 댓글 원문 보기 | 연동 | [Comment](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/comment-api.md) |
+| GET/POST/PATCH/DELETE | `/api/creators/{creatorId}/posts/{postId}/comments`, `/api/creators/{creatorId}/posts/{postId}/comments/{commentId}/original` | 게시물 댓글 조회·작성·수정·삭제, 필터링된 댓글 원문 보기. 작성자 프로필 사진(`authorProfileImageUrl`)을 댓글 옆에 표시하고, 가려진 댓글의 `authorName` null은 "가려진 댓글"로 대체 | 연동 | [Comment](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/comment-api.md) |
 | POST | `/api/creators/{creatorId}/posts/{postId}/comments/{commentId}/reports` | 게시물 댓글 신고 | 연동 | [Comment](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/comment-api.md) |
 | GET | `/api/interests`, `/api/me/interests` | 온보딩·탐색 분야 편집의 관심 분야 조회 | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |
 | PUT | `/api/me/interests` | 온보딩·탐색 분야 편집의 관심 분야 저장(0~3개) | 연동 | [Interest](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/interest/api.md) |

@@ -268,6 +268,35 @@ test('진행 중(live)인 이벤트의 주기 조회는 횟수 제한 없이 계
   assert.equal(t.hasPoll(), true)
 })
 
+test('refreshKey가 null로 돌아가는 것(다음 응모 준비)은 응모 신호가 아니고, null에서 새 값이 되면 신호다', async () => {
+  const t = setup({ responses: [s(2)] })
+  t.controller.sync({ live: true, refreshKey: null })
+  await flush()
+  t.controller.setEntering(true)
+  t.controller.sync({ live: true, refreshKey: { accepted: true } }) // 응모 수락
+  await flush()
+  assert.equal(t.last().status, null) // 증가 확인 전이라 숨김
+  t.setQueue(s(3))
+  t.tick()
+  await flush()
+  assert.equal(t.last().status.myTicketCount, 3)
+  // 다음 응모를 준비하면서 결과가 비워진다. 응모 신호가 아니므로 숨기지 않는다.
+  t.controller.sync({ live: true, refreshKey: null })
+  await flush()
+  assert.equal(t.last().status.myTicketCount, 3)
+  assert.equal(t.last().failed, false)
+})
+
+test('응모와 무관하게 이벤트 상세가 다시 받아져도(키가 그대로) 현황을 숨기지 않는다', async () => {
+  const t = setup({ responses: [s(2)] })
+  t.controller.sync({ live: true, refreshKey: null })
+  await flush()
+  t.controller.sync({ live: true, refreshKey: null })
+  t.controller.sync({ live: true, refreshKey: null })
+  await flush()
+  assert.ok(t.views.every((v) => v.status !== null))
+})
+
 test('타이머는 객체의 메서드가 아니라 떼어 낸 함수로 호출한다(브라우저 setInterval은 this가 window여야 함)', async () => {
   const requireUnbound = function (fn) {
     return function (...args) {

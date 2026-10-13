@@ -4,7 +4,8 @@ import { createLatestGate, waitForIncrease } from './entryStatusSettle.js'
  * 이벤트 응모 현황 조회의 상태 흐름. React와 무관하게 두어 단위 테스트할 수 있다(훅은 이걸 감싸기만 한다).
  *
  * - sync({ live, replay, refreshKey })를 의존값이 바뀔 때마다 부른다. live면 pollMs마다 다시 조회한다.
- * - refreshKey가 바뀌면(응모 후 이벤트 상세를 다시 받음) 내 응모권 수가 늘 때까지 제한적으로 다시 조회한다.
+ * - refreshKey가 새 값(null이 아님)으로 바뀌면(응모가 수락됨) 내 응모권 수가 늘 때까지 제한적으로 다시 조회한다.
+ *   null로 돌아가는 것(다음 응모 준비)은 신호가 아니다.
  *   그동안과 끝까지 늘지 않았을 때는 응모 전 수치를 최신처럼 보여주지 않으려고 status를 null로 둔다.
  *   이후 주기 조회에서 증가가 확인되면 다시 보여준다. 이 대기 상태는 sync가 다시 불려도 유지한다.
  * - setEntering(true)는 응모 요청을 보내기 시작하는 순간의 내 응모권 수를 응모 전 기준으로 고정한다.
@@ -83,7 +84,7 @@ export function createEntryStatusController({
     const begin = createLatestGate()
 
     const baseline = frozen ?? latest?.myTicketCount ?? null
-    const afterEntry = prevKey !== undefined && prevKey !== refreshKey && baseline !== null
+    const afterEntry = refreshKey != null && prevKey !== undefined && prevKey !== refreshKey && baseline !== null
     if (prevKey !== refreshKey) frozen = null
     prevKey = refreshKey
     // 이미 접수된 요청의 재시도(replay)는 응모권이 다시 늘지 않으므로 증가를 기다리지 않고, 이전에 남은 대기도 풀어 준다.

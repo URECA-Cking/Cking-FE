@@ -62,7 +62,7 @@ export default {
         'schedule-content-release': themeColor('schedule-content-release'),
         'schedule-other': themeColor('schedule-other'),
         'surface-rose': '#fffbfd',
-        'surface-rose-muted': '#fdf2f6',
+        'surface-rose-muted': themeColor('surface-rose-muted'),
         // 유리 질감 배경. 투명도(0.78)는 고정이고, 색만 모드에 따라 바뀐다(다크는 어두운 유리, 일반은 흰 유리).
         'surface-glass': 'rgb(var(--color-surface-glass) / 0.78)',
         'surface-glass-dark': 'rgba(15, 23, 42, 0.75)',

@@ -11,6 +11,8 @@ import { createLatestGate, waitForIncrease } from './entryStatusSettle.js'
  *   응모 후 재조회가 끝나기 전에 주기 조회가 증가한 값을 받아도 그 값이 기준이 되지 않게 하려는 것이다.
  * - replay(DUPLICATE_REPLAY: 이미 접수된 요청의 재시도)는 응모권이 다시 늘지 않으므로 증가를 기다리지 않는다.
  * - 조회가 겹치면 가장 최근에 시작한 요청의 응답만 반영한다.
+ * - 이벤트가 마감돼 live가 아니어도 증가 확인 전에는 recoveryPolls번까지 주기 조회를 이어 간다.
+ *   그래도 확인하지 못하면 멈추고, 사용자가 retry()로 다시 확인할 수 있다.
  *
  * @param {{ fetchStatus: () => Promise<object>, onChange: (view: { status: object|null, failed: boolean }) => void,
  *           isVisible?: () => boolean, pollMs?: number, retryMs?: number, maxRetries?: number,
@@ -25,6 +27,8 @@ export function createEntryStatusController({
   // 응모 직후에는 DB 반영(비동기)과 캐시 만료를 기다리며 짧게 다시 묻는다. 6번 × 1.5초 ≈ 9초로 5초 캐시를 넘긴다.
   retryMs = 1_500,
   maxRetries = 6,
+  // 마감돼 live가 아닌데 응모 직후 증가를 확인하지 못했을 때 이어 가는 주기 조회 횟수(약 60초)
+  recoveryPolls = 6,
   timers = { setInterval, clearInterval },
   wait,
 }) {
@@ -41,6 +45,8 @@ export function createEntryStatusController({
   let pollTimer = null
   let bursting = false
   let current = null
+  let lastArgs = null
+  let recoveryLeft = 0
 
   const emit = () => onChange({ status: failed || waiting ? null : data, failed })
   function show(next) {
@@ -56,16 +62,22 @@ export function createEntryStatusController({
     emit()
   }
 
-  function stopRun() {
-    generation += 1
+  function stopPoll() {
     if (pollTimer !== null) stopTimer(pollTimer)
     pollTimer = null
+  }
+
+  function stopRun() {
+    generation += 1
+    stopPoll()
     current = null
   }
 
   function sync({ live = false, replay = false, refreshKey } = {}) {
     stopRun()
     bursting = false
+    recoveryLeft = 0
+    lastArgs = { live, replay, refreshKey }
     const gen = generation
     const cancelled = () => gen !== generation
     const begin = createLatestGate()
@@ -114,6 +126,7 @@ export function createEntryStatusController({
           pending = null
           show(result.data)
         } else {
+          recoveryLeft = recoveryPolls
           hide()
         }
       })
@@ -122,9 +135,15 @@ export function createEntryStatusController({
     }
 
     // 응모 직후 재조회가 진행 중일 때는 주기 조회를 쉬어 두 조회가 값을 덮어쓰지 않게 한다.
-    if (live) {
+    // 마감돼 live가 아니어도 증가 확인 전에는 제한적으로 이어 간다.
+    if (live || pending !== null) {
       pollTimer = startTimer(() => {
-        if (isVisible() && !bursting) refresh()
+        if (!isVisible() || bursting) return
+        if (!live) {
+          if (pending === null || recoveryLeft <= 0) return stopPoll()
+          recoveryLeft -= 1
+        }
+        refresh()
       }, pollMs)
     }
   }
@@ -135,7 +154,12 @@ export function createEntryStatusController({
       if (on) frozen = latest?.myTicketCount ?? null
     },
     onVisible() {
-      if (current?.live && isVisible() && !bursting) current.refresh()
+      if (!current || !isVisible() || bursting) return
+      if (current.live || (pending !== null && recoveryLeft > 0)) current.refresh()
+    },
+    /** 조회를 포기한 뒤 사용자가 다시 확인한다. 증가 확인 전이면 응모 직후 재조회부터 다시 시작한다. */
+    retry() {
+      if (lastArgs) sync(lastArgs)
     },
     dispose: stopRun,
   }

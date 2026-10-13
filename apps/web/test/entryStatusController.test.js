@@ -8,7 +8,7 @@ const flush = async () => {
 const s = (myTicketCount, extra = {}) => ({ participantCount: 1, totalTicketCount: myTicketCount, myTicketCount, realtime: false, ...extra })
 
 /** 가짜 타이머·보임 여부·응답 큐로 컨트롤러를 만든다. */
-function setup({ responses = [s(2)], visible = true, maxRetries = 3 } = {}) {
+function setup({ responses = [s(2)], visible = true, maxRetries = 3, recoveryPolls } = {}) {
   const views = []
   let tickFn = null
   let calls = 0
@@ -29,6 +29,7 @@ function setup({ responses = [s(2)], visible = true, maxRetries = 3 } = {}) {
     },
     wait: () => Promise.resolve(),
     maxRetries,
+    recoveryPolls,
   })
   return {
     controller,
@@ -205,6 +206,66 @@ test('정리(dispose) 뒤에 도착한 응답은 반영하지 않고 주기 조�
   await flush()
   assert.equal(t.views.length, 0)
   assert.equal(t.hasPoll(), false)
+})
+
+test('응모 직후 이벤트가 마감돼(live 아님) 재시도 안에 반영되지 않아도 주기 조회를 이어 가고, 증가하면 보여준 뒤 멈춘다', async () => {
+  const t = setup({ responses: [s(2)] })
+  t.controller.sync({ live: false, refreshKey: 'e1' })
+  await flush()
+  assert.equal(t.hasPoll(), false) // 마감 이벤트는 평소에는 주기 조회를 하지 않는다
+  t.setQueue(s(2))
+  t.controller.setEntering(true)
+  t.controller.sync({ live: false, refreshKey: 'e2' })
+  await flush()
+  assert.equal(t.last().status, null) // 재시도 안에 반영되지 않아 숨김
+  assert.equal(t.hasPoll(), true) // 그래도 조회를 이어 간다
+  t.setQueue(s(4))
+  t.tick()
+  await flush()
+  assert.equal(t.last().status.myTicketCount, 4)
+  t.tick()
+  await flush()
+  assert.equal(t.hasPoll(), false) // 증가를 확인했으니 마감 이벤트의 주기 조회는 멈춘다
+})
+
+test('마감 뒤 이어 가는 조회는 횟수가 제한되고, 포기한 뒤에는 retry()로 다시 확인할 수 있다', async () => {
+  const t = setup({ responses: [s(2)], recoveryPolls: 2 })
+  t.controller.sync({ live: false, refreshKey: 'e1' })
+  await flush()
+  t.setQueue(s(2))
+  t.controller.setEntering(true)
+  t.controller.sync({ live: false, refreshKey: 'e2' })
+  await flush()
+  const before = t.calls()
+  t.tick()
+  await flush()
+  t.tick()
+  await flush()
+  assert.equal(t.calls(), before + 2) // 제한된 횟수(2번)만 조회한다
+  t.tick() // 횟수를 다 썼으니 멈춘다
+  await flush()
+  assert.equal(t.calls(), before + 2)
+  assert.equal(t.hasPoll(), false)
+  assert.equal(t.last().status, null)
+  assert.equal(t.last().failed, true)
+  // 사용자가 다시 확인한다. 이번에는 반영돼 있다.
+  t.setQueue(s(5))
+  t.controller.retry()
+  await flush()
+  assert.equal(t.last().status.myTicketCount, 5)
+  assert.equal(t.last().failed, false)
+})
+
+test('진행 중(live)인 이벤트의 주기 조회는 횟수 제한 없이 계속된다', async () => {
+  const t = setup({ responses: [s(2)], recoveryPolls: 1 })
+  t.controller.sync({ live: true, refreshKey: 'e1' })
+  await flush()
+  for (let i = 0; i < 5; i += 1) {
+    t.tick()
+    await flush()
+  }
+  assert.equal(t.calls(), 6)
+  assert.equal(t.hasPoll(), true)
 })
 
 test('타이머는 객체의 메서드가 아니라 떼어 낸 함수로 호출한다(브라우저 setInterval은 this가 window여야 함)', async () => {

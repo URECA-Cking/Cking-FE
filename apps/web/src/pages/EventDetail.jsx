@@ -4,7 +4,7 @@ import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import EntryStatusCard from '../components/ticket/EntryStatusCard.jsx'
 import BottomSheet from '../components/ui/BottomSheet.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
-import { LoadingBlock, ErrorBlock, StatusPill, Spinner } from '../components/ui/States.jsx'
+import { LoadingBlock, ErrorBlock, StatusPill, Spinner, InlineRetry } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { useEntryStatus } from '../hooks/useEntryStatus.js'
@@ -205,9 +205,11 @@ export default function EventDetail() {
               <span className="text-outline-variant">•</span>
               <span>{formatEventDate(event.endAt)} 마감</span>
             </div>
-            {event.displayStatus !== 'UPCOMING' && !entryStatus.failed && (
+            {event.displayStatus !== 'UPCOMING' && (
               <div className="pt-space-xs">
-                <EntryStatusCard status={entryStatus.status} />
+                {entryStatus.failed
+                  ? <InlineRetry message="응모 현황을 확인하지 못했어요." onRetry={entryStatus.retry} />
+                  : <EntryStatusCard status={entryStatus.status} />}
               </div>
             )}
             {event.description && (

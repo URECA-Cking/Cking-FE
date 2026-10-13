@@ -5,6 +5,7 @@ import BackButton from '../components/ui/BackButton.jsx'
 import { useAppBack } from '../hooks/useAppBack.js'
 import EventCard from '../components/creator/EventCard.jsx'
 import CreatorPosts from '../components/creator/CreatorPosts.jsx'
+import CreatorQuizzes from '../components/creator/CreatorQuizzes.jsx'
 import MyEventManager from '../components/creator/MyEventManager.jsx'
 import SpaceEditSheet from '../components/creator/SpaceEditSheet.jsx'
 import CreatorCalendar, { UpcomingSchedules } from '../components/creator/CreatorCalendar.jsx'
@@ -32,6 +33,7 @@ import { isYoutubeChannelForCreator } from '../utils/subscriptionVerificationSta
 const TABS = [
   { id: 'home', label: '홈' },
   { id: 'missions', label: '미션' },
+  { id: 'quiz', label: 'Quiz' },
   { id: 'events', label: '이벤트' },
   { id: 'calendar', label: '캘린더' },
   { id: 'posts', label: '게시물' },
@@ -542,6 +544,18 @@ export default function CreatorSpace() {
 
         {tab === 'missions' && (
           <div className="flex flex-col gap-space-sm px-margin py-space-sm">{missionList}</div>
+        )}
+
+        {tab === 'quiz' && (
+          <CreatorQuizzes
+            key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}`}
+            creatorId={creator.creatorId}
+            authenticated={authenticated}
+            sessionLoading={sessionLoading}
+            isMine={isMine}
+            onLogin={goLogin}
+            onRewardPaid={balance.reload}
+          />
         )}
 
         {tab === 'calendar' && <CreatorCalendar creatorId={creator.creatorId} isMine={isMine} />}

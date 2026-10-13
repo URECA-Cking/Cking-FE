@@ -11,7 +11,7 @@ import { formatDday, formatNumber } from '../../utils/format.js'
 export default function EntryTicket({ event, ticketsOwned, applied = null, featured = false }) {
   const creator = useCreatorProfile(event.creatorId)
   // 참여자 수는 표시용이라 조회 중이거나 실패하면 그 문구만 뺀다(응모 버튼과 무관). 홈에 보이는 동안 주기적으로 갱신한다.
-  const { status } = useEntryStatus(event.eventId, { enabled: true, live: event.displayStatus === 'IN_PROGRESS', refreshKey: null })
+  const { status } = useEntryStatus(event.eventId, { enabled: true, live: event.displayStatus === 'IN_PROGRESS' })
   const participants = status?.participantCount
 
   return (

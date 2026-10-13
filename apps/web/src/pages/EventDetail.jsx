@@ -66,17 +66,12 @@ export default function EventDetail() {
     { fallbackMessage: '이벤트 상세를 불러오지 못했습니다.' },
   )
 
-  // 예정 이벤트는 응모가 없어 조회하지 않는다. 진행 중이면 주기적으로 다시 받고, 응모가 수락되면(새 응모 결과 객체)
-  // 내 응모권 수가 반영될 때까지 제한적으로 다시 받는다. 이벤트 상세를 조용히 다시 받는 것(syncBalances)은 시트를 열 때나
-  // 지연 재조회에서도 일어나 응모와 무관하므로 신호로 쓰지 않는다.
+  // 예정 이벤트는 응모가 없어 조회하지 않는다. 진행 중이면 주기적으로 다시 받는다. 응모는 submitEntry가
+  // beginEntry·acceptEntry로 알리고, 수락된 응모가 현황에 반영될 때까지 현황을 숨기고 다시 조회한다.
+  // 이벤트 상세를 조용히 다시 받는 것(syncBalances)은 시트를 열 때나 지연 재조회에서도 일어나 응모와 무관하다.
   const entryStatus = useEntryStatus(eventId, {
     enabled: Boolean(event) && event.displayStatus !== 'UPCOMING',
     live: event?.displayStatus === 'IN_PROGRESS',
-    refreshKey: result?.accepted ? result : null,
-    // 이미 접수된 요청의 재시도(DUPLICATE_REPLAY)는 응모권이 다시 늘지 않는다.
-    replay: result?.code === 'DUPLICATE_REPLAY',
-    // 응모 요청을 보내는 동안의 수치를 응모 전 기준으로 삼는다.
-    entering: phase === 'submitting',
   })
 
   // 응모 뒤 잔액을 조용히 다시 불러온다(화면 전체를 로딩 상태로 바꾸는 reload와 달리 시트와 입력을 그대로 둔다).
@@ -211,6 +206,8 @@ export default function EventDetail() {
   async function submitEntry() {
     if (!attempt) return
     setPhase('submitting')
+    // 응모 현황에 반영됐는지 확인할 필요 수치의 기준을 이 시점에 잡는다. 같은 requestId로 재시도하면 처음 기준을 유지한다.
+    entryStatus.beginEntry(requestId, attempt.count)
     // 재시도해도 같은 requestId·종류·수량을 쓰므로 백엔드가 DUPLICATE_REPLAY로 안전하게 처리한다.
     const envelope = await applyEntry(eventId, {
       requestId,
@@ -226,6 +223,8 @@ export default function EventDetail() {
     const outcome = describeEntryResult(envelope)
     setResult(outcome)
     setPhase('done')
+    // SUCCESS와 DUPLICATE_REPLAY 모두 원래 응모가 현황에 반영됐는지 확인해야 한다.
+    if (outcome.accepted) entryStatus.acceptEntry(requestId)
     showToast(outcome.message, { icon: outcome.accepted ? 'check_circle' : 'error' })
 
     if (outcome.accepted) {

@@ -15,6 +15,7 @@
 | `/admin/redraws`, `/admin/redraws/:redrawRequestId` | 재추첨 요청 생성·Table 목록(심사/실행 상태 분리)·상세 심사·실행·실패 Drawing 재시도 |
 | `/admin/abuse-detections`, `/admin/abuse-detections/:detectionId` | 이상행위 탐지 목록·Evidence 상세·`CONFIRMED`/`FALSE_POSITIVE` 검토 |
 | `/admin/dead-streams` | Dead Stream 조회·replay |
+| `/admin/tickets` | 회원별 Creator 전용·공용 응모권 잔액 비교, 변동 이력 조회, DB 기준 수동 재동기화 |
 | `/admin/comment-reports` | 신고된 게시글 댓글 목록(처리 상태 필터)과 댓글 숨김·신고 반려 |
 | `/admin/space-templates` | Creator Space 템플릿 목록·추가·수정·활성화 (활성 템플릿은 항상 하나, Creator 승인 시 복사해 스페이스 생성) |
 
@@ -37,6 +38,8 @@ HTTP 전송·토큰 저장소·MaterialIcon·포맷터·조회 훅은 `packages/
 이상행위 탐지는 자동 차단이나 회원 제재를 수행하지 않는다. 관리자는 서버 페이지네이션으로 Detection을 조회하고 저장된 Evidence를 확인한 뒤 `CONFIRMED` 또는 `FALSE_POSITIVE`를 한 번 기록할 수 있다. 탐지 설정과 Rule 변경은 Admin UI 범위 밖이다.
 
 목록의 탐지 기간은 `datetime-local` 입력을 UTC RFC 3339로 변환해 전달한다. 종료 시각은 사용자가 고른 분의 마지막 시각(`:59.999999999`)까지 포함하며, 동일 조건으로 조회를 다시 실행하면 최신 서버 목록을 다시 읽는다.
+
+응모권 관리는 대상 회원 ID와 종류를 직접 입력해 조회한다. Creator 전용 응모권일 때만 Creator ID를 전달하며, 이력은 서버 cursor로 페이지를 이동한다. Redis·MySQL 잔액 중 하나가 없으면 비교 불가로 표시한다. 두 값의 차이는 비동기 반영 지연일 수 있으므로 자동 보정하지 않는다. 수동 재동기화는 운영자가 사유를 입력하고 확인한 뒤에만 호출하며, 성공 후 잔액과 이력을 다시 조회한다. 요청·응답·오류 규약은 [BE Ticket API](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/ticket/api.md)를 따른다.
 
 ## 로컬 E2E 확인
 

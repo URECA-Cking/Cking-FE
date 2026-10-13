@@ -22,6 +22,7 @@
 | GET | `/api/events`, `/api/events/{eventId}` | 홈·탐색·이벤트 상세 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | POST | `/api/events/{eventId}/entries` | 이벤트 응모(멱등 키, `couponType`으로 크리에이터·공용 응모권 선택) | 연동 | [Entry](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/entry-api.md) |
 | GET | `/api/events/{eventId}/entries/me` | 내 응모 조회 | 연동 | [Entry](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/entry-api.md) |
+| GET | `/api/events/{eventId}/entry-status` | 이벤트 상세의 응모 현황 카드(참여자·누적 응모권·내가 응모한 수, `realtime`이면 "실시간"·아니면 "집계")와 홈 응모 티켓의 "N명 참여". 표시용이라 응모 판단에는 쓰지 않고, 예정 이벤트는 조회하지 않음 | 연동 | [Entry](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/entry-api.md) |
 | GET | `/api/events/{eventId}/winners`, `/api/me/winners` | 이벤트 상세·내 당첨 | 연동 | [Winner](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/winner/api.md) |
 | POST | `/api/me/winners/{winnerId}/decline` | 내 당첨 포기 | 연동 | [Winner](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/winner/api.md) |
 | GET | `/api/winners/{winnerId}/history` | 내 당첨 상태 이력 | 연동 | [Winner](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/winner/api.md) |

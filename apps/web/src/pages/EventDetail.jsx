@@ -1,11 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import EntryStatusCard from '../components/ticket/EntryStatusCard.jsx'
 import BottomSheet from '../components/ui/BottomSheet.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
-import { LoadingBlock, ErrorBlock, StatusPill, Spinner } from '../components/ui/States.jsx'
+import { LoadingBlock, ErrorBlock, StatusPill, Spinner, InlineRetry } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useAsync } from '../hooks/useAsync.js'
+import { useEntryStatus } from '../hooks/useEntryStatus.js'
 import { getEvent } from '../api/events.js'
 import { applyEntry, describeEntryResult } from '../api/entries.js'
 import { useProfileSetupRedirect } from '../hooks/useProfileSetupRedirect.js'
@@ -63,6 +65,14 @@ export default function EventDetail() {
     [eventId],
     { fallbackMessage: '이벤트 상세를 불러오지 못했습니다.' },
   )
+
+  // 예정 이벤트는 응모가 없어 조회하지 않는다. 진행 중이면 주기적으로 다시 받는다. 응모는 submitEntry가
+  // beginEntry·acceptEntry로 알리고, 수락된 응모가 현황에 반영될 때까지 현황을 숨기고 다시 조회한다.
+  // 이벤트 상세를 조용히 다시 받는 것(syncBalances)은 시트를 열 때나 지연 재조회에서도 일어나 응모와 무관하다.
+  const entryStatus = useEntryStatus(eventId, {
+    enabled: Boolean(event) && event.displayStatus !== 'UPCOMING',
+    live: event?.displayStatus === 'IN_PROGRESS',
+  })
 
   // 응모 뒤 잔액을 조용히 다시 불러온다(화면 전체를 로딩 상태로 바꾸는 reload와 달리 시트와 입력을 그대로 둔다).
   // 불러온 서버 잔액으로 서버가 차감을 반영한 종류, 또는 오래된 예상 값을 해제한다. 그래야 다른 곳에서 응모권이
@@ -196,6 +206,8 @@ export default function EventDetail() {
   async function submitEntry() {
     if (!attempt) return
     setPhase('submitting')
+    // 응모 현황에 반영됐는지 확인할 필요 수치의 기준을 이 시점에 잡는다. 같은 requestId로 재시도하면 처음 기준을 유지한다.
+    entryStatus.beginEntry(requestId, attempt.count)
     // 재시도해도 같은 requestId·종류·수량을 쓰므로 백엔드가 DUPLICATE_REPLAY로 안전하게 처리한다.
     const envelope = await applyEntry(eventId, {
       requestId,
@@ -211,6 +223,8 @@ export default function EventDetail() {
     const outcome = describeEntryResult(envelope)
     setResult(outcome)
     setPhase('done')
+    // SUCCESS와 DUPLICATE_REPLAY 모두 원래 응모가 현황에 반영됐는지 확인해야 한다.
+    if (outcome.accepted) entryStatus.acceptEntry(requestId)
     showToast(outcome.message, { icon: outcome.accepted ? 'check_circle' : 'error' })
 
     if (outcome.accepted) {
@@ -291,6 +305,13 @@ export default function EventDetail() {
               <span className="text-outline-variant">•</span>
               <span>{formatEventDate(event.endAt)} 마감</span>
             </div>
+            {event.displayStatus !== 'UPCOMING' && (
+              <div className="pt-space-xs">
+                {entryStatus.failed
+                  ? <InlineRetry message="응모 현황을 확인하지 못했어요." onRetry={entryStatus.retry} />
+                  : <EntryStatusCard status={entryStatus.status} />}
+              </div>
+            )}
             {event.description && (
               <p className="font-body-md text-body-md text-on-surface-variant pt-1 leading-relaxed whitespace-pre-wrap">
                 {event.description}

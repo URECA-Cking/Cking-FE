@@ -97,6 +97,8 @@ export function installMockApiIfRequested() {
     ['GET', /^\/api\/creators$/, () => page(CREATORS)],
     ['GET', /^\/api\/events$/, () => page(events)],
     ['GET', /^\/api\/creators\/(\d+)\/tickets$/, (id) => ({ creatorId: Number(id), balance: BALANCES[id] ?? 0 })],
+    // 공용 응모권 잔액. 이벤트 목업의 myCommonTicketBalance와 같은 값이고, 팔로우·이벤트가 없는 시나리오(empty)는 0이다.
+    ['GET', /^\/api\/tickets\/common$/, () => ({ userId: me.memberId, balance: empty ? 0 : 2, updatedAt: new Date(now).toISOString() })],
     ['GET', /^\/api\/creators\/(\d+)\/posts$/, (id, url) => page((posts[id] ?? []).slice(0, Number(url.searchParams.get('size')) || 20))],
     ['GET', /^\/api\/creators\/(\d+)\/space$/, (id) => {
       const creator = CREATORS.find((c) => c.creatorId === Number(id))

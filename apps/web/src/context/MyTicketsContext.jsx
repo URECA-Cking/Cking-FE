@@ -46,10 +46,14 @@ export function MyTicketsProvider({ children }) {
   )
 
   // 다시 불러오기. 바로 한 번, 그리고 DB 반영이 늦을 수 있어 잠시 뒤 한 번 더.
+  // 연속으로 불러도 잠시 뒤 조회가 쌓이지 않도록 대기 중인 타이머는 하나만 둔다.
+  const refreshAgainTimer = useRef(null)
   const refresh = useCallback(() => {
     setRefreshKey((key) => key + 1)
-    setTimeout(() => setRefreshKey((key) => key + 1), REFRESH_AGAIN_MS)
+    clearTimeout(refreshAgainTimer.current)
+    refreshAgainTimer.current = setTimeout(() => setRefreshKey((key) => key + 1), REFRESH_AGAIN_MS)
   }, [])
+  useEffect(() => () => clearTimeout(refreshAgainTimer.current), [])
 
   // 다른 탭·앱에서 응모권이 바뀌었을 수 있어 화면으로 돌아오면 다시 불러온다.
   useEffect(() => {

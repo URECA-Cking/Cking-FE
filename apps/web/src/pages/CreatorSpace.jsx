@@ -7,6 +7,7 @@ import EventCard from '../components/creator/EventCard.jsx'
 import CreatorPosts from '../components/creator/CreatorPosts.jsx'
 import CreatorQuizzes from '../components/creator/CreatorQuizzes.jsx'
 import MyEventManager from '../components/creator/MyEventManager.jsx'
+import MyQuizManager from '../components/creator/MyQuizManager.jsx'
 import SpaceEditSheet from '../components/creator/SpaceEditSheet.jsx'
 import CreatorCalendar, { UpcomingSchedules } from '../components/creator/CreatorCalendar.jsx'
 import TicketLedgerSheet from '../components/ticket/TicketLedgerSheet.jsx'
@@ -82,7 +83,7 @@ function ProfileIntro({ text }) {
  * 캘린더 탭·홈의 다가오는 일정은 GET /api/creators/{id}/calendar/schedules(추첨 이벤트와 별개인 크리에이터 일정)를 쓴다.
  * 게시물 탭은 공개 Post API로 조회하며 팔로워 공개 게시글은 권한에 따라 잠금 상태로 표시한다.
  * 내 Space면(GET /api/creator/space의 creatorId가 같으면) 편집할 수 있고, 이벤트 탭에서 이벤트를,
- * 캘린더 탭에서 일정을 관리한다(예전 크리에이터 스튜디오 기능).
+ * 캘린더 탭에서 일정을 관리한다(예전 크리에이터 스튜디오 기능). Quiz 탭에서는 AI Quiz를 만들고 검토·게시한다.
  */
 export default function CreatorSpace() {
   const { creatorId: creatorIdParam, slug: slugParam } = useParams()
@@ -564,7 +565,11 @@ export default function CreatorSpace() {
           <div className="flex flex-col gap-space-sm px-margin py-space-sm">{missionList}</div>
         )}
 
-        {tab === 'quiz' && (
+        {tab === 'quiz' && isMine && (
+          <MyQuizManager key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}`} creatorId={creator.creatorId} />
+        )}
+
+        {tab === 'quiz' && !isMine && (
           <CreatorQuizzes
             key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}`}
             creatorId={creator.creatorId}

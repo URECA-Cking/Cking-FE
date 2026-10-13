@@ -1,0 +1,504 @@
+// 개발 전용 AI Quiz 더미 API. mockApi.js가 ?mock=…일 때만 붙인다(배포 빌드에는 들어가지 않는다).
+// 실제 BE·Gemini·OpenAI를 부르지 않고, 계약(Cking-BE docs/domains/quiz/api.md, judge-api.md, attempt-api.md)의
+// 상태 전이·멱등성·오류 코드를 흉내 낸다. 상태는 sessionStorage에 둬서 새로고침 뒤 복구를 확인할 수 있다.
+//
+// 생성·평가는 요청 후 약 1.5초 PENDING, 4.5초까지 RUNNING, 그 뒤 결과가 정해진다. Quiz 제목에 아래 표시를 넣으면 상황을 만든다.
+//   생성: [실패] FAILED · [모름] UNKNOWN · [꺼짐] 503 · [진행중] 409 · [응답유실] 첫 요청 응답 유실(작업은 생성) · [서버오류] 첫 요청 500(작업은 생성)
+//   평가: [불통과] HAS_FAIL · [보류] UNCERTAIN_ONLY · [평가실패] 1회차 FAILED · [평가모름] 1회차 UNKNOWN · [평가꺼짐] 503 · [평가유실] 첫 요청 응답 유실
+
+import { parseYoutubeVideoId } from '../utils/quizJobs.js'
+
+const STATE_KEY = 'cking.mock.quiz.v2'
+const PENDING_MS = 1500
+const RUNNING_MS = 4500
+const LATENCY_MS = 400
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const JUDGE_ITEMS = ['textAnswerCorrect', 'uniqueAnswer', 'evidenceSupportsAnswer', 'questionClarity', 'koreanQuality', 'distractorQuality', 'textFaithfulness']
+
+const iso = (time) => (time === null || time === undefined ? null : new Date(time).toISOString())
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const fail = (status, code, message = code) => ({ status, code, data: null, message })
+const accepted = (data) => ({ status: 202, code: 'SUCCESS', data })
+
+function buildQuestions(count, topic) {
+  return Array.from({ length: count }, (_, i) => ({
+    questionNo: i,
+    question: `${topic} 영상에서 ${i + 1}번째로 설명한 내용은 무엇인가요?`,
+    options: ['보기 A', '보기 B', '보기 C', '보기 D'].map((text, optionNo) => ({ optionNo, text: `${text} (${i + 1})` })),
+    correctOptionIndex: i % 4,
+    explanation: `영상 ${i + 1}번째 구간에서 보기 ${'ABCD'[i % 4]}를 설명합니다.`,
+    sourceEvidence: `${i + 1}번째 구간: "보기 ${'ABCD'[i % 4]}가 맞습니다."`,
+  }))
+}
+
+function seed(now) {
+  const quiz = (quizId, creatorId, title, minutesAgo, published) => {
+    const createdAt = now - minutesAgo * 60 * 1000
+    return {
+      quizId,
+      creatorId,
+      videoId: 'dQw4w9WgXcQ',
+      contentText: `${title} 영상의 대본입니다. 물은 증발해 구름이 되고, 구름은 비가 되어 내립니다.`,
+      createdAt,
+      updatedAt: createdAt,
+      publicationStatus: published ? 'PUBLISHED' : 'NOT_PUBLISHED',
+      publishedRevisionId: published ? quizId * 100 : null,
+      publishedAt: published ? createdAt + 60 * 1000 : null,
+      unpublishedAt: null,
+      revisions: [{
+        revisionId: quizId * 100,
+        revisionNo: 1,
+        title,
+        reviewStatus: published ? 'APPROVED' : 'PENDING_REVIEW',
+        decisionReason: null,
+        decidedAt: published ? createdAt + 30 * 1000 : null,
+        createdAt,
+        questions: buildQuestions(3, title),
+      }],
+    }
+  }
+  return {
+    seq: 1000,
+    quizzes: [
+      quiz(1, 1, '물의 순환', 300, true),
+      quiz(2, 1, '[불통과] 태양계 행성', 120, false),
+      quiz(3, 2, '민준의 음악 Quiz', 200, true),
+    ],
+    generations: [],
+    judges: [],
+    attempts: [],
+    lost: [],
+  }
+}
+
+function load(now) {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(STATE_KEY) ?? 'null')
+    if (saved && Array.isArray(saved.quizzes)) return saved
+  } catch {
+    // 아래에서 새로 만든다.
+  }
+  return seed(now)
+}
+
+function store(state) {
+  try {
+    sessionStorage.setItem(STATE_KEY, JSON.stringify(state))
+  } catch {
+    // 저장하지 못하면 이번 로드에서만 유지된다.
+  }
+}
+
+const has = (title, tag) => String(title ?? '').includes(tag)
+const latestRevision = (quiz) => quiz.revisions[quiz.revisions.length - 1]
+const findQuiz = (state, quizId) => state.quizzes.find((quiz) => quiz.quizId === Number(quizId))
+
+function readBody(init) {
+  try {
+    return init?.body ? JSON.parse(init.body) : {}
+  } catch {
+    return {}
+  }
+}
+
+/** 같은 Creator의 생성 작업을 시간에 따라 진행시킨다. 성공하면 Quiz와 revision을 만든다. */
+function advanceGeneration(state, job, now) {
+  if (!['PENDING', 'RUNNING'].includes(job.status)) return
+  const elapsed = now - job.requestedAt
+  if (elapsed < PENDING_MS) return
+  job.startedAt = job.startedAt ?? job.requestedAt + PENDING_MS
+  if (elapsed < RUNNING_MS) {
+    job.status = 'RUNNING'
+    return
+  }
+  job.completedAt = job.requestedAt + RUNNING_MS
+  if (has(job.title, '[실패]')) {
+    job.status = 'FAILED'
+    job.failureCode = 'GENERATION_INVALID'
+  } else if (has(job.title, '[모름]')) {
+    job.status = 'UNKNOWN'
+    job.failureCode = 'PROVIDER_TIMEOUT'
+  } else {
+    const quizId = ++state.seq
+    const revisionId = ++state.seq
+    state.quizzes.push({
+      quizId,
+      creatorId: job.creatorId,
+      videoId: job.videoId,
+      contentText: `${job.title} 영상을 분석한 대본입니다. (더미)`,
+      createdAt: job.completedAt,
+      updatedAt: job.completedAt,
+      publicationStatus: 'NOT_PUBLISHED',
+      publishedRevisionId: null,
+      publishedAt: null,
+      unpublishedAt: null,
+      revisions: [{
+        revisionId, revisionNo: 1, title: job.title, reviewStatus: 'PENDING_REVIEW', decisionReason: null, decidedAt: null,
+        createdAt: job.completedAt, questions: buildQuestions(job.questionCount, job.title),
+      }],
+    })
+    job.status = 'SUCCEEDED'
+    job.quizId = quizId
+    job.revisionId = revisionId
+  }
+}
+
+function advanceJudge(state, job, now) {
+  if (!['PENDING', 'RUNNING'].includes(job.status)) return
+  const elapsed = now - job.requestedAt
+  if (elapsed < PENDING_MS) return
+  job.startedAt = job.startedAt ?? job.requestedAt + PENDING_MS
+  if (elapsed < RUNNING_MS) {
+    job.status = 'RUNNING'
+    return
+  }
+  job.completedAt = job.requestedAt + RUNNING_MS
+  const quiz = findQuiz(state, job.quizId)
+  const revision = quiz.revisions.find((item) => item.revisionId === job.revisionId)
+  const title = revision.title
+  if (has(title, '[평가실패]') && job.attempt === 1) {
+    job.status = 'FAILED'
+    job.failureCode = 'PROVIDER_ERROR'
+    return
+  }
+  if (has(title, '[평가모름]') && job.attempt === 1) {
+    job.status = 'UNKNOWN'
+    job.failureCode = 'PROVIDER_TIMEOUT'
+    return
+  }
+  const odd = has(title, '[불통과]') ? 'fail' : has(title, '[보류]') ? 'uncertain' : null
+  job.status = 'SUCCEEDED'
+  job.resultId = job.evaluationId + 5000
+  job.aggregation = odd === 'fail' ? 'HAS_FAIL' : odd === 'uncertain' ? 'UNCERTAIN_ONLY' : 'ALL_PASS'
+  job.questions = revision.questions.map((question) => ({
+    questionNo: question.questionNo,
+    items: Object.fromEntries(JUDGE_ITEMS.map((key) => {
+      const verdict = odd && question.questionNo === 0 && key === 'uniqueAnswer' ? odd : 'pass'
+      const reason = verdict === 'pass' ? '기준을 만족합니다.' : verdict === 'fail' ? '정답이 될 수 있는 보기가 둘입니다.' : '원문만으로는 판단하기 어렵습니다.'
+      return [key, { verdict, reason }]
+    })),
+  }))
+}
+
+const generationView = (job) => ({
+  generationId: job.generationId, status: job.status, videoId: job.videoId, title: job.title,
+  questionCount: job.questionCount, optionCount: 4, quizId: job.quizId ?? null, revisionId: job.revisionId ?? null,
+  failureCode: job.failureCode ?? null, requestedAt: iso(job.requestedAt), startedAt: iso(job.startedAt), completedAt: iso(job.completedAt),
+})
+
+const judgeView = (job) => ({
+  evaluationId: job.evaluationId, quizId: job.quizId, revisionId: job.revisionId, status: job.status,
+  attempt: job.attempt, maxAttempts: 2, failureCode: job.failureCode ?? null, resultId: job.resultId ?? null,
+  aggregation: job.aggregation ?? null, requestedAt: iso(job.requestedAt), startedAt: iso(job.startedAt),
+  completedAt: iso(job.completedAt), questions: job.status === 'SUCCEEDED' ? job.questions : [],
+})
+
+const quizSummary = (quiz) => {
+  const latest = latestRevision(quiz)
+  return {
+    quizId: quiz.quizId, title: latest.title, publicationStatus: quiz.publicationStatus,
+    publishedRevisionId: quiz.publishedRevisionId, latestRevisionId: latest.revisionId, latestRevisionNo: latest.revisionNo,
+    latestReviewStatus: latest.reviewStatus, publishedAt: iso(quiz.publishedAt), createdAt: iso(quiz.createdAt), updatedAt: iso(quiz.updatedAt),
+  }
+}
+
+const publicationView = (quiz) => ({
+  quizId: quiz.quizId, publicationStatus: quiz.publicationStatus, publishedRevisionId: quiz.publishedRevisionId,
+  publishedAt: iso(quiz.publishedAt), unpublishedAt: iso(quiz.unpublishedAt),
+})
+
+const pageOf = (items, url) => {
+  const page = Number(url.searchParams.get('page') ?? 0)
+  const size = Number(url.searchParams.get('size') ?? 20)
+  const slice = items.slice(page * size, page * size + size)
+  return { items: slice, page, size, totalElements: items.length, totalPages: Math.ceil(items.length / size), hasNext: (page + 1) * size < items.length }
+}
+
+/**
+ * mockApi.js의 routes에 이어 붙일 [method, pattern, handler] 목록.
+ * myCreatorId는 로그인한 Creator(?mock=creator), Fan 시나리오면 null이다.
+ */
+export function quizMockRoutes({ myCreatorId, memberId }) {
+  // 요청마다 저장값을 읽고 진행시킨 뒤 저장한다(다른 탭·새로고침과 같은 상태를 본다).
+  const withState = (handler) => async (...args) => {
+    await sleep(LATENCY_MS)
+    const now = Date.now()
+    const state = load(now)
+    state.generations.forEach((job) => advanceGeneration(state, job, now))
+    state.judges.forEach((job) => advanceJudge(state, job, now))
+    try {
+      const result = handler(state, now, ...args)
+      // 생성·평가 Job의 status 필드를 mockApi가 HTTP 상태로 읽지 않도록 성공 응답도 봉투로 감싼다.
+      return result?.code ? result : { status: 200, code: 'SUCCESS', data: result }
+    } finally {
+      store(state)
+    }
+  }
+  const creatorOnly = (handler) => withState((state, now, ...args) => (myCreatorId ? handler(state, now, ...args) : fail(403, 'FORBIDDEN', '이 기능을 사용할 권한이 없는 계정입니다.')))
+  const myQuiz = (state, quizId) => {
+    const quiz = findQuiz(state, quizId)
+    if (!quiz) return { error: fail(404, 'QUIZ_NOT_FOUND', 'Quiz가 없습니다.') }
+    if (quiz.creatorId !== myCreatorId) return { error: fail(403, 'FORBIDDEN') }
+    return { quiz }
+  }
+  const myRevision = (state, quizId, revisionId) => {
+    const { quiz, error } = myQuiz(state, quizId)
+    if (error) return { error }
+    const revision = quiz.revisions.find((item) => item.revisionId === Number(revisionId))
+    return revision ? { quiz, revision } : { error: fail(404, 'QUIZ_REVISION_NOT_FOUND') }
+  }
+
+  return [
+    // ---- Creator ----
+    ['GET', /^\/api\/creator\/quizzes$/, creatorOnly((state, now, url) => pageOf(
+      state.quizzes.filter((quiz) => quiz.creatorId === myCreatorId)
+        .sort((a, b) => b.createdAt - a.createdAt || b.quizId - a.quizId)
+        .map(quizSummary),
+      url,
+    ))],
+    ['POST', /^\/api\/creator\/quizzes\/generations$/, creatorOnly((state, now, url, init) => {
+      const body = readBody(init)
+      const videoId = parseYoutubeVideoId(body.youtubeUrl)
+      const title = typeof body.title === 'string' ? body.title : ''
+      const questionCount = body.questionCount ?? 3
+      if (!UUID.test(body.requestId ?? '') || !videoId || !title.trim() || title.length > 100 || ![3, 5].includes(questionCount)) {
+        return fail(400, 'VALIDATION_FAILED', '요청 값을 확인해 주세요.')
+      }
+      const existing = state.generations.find((job) => job.creatorId === myCreatorId && job.requestId === body.requestId)
+      if (existing) {
+        const same = existing.videoId === videoId && existing.title === title && existing.questionCount === questionCount
+        return same ? accepted(generationView(existing)) : fail(409, 'QUIZ_GENERATION_REQUEST_CONFLICT', '같은 requestId로 다른 입력의 작업이 있습니다.')
+      }
+      if (has(title, '[꺼짐]')) return fail(503, 'QUIZ_GENERATION_DISABLED', 'Quiz 생성 기능이 꺼져 있습니다.')
+      const active = state.generations.some((job) => job.creatorId === myCreatorId && ['PENDING', 'RUNNING'].includes(job.status))
+      if (active || has(title, '[진행중]')) return fail(409, 'QUIZ_GENERATION_IN_PROGRESS', '진행 중인 생성 작업이 있습니다.')
+      const job = { generationId: ++state.seq, creatorId: myCreatorId, requestId: body.requestId, videoId, title, questionCount, status: 'PENDING', requestedAt: now }
+      state.generations.push(job)
+      if (has(title, '[응답유실]') && !state.lost.includes(body.requestId)) {
+        state.lost.push(body.requestId)
+        throw new TypeError('Failed to fetch (mock: 응답 유실)')
+      }
+      if (has(title, '[서버오류]') && !state.lost.includes(body.requestId)) {
+        state.lost.push(body.requestId)
+        return fail(500, 'INTERNAL_ERROR', '서버 오류가 발생했습니다.')
+      }
+      return accepted(generationView(job))
+    })],
+    ['GET', /^\/api\/creator\/quizzes\/generations\/(\d+)$/, creatorOnly((state, now, id) => {
+      const job = state.generations.find((item) => item.generationId === Number(id))
+      if (!job) return fail(404, 'QUIZ_GENERATION_NOT_FOUND')
+      if (job.creatorId !== myCreatorId) return fail(403, 'FORBIDDEN')
+      return generationView(job)
+    })],
+    ['GET', /^\/api\/creator\/quizzes\/(\d+)$/, creatorOnly((state, now, quizId) => {
+      const { quiz, error } = myQuiz(state, quizId)
+      if (error) return error
+      return {
+        ...publicationView(quiz), creatorId: quiz.creatorId, videoId: quiz.videoId, createdAt: iso(quiz.createdAt), updatedAt: iso(quiz.updatedAt),
+        revisions: quiz.revisions.map((revision) => ({
+          revisionId: revision.revisionId, revisionNo: revision.revisionNo, title: revision.title, reviewStatus: revision.reviewStatus,
+          decidedAt: iso(revision.decidedAt), createdAt: iso(revision.createdAt),
+        })),
+      }
+    })],
+    ['GET', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)$/, creatorOnly((state, now, quizId, revisionId) => {
+      const { quiz, revision, error } = myRevision(state, quizId, revisionId)
+      if (error) return error
+      return {
+        quizId: quiz.quizId, revisionId: revision.revisionId, revisionNo: revision.revisionNo,
+        latest: latestRevision(quiz).revisionId === revision.revisionId,
+        published: quiz.publicationStatus === 'PUBLISHED' && quiz.publishedRevisionId === revision.revisionId,
+        title: revision.title, videoId: quiz.videoId, promptVersion: 'quiz-mcq-v1', contentText: quiz.contentText,
+        reviewStatus: revision.reviewStatus, decisionReason: revision.decisionReason, decidedAt: iso(revision.decidedAt),
+        createdAt: iso(revision.createdAt), questions: revision.questions,
+      }
+    })],
+    ['POST', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)\/judge-evaluations$/, creatorOnly((state, now, quizId, revisionId, url, init) => {
+      const { quiz, revision, error } = myRevision(state, quizId, revisionId)
+      if (error) return error
+      const body = readBody(init)
+      if (!UUID.test(body.requestId ?? '')) return fail(400, 'VALIDATION_FAILED', 'requestId가 필요합니다.')
+      const existing = state.judges.find((job) => job.creatorId === myCreatorId && job.requestId === body.requestId)
+      if (existing) {
+        return existing.quizId === quiz.quizId && existing.revisionId === revision.revisionId
+          ? accepted(judgeView(existing))
+          : fail(409, 'QUIZ_JUDGE_REQUEST_CONFLICT', '같은 requestId로 다른 대상 요청이 있습니다.')
+      }
+      if (revision.reviewStatus === 'APPROVED') return fail(409, 'QUIZ_JUDGE_REVISION_APPROVED')
+      const series = state.judges.filter((job) => job.revisionId === revision.revisionId)
+      if (series.some((job) => job.status === 'SUCCEEDED')) return fail(409, 'QUIZ_JUDGE_EVALUATION_COMPLETED')
+      if (has(revision.title, '[평가꺼짐]')) return fail(503, 'QUIZ_JUDGE_DISABLED', 'Judge 기능이 꺼져 있습니다.')
+      if (state.judges.some((job) => job.creatorId === myCreatorId && ['PENDING', 'RUNNING'].includes(job.status))) {
+        return fail(409, 'QUIZ_JUDGE_IN_PROGRESS')
+      }
+      if (series.length >= 2) return fail(409, 'QUIZ_JUDGE_ATTEMPT_LIMIT_REACHED')
+      const job = {
+        evaluationId: ++state.seq, creatorId: myCreatorId, quizId: quiz.quizId, revisionId: revision.revisionId,
+        requestId: body.requestId, attempt: series.length + 1, status: 'PENDING', requestedAt: now,
+      }
+      state.judges.push(job)
+      if (has(revision.title, '[평가유실]') && !state.lost.includes(body.requestId)) {
+        state.lost.push(body.requestId)
+        throw new TypeError('Failed to fetch (mock: 응답 유실)')
+      }
+      return accepted(judgeView(job))
+    })],
+    ['GET', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)\/judge-evaluations\/(\d+)$/, creatorOnly((state, now, quizId, revisionId, evaluationId) => {
+      const { error } = myRevision(state, quizId, revisionId)
+      if (error) return error
+      const job = state.judges.find((item) => item.evaluationId === Number(evaluationId) && item.revisionId === Number(revisionId))
+      return job ? judgeView(job) : fail(404, 'QUIZ_JUDGE_EVALUATION_NOT_FOUND')
+    })],
+    ['POST', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)\/approve$/, creatorOnly((state, now, quizId, revisionId) => {
+      const { quiz, revision, error } = myRevision(state, quizId, revisionId)
+      if (error) return error
+      if (revision.reviewStatus === 'REJECTED') return fail(409, 'QUIZ_REVISION_ALREADY_DECIDED')
+      if (revision.reviewStatus === 'PENDING_REVIEW') {
+        const passed = state.judges.some((job) => job.revisionId === revision.revisionId && job.status === 'SUCCEEDED' && job.aggregation === 'ALL_PASS')
+        if (!passed) return fail(409, 'QUIZ_JUDGE_EVALUATION_REQUIRED')
+        revision.reviewStatus = 'APPROVED'
+        revision.decidedAt = now
+        quiz.updatedAt = now
+      }
+      return { quizId: quiz.quizId, revisionId: revision.revisionId, reviewStatus: revision.reviewStatus, reason: null, decidedAt: iso(revision.decidedAt) }
+    })],
+    ['POST', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)\/reject$/, creatorOnly((state, now, quizId, revisionId, url, init) => {
+      const { quiz, revision, error } = myRevision(state, quizId, revisionId)
+      if (error) return error
+      const reason = readBody(init).reason
+      if (typeof reason === 'string' && reason.length > 500) return fail(400, 'VALIDATION_FAILED', '사유는 500자 이하입니다.')
+      if (revision.reviewStatus === 'APPROVED') return fail(409, 'QUIZ_REVISION_ALREADY_DECIDED')
+      if (revision.reviewStatus === 'PENDING_REVIEW') {
+        revision.reviewStatus = 'REJECTED'
+        revision.decisionReason = reason?.trim() ? reason : null
+        revision.decidedAt = now
+        quiz.updatedAt = now
+      }
+      return { quizId: quiz.quizId, revisionId: revision.revisionId, reviewStatus: revision.reviewStatus, reason: revision.decisionReason, decidedAt: iso(revision.decidedAt) }
+    })],
+    ['POST', /^\/api\/creator\/quizzes\/(\d+)\/publish$/, creatorOnly((state, now, quizId, url, init) => {
+      const { quiz, error } = myQuiz(state, quizId)
+      if (error) return error
+      const revisionId = Number(readBody(init).revisionId)
+      const revision = quiz.revisions.find((item) => item.revisionId === revisionId)
+      if (!revisionId) return fail(400, 'VALIDATION_FAILED', 'revisionId가 필요합니다.')
+      if (!revision) return fail(404, 'QUIZ_REVISION_NOT_FOUND')
+      if (latestRevision(quiz).revisionId !== revisionId) return fail(409, 'QUIZ_REVISION_NOT_LATEST')
+      if (revision.reviewStatus !== 'APPROVED') return fail(409, 'QUIZ_REVISION_NOT_APPROVED')
+      if (!(quiz.publicationStatus === 'PUBLISHED' && quiz.publishedRevisionId === revisionId)) {
+        quiz.publicationStatus = 'PUBLISHED'
+        quiz.publishedRevisionId = revisionId
+        quiz.publishedAt = now
+        quiz.unpublishedAt = null
+        quiz.updatedAt = now
+      }
+      return publicationView(quiz)
+    })],
+    ['POST', /^\/api\/creator\/quizzes\/(\d+)\/unpublish$/, creatorOnly((state, now, quizId) => {
+      const { quiz, error } = myQuiz(state, quizId)
+      if (error) return error
+      if (quiz.publicationStatus === 'PUBLISHED') {
+        quiz.publicationStatus = 'UNPUBLISHED'
+        quiz.publishedRevisionId = null
+        quiz.unpublishedAt = now
+        quiz.updatedAt = now
+      }
+      return publicationView(quiz)
+    })],
+
+    // ---- Fan(공개 조회·응시) ----
+    ['GET', /^\/api\/creators\/(\d+)\/quizzes$/, withState((state, now, creatorId, url) => pageOf(
+      state.quizzes.filter((quiz) => quiz.creatorId === Number(creatorId) && quiz.publicationStatus === 'PUBLISHED')
+        .sort((a, b) => b.publishedAt - a.publishedAt || b.quizId - a.quizId)
+        .map((quiz) => {
+          const revision = quiz.revisions.find((item) => item.revisionId === quiz.publishedRevisionId)
+          return { quizId: quiz.quizId, revisionId: revision.revisionId, title: revision.title, questionCount: revision.questions.length, publishedAt: iso(quiz.publishedAt) }
+        }),
+      url,
+    ))],
+    ['GET', /^\/api\/creators\/(\d+)\/quizzes\/(\d+)$/, withState((state, now, creatorId, quizId) => {
+      const quiz = findQuiz(state, quizId)
+      if (!quiz || quiz.creatorId !== Number(creatorId) || quiz.publicationStatus !== 'PUBLISHED') return fail(404, 'QUIZ_NOT_FOUND')
+      const revision = quiz.revisions.find((item) => item.revisionId === quiz.publishedRevisionId)
+      return {
+        quizId: quiz.quizId, creatorId: quiz.creatorId, revisionId: revision.revisionId, videoId: quiz.videoId, title: revision.title,
+        publishedAt: iso(quiz.publishedAt),
+        questions: revision.questions.map(({ questionNo, question, options }) => ({ questionNo, question, options })),
+      }
+    })],
+    ['POST', /^\/api\/creators\/(\d+)\/quizzes\/(\d+)\/attempts$/, withState((state, now, creatorId, quizId, url, init) => (
+      submitQuizAttempt(state, { memberId, myCreatorId, creatorId: Number(creatorId), quizId: Number(quizId), body: readBody(init) }, now)
+    ))],
+    ['GET', /^\/api\/creators\/(\d+)\/quizzes\/(\d+)\/my-attempt$/, withState((state, now, creatorId, quizId) => (
+      findMyQuizAttempt(state, { memberId, creatorId: Number(creatorId), quizId: Number(quizId) }, now)
+    ))],
+  ]
+}
+
+// 응시 6초 뒤에는 지급 완료로 바꿔 지급 상태 재조회를 확인한다. BE처럼 응답할 때마다 지급 상태를 채운다.
+function withPaymentStatus(entry, now) {
+  const reward = entry.result.reward
+  if (reward.paymentStatus === 'PENDING' && now - Date.parse(entry.result.submittedAt) > 6000) reward.paymentStatus = 'PAID'
+  return entry.result
+}
+
+/**
+ * Fan 답안 제출(POST .../attempts). BE FanQuizAttemptService·QuizAttemptStore와 같은 순서로 판정한다.
+ * 1. 같은 Member·requestId의 기존 응시가 있으면 요청 지문(Member·Creator·Quiz·revision·questionNo 순 답안)이 같을 때 저장된
+ *    결과를 그대로 돌려주고(게시 취소·revision 교체 뒤에도), 다르면 409 QUIZ_ATTEMPT_REQUEST_CONFLICT
+ * 2. 다른 requestId로 이미 응시한 Quiz면 409 QUIZ_ALREADY_ATTEMPTED
+ * 3. 그다음에야 신규 제출로 Quiz 소유·본인 Quiz·게시 상태·게시 revision·답안 수를 검사한다
+ */
+export function submitQuizAttempt(state, { memberId, myCreatorId, creatorId, quizId, body }, now) {
+  const answers = Array.isArray(body?.answers) ? [...body.answers].sort((a, b) => a?.questionNo - b?.questionNo) : []
+  const invalidAnswer = (answer, index) => answer?.questionNo !== index
+    || !Number.isInteger(answer.selectedOptionIndex) || answer.selectedOptionIndex < 0
+  if (!UUID.test(body?.requestId ?? '') || !Number.isSafeInteger(body?.revisionId) || body.revisionId <= 0
+    || answers.length === 0 || answers.some(invalidAnswer)) {
+    return fail(400, 'VALIDATION_FAILED', '요청 값을 확인해 주세요.')
+  }
+  const fingerprint = JSON.stringify([memberId, creatorId, quizId, body.revisionId, answers.map((a) => [a.questionNo, a.selectedOptionIndex])])
+
+  const byRequest = state.attempts.find((entry) => entry.memberId === memberId && entry.requestId === body.requestId)
+  if (byRequest) {
+    return byRequest.fingerprint === fingerprint
+      ? withPaymentStatus(byRequest, now)
+      : fail(409, 'QUIZ_ATTEMPT_REQUEST_CONFLICT', '같은 requestId로 다른 응시 요청이 있습니다.')
+  }
+  if (state.attempts.some((entry) => entry.memberId === memberId && entry.quizId === quizId)) {
+    return fail(409, 'QUIZ_ALREADY_ATTEMPTED', '이미 응시한 Quiz입니다.')
+  }
+
+  const quiz = findQuiz(state, quizId)
+  if (!quiz || quiz.creatorId !== creatorId) return fail(404, 'QUIZ_NOT_FOUND', 'Quiz를 찾을 수 없습니다.')
+  if (quiz.creatorId === myCreatorId) return fail(403, 'FORBIDDEN', '이 기능을 사용할 권한이 없는 계정입니다.')
+  if (quiz.publicationStatus !== 'PUBLISHED') return fail(404, 'QUIZ_NOT_FOUND', 'Quiz를 찾을 수 없습니다.')
+  if (quiz.publishedRevisionId !== body.revisionId) return fail(409, 'QUIZ_PUBLISHED_REVISION_CHANGED', '게시된 revision이 변경됐습니다.')
+  const revision = quiz.revisions.find((item) => item.revisionId === body.revisionId)
+  if (answers.length !== revision.questions.length) return fail(400, 'VALIDATION_FAILED', '요청 값을 확인해 주세요.')
+  if (answers.some((answer, i) => answer.selectedOptionIndex >= revision.questions[i].options.length)) {
+    return fail(400, 'VALIDATION_FAILED', '요청 값을 확인해 주세요.')
+  }
+
+  const questions = revision.questions.map((question, i) => ({
+    questionNo: question.questionNo, question: question.question, options: question.options.map((option) => option.text),
+    selectedOptionIndex: answers[i].selectedOptionIndex, correctOptionIndex: question.correctOptionIndex,
+    correct: answers[i].selectedOptionIndex === question.correctOptionIndex,
+    explanation: question.explanation, sourceEvidence: question.sourceEvidence,
+  }))
+  const correctCount = questions.filter((question) => question.correct).length
+  const result = {
+    attemptId: ++state.seq, requestId: body.requestId, creatorId, quizId, revisionId: revision.revisionId,
+    title: revision.title, videoId: quiz.videoId, questionCount: questions.length, correctCount, submittedAt: iso(now), questions,
+    reward: { amount: correctCount, requestId: null, status: correctCount ? 'NOT_INTEGRATED' : 'NOT_ELIGIBLE', paymentStatus: correctCount ? 'PENDING' : 'NOT_ELIGIBLE' },
+  }
+  state.attempts.push({ memberId, requestId: body.requestId, fingerprint, creatorId, quizId, result })
+  return result
+}
+
+/** 본인 응시 결과(GET .../my-attempt). 기록이 없거나 creatorId 경로가 다르면 404 QUIZ_ATTEMPT_NOT_FOUND. */
+export function findMyQuizAttempt(state, { memberId, creatorId, quizId }, now) {
+  const entry = state.attempts.find((item) => item.memberId === memberId && item.quizId === quizId)
+  if (!entry || entry.creatorId !== creatorId) return fail(404, 'QUIZ_ATTEMPT_NOT_FOUND', '응시 기록을 찾을 수 없습니다.')
+  return withPaymentStatus(entry, now)
+}

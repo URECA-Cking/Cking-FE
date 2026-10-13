@@ -113,3 +113,22 @@ export const COMMENT_REPORT_ERROR_MESSAGES = {
   VALIDATION_FAILED: '신고 사유를 확인해주세요. 기타는 1~200자의 내용이 필요해요.',
   UNAUTHORIZED: '로그인이 필요해요.',
 }
+
+// 게시글 좋아요 API(Cking-BE docs/domains/post/api.md). 로그인 필요, 응답은 { postId, liked, likeCount, missionAwarded }.
+// missionAwarded가 true면 이번 좋아요로 좋아요 미션 응모권 적립이 접수된 것이다(미션 완료는 이 경로로만 인정된다).
+const likePath = (creatorId, postId) => `${postPath(creatorId)}/${postId}/likes`
+
+export function likePost(creatorId, postId) {
+  return apiClient.post(likePath(creatorId, postId))
+}
+
+export function unlikePost(creatorId, postId) {
+  return apiClient.delete(likePath(creatorId, postId))
+}
+
+/** 좋아요·취소 오류 코드별 사용자 문구. */
+export const POST_LIKE_ERROR_MESSAGES = {
+  POST_FOLLOWERS_ONLY: '팔로워에게만 공개된 게시글이에요.',
+  RESOURCE_NOT_FOUND: '게시글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
+  UNAUTHORIZED: '로그인이 필요해요.',
+}

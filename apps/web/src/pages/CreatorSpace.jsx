@@ -17,7 +17,7 @@ import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorSpace } from '../api/creators.js'
 import { getCreatorSpace, getMySpace, spacePath, spaceShareUrl } from '../api/creatorSpace.js'
 import { getCreatorPosts } from '../api/posts.js'
-import { completeCreatorMission, getCreatorMissions } from '../api/missions.js'
+import { getCreatorMissions } from '../api/missions.js'
 import { getCreatorYoutubeChannel } from '../api/subscriptionVerification.js'
 import { getTicketBalance } from '../api/tickets.js'
 import { ApiError, describeError } from '../api/client.js'
@@ -84,6 +84,9 @@ function ProfileIntro({ text }) {
  * 내 Space면(GET /api/creator/space의 creatorId가 같으면) 편집할 수 있고, 이벤트 탭에서 이벤트를,
  * 캘린더 탭에서 일정을 관리한다(예전 크리에이터 스튜디오 기능).
  */
+// 좋아요 미션 적립 뒤 잔액을 다시 확인하는 간격(ms). 합계 약 10초.
+const BALANCE_SYNC_DELAYS_MS = [500, 1500, 3000, 5000]
+
 export default function CreatorSpace() {
   const { creatorId: creatorIdParam, slug: slugParam } = useParams()
   const navigate = useNavigate()
@@ -101,9 +104,9 @@ export default function CreatorSpace() {
   const [tab, setTab] = useState(location.state?.tab ?? 'home')
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const followerRefreshSeq = useRef(0)
+  const balanceSyncSeq = useRef(0)
   const [editOpen, setEditOpen] = useState(false)
   const [youtubeChannelSettingsOpen, setYoutubeChannelSettingsOpen] = useState(false)
-  const [missionBusyId, setMissionBusyId] = useState(null)
 
   const { data: loaded, loading, error, reload, setData: setCreator } = useAsync(
     () => loadSpaceOrNotFound({ creatorId: creatorIdParam, slug: slugParam }),
@@ -155,6 +158,8 @@ export default function CreatorSpace() {
   // 크리에이터인 경우에만 내 Space를 조회해 지금 보는 Space가 내 것인지 판별한다.
   const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator })
   const isMine = creatorId !== null && mySpace.data?.creatorId === creatorId
+  // 내 게시글의 좋아요는 보상 대상이 아니므로(BE가 자기 Space의 좋아요 미션 보상을 주지 않는다) 내 Space에서는 좋아요 미션을 숨긴다.
+  const shownLikeMissions = isMine ? [] : likeMissions
 
   const events = useMemo(() => creator?.events ?? [], [creator])
   const liveEvents = useMemo(
@@ -164,6 +169,11 @@ export default function CreatorSpace() {
   const publishedEvent = useMemo(() => events.find((event) => event.status === 'PUBLISHED'), [events])
 
   const following = creatorId !== null && isFollowing(creatorId)
+
+  // 다른 Creator로 이동하거나 화면을 떠나면 진행 중인 잔액 확인을 멈춘다.
+  useEffect(() => () => {
+    balanceSyncSeq.current += 1
+  }, [creatorId])
 
   // 탭 제목을 인스타처럼 "이름 (@slug) • Cking"으로 보여주고, 떠날 때 원래 제목으로 되돌린다.
   const creatorName = creator?.creatorName
@@ -274,21 +284,39 @@ export default function CreatorSpace() {
     }
   }
 
-  async function completeMission(mission) {
-    if (!authenticated || mission.type !== 'LIKE') return
-    setMissionBusyId(mission.missionId)
-    try {
-      await completeCreatorMission(creator.creatorId, mission.missionId)
-      setMissions((current) => (current ?? []).map((item) => (
-        item.missionId === mission.missionId ? { ...item, completedToday: true } : item
-      )))
-      balance.reload()
-      showToast(`응모권 ${mission.rewardAmount}장을 적립했어요.`)
-    } catch (missionError) {
-      showToast(describeError(missionError, '미션을 완료하지 못했어요.'), { icon: 'error' })
-    } finally {
-      setMissionBusyId(null)
+  // 좋아요 미션은 서버가 게시글 좋아요를 확인해야 완료로 인정하므로 완료 API를 호출하지 않고 게시글로 안내한다.
+  function goLikePosts() {
+    setTab('posts')
+    showToast('게시글에 좋아요를 누르면 미션이 완료돼요.')
+  }
+
+  /**
+   * 적립은 Redis에서 먼저 접수되고 DB 잔액은 비동기로 반영되므로, 응답 직후 조회한 잔액은 이전 값일 수 있다.
+   * 잔액이 늘어난 것이 확인될 때까지 몇 번 다시 조회한다. 끝까지 확인되지 않으면 적립 중이라고 알린다.
+   */
+  async function syncBalanceAfterEarn(targetId, before) {
+    const seq = ++balanceSyncSeq.current
+    for (const delay of BALANCE_SYNC_DELAYS_MS) {
+      await new Promise((resolve) => setTimeout(resolve, delay))
+      if (balanceSyncSeq.current !== seq) return
+      try {
+        const latest = await getTicketBalance(targetId)
+        if (balanceSyncSeq.current !== seq) return
+        balance.setData(latest)
+        if (latest.balance > before) return
+      } catch {
+        // 다음 시도에서 다시 확인한다.
+      }
     }
+    if (balanceSyncSeq.current === seq) showToast('응모권 적립이 아직 반영 중이에요. 잠시 뒤 잔액을 다시 확인해주세요.')
+  }
+
+  // 게시글 좋아요 응답의 missionAwarded가 true일 때: 미션 완료 표시를 바꾸고 잔액이 반영될 때까지 확인한다.
+  function handleLikeMissionAwarded() {
+    const reward = likeMissions[0]?.rewardAmount
+    setMissions((current) => (current ?? []).map((item) => (item.type === 'LIKE' ? { ...item, completedToday: true } : item)))
+    showToast(reward ? `좋아요 미션 완료! 응모권 ${reward}장을 적립하고 있어요.` : '좋아요 미션 완료! 응모권을 적립하고 있어요.')
+    syncBalanceAfterEarn(creator.creatorId, ticketBalance)
   }
 
   // 관심 등록·편집·공유 버튼 행. 좁은 화면에서는 소개 아래에 가로로 꽉 차게, md 이상에서는 이름 옆에 놓는다.
@@ -354,7 +382,7 @@ export default function CreatorSpace() {
     <>
       {missionsLoading && <LoadingBlock label="오늘의 미션을 불러오는 중..." />}
       {!missionsLoading && missionsError && <ErrorBlock message={missionsError} onRetry={reloadMissions} />}
-      {!missionsLoading && !missionsError && likeMissions.map((mission) => {
+      {!missionsLoading && !missionsError && shownLikeMissions.map((mission) => {
         const completed = mission.completedToday
         return (
           <div key={mission.missionId} className="flex items-center justify-between gap-3 p-space-md rounded-xl bg-surface-container-lowest shadow-card">
@@ -369,11 +397,11 @@ export default function CreatorSpace() {
             </div>
             <button
               type="button"
-              disabled={completed || missionBusyId === mission.missionId}
-              onClick={() => completeMission(mission)}
+              disabled={completed}
+              onClick={goLikePosts}
               className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 ${completed ? 'bg-surface-container-high text-outline' : 'bg-berry-tint text-primary'}`}
             >
-              {missionBusyId === mission.missionId ? '처리 중...' : completed ? '완료' : '참여하기'}
+              {completed ? '완료' : '좋아요 하러 가기'}
             </button>
           </div>
         )
@@ -393,7 +421,7 @@ export default function CreatorSpace() {
           onRewarded={balance.reload}
         />
       )}
-      {!missionsLoading && !missionsError && likeMissions.length === 0 && !youtubeSubscriptionMission && (
+      {!missionsLoading && !missionsError && shownLikeMissions.length === 0 && !youtubeSubscriptionMission && (
         <EmptyBlock icon="bolt" message={EMPTY_TAB_MESSAGE} />
       )}
     </>
@@ -584,6 +612,7 @@ export default function CreatorSpace() {
           <CreatorPosts
             key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}:${authenticated}:${following}:${isMine}`}
             onPostCountChange={postTotal.reload}
+            onMissionAwarded={handleLikeMissionAwarded}
             creatorId={creator.creatorId}
             creatorName={creator.creatorName}
             profileImageUrl={creator.profileImageUrl}

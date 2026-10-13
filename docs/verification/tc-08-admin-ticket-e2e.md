@@ -50,8 +50,9 @@ npm run test:e2e:admin -- --grep 'TC-08'
 | --- | --- | --- |
 | FE lint/build | 통과 | `npm run lint`, `npm run build`, `npx oxlint apps/admin/e2e/tickets.spec.js` (2026-10-13, FE `27fd63b` 기반 작업 브랜치) |
 | Admin 단위 테스트 | 통과 | `npm run test:admin` 31개 통과 |
-| 관리자 로그인·메뉴·Creator 전용/공용 조회 | 미실행 | 관리자 계정·테스트 대상 ID 미설정으로 Playwright `skipped` |
-| EARN·SPEND 이력 | 미실행 | 관리자 계정·테스트 대상 ID 미설정으로 Playwright `skipped` |
+| 관리자 로그인·세션 복원·로그아웃 | 통과 | 2026-10-13 개발 배포 E2E 1개 통과. 계정 값은 기록하지 않음 |
+| 관리자 메뉴·Creator 전용/공용 조회 | 부분 확인 | 개발 배포에서 관리자 메뉴와 Creator 전용 실제 API 조회까지 도달. 예시 대상에 Redis 키가 없어 E2E 데이터 전제조건 불충족. 공용 대상은 미확인 |
+| EARN·SPEND 이력 | 미실행 | 원장이 준비된 테스트 대상 ID 미확보 |
 | 미반영 Stream 보정 거부 | 미실행 | 격리된 테스트 데이터와 관리자 계정 미설정으로 Playwright `skipped` |
 | 안전한 수동 보정 | 미실행 | 격리된 테스트 데이터와 관리자 계정 미설정으로 Playwright `skipped` |
 | Redis·MySQL 직접 재확인 | 미실행 | 대상별 잔액·원장 ID (비밀값 제외) |

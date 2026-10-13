@@ -73,8 +73,10 @@ export default function AdminTickets() {
 /** 선택된 회원·응모권 범위의 잔액, 커서 이력, 수동 보정을 관리한다. */
 function TicketResults({ scope }) {
   const showToast = useToast()
-  const [cursor, setCursor] = useState(null)
-  const [previousCursors, setPreviousCursors] = useState([])
+  const [moreLoading, setMoreLoading] = useState(false)
+  const [moreError, setMoreError] = useState('')
+  const historyGeneration = useRef(0)
+  const loadMorePending = useRef(false)
   const [reason, setReason] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -84,20 +86,40 @@ function TicketResults({ scope }) {
   const [resyncError, setResyncError] = useState('')
   const submitting = useRef(false)
   const balance = useAsync(() => getAdminTicketBalance(scope), [], { fallbackMessage: '잔액을 조회하지 못했습니다.' })
-  const history = useAsync(() => getAdminTicketHistory({ ...scope, cursor, size: PAGE_SIZE }), [cursor], { fallbackMessage: '이력을 조회하지 못했습니다.' })
+  const history = useAsync(() => getAdminTicketHistory({ ...scope, size: PAGE_SIZE }), [], { fallbackMessage: '이력을 조회하지 못했습니다.' })
 
-  /** 다음 커서를 기억하고 서버가 제공한 다음 이력 페이지를 연다. */
-  function nextPage() {
-    if (!history.data?.hasNext || !history.data.nextCursor) return
-    setPreviousCursors((current) => [...current, cursor])
-    setCursor(history.data.nextCursor)
+  /** 첫 페이지를 다시 읽고 이전 더보기 결과와 오류를 지운다. */
+  async function reloadHistory() {
+    historyGeneration.current += 1
+    loadMorePending.current = false
+    setMoreError('')
+    setMoreLoading(false)
+    await history.reload()
   }
 
-  /** 이전 페이지의 커서를 복원한다. */
-  function previousPage() {
-    if (previousCursors.length === 0) return
-    setCursor(previousCursors[previousCursors.length - 1])
-    setPreviousCursors((current) => current.slice(0, -1))
+  /** 서버의 다음 커서로 이력을 추가하고 실패해도 기존 목록은 유지한다. */
+  async function loadMore() {
+    if (loadMorePending.current || history.loading || !history.data?.hasNext || !history.data.nextCursor) return
+    loadMorePending.current = true
+    const generation = historyGeneration.current
+    const cursor = history.data.nextCursor
+    setMoreLoading(true)
+    setMoreError('')
+    try {
+      const nextPage = await getAdminTicketHistory({ ...scope, cursor, size: PAGE_SIZE })
+      if (historyGeneration.current !== generation) return
+      history.setData((current) => ({
+        ...nextPage,
+        items: [...(current?.items ?? []), ...(nextPage.items ?? [])],
+      }))
+    } catch (error) {
+      if (historyGeneration.current === generation) setMoreError(describeError(error, '추가 이력을 조회하지 못했습니다.'))
+    } finally {
+      if (historyGeneration.current === generation) {
+        loadMorePending.current = false
+        setMoreLoading(false)
+      }
+    }
   }
 
   /** 확인창을 열 때 이전 재조회 결과와 오류를 비운다. */
@@ -145,9 +167,7 @@ function TicketResults({ scope }) {
       setConfirming(false)
       setReason('')
       await balance.reload()
-      setPreviousCursors([])
-      if (cursor === null) await history.reload()
-      else setCursor(null)
+      await reloadHistory()
     } catch (error) {
       setResyncError(ticketResyncError(error) || describeError(error, '응모권 잔액을 재동기화하지 못했습니다.'))
       setFreshBalance(null)
@@ -193,12 +213,12 @@ function TicketResults({ scope }) {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4"><div><h2 className="font-semibold text-slate-950">변동 이력</h2><p className="mt-1 text-sm text-slate-500">최근 기록부터 표시합니다.</p></div><button type="button" onClick={() => void history.reload()} disabled={history.loading} className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-50">이력 새로고침</button></div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4"><div><h2 className="font-semibold text-slate-950">변동 이력</h2><p className="mt-1 text-sm text-slate-500">최근 기록부터 표시합니다.</p></div><button type="button" onClick={() => void reloadHistory()} disabled={history.loading} className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-50">이력 새로고침</button></div>
         {history.loading && <LoadingBlock label="응모권 이력을 조회하는 중..." />}
-        {!history.loading && history.error && <ErrorBlock message={history.error} onRetry={history.reload} />}
+        {!history.loading && history.error && <ErrorBlock message={history.error} onRetry={reloadHistory} />}
         {!history.loading && !history.error && history.data && (history.data.items ?? []).length === 0 && <EmptyBlock icon="history" message="응모권 변동 이력이 없습니다." />}
         {!history.loading && !history.error && (history.data?.items ?? []).length > 0 && <HistoryTable items={history.data.items} />}
-        {!history.loading && !history.error && history.data && <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3"><span className="text-sm text-slate-500">{previousCursors.length + 1}페이지</span><div className="flex gap-2"><button type="button" disabled={previousCursors.length === 0} onClick={previousPage} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40">이전</button><button type="button" disabled={!history.data.hasNext || !history.data.nextCursor} onClick={nextPage} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40">다음</button></div></div>}
+        {!history.loading && !history.error && history.data?.hasNext && history.data.nextCursor && <div className="border-t border-slate-200 px-5 py-3 text-center"><button type="button" onClick={() => void loadMore()} disabled={moreLoading} className="rounded-md border border-slate-300 px-4 py-2 text-sm disabled:opacity-40">{moreLoading ? '추가 이력 조회 중...' : '더보기'}</button>{moreError && <p role="alert" className="mt-2 text-sm text-red-700">{moreError}</p>}</div>}
       </section>
 
       {confirming && (
@@ -252,5 +272,15 @@ function RedisBalanceQueryError({ onRetry }) {
 
 /** 응모권 원장 항목의 유형·증감·관련 ID·사유를 표시한다. */
 function HistoryTable({ items }) {
-  return <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">발생 시각</th><th className="px-4 py-3">유형</th><th className="px-4 py-3">증감</th><th className="px-4 py-3">관련 항목</th><th className="px-5 py-3">사유</th></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => <tr key={item.ledgerId}><td className="px-5 py-3 text-slate-600">{formatDateTime(item.createdAt)}</td><td className="px-4 py-3"><StatusPill label={LEDGER_LABELS[item.type] ?? item.type} /></td><td className={`px-4 py-3 font-semibold ${item.deltaAmount < 0 ? 'text-red-700' : 'text-emerald-700'}`}>{item.deltaAmount > 0 ? '+' : ''}{formatNumber(item.deltaAmount)}</td><td className="px-4 py-3 text-slate-600">{item.missionId ? `미션 #${item.missionId}` : item.eventId ? `이벤트 #${item.eventId}` : '-'}</td><td className="px-5 py-3 text-slate-600">{item.reason || '-'}</td></tr>)}</tbody></table></div>
+  return <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">발생 시각</th><th className="px-4 py-3">유형</th><th className="px-4 py-3">증감</th><th className="px-4 py-3">관련 ID</th><th className="px-5 py-3">사유</th></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => <tr key={item.ledgerId}><td className="px-5 py-3 text-slate-600">{formatDateTime(item.createdAt)}</td><td className="px-4 py-3"><StatusPill label={LEDGER_LABELS[item.type] ?? item.type} /></td><td className={`px-4 py-3 font-semibold ${item.deltaAmount < 0 ? 'text-red-700' : 'text-emerald-700'}`}>{item.deltaAmount > 0 ? '+' : ''}{formatNumber(item.deltaAmount)}</td><td className="px-4 py-3 text-slate-600"><RelatedIds item={item} /></td><td className="px-5 py-3 text-slate-600">{item.reason || '-'}</td></tr>)}</tbody></table></div>
+}
+
+/** 원장이 제공한 이벤트·미션·요청 ID를 누락 없이 표시한다. */
+function RelatedIds({ item }) {
+  const ids = [
+    item.eventId != null && `이벤트 #${item.eventId}`,
+    item.missionId != null && `미션 #${item.missionId}`,
+    item.requestId && `요청 ${item.requestId}`,
+  ].filter(Boolean)
+  return ids.length > 0 ? <div className="flex flex-col gap-1 break-all">{ids.map((id) => <span key={id}>{id}</span>)}</div> : '-'
 }

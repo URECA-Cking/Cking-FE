@@ -95,7 +95,10 @@ export function installMockApiIfRequested() {
     ['GET', /^\/api\/events$/, () => page(events)],
     ['GET', /^\/api\/creators\/(\d+)\/tickets$/, (id) => ({ creatorId: Number(id), balance: BALANCES[id] ?? 0 })],
     ['GET', /^\/api\/creators\/(\d+)\/posts$/, (id, url) => page((posts[id] ?? []).slice(0, Number(url.searchParams.get('size')) || 20))],
-    ['GET', /^\/api\/creators\/(\d+)\/space$/, (id) => CREATORS.find((c) => c.creatorId === Number(id)) ?? null],
+    ['GET', /^\/api\/creators\/(\d+)\/space$/, (id) => {
+      const creator = CREATORS.find((c) => c.creatorId === Number(id))
+      return creator ? { ...creator, followerCount: 1200 + creator.creatorId * 311 } : null
+    }],
     ['GET', /^\/api\/missions$/, () => [{ missionId: 7, type: 'ATTENDANCE', rewardAmount: 1, activeFrom: null, activeTo: null, completedToday: attendanceDone }]],
     [
       'POST',

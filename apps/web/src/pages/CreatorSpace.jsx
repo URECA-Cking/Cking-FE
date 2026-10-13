@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import BackButton from '../components/ui/BackButton.jsx'
@@ -14,9 +14,8 @@ import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorSpace } from '../api/creators.js'
-import { getMySpace, spacePath, spaceShareUrl } from '../api/creatorSpace.js'
+import { getCreatorSpace, getMySpace, spacePath, spaceShareUrl } from '../api/creatorSpace.js'
 import { getCreatorPosts } from '../api/posts.js'
-import { withMockSpace } from '../dev/socialMock.js'
 import { completeCreatorMission, getCreatorMissions } from '../api/missions.js'
 import { getCreatorYoutubeChannel } from '../api/subscriptionVerification.js'
 import { getTicketBalance } from '../api/tickets.js'
@@ -99,6 +98,7 @@ export default function CreatorSpace() {
   // 홈의 게시물 카드처럼 특정 탭을 가리키며 들어오면(location.state.tab) 그 탭으로 연다.
   const [tab, setTab] = useState(location.state?.tab ?? 'home')
   const [ledgerOpen, setLedgerOpen] = useState(false)
+  const followerRefreshSeq = useRef(0)
   const [editOpen, setEditOpen] = useState(false)
   const [youtubeChannelSettingsOpen, setYoutubeChannelSettingsOpen] = useState(false)
   const [missionBusyId, setMissionBusyId] = useState(null)
@@ -108,7 +108,7 @@ export default function CreatorSpace() {
     [creatorIdParam, slugParam],
     { fallbackMessage: '크리에이터 정보를 불러오지 못했습니다.' },
   )
-  const creator = useMemo(() => (loaded?.notFound ? null : withMockSpace(loaded)), [loaded])
+  const creator = useMemo(() => (loaded?.notFound ? null : loaded), [loaded])
   const creatorId = creator?.creatorId ?? null
 
   // 인증이 필요한 데이터는 로그인 상태가 확인된 뒤에만 조회한다(비로그인 공유 링크 열람 지원).
@@ -175,7 +175,7 @@ export default function CreatorSpace() {
     }
   }, [creatorName, creatorSlug])
 
-  // 값이 없는 통계는 칸 자체를 숨긴다. 팔로워 수는 BE 응답에 없으면 나타나지 않는다.
+  // 값이 없는 통계는 칸 자체를 숨긴다. 팔로워 수는 스페이스 조회 응답의 followerCount가 숫자일 때만 나타난다(0 포함).
   const profileStats = [
     typeof postTotal.data?.totalElements === 'number' && { label: '게시물', value: postTotal.data.totalElements },
     typeof creator?.followerCount === 'number' && { label: '팔로워', value: creator.followerCount },
@@ -212,6 +212,21 @@ export default function CreatorSpace() {
     )
   }
 
+  /**
+   * 팔로워 수는 BE가 스페이스를 조회할 때 세므로, 팔로우 변경이 성공하면 그 값만 다시 받아 반영한다.
+   * 실패해도 팔로우 결과는 이미 반영됐으니 조용히 넘기고, 늦게 도착한 이전 응답이나 다른 스페이스의 응답은 버린다.
+   */
+  async function refreshFollowerCount(targetId) {
+    const seq = ++followerRefreshSeq.current
+    try {
+      const latest = await getCreatorSpace(targetId)
+      if (followerRefreshSeq.current !== seq || typeof latest?.followerCount !== 'number') return
+      setCreator((current) => (current?.creatorId === targetId ? { ...current, followerCount: latest.followerCount } : current))
+    } catch {
+      // 다음 조회 때 바로잡힌다.
+    }
+  }
+
   async function handleFollow() {
     if (!authenticated) {
       goLogin()
@@ -220,7 +235,10 @@ export default function CreatorSpace() {
     if (isMine) return
     try {
       const result = await toggleFollow(creator.creatorId)
-      if (result) showToast(result.following ? `${creator.creatorName} 관심 등록 완료! 💖` : '관심 크리에이터에서 해제되었습니다.')
+      if (result) {
+        showToast(result.following ? `${creator.creatorName} 관심 등록 완료! 💖` : '관심 크리에이터에서 해제되었습니다.')
+        refreshFollowerCount(creator.creatorId)
+      }
     } catch (followError) {
       showToast(describeError(followError, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
     }

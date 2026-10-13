@@ -1,6 +1,8 @@
 /** 관측된 잔액에서 수동 보정 필요 상태를 구분한다. */
 export function ticketResyncState(balance) {
-  if (!balance?.mysqlBalanceRowExists) return 'NO_MYSQL'
+  if (!balance) return 'UNKNOWN'
+  if (balance.mysqlBalanceRowExists === false) return 'NO_MYSQL'
+  if (balance.mysqlBalanceRowExists !== true) return 'UNKNOWN'
   if (balance.redisKeyExists === false) return 'MISSING_REDIS'
   if (balance.redisKeyExists === true && balance.balanceDifference === 0) return 'MATCHED'
   if (balance.redisKeyExists === true && typeof balance.balanceDifference === 'number' && balance.balanceDifference !== 0) return 'DIFFERENT'

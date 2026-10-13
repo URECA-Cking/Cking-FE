@@ -78,6 +78,7 @@ function TicketResults({ scope }) {
   const [reason, setReason] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [initialBalance, setInitialBalance] = useState(null)
   const [freshBalance, setFreshBalance] = useState(null)
   const [reviewedCause, setReviewedCause] = useState(false)
   const [resyncError, setResyncError] = useState('')
@@ -101,6 +102,7 @@ function TicketResults({ scope }) {
 
   /** 확인창을 열 때 이전 재조회 결과와 오류를 비운다. */
   function openConfirmation() {
+    setInitialBalance(balance.data)
     setFreshBalance(null)
     setReviewedCause(false)
     setResyncError('')
@@ -132,7 +134,7 @@ function TicketResults({ scope }) {
   async function resync(event) {
     event.preventDefault()
     const trimmedReason = reason.trim()
-    if (!freshBalance || !canResync || !reviewedCause || !trimmedReason || trimmedReason.length > 500 || submitting.current) return
+    if (!canSubmit || submitting.current) return
     submitting.current = true
     setBusy(true)
     setResyncError('')
@@ -163,7 +165,7 @@ function TicketResults({ scope }) {
   const state = ticketResyncState(data)
   const canResync = !balance.loading && !balance.error && (state === 'MISSING_REDIS' || state === 'DIFFERENT')
   const freshState = ticketResyncState(freshBalance)
-  const canSubmit = canResync && freshBalance && (freshState === 'MISSING_REDIS' || freshState === 'DIFFERENT') && reviewedCause
+  const canSubmit = Boolean(freshBalance && (freshState === 'MISSING_REDIS' || freshState === 'DIFFERENT') && reviewedCause && reason.trim() && reason.trim().length <= 500)
 
   return (
     <div className="flex flex-col gap-6">
@@ -206,17 +208,17 @@ function TicketResults({ scope }) {
             <p className="mt-2 text-sm leading-6 text-slate-600">회원 #{scope.memberId}의 {scope.couponType === 'CREATOR' ? `Creator #${scope.creatorId} 전용 응모권` : '공용 응모권'} Redis 잔액을 DB 기준으로 맞춥니다. 미반영 메시지가 있으면 서버가 보정을 거부합니다.</p>
             <p className="mt-4 text-sm font-semibold">처음 조회한 잔액</p>
             <dl className="mt-4 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 rounded-md bg-slate-50 p-4 text-sm">
-              <dt className="text-slate-600">Redis 잔액</dt><dd className="text-right font-medium">{balanceText(data?.redisBalance, data?.redisKeyExists)}</dd>
-              <dt className="text-slate-600">MySQL 잔액</dt><dd className="text-right font-medium">{balanceText(data?.mysqlBalance, data?.mysqlBalanceRowExists)}</dd>
-              <dt className="text-slate-600">차이 (Redis − MySQL)</dt><dd className="text-right font-medium">{difference == null ? '비교 불가' : `${formatNumber(difference)}장`}</dd>
+              <dt className="text-slate-600">Redis 잔액</dt><dd className="text-right font-medium">{balanceText(initialBalance?.redisBalance, initialBalance?.redisKeyExists)}</dd>
+              <dt className="text-slate-600">MySQL 잔액</dt><dd className="text-right font-medium">{balanceText(initialBalance?.mysqlBalance, initialBalance?.mysqlBalanceRowExists)}</dd>
+              <dt className="text-slate-600">차이 (Redis − MySQL)</dt><dd className="text-right font-medium">{initialBalance?.balanceDifference == null ? '비교 불가' : `${formatNumber(initialBalance.balanceDifference)}장`}</dd>
             </dl>
-            <p className="mt-2 text-xs leading-5 text-slate-500">{formatDateTime(data?.observedAt)}에 관측한 값입니다. 실시간 확정 잔액이 아니며, 두 저장소의 조회 시점도 다릅니다.</p>
+            <p className="mt-2 text-xs leading-5 text-slate-500">{formatDateTime(initialBalance?.observedAt)}에 관측한 값입니다. 실시간 확정 잔액이 아니며, 두 저장소의 조회 시점도 다릅니다.</p>
             <label className="mt-5 block text-sm font-medium text-slate-800">보정 사유 <span className="text-red-700">*</span><textarea value={reason} onChange={(event) => setReason(event.target.value)} required maxLength={500} disabled={busy} rows={4} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></label>
             <p className="mt-1 text-right text-xs text-slate-500">{reason.length}/500자</p>
             {freshBalance && <div className="mt-4 rounded-md border border-pink-200 bg-pink-50 p-4 text-sm">
               <p className="font-semibold">제출 전 최신 잔액 · {formatDateTime(freshBalance.observedAt)}</p>
               <p className="mt-2">Redis: {balanceText(freshBalance.redisBalance, freshBalance.redisKeyExists)} · MySQL: {balanceText(freshBalance.mysqlBalance, freshBalance.mysqlBalanceRowExists)}</p>
-              {ticketBalanceChanged(data, freshBalance) && <p className="mt-2 font-medium text-amber-800">처음 조회한 값과 달라졌습니다. 변경된 잔액을 확인하세요.</p>}
+              {ticketBalanceChanged(initialBalance, freshBalance) && <p className="mt-2 font-medium text-amber-800">처음 조회한 값과 달라졌습니다. 변경된 잔액을 확인하세요.</p>}
               {freshState === 'MISSING_REDIS' && <p className="mt-2">Redis 키가 없습니다. 키 유실 원인을 확인한 후 진행하세요.</p>}
               {freshState === 'DIFFERENT' && <p className="mt-2">잔액이 다릅니다. Stream의 비동기 반영 중 일시적인 차이일 수 있으니 원인을 확인한 후 진행하세요.</p>}
               {freshState === 'MATCHED' && <p className="mt-2">두 잔액이 일치해 보정할 필요가 없습니다.</p>}

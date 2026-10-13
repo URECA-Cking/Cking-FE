@@ -28,6 +28,8 @@ export function useEntryStatus(eventId, { enabled, live, refreshKey, replay = fa
   const prevKey = useRef(undefined)
   const owner = useRef(null)
   const frozenBaseline = useRef(null)
+  // 응모 직후 아직 증가를 확인하지 못한 기준값. effect가 다시 실행돼도(live·replay 변경 등) 확인 전까지는 유지한다.
+  const pending = useRef(null)
 
   // 응모 요청을 보내기 시작하는 순간의 수치를 응모 전 기준으로 고정한다(이후 조회가 latest를 바꿔도 기준은 그대로).
   useEffect(() => {
@@ -42,10 +44,9 @@ export function useEntryStatus(eventId, { enabled, live, refreshKey, replay = fa
       latest.current = null
       prevKey.current = undefined
       frozenBaseline.current = null
+      pending.current = null
     }
     let cancelled = false
-    // 응모 직후 증가를 확인하지 못한 동안은 주기 조회가 옛 값을 다시 보여주지 못하게 막는다.
-    let unconfirmed = false
     // 응모 직후 재조회가 진행 중일 때는 주기 조회를 쉬어 두 조회가 값을 덮어쓰지 않게 한다.
     let bursting = false
     const begin = createLatestGate()
@@ -53,6 +54,9 @@ export function useEntryStatus(eventId, { enabled, live, refreshKey, replay = fa
     const afterEntry = !replay && prevKey.current !== undefined && prevKey.current !== refreshKey && baseline !== null
     if (prevKey.current !== refreshKey) frozenBaseline.current = null
     prevKey.current = refreshKey
+    if (afterEntry) pending.current = baseline
+    // 이미 접수된 요청의 재시도는 응모권이 다시 늘지 않으므로 이전에 남은 증가 대기를 풀어 준다.
+    if (replay) pending.current = null
 
     // 성공이면 응답, 실패면 undefined, 이미 정리된 뒤면 null
     async function fetchStatus() {
@@ -78,20 +82,20 @@ export function useEntryStatus(eventId, { enabled, live, refreshKey, replay = fa
       const data = await fetchStatus()
       if (data === null || !isLatest()) return
       if (!data) return hide()
-      if (unconfirmed) {
-        if (data.myTicketCount <= baseline) return
-        unconfirmed = false
+      // 응모 직후 증가를 확인하지 못한 동안은 주기 조회가 옛 값을 다시 보여주지 못하게 막는다.
+      if (pending.current !== null) {
+        if (data.myTicketCount <= pending.current) return
+        pending.current = null
       }
       show(data)
     }
 
-    if (afterEntry) {
-      unconfirmed = true
+    if (pending.current !== null) {
       bursting = true
       setState((prev) => ({ ...base(prev), waiting: true }))
       waitForIncrease({
         fetchStatus,
-        baseline,
+        baseline: pending.current,
         maxRetries: MAX_RETRIES,
         retryMs: RETRY_MS,
         cancelled: () => cancelled,
@@ -99,7 +103,7 @@ export function useEntryStatus(eventId, { enabled, live, refreshKey, replay = fa
         if (!result) return
         bursting = false
         if (result.confirmed) {
-          unconfirmed = false
+          pending.current = null
           show(result.data)
         } else {
           hide()

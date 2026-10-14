@@ -1,4 +1,5 @@
 import { apiClient } from './client.js'
+import { JPEG_PNG_IMAGE_TYPES } from '../utils/imageMime.js'
 
 const postPath = (creatorId) => `/api/creators/${creatorId}/posts`
 
@@ -16,7 +17,7 @@ export const POST_LIMITS = {
   maxImages: 5,
   maxImageBytes: 5 * 1024 * 1024,
   minImageSize: 200,
-  imageTypes: ['image/jpeg', 'image/png'],
+  imageTypes: JPEG_PNG_IMAGE_TYPES,
 }
 
 /** 이미지 1장 업로드 → { imageKey }. 24시간 안에 게시글에 연결하지 않으면 서버가 삭제한다. */

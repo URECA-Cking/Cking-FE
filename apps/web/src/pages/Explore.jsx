@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
+import CreatorBanner from '../components/creator/CreatorBanner.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
 import InterestEditor from '../components/creator/InterestEditor.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../components/ui/States.jsx'
@@ -145,7 +147,7 @@ export default function Explore() {
       >
         <Link to={spacePath(creator.handle)} onClick={onOpen ? () => onOpen(creator.creatorId) : undefined} className="block">
           <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
-            <img className="w-full h-full object-cover" src={creator.banner} alt={creator.name} loading="lazy" decoding="async" />
+            <CreatorBanner src={creator.banner} profileSrc={creator.avatar} />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
             {creator.openEventCount > 0 && (
               <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-xs text-label-xs font-semibold flex items-center gap-1">
@@ -260,7 +262,7 @@ export default function Explore() {
                 <div key={creator.creatorId} className="w-full p-3 rounded-2xl bg-surface-container-lowest shadow-card flex items-center justify-between gap-3">
                   <Link to={spacePath(creator.handle)} className="flex items-center gap-3 min-w-0">
                     <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                      <img className="w-full h-full object-cover" src={creator.avatar} alt={creator.name} loading="lazy" decoding="async" />
+                      <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
                     </div>
                     <div className="min-w-0 flex flex-col">
                       <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
@@ -344,7 +346,7 @@ export default function Explore() {
                       {index + 1}
                     </span>
                     <div className="relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                      <img className="w-full h-full object-cover" src={creator.avatar} alt={creator.name} loading="lazy" decoding="async" />
+                      <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
                     </div>
                     <div className="min-w-0 flex flex-col">
                       <div className="flex items-center gap-1">

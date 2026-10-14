@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import { Spinner } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
@@ -193,13 +194,7 @@ export default function ProfileEdit() {
               aria-label="프로필 사진 변경"
               className="h-full w-full overflow-hidden rounded-full bg-surface-container active:scale-95 transition-transform disabled:opacity-70"
             >
-              {shownImage ? (
-                <img src={shownImage} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center text-on-surface-variant">
-                  <MaterialIcon name="person" className="text-[56px]" />
-                </span>
-              )}
+              <ProfilePhoto src={shownImage} className="h-full w-full" iconClassName="text-[56px]" />
               {photoBusy && (
                 <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
                   <Spinner className="h-7 w-7 text-white" />

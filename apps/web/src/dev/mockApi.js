@@ -11,9 +11,9 @@ const STORAGE_KEY = 'cking.mock'
 const HOUR = 3600 * 1000
 const DAY = 24 * HOUR
 
-const avatar = (letter, hue) => `data:image/svg+xml;utf8,${encodeURIComponent(
+const avatar = (letter, hue) => URL.createObjectURL(new Blob([
   `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="hsl(${hue} 45% 38%)"/><text x="48" y="62" font-size="42" text-anchor="middle" fill="#fff" font-family="sans-serif">${letter}</text></svg>`,
-)}`
+], { type: 'image/svg+xml' }))
 
 const CREATORS = [
   { creatorId: 1, creatorName: '하늘', slug: 'haneul', profileImageUrl: avatar('하', 210) },

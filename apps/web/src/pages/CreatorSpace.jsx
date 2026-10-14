@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import BackButton from '../components/ui/BackButton.jsx'
 import { useAppBack } from '../hooks/useAppBack.js'
 import EventCard from '../components/creator/EventCard.jsx'
@@ -506,7 +507,7 @@ export default function CreatorSpace() {
         <section className="flex flex-col gap-space-sm px-margin pt-space-md md:grid md:grid-cols-[auto_minmax(0,1fr)] md:gap-x-16 md:gap-y-4 md:px-8 md:pb-6 md:pt-10">
           <div className="flex items-center gap-space-lg md:contents">
             <div className="h-20 w-20 shrink-0 rounded-full border border-surface-container-high bg-surface-container p-0.5 md:col-start-1 md:row-span-3 md:row-start-1 md:mx-6 md:h-36 md:w-36 md:p-1">
-              <img className="h-full w-full rounded-full object-cover" src={creator.profileImageUrl} alt={creator.creatorName} />
+              <ProfilePhoto src={creator.profileImageUrl} className="h-full w-full" iconClassName="text-[40px] md:text-[72px]" />
             </div>
             <dl className="flex flex-1 justify-around text-center md:col-start-2 md:row-start-2 md:flex-none md:justify-start md:gap-10 md:text-left">
               {profileStats.map((stat) => (

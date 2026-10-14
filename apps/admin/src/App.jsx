@@ -12,6 +12,7 @@ import { AdminAbuseDetectionDetailPage, AdminAbuseDetectionListPage } from './pa
 import { ReviewDetailPage, ReviewListPage } from './pages/admin/ReviewPages.jsx'
 import AdminSpaceTemplates from './pages/admin/AdminSpaceTemplates.jsx'
 import AdminCommentReports from './pages/admin/AdminCommentReports.jsx'
+import AdminSpaceCommentBlocks from './pages/admin/AdminSpaceCommentBlocks.jsx'
 import AdminTickets from './pages/admin/AdminTickets.jsx'
 
 /** 관리자 도메인의 고정 URL과 로그인 보호 라우트를 등록한다. */
@@ -41,6 +42,7 @@ export default function App() {
       <Route path="/admin/dead-streams" element={protectedRoute(<AdminDeadStreams />)} />
       <Route path="/admin/space-templates" element={protectedRoute(<AdminSpaceTemplates />)} />
       <Route path="/admin/comment-reports" element={protectedRoute(<AdminCommentReports />)} />
+      <Route path="/admin/space-comment-blocks" element={protectedRoute(<AdminSpaceCommentBlocks />)} />
       <Route path="/admin/tickets" element={protectedRoute(<AdminTickets />)} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>

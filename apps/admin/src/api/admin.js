@@ -1,4 +1,4 @@
-import { get, patch, post } from './client.js'
+import { del, get, patch, post } from './client.js'
 
 // 관리자 전용 API. 백엔드는 Access JWT의 role이 ADMIN이 아니면 FORBIDDEN을 돌려준다.
 
@@ -320,4 +320,24 @@ export async function getAbuseDetection(detectionId) {
 /** 관리자의 최종 검토 판정을 기록한다. */
 export async function reviewAbuseDetection(detectionId, status) {
   return patch(`/api/admin/abuse-detections/${detectionId}/review`, { status })
+}
+
+/** 신고 여부와 상관없이 댓글을 삭제한다. 물리 삭제라 되돌릴 수 없고, 그 댓글의 신고도 함께 지워지며, 작성자 경고·알림·이력은 남지 않는다(204). */
+export async function deleteComment(commentId) {
+  return del(`/api/admin/comments/${commentId}`)
+}
+
+/** 지정한 크리에이터의 스페이스에서 회원의 댓글 작성·수정을 지금부터 days일(1~365) 막는다. 이미 유효한 차단이 있으면 새로 만들지 않고 기존 차단을 같은 201로 돌려준다. */
+export async function createSpaceCommentBlock({ creatorId, memberId, days }) {
+  return post('/api/admin/comment-blocks', { creatorId, memberId, days })
+}
+
+/** 모든 스페이스의 차단을 시작 최신순으로 조회한다. creatorId·memberId로 좁히고, activeOnly면 지금 유효한 차단만 본다. */
+export async function getSpaceCommentBlocks({ creatorId, memberId, activeOnly = false, page = 0, size = 20 } = {}) {
+  return get('/api/admin/comment-blocks', { creatorId, memberId, active: activeOnly, page, size })
+}
+
+/** 스페이스 차단을 지금 해제한다. 이미 끝났거나 해제된 차단도 성공(멱등)하고, 플랫폼 제재는 404다. */
+export async function releaseSpaceCommentBlock(sanctionId) {
+  return post(`/api/admin/comment-blocks/${sanctionId}/release`)
 }

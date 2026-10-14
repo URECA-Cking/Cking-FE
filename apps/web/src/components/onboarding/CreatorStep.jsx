@@ -213,7 +213,7 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
         <p className="font-body-md text-body-md text-on-surface-variant">
           {mode === 'recommend'
             ? personalized === false
-              ? '아직 취향 정보가 부족해서 인기 크리에이터를 보여줘요.'
+              ? '아직 취향 정보가 부족해서 인기 크리에이터를 보여드려요.'
               : '고른 분야와 관심 크리에이터를 바탕으로 추천해요.'
             : '이름으로 검색해서 관심 크리에이터를 골라봐요.'}
         </p>

@@ -3,6 +3,7 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { ErrorBlock } from '../ui/States.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
+import { useMyTickets } from '../../context/useMyTickets.js'
 import { ApiError, describeError, newRequestId } from '../../api/client.js'
 import { completeCommonMission, getCommonMissions } from '../../api/missions.js'
 import { getCommonTicketHistorySince } from '../../api/tickets.js'
@@ -19,6 +20,7 @@ const STAMP_WINDOW_MS = 8 * 24 * 60 * 60 * 1000
 /** 홈의 공용 미션(출석). 크리에이터별 미션은 N회 호출이라 크리에이터 스페이스에서 한다. */
 export default function MissionSection({ memberId }) {
   const showToast = useToast()
+  const { refresh: refreshMyTickets } = useMyTickets() // 출석 적립 뒤 헤더의 총 응모권 개수를 갱신한다
   const { data: missions, loading, error, reload, setData } = useAsync(
     () => getCommonMissions(),
     [memberId],
@@ -50,6 +52,7 @@ export default function MissionSection({ memberId }) {
       markCompleted(mission.missionId)
       setJustStamped(true)
       showToast(`응모권 ${mission.rewardAmount}장을 적립했어요.`)
+      refreshMyTickets()
     } catch (completeError) {
       const code = completeError instanceof ApiError ? completeError.code : null
       if (code === 'DUPLICATE_MISSION') {
@@ -98,7 +101,7 @@ export default function MissionSection({ memberId }) {
                 onClick={() => complete(mission)}
                 className="shrink-0 whitespace-nowrap rounded-full bg-white px-3.5 py-1.5 font-label-sm text-label-sm text-primary disabled:bg-white/25 disabled:text-on-primary/80 active:opacity-70 transition-opacity"
               >
-                {busy ? '처리 중' : done ? '도장 완료' : '도장 찍기'}
+                {busy ? '처리 중' : done ? '출석 완료' : '도장 찍기'}
               </button>
             </div>
             {stamps && (

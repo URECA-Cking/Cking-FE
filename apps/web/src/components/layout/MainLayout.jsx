@@ -9,6 +9,7 @@ import { getMyNotifications } from '../../api/notifications.js'
 import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 import { useAppBack } from '../../hooks/useAppBack.js'
+import { useMyTickets } from '../../context/useMyTickets.js'
 
 const APP_BAR_TITLES = {
   '/': { title: 'Cking' },
@@ -17,6 +18,8 @@ const APP_BAR_TITLES = {
   '/notifications': { title: '알림', back: true, hideBell: true },
   '/my-entries': { title: '내 응모', centered: true },
   '/my-page': { title: '마이', centered: true },
+  // 마이페이지 메뉴와 헤더 응모권 버튼에서 들어온다. 이미 그 화면이라 헤더의 응모권 버튼은 숨긴다.
+  '/my-tickets': { title: '내 응모권', back: true, hideTickets: true },
 }
 
 export default function MainLayout() {
@@ -33,6 +36,8 @@ export default function MainLayout() {
   const { data, reload } = useAsync(() => getMyNotifications({ size: 50 }), [pathname])
   const notifications = data?.items ?? []
   const unreadCount = notifications.filter((item) => !item.readAt).length
+  // 헤더 응모권 버튼의 총 개수. 아직 불러오지 못했으면 null이라 자리 표시를 보여 준다.
+  const { summary: ticketSummary } = useMyTickets()
 
   return (
     <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
@@ -45,6 +50,9 @@ export default function MainLayout() {
           hidden={!headerVisible}
           onBack={appBarTitle.back ? goBack : undefined}
           showNotificationBell={!appBarTitle.hideBell}
+          showTicketButton={!appBarTitle.hideTickets}
+          ticketCount={ticketSummary ? ticketSummary.total : null}
+          ticketPartial={ticketSummary ? ticketSummary.partial : false}
         />
       )}
       <main

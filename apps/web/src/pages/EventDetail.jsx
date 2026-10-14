@@ -6,6 +6,7 @@ import BottomSheet from '../components/ui/BottomSheet.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock, StatusPill, Spinner, InlineRetry } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
+import { useMyTickets } from '../context/useMyTickets.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { useEntryStatus } from '../hooks/useEntryStatus.js'
 import { getEvent } from '../api/events.js'
@@ -46,6 +47,7 @@ export default function EventDetail() {
   const navigate = useNavigate()
   const showToast = useToast()
   const redirectToProfileSetup = useProfileSetupRedirect()
+  const { refresh: refreshMyTickets } = useMyTickets() // 응모하면 헤더의 총 응모권 개수도 바뀌어야 한다
 
   const [ticketCount, setTicketCount] = useState(1)
   const [chosenType, setChosenType] = useState(null) // 사용자가 고른 응모권 종류. 고른 적 없으면 null
@@ -236,6 +238,7 @@ export default function EventDetail() {
           [attempt.couponType]: { value: attempt.balance - attempt.count, at: Date.now() },
         },
       }))
+      refreshMyTickets()
       await syncBalances()
       setTimeout(() => setSheetOpen(false), 1200)
       // DB 반영이 끝났을 즈음 한 번 더 불러와 서버가 따라잡은 예상 값을 일찍 해제하고, 시간 제한으로 해제되는 때에도

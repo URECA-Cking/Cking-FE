@@ -41,7 +41,7 @@ export function resolveNavigationScrollTop(navigationType, locationKey) {
 export function restoreNavigationScroll(scrollContainer, navigationType, locationKey, resetChrome) {
   const scrollTop = resolveNavigationScrollTop(navigationType, locationKey)
   if (scrollContainer) scrollContainer.scrollTop = scrollTop
-  resetChrome?.()
+  resetChrome?.(scrollTop)
   return scrollTop
 }
 
@@ -54,5 +54,5 @@ export function shouldContinueNavigationScrollRestore(targetScrollTop, currentSc
 export function resetNavigationScroll(scrollContainer, locationKey, resetChrome) {
   if (scrollContainer) scrollContainer.scrollTop = 0
   saveNavigationScroll(locationKey, 0)
-  resetChrome?.()
+  resetChrome?.(0)
 }

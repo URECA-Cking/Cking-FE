@@ -83,6 +83,7 @@ export default function MainLayout() {
       }
 
       scrollContainer.scrollTop = targetScrollTop
+      resetChrome(scrollContainer.scrollTop)
       if (!shouldContinueNavigationScrollRestore(targetScrollTop, scrollContainer.scrollTop, attempt)) {
         isRestoringScrollRef.current = false
         restoreFrameRef.current = null

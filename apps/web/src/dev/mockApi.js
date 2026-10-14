@@ -2,6 +2,8 @@
 // main.jsx가 import.meta.env.DEV일 때만 불러오므로 배포 빌드에는 들어가지 않는다(가짜 데이터를 제품에 섞지 않는다).
 //
 // 사용: 개발 서버에서 주소 끝에 ?mock=1(팬) / ?mock=creator(크리에이터) / ?mock=empty(팔로우·이벤트 없음)를 붙인다.
+// ?mock=restricted(플랫폼 댓글 작성 제한)·?mock=blocked(스페이스 차단)는 팬 시나리오에 더해, 댓글 작성·수정이
+// 403(COMMENT_RESTRICTED·SPACE_COMMENT_BLOCKED)으로 막히고 제재 알림이 도착한 상태를 보여준다.
 // 선택은 sessionStorage에 남아 이동해도 유지되고, ?mock=0으로 끈다.
 // AI Quiz(생성·검토·Judge·게시, 팬 응시)는 quizMock.js가 맡는다.
 
@@ -76,6 +78,40 @@ export function installMockApiIfRequested() {
   const now = Date.now()
   const empty = scenario === 'empty'
   const creatorMode = scenario === 'creator'
+  const sanctionMode = scenario === 'restricted' || scenario === 'blocked'
+  // BE 오류 메시지와 같은 형식: java.time.Instant 문자열이 "해제 시각(UTC): " 뒤에 붙는다.
+  const sanctionEnd = new Date(now + 3 * DAY + 1500).toISOString()
+  const sanctionError = scenario === 'blocked'
+    ? { status: 403, code: 'SPACE_COMMENT_BLOCKED', data: null, message: `이 스페이스에서 댓글 작성이 제한되었습니다. 해제 시각(UTC): ${sanctionEnd}` }
+    : { status: 403, code: 'COMMENT_RESTRICTED', data: null, message: `댓글 작성이 제한되었습니다. 해제 시각(UTC): ${sanctionEnd}` }
+  const minuteUtc = (iso) => `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`
+  const endsUtc = minuteUtc(new Date(now + 3 * DAY + 60000).toISOString())
+  // 제목·본문은 BE SanctionNotificationService와 같은 문구다(플랫폼 제한 / 크리에이터의 스페이스 차단).
+  const sanctionNotifications = scenario === 'blocked'
+    ? [
+        {
+          notificationId: 2, event: null, drawing: null, type: 'COMMENT_RESTRICTION_STARTED', title: '스페이스 댓글 작성 제한 안내',
+          body: `하늘의 스페이스에서 댓글 작성이 제한되었습니다. ${endsUtc}까지 이 스페이스에서 댓글을 작성하거나 수정할 수 없습니다.`,
+          createdAt: new Date(now - HOUR).toISOString(), readAt: null,
+        },
+        {
+          notificationId: 1, event: null, drawing: null, type: 'COMMENT_RESTRICTION_RELEASED', title: '스페이스 댓글 작성 제한 해제 안내',
+          body: '민준의 스페이스에서 댓글 작성 제한이 해제되었습니다.',
+          createdAt: new Date(now - 5 * DAY).toISOString(), readAt: new Date(now - 4 * DAY).toISOString(),
+        },
+      ]
+    : [
+        {
+          notificationId: 2, event: null, drawing: null, type: 'COMMENT_RESTRICTION_STARTED', title: '댓글 작성 제한 안내',
+          body: `신고된 댓글이 관리자에 의해 숨김 처리되어 경고 1회가 기록되었습니다. ${endsUtc}까지 댓글을 작성하거나 수정할 수 없습니다.`,
+          createdAt: new Date(now - HOUR).toISOString(), readAt: null,
+        },
+        {
+          notificationId: 1, event: null, drawing: null, type: 'COMMENT_RESTRICTION_RELEASED', title: '댓글 작성 제한 해제 안내',
+          body: '댓글 작성 제한이 해제되었습니다.',
+          createdAt: new Date(now - 5 * DAY).toISOString(), readAt: new Date(now - 4 * DAY).toISOString(),
+        },
+      ]
   const events = empty ? [] : buildEvents(now)
   const posts = empty ? {} : buildPosts(now)
   const follows = empty ? [] : FOLLOWED
@@ -95,7 +131,16 @@ export function installMockApiIfRequested() {
     ['POST', /^\/api\/auth\/refresh$/, () => ({ accessToken: 'mock-token', expiresIn: 3600 })],
     ['GET', /^\/api\/me$/, () => me],
     ['GET', /^\/api\/me\/follows$/, () => page(follows.map((creatorId) => ({ creatorId })))],
-    ['GET', /^\/api\/me\/notifications$/, () => page(empty ? [] : [{ notificationId: 1, readAt: null, createdAt: new Date(now - HOUR).toISOString() }])],
+    ['GET', /^\/api\/me\/notifications$/, () => page(empty ? [] : sanctionMode ? sanctionNotifications : [{ notificationId: 1, readAt: null, createdAt: new Date(now - HOUR).toISOString() }])],
+    ['PATCH', /^\/api\/me\/notifications\/(\d+)\/read$/, (id) => ({ notificationId: Number(id), readAt: new Date().toISOString() })],
+    // 제재 시나리오에서만: 댓글 목록은 비어 있고, 작성·수정은 제한 오류로 막힌다(삭제는 막지 않는다).
+    ...(sanctionMode
+      ? [
+          ['GET', /^\/api\/creators\/(\d+)\/posts\/(\d+)\/comments$/, () => page([])],
+          ['POST', /^\/api\/creators\/(\d+)\/posts\/(\d+)\/comments$/, () => sanctionError],
+          ['PATCH', /^\/api\/creators\/(\d+)\/posts\/(\d+)\/comments\/(\d+)$/, () => sanctionError],
+        ]
+      : []),
     ['GET', /^\/api\/creators$/, () => page(CREATORS)],
     ['GET', /^\/api\/events$/, () => page(events)],
     ['GET', /^\/api\/creators\/(\d+)\/tickets$/, (id) => ({ creatorId: Number(id), balance: BALANCES[id] ?? 0 })],

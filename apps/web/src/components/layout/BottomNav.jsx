@@ -8,6 +8,7 @@ import couponIcon from '@cking/shared/icons/coupon.svg?raw';
 import couponOutlineIcon from '@cking/shared/icons/coupon-outline.svg?raw';
 import profileIcon from '@cking/shared/icons/profile.svg?raw';
 import profileOutlineIcon from '@cking/shared/icons/profile-outline.svg?raw';
+import { shouldResetNavigationOnClick } from './navigationScroll.js';
 
 const NAV_ITEMS = [
   {
@@ -68,6 +69,7 @@ export default function BottomNav({ embedded = false, compact = false, onNavigat
 
   useEffect(() => () => window.clearTimeout(pulseTimerRef.current), []);
 
+  /** 하단 메뉴 선택을 시각적으로 알리기 위해 독 펄스 애니메이션을 실행한다. */
   const pulseDock = () => {
     setIsPulsing(false);
     window.requestAnimationFrame(() => setIsPulsing(true));
@@ -76,7 +78,8 @@ export default function BottomNav({ embedded = false, compact = false, onNavigat
   };
 
   /** 하단 메뉴를 누를 때 독 애니메이션과 페이지 스크롤 초기화를 함께 실행한다. */
-  const handleNavigationClick = () => {
+  const handleNavigationClick = (event) => {
+    if (!shouldResetNavigationOnClick(event)) return;
     pulseDock();
     onNavigate?.();
   };

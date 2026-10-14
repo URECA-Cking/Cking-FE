@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 const TOP_THRESHOLD = 8
 const DIRECTION_THRESHOLD = 18
@@ -69,7 +69,7 @@ export function useScrollChrome(scrollRef) {
   }, [scrollRef])
 
   /** 하단 메뉴 이동처럼 스크롤 위치를 강제로 초기화할 때 앱 크롬을 기본 표시 상태로 되돌린다. */
-  const resetChrome = () => setChrome({ headerVisible: true, bottomCompact: false })
+  const resetChrome = useCallback(() => setChrome({ headerVisible: true, bottomCompact: false }), [])
 
   return { ...chrome, resetChrome }
 }

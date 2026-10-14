@@ -1,5 +1,40 @@
-/** 하단 메뉴 이동 시 공용 스크롤 컨테이너를 최상단으로 옮기고 앱 크롬 초기화를 요청한다. */
-export function resetNavigationScroll(scrollContainer, resetChrome) {
+const scrollPositions = new Map()
+
+/** 현재 탭의 일반 클릭일 때만 네비게이션 스크롤 초기화를 허용한다. */
+export function shouldResetNavigationOnClick(event) {
+  return !(
+    event.defaultPrevented ||
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  )
+}
+
+/** history 위치별 공용 스크롤 위치를 SPA 세션 동안 기록한다. */
+export function saveNavigationScroll(locationKey, scrollTop) {
+  if (!locationKey) return
+  scrollPositions.set(locationKey, Math.max(0, Number.isFinite(scrollTop) ? scrollTop : 0))
+}
+
+/** 새 진입은 최상단을, 뒤로 가기는 해당 history 위치의 기록을 반환한다. */
+export function resolveNavigationScrollTop(navigationType, locationKey) {
+  if (navigationType !== 'POP') return 0
+  return scrollPositions.get(locationKey) ?? 0
+}
+
+/** 전환 정책에 맞는 스크롤 위치를 적용하고 앱 크롬을 기본 표시 상태로 되돌린다. */
+export function restoreNavigationScroll(scrollContainer, navigationType, locationKey, resetChrome) {
+  const scrollTop = resolveNavigationScrollTop(navigationType, locationKey)
+  if (scrollContainer) scrollContainer.scrollTop = scrollTop
+  resetChrome()
+  return scrollTop
+}
+
+/** 활성 하단 메뉴를 다시 누를 때 현재 history 위치도 최상단으로 초기화한다. */
+export function resetNavigationScroll(scrollContainer, locationKey, resetChrome) {
   if (scrollContainer) scrollContainer.scrollTop = 0
+  saveNavigationScroll(locationKey, 0)
   resetChrome()
 }

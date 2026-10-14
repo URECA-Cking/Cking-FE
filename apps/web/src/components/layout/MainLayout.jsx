@@ -1,5 +1,5 @@
-import { Outlet, useLocation } from 'react-router-dom'
-import { useRef } from 'react'
+import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
+import { useCallback, useLayoutEffect, useRef } from 'react'
 import BottomNav from './BottomNav.jsx'
 import { TopHeader } from './TopHeader.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
@@ -10,7 +10,7 @@ import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 import { useAppBack } from '../../hooks/useAppBack.js'
 import { useMyTickets } from '../../context/useMyTickets.js'
-import { resetNavigationScroll } from './navigationScroll.js'
+import { resetNavigationScroll, restoreNavigationScroll, saveNavigationScroll } from './navigationScroll.js'
 
 const APP_BAR_TITLES = {
   '/': { title: 'Cking' },
@@ -24,7 +24,9 @@ const APP_BAR_TITLES = {
 }
 
 export default function MainLayout() {
-  const { pathname } = useLocation()
+  const location = useLocation()
+  const navigationType = useNavigationType()
+  const { pathname } = location
   const goBack = useAppBack('/')
   const scrollRef = useRef(null)
   const { headerVisible, bottomCompact, resetChrome } = useScrollChrome(scrollRef)
@@ -40,8 +42,18 @@ export default function MainLayout() {
   // 헤더 응모권 버튼의 총 개수. 아직 불러오지 못했으면 null이라 자리 표시를 보여 준다.
   const { summary: ticketSummary } = useMyTickets()
 
-  /** 하단 메뉴 전환 시 공용 스크롤과 스크롤 기반 앱 크롬을 기본 상태로 초기화한다. */
-  const handleNavigationScrollReset = () => resetNavigationScroll(scrollRef.current, resetChrome)
+  /** 현재 history 위치에서 사용자가 읽고 있던 공용 스크롤 위치를 기록한다. */
+  const handleScrollPositionSave = useCallback(() => {
+    saveNavigationScroll(location.key, scrollRef.current?.scrollTop ?? 0)
+  }, [location.key])
+
+  /** 활성 하단 메뉴 재선택 시 현재 history 위치를 최상단으로 초기화한다. */
+  const handleNavigationScrollReset = () => resetNavigationScroll(scrollRef.current, location.key, resetChrome)
+
+  // 새 화면 진입은 최상단에서 시작하고, POP 뒤로 가기만 해당 history 위치의 스크롤을 복원한다.
+  useLayoutEffect(() => {
+    restoreNavigationScroll(scrollRef.current, navigationType, location.key, resetChrome)
+  }, [location.key, navigationType, resetChrome])
 
   return (
     <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
@@ -61,6 +73,7 @@ export default function MainLayout() {
       )}
       <main
         ref={scrollRef}
+        onScroll={handleScrollPositionSave}
         className={`flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] ${
           appBarTitle ? 'pt-[calc(env(safe-area-inset-top,0px)+3.5rem)]' : 'pt-safe'
         }`}

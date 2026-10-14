@@ -16,12 +16,15 @@
 | `/admin/abuse-detections`, `/admin/abuse-detections/:detectionId` | 이상행위 탐지 목록·Evidence 상세·`CONFIRMED`/`FALSE_POSITIVE` 검토 |
 | `/admin/dead-streams` | Dead Stream 조회·replay |
 | `/admin/tickets` | 회원별 Creator 전용·공용 응모권 잔액 비교, 변동 이력 조회, DB 기준 수동 재동기화 |
-| `/admin/comment-reports` | 신고된 게시글 댓글 목록(처리 상태 필터)과 댓글 숨김·신고 반려 |
+| `/admin/comment-reports` | 신고된 게시글 댓글 목록(처리 상태 필터)과 댓글 숨김·신고 반려, 처리 상태와 무관한 댓글 삭제·작성자의 스페이스 차단 |
+| `/admin/space-comment-blocks` | 모든 스페이스의 댓글 차단 목록(크리에이터·회원 ID 필터, 차단 중만 보기)과 해제 |
 | `/admin/space-templates` | Creator Space 템플릿 목록·추가·수정·활성화 (활성 템플릿은 항상 하나, Creator 승인 시 복사해 스페이스 생성) |
 
 `/admin/reviews/events`는 `PENDING_APPROVAL` 상태만 처리하는 심사 큐다. `/admin/events`는 기존 `/api/admin/events`의 상태별 조회를 합쳐 승인 완료 뒤 `SCHEDULED`부터 `PUBLISHED`까지의 이벤트를 추적한다. `SCHEDULED`는 오픈 예정 상태로 표시하되, `OPEN`부터 시작하는 실제 운영 흐름과는 구분하고 별도 관리자 작업을 노출하지 않는다. 단건 이벤트 조회 계약이 없으므로 상세도 같은 운영 목록에서 현재 서버 응답을 다시 찾아 구성한다. 심사 이력 필드의 제공 범위는 해당 API 계약을 확인한 뒤 결정한다.
 
 댓글 신고는 댓글 단위로 모아 보여주며, 한 댓글의 접수(PENDING) 신고를 숨김(RESOLVED)이나 반려(REJECTED)로 한 번에 처리한다. 숨김은 되돌리는 API가 없어 확인 창에서 이를 안내하고, 이미 처리된 댓글은 조치 버튼을 막는다. BE가 `COMMENT_REPORT_ALREADY_HANDLED`(409)나 404를 돌려주면(다른 관리자가 먼저 처리했거나 댓글이 삭제됨) 확인 창을 닫고 목록을 다시 읽는다. 댓글 원문이 그대로 보이는 관리자 전용 화면이며 신고자 정보는 BE가 주지 않는다.
+
+댓글 삭제(`DELETE /api/admin/comments/{commentId}`)는 물리 삭제라 되돌릴 수 없고, 그 댓글의 신고도 함께 지워지며 작성자 경고·알림·삭제 이력이 남지 않는다(경고를 남기려면 숨기기를 쓴다). 관리자가 댓글을 찾는 화면이 없어 신고된 댓글에서만 삭제한다. 스페이스 차단은 신고된 댓글 행의 크리에이터·작성 회원 ID로 기간(1~365일)만 골라 건다(스페이스 주인·관리자는 BE가 400으로 막는다). 차단 목록은 offset 페이지라 "차단 중만 보기"에서 해제한 뒤 현재 페이지를 서버에서 다시 읽는다. BE는 건 사람을 회원 ID(`createdBy`)로만 알려서 크리에이터 본인과 다른 관리자를 구분하지 못하고, 로그인한 관리자 본인이 건 차단만 "나"로 표시한다.
 
 Creator 신청 승인은 활성 Creator Space 템플릿이 있어야 한다. 없으면 `NO_ACTIVE_SPACE_TEMPLATE`, 있어도 주소 규칙이 잘못됐으면 `INVALID_ACTIVE_SPACE_TEMPLATE`(둘 다 409)로 BE가 막으므로, 심사 상세 화면이 템플릿 관리로 안내한다. 템플릿은 값을 복사해 쓰므로 활성 템플릿을 바꾸거나 수정해도 이미 만든 스페이스는 바뀌지 않는다. `slugRule` 형식 검증은 BE 규칙을 따라 화면에서 먼저 안내하고 최종 판단은 서버가 한다.
 

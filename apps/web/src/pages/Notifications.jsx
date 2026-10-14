@@ -8,11 +8,13 @@ import { getMyNotifications, readNotification } from '../api/notifications.js'
 import { describeError } from '../api/client.js'
 import { formatRelativeTime } from '../utils/format.js'
 import { NOTIFICATION_TYPE_META } from '../utils/eventStatus.js'
+import { localizeNoticeBody } from '../utils/sanctionNotice.js'
 
 /**
  * 알림 목록.
  * GET /api/me/notifications 로 조회하고, 항목을 누르면
  * PATCH /api/me/notifications/{id}/read 로 읽음 처리한 뒤 관련 이벤트로 이동한다.
+ * 제재 알림은 event·drawing이 null이라 이동 없이 읽음 처리만 한다.
  */
 export default function Notifications() {
   const navigate = useNavigate()
@@ -94,7 +96,7 @@ export default function Notifications() {
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
       {!loading && !error && items.length === 0 && (
         <div className="flex flex-1 items-center justify-center">
-          <EmptyBlock icon="notifications_off" message="아직 도착한 알림이 없어요. 당첨 결과가 나오면 알려드릴게요!" />
+          <EmptyBlock icon="notifications_off" message="아직 도착한 알림이 없어요. 당첨 결과나 계정 안내가 있으면 알려드릴게요!" />
         </div>
       )}
 
@@ -125,7 +127,7 @@ export default function Notifications() {
               </div>
               <p className="font-label-md text-label-md text-on-surface font-semibold mt-0.5">{item.title}</p>
               {item.body && (
-                <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 leading-relaxed">{item.body}</p>
+                <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 leading-relaxed">{localizeNoticeBody(item.body)}</p>
               )}
               {item.event?.title && (
                 <p className="font-label-xs text-label-xs text-outline mt-1 truncate">

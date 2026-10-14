@@ -18,12 +18,18 @@ import {
 import { useAsync } from '../../hooks/useAsync.js'
 import { useProfileSetupRedirect } from '../../hooks/useProfileSetupRedirect.js'
 import { formatDateTime } from '../../utils/format.js'
+import { describeCommentRestriction } from '../../utils/sanctionNotice.js'
 
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
 // counted: 재조회한 서버 전체 개수(totalElements)가 이미 포함하고 있는 created 댓글 ID.
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [], counted: [] }
 
 function describeCommentError(error, fallback) {
+  // 작성·수정 제한(플랫폼 제한·스페이스 차단)은 BE 메시지의 UTC 해제 시각을 한국 시간으로 바꿔 안내한다.
+  if (error instanceof ApiError) {
+    const restriction = describeCommentRestriction(error.code, error.message)
+    if (restriction) return restriction
+  }
   if (error instanceof ApiError && COMMENT_ERROR_MESSAGES[error.code]) return COMMENT_ERROR_MESSAGES[error.code]
   return describeError(error, fallback)
 }

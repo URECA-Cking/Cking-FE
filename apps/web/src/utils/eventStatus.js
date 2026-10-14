@@ -27,6 +27,8 @@ export const CREATOR_APPLICATION_STATUS_META = {
 export const NOTIFICATION_TYPE_META = {
   INITIAL_WINNER: { label: '최초 당첨', icon: 'celebration' },
   REDRAW_WINNER: { label: '재추첨 당첨', icon: 'autorenew' },
+  COMMENT_RESTRICTION_STARTED: { label: '댓글 작성 제한', icon: 'comments_disabled' },
+  COMMENT_RESTRICTION_RELEASED: { label: '댓글 작성 제한 해제', icon: 'forum' },
 }
 
 export const TICKET_LEDGER_TYPE_META = {

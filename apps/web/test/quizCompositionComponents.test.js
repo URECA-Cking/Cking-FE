@@ -16,9 +16,9 @@ let contexts=[]
 test.before(async()=>{const out=await build({configFile:false,plugins:[react()],css:{postcss:{plugins:[tailwindcss({...tailwindConfig,content:[fileURLToPath(new URL('../src/**/*.{js,jsx}',import.meta.url))]}),autoprefixer()]}},logLevel:'silent',define:{'import.meta.env.VITE_API_BASE_URL':JSON.stringify('http://quiz.test'),'process.env.NODE_ENV':JSON.stringify('production')},build:{write:false,minify:false,lib:{entry:fileURLToPath(new URL('./fixtures/quizCompositionBrowser.jsx',import.meta.url)),name:'CompositionTest',formats:['iife']}}});const output=(Array.isArray(out)?out[0]:out).output;bundle=output.find(i=>i.type==='chunk').code;css=output.find(i=>i.type==='asset'&&i.fileName.endsWith('.css')).source;const paths=[process.env.QUIZ_TEST_BROWSER,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe','/usr/bin/google-chrome','/usr/bin/chromium'].filter(Boolean);browser=await chromium.launch({headless:true,...(paths.find(existsSync)?{executablePath:paths.find(existsSync)}:{})})})
 test.afterEach(async()=>{await Promise.all(contexts.map(c=>c.close()));contexts=[]})
 test.after(async()=>{await browser?.close()})
-async function pageIn(context,{composed=false,kind='panel',record=null,writeFailure=false,noLocks=false,locked=false,legacy=false}={}){
+async function pageIn(context,{composed=false,kind='panel',record=null,writeFailure=false,noLocks=false,locked=false,legacy=false,creatorId=10,quizId=1,baseRevisionId=100,baseHash=hash,readFailure=false}={}){
  const page=await context.newPage();await page.route('**/*',r=>r.request().isNavigationRequest()?r.fulfill({contentType:'text/html',body:'<div id="root"></div>'}):r.abort());await page.goto('http://localhost/composition-test')
- await page.evaluate(({fixture,key,record,writeFailure,noLocks})=>{window.fixtureRevision=fixture;window.serverRevisions=new Map([[fixture.revisionId,fixture]]);window.savedRevision=null;window.gets=[];window.quizView={quizId:1,publicationStatus:'NOT_PUBLISHED',revisions:[{revisionId:fixture.revisionId,title:'T',revisionNo:1}]};window.failGet=false;window.posts=[];window.failWrite=writeFailure;const store=window.localStorage;if(record)store.setItem(key,JSON.stringify(record));if(writeFailure){Object.defineProperty(window,'localStorage',{value:{getItem:k=>store.getItem(k),setItem:(k,v)=>{if(window.failWrite)throw Error('quota');store.setItem(k,v)}}})}if(noLocks)Object.defineProperty(navigator,'locks',{value:undefined});window.reply=(i,status,data,code='SUCCESS')=>{if(status<300&&data?.revisionId)window.serverRevisions.set(data.revisionId,{...fixture,...data});window.posts[i].resolve(new Response(JSON.stringify({code,data}),{status}));};window.lose=i=>window.posts[i].reject(TypeError('network'));window.fetch=(url,init={})=>{if(init.method==='POST')return new Promise((resolve,reject)=>window.posts.push({url,body:JSON.parse(init.body),resolve,reject}));window.gets.push(String(url));if(window.failGet)return Promise.resolve(new Response(JSON.stringify({code:'SYSTEM_ERROR',data:null}),{status:500}));const quiz=window.quizView;return Promise.resolve(new Response(JSON.stringify({code:'SUCCESS',data:String(url).includes('/revisions/')?window.serverRevisions.get(Number(String(url).match(/revisions\/(\d+)/)?.[1]))??fixture:quiz}),{status:200}))}}, {fixture: {...revision(composed), ...(locked ? {contentLocked:true,canEdit:false} : {}), ...(legacy ? {origin:undefined,canEdit:undefined,contentLocked:undefined} : {})},key,record,writeFailure,noLocks});await page.addStyleTag({content:css});await page.addScriptTag({content:bundle});await page.evaluate(kind=>window.renderComposition(kind),kind);return page
+ await page.evaluate(({fixture,key,record,writeFailure,noLocks,creatorId,quizId,readFailure})=>{window.fixtureCreatorId=creatorId;window.fixtureQuizId=quizId;window.fixtureRevision=fixture;window.serverRevisions=new Map([[fixture.revisionId,fixture]]);window.savedRevision=null;window.gets=[];window.quizView={quizId:1,publicationStatus:'NOT_PUBLISHED',revisions:[{revisionId:fixture.revisionId,title:'T',revisionNo:1}]};window.failGet=false;window.posts=[];window.failWrite=writeFailure;const store=window.localStorage;if(record)store.setItem(key,JSON.stringify(record));if(writeFailure||readFailure){Object.defineProperty(window,'localStorage',{value:{getItem:k=>{if(readFailure)throw Error('read');return store.getItem(k)},setItem:(k,v)=>{if(window.failWrite)throw Error('quota');store.setItem(k,v)}}})}if(noLocks)Object.defineProperty(navigator,'locks',{value:undefined});window.reply=(i,status,data,code='SUCCESS')=>{if(status<300&&data?.revisionId)window.serverRevisions.set(data.revisionId,{...fixture,...data});window.posts[i].resolve(new Response(JSON.stringify({code,data}),{status}));};window.lose=i=>window.posts[i].reject(TypeError('network'));window.fetch=(url,init={})=>{if(init.method==='POST')return new Promise((resolve,reject)=>window.posts.push({url,body:JSON.parse(init.body),resolve,reject}));window.gets.push(String(url));if(window.failGet)return Promise.resolve(new Response(JSON.stringify({code:'SYSTEM_ERROR',data:null}),{status:500}));const quiz=window.quizView;return Promise.resolve(new Response(JSON.stringify({code:'SUCCESS',data:String(url).includes('/revisions/')?window.serverRevisions.get(Number(String(url).match(/revisions\/(\d+)/)?.[1]))??fixture:quiz}),{status:200}))}}, {fixture: {...revision(composed),revisionId:baseRevisionId,revisionSha256:baseHash, ...(locked ? {contentLocked:true,canEdit:false} : {}), ...(legacy ? {origin:undefined,canEdit:undefined,contentLocked:undefined} : {})},key,record,writeFailure,noLocks,creatorId,quizId,readFailure});await page.addStyleTag({content:css});await page.addScriptTag({content:bundle});await page.evaluate(kind=>window.renderComposition(kind),kind);return page
 }
 async function context(){const c=await browser.newContext();contexts.push(c);return c}
 const waitPosts=(p,n)=>p.waitForFunction(n=>window.posts.length===n,n)
@@ -86,4 +86,43 @@ test('다른 본문의 미확정 요청 복구가 성공해도 현재 편집본�
  assert.equal(await b.evaluate(()=>window.savedRevision),null)
  assert.equal(await b.getByRole('button',{name:'저장된 Revision 다시 열기',exact:true}).count(),0)
  assert.equal((await stored(b)).result.revisionId,101)
+})
+
+test('저장 성공 뒤 재조회 실패·페이지 재진입은 성공 본문을 복원하고 추가 POST 없이 결과를 연다',async()=>{
+ const c=await context(),p=await pageIn(c)
+ await p.getByRole('textbox',{name:'문제 source:1000',exact:true}).fill('복원할 편집 문제')
+ await p.getByRole('checkbox').nth(4).uncheck()
+ await p.getByRole('button',{name:'최종 문항 저장',exact:true}).click();await waitPosts(p,1)
+ await p.evaluate(()=>{window.failGet=true;window.reply(0,201,{revisionId:101,revisionSha256:'b'.repeat(64)})})
+ await p.getByText('문항은 저장됐어요.',{exact:false}).waitFor()
+ const record=await stored(p),reopened=await pageIn(c)
+ assert.equal(await reopened.getByRole('textbox',{name:'문제 source:1000',exact:true}).inputValue(),'복원할 편집 문제')
+ assert.equal(await reopened.getByRole('checkbox').count(),4)
+ assert.equal(await reopened.getByText('다른 탭이 다른 내용으로 저장했어요.',{exact:false}).count(),0)
+ await reopened.evaluate(saved=>window.serverRevisions.set(saved.revisionId,{...window.fixtureRevision,...saved}),record.result)
+ await reopened.getByRole('button',{name:'저장된 Revision 다시 열기',exact:true}).click()
+ await reopened.waitForFunction(()=>window.savedRevision?.revisionId===101)
+ assert.equal(await reopened.evaluate(()=>window.posts.length),0)
+ assert.equal((await stored(reopened)).result.revisionSha256,'b'.repeat(64))
+})
+
+const successfulRecord=()=>({requestId:uuid(1),body:{baseRevisionId:100,baseRevisionSha256:hash,questions:[{sourceQuestionId:1000,content:{question:'저장 기록의 문제',options:['A','B','C','D'],correctOptionIndex:0,explanation:'해설',sourceEvidence:''}}]},result:{revisionId:101,revisionSha256:'b'.repeat(64)}})
+test('다른 Creator/Quiz 또는 base ID/hash 성공 기록은 초기 화면에 복원하지 않는다',async()=>{
+ for(const scope of [{creatorId:20},{quizId:2},{baseRevisionId:200},{baseHash:'c'.repeat(64)}]){
+  const p=await pageIn(await context(),{...scope,record:successfulRecord()})
+  assert.equal(await p.getByRole('textbox',{name:'문제 source:1000',exact:true}).inputValue(),'문제 0')
+  assert.equal(await p.getByRole('button',{name:'저장된 Revision 다시 열기',exact:true}).count(),0)
+  assert.equal(await p.evaluate(()=>window.posts.length),0)
+ }
+})
+test('잘못된 성공 ID/hash와 저장소 읽기 실패는 성공 복원·POST를 차단한다',async()=>{
+ const invalid=successfulRecord();invalid.result={revisionId:101,revisionSha256:'broken'}
+ for(const options of [{record:invalid},{record:successfulRecord(),readFailure:true}]){
+  const p=await pageIn(await context(),options)
+  assert.equal(await p.getByRole('textbox',{name:'문제 source:1000',exact:true}).inputValue(),'문제 0')
+  assert.equal(await p.getByRole('button',{name:'저장된 Revision 다시 열기',exact:true}).count(),0)
+  await p.getByRole('button',{name:'최종 문항 저장',exact:true}).click()
+  await p.getByText('저장소를 읽을 수 없어 저장을 중단했어요.',{exact:true}).waitFor()
+  assert.equal(await p.evaluate(()=>window.posts.length),0)
+ }
 })

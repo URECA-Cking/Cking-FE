@@ -46,10 +46,13 @@ export function readComposition(storage, key) {
     const raw = storage.getItem(key)
     if (!raw) return { ok: true, entry: null }
     const entry = JSON.parse(raw)
-    if (!entry || typeof entry.requestId !== 'string' || !Number.isSafeInteger(entry.body?.baseRevisionId)
+    if (!entry || typeof entry.requestId !== 'string' || !Number.isSafeInteger(entry.body?.baseRevisionId) || entry.body.baseRevisionId <= 0
       || !/^[a-f0-9]{64}$/.test(entry.body?.baseRevisionSha256 ?? '') || !Array.isArray(entry.body.questions)
       || entry.body.questions.length < 1 || entry.body.questions.length > 5
+      || (entry.result != null && (!Number.isSafeInteger(entry.result.revisionId) || entry.result.revisionId <= 0
+        || !/^[a-f0-9]{64}$/.test(entry.result.revisionSha256 ?? '')))
       || entry.body.questions.some(q => !q || (q.sourceQuestionId == null && !q.content)
+        || (q.sourceQuestionId != null && (!Number.isSafeInteger(q.sourceQuestionId) || q.sourceQuestionId <= 0))
         || (q.content && (!Array.isArray(q.content.options) || q.content.options.length !== 4
           || q.content.options.some(o => typeof o !== 'string') || typeof q.content.question !== 'string'
           || typeof q.content.explanation !== 'string')))) return { ok: false, entry: null }
@@ -86,12 +89,16 @@ export async function compositionLock(key, task) {
   try { return await navigator.locks.request(key, task) } catch { return { ok: false, applied: false } }
 }
 export function restoreCompositionDraft(revision, body) {
+  if (body.baseRevisionId !== revision.revisionId || body.baseRevisionSha256 !== revision.revisionSha256) invalid('복원 기준 Revision이 다릅니다.')
   const originals = compositionDraft(revision)
-  return body.questions.map((q, i) => {
+  const draft = body.questions.map((q, i) => {
     const original = originals.find(o => o.sourceQuestionId === q.sourceQuestionId)
+    if (q.sourceQuestionId != null && !original) invalid('복원 문항이 기준 Revision에 없습니다.')
     return q.content ? { ...(original ?? {}), ...q.content, id: original?.id ?? `restored:${i}`, sourceQuestionId: q.sourceQuestionId,
       selected: true, edited: !!q.sourceQuestionId, evaluationStatus: original?.evaluationStatus ?? 'NOT_EVALUATED' } : original
-  }).filter(Boolean)
+  })
+  if (JSON.stringify(compositionBody(revision, draft)) !== JSON.stringify(body)) invalid('복원 요청이 정규화된 본문과 다릅니다.')
+  return draft
 }
 
 /** 명확히 거절된 기준 충돌만 사용자가 새 기준을 선택할 때 해제한다. */

@@ -14,8 +14,10 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
   const key = compositionKey(creatorId, quizId), storage = browserStorage()
   const [draft, setDraft] = useState(() => {
     const saved = readComposition(storage, key).entry
-    return saved && !saved.result && saved.body.baseRevisionId === revision.revisionId
-      ? restoreCompositionDraft(revision, saved.body) : compositionDraft(revision)
+    if (saved) {
+      try { return restoreCompositionDraft(revision, saved.body) } catch { /* 다른 기준이나 잘못된 본문은 화면에 복원하지 않는다. */ }
+    }
+    return compositionDraft(revision)
   })
   const [record, setRecord] = useState(() => readComposition(storage, key).entry)
   const [busy, setBusy] = useState(false), [error, setError] = useState(null), [preview, setPreview] = useState(false)

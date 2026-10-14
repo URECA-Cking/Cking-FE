@@ -32,6 +32,19 @@ const EVENT_FILTERS = [
   { id: 'CLOSED', label: '종료' },
 ]
 
+function CreatorBanner({ src }) {
+  const [failedSrc, setFailedSrc] = useState(null)
+  const showImage = Boolean(src) && failedSrc !== src
+
+  return showImage ? (
+    <img className="w-full h-full object-cover" src={src} alt="" loading="lazy" decoding="async" onError={() => setFailedSrc(src)} />
+  ) : (
+    <div className="flex h-full w-full items-center justify-center bg-surface-container text-on-surface-variant">
+      <MaterialIcon name="person" className="text-[48px]" />
+    </div>
+  )
+}
+
 /**
  * 탐색 화면.
  *
@@ -146,7 +159,7 @@ export default function Explore() {
       >
         <Link to={spacePath(creator.handle)} onClick={onOpen ? () => onOpen(creator.creatorId) : undefined} className="block">
           <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
-            <img className="w-full h-full object-cover" src={creator.banner} alt={creator.name} loading="lazy" decoding="async" />
+            <CreatorBanner src={creator.banner} />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
             {creator.openEventCount > 0 && (
               <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-xs text-label-xs font-semibold flex items-center gap-1">

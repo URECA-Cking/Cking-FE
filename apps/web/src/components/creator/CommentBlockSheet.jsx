@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { createCommentBlock } from '../../api/creatorCommentBlocks.js'
 import {
@@ -23,6 +23,20 @@ export default function CommentBlockSheet({ memberId, memberName, onClose, onBlo
   const [daysText, setDaysText] = useState(String(BLOCK_DAYS_PRESETS[1]))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const dialogRef = useRef(null)
+
+  // 열리면 대화상자로 포커스를 옮기고(스크린리더가 안내), Esc로 닫는다. 차단을 보내는 중에는 닫지 않는다.
+  useEffect(() => {
+    dialogRef.current?.focus()
+  }, [])
+  useEffect(() => {
+    if (submitting) return undefined
+    function onKeyDown(event) {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [submitting, onClose])
 
   const days = parseBlockDays(daysText)
   const canSubmit = days !== null && !submitting
@@ -48,10 +62,12 @@ export default function CommentBlockSheet({ memberId, memberName, onClose, onBlo
       onClick={submitting ? undefined : onClose}
     >
       <section
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="댓글 차단"
-        className="mx-auto flex max-h-[85dvh] w-full max-w-[480px] flex-col gap-space-md overflow-y-auto rounded-t-[28px] bg-surface-container-lowest p-space-md pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] shadow-2xl md:rounded-2xl"
+        className="mx-auto flex outline-none max-h-[85dvh] w-full max-w-[480px] flex-col gap-space-md overflow-y-auto rounded-t-[28px] bg-surface-container-lowest p-space-md pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] shadow-2xl md:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between">

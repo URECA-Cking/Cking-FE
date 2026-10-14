@@ -7,6 +7,7 @@ import { useAppBack } from '../hooks/useAppBack.js'
 import EventCard from '../components/creator/EventCard.jsx'
 import CreatorPosts from '../components/creator/CreatorPosts.jsx'
 import CreatorQuizzes from '../components/creator/CreatorQuizzes.jsx'
+import MyCommentBlocks from '../components/creator/MyCommentBlocks.jsx'
 import MyEventManager from '../components/creator/MyEventManager.jsx'
 import MyQuizManager from '../components/creator/MyQuizManager.jsx'
 import SpaceEditSheet from '../components/creator/SpaceEditSheet.jsx'
@@ -40,6 +41,8 @@ const TABS = [
   { id: 'calendar', label: '캘린더' },
   { id: 'posts', label: '게시물' },
 ]
+// 내 스페이스에서만 보이는 탭. 다른 사람의 스페이스에서는 목록에 넣지 않는다.
+const MY_SPACE_ONLY_TABS = [{ id: 'blocks', label: '차단 관리' }]
 const EMPTY_TAB_MESSAGE = '현재 열려있는 게 없습니다.'
 
 /** RESOURCE_NOT_FOUND는 오류가 아니라 "찾을 수 없음" 안내로 보여주기 위해 표시 값으로 바꾼다. */
@@ -548,7 +551,7 @@ export default function CreatorSpace() {
         {/* 탭이 늘어나도 좁은 화면에서 가로로 스크롤되는 밑줄 탭(유튜브 채널·위버스 방식). */}
         <div className="mt-space-md sticky top-14 z-40 bg-surface/95 backdrop-blur-xl border-b border-surface-container-high">
           <div role="tablist" aria-label="스페이스 탭" className="flex gap-6 px-margin overflow-x-auto no-scrollbar md:justify-center md:gap-12">
-            {TABS.map((item) => (
+            {(isMine ? [...TABS, ...MY_SPACE_ONLY_TABS] : TABS).map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -684,6 +687,8 @@ export default function CreatorSpace() {
             onRewardPaid={balance.reload}
           />
         )}
+
+        {tab === 'blocks' && isMine && <MyCommentBlocks />}
 
         {tab === 'calendar' && <CreatorCalendar creatorId={creator.creatorId} isMine={isMine} />}
 

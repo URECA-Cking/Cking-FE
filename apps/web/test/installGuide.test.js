@@ -16,6 +16,10 @@ test('지원 환경의 user agent를 설치 안내 환경으로 판별한다', (
     'android-chrome',
   )
   assert.equal(
+    detectInstallEnvironment('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 CriOS/120.0 Mobile Safari/537.36'),
+    null,
+  )
+  assert.equal(
     detectInstallEnvironment('Mozilla/5.0 (Linux; Android 14) SamsungBrowser/24.0 Chrome/117.0 Mobile Safari/537.36'),
     'android-samsung-internet',
   )

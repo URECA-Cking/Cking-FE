@@ -53,13 +53,15 @@ export default function InstallBanner() {
           <button
             type="button"
             onClick={toggleManualGuide}
+            aria-expanded={showManualGuide}
+            aria-controls="install-manual-guide"
             className="self-center px-2 font-label-xs text-label-xs font-semibold text-primary"
           >
             {showManualGuide ? '설치 방법 닫기' : '설치 방법 보기'}
           </button>
 
           {showManualGuide && (
-            <div className="rounded-xl bg-berry-tint px-3 py-2 text-berry-deep">
+            <div id="install-manual-guide" className="rounded-xl bg-berry-tint px-3 py-2 text-berry-deep">
               <p className="font-label-xs text-label-xs font-bold">{guide.label} 설치 방법</p>
               <ol className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5 font-label-xs text-label-xs leading-relaxed">
                 {guide.steps.map((step, index) => (

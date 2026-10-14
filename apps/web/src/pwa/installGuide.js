@@ -62,7 +62,7 @@ export function detectInstallEnvironment(userAgent = '') {
   if (isIos && /safari/.test(agent) && !/fxios|edgios|opios/.test(agent)) return IOS_SAFARI
   if (/android/.test(agent) && isAndroidInAppBrowser(agent)) return ANDROID_IN_APP
   if (/android/.test(agent) && /samsungbrowser/.test(agent)) return ANDROID_SAMSUNG_INTERNET
-  if (/android/.test(agent) && /chrome|crios/.test(agent)) return ANDROID_CHROME
+  if (/android/.test(agent) && /chrome/.test(agent)) return ANDROID_CHROME
   return null
 }
 

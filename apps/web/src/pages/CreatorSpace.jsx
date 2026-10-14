@@ -650,9 +650,9 @@ export default function CreatorSpace() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-label-md text-label-md text-berry-deep font-bold truncate">
-                    {publishedEvent.title} 결과가 공개됐어
+                    {publishedEvent.title} 결과가 공개됐어요
                   </p>
-                  <p className="font-label-xs text-label-xs text-berry-deep/80">당첨 내역을 지금 바로 확인해봐!</p>
+                  <p className="font-label-xs text-label-xs text-berry-deep/80">당첨 내역을 지금 바로 확인해 보세요!</p>
                 </div>
                 <span className="px-3 py-1.5 rounded-lg bg-primary text-on-primary font-label-xs text-label-xs font-bold shrink-0">
                   결과 확인 &gt;

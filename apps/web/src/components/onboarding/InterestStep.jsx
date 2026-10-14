@@ -92,7 +92,7 @@ function InterestStepContent({ onDone, memberId }) {
   return (
     <>
       <div className="pt-16 px-space-md flex flex-col gap-1">
-        <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">어떤 분야를 좋아해?</h1>
+        <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">어떤 분야를 좋아하세요?</h1>
         <p className="font-body-md text-body-md text-on-surface-variant">
           최대 {max}개까지 고를 수 있어요. 고르지 않아도 괜찮아요.
         </p>

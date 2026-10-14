@@ -447,6 +447,17 @@ function Caption({ content }) {
   )
 }
 
+/** 모바일 작성자 줄에 맞게 작성 시각을 월·일과 24시간 시·분으로 짧게 표시한다. */
+function formatCompactPostTime(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return formatDateTime(value)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${month}.${day} ${hours}:${minutes}`
+}
+
 /** 작성자 이름 옆에 작성 시각을 보여주고, 내 글이면 공개 범위와 수정·삭제 메뉴를 제공한다. */
 function AuthorRow({ creatorName, profileImageUrl, createdAt, visibility, isMine, onEdit, onDelete, deleting }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -455,15 +466,19 @@ function AuthorRow({ creatorName, profileImageUrl, createdAt, visibility, isMine
       <ProfilePhoto src={profileImageUrl} className="h-8 w-8 shrink-0" iconClassName="text-[18px]" />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate font-label-md text-label-md font-semibold text-on-surface">{creatorName}</span>
-          <time dateTime={createdAt} className="shrink-0 font-label-xs text-label-xs text-outline">{formatDateTime(createdAt)}</time>
+          <span className="min-w-0 flex-1 truncate font-label-md text-label-md font-semibold text-on-surface">{creatorName}</span>
+          <time dateTime={createdAt} className="hidden shrink-0 font-label-xs text-label-xs text-outline md:inline">{formatDateTime(createdAt)}</time>
         </div>
-        {isMine && (
-          <span className="flex items-center gap-1 font-label-xs text-label-xs text-outline">
+        <div className="flex items-center gap-1 font-label-xs text-label-xs text-outline">
+          <time dateTime={createdAt} className="md:hidden">{formatCompactPostTime(createdAt)}</time>
+          {isMine && (
+            <>
+              <span aria-hidden="true" className="md:hidden">·</span>
             <MaterialIcon name={visibility === 'FOLLOWERS' ? 'lock' : 'public'} className="text-[14px]" />
             {visibility === 'FOLLOWERS' ? '팔로워 공개' : '전체 공개'}
-          </span>
-        )}
+            </>
+          )}
+        </div>
       </div>
       {isMine && onEdit && (
         <div className="relative">

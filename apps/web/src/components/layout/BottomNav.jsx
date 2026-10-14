@@ -8,6 +8,7 @@ import couponIcon from '@cking/shared/icons/coupon.svg?raw';
 import couponOutlineIcon from '@cking/shared/icons/coupon-outline.svg?raw';
 import profileIcon from '@cking/shared/icons/profile.svg?raw';
 import profileOutlineIcon from '@cking/shared/icons/profile-outline.svg?raw';
+import { shouldResetNavigationOnClick, shouldResetSelectedNavigation } from './navigationScroll.js';
 
 const NAV_ITEMS = [
   {
@@ -40,7 +41,7 @@ const NAV_ITEMS = [
 const INDICATOR_MOTION_MS = 520;
 
 /** 시안의 프로스티드 글래스 하단 독. 알림은 앱바에서 연다. */
-export default function BottomNav({ embedded = false, compact = false }) {
+export default function BottomNav({ embedded = false, compact = false, onNavigate }) {
   const { pathname } = useLocation();
   const previousIndex = useRef(null);
   const pulseTimerRef = useRef(null);
@@ -68,11 +69,19 @@ export default function BottomNav({ embedded = false, compact = false }) {
 
   useEffect(() => () => window.clearTimeout(pulseTimerRef.current), []);
 
+  /** 하단 메뉴 선택을 시각적으로 알리기 위해 독 펄스 애니메이션을 실행한다. */
   const pulseDock = () => {
     setIsPulsing(false);
     window.requestAnimationFrame(() => setIsPulsing(true));
     window.clearTimeout(pulseTimerRef.current);
     pulseTimerRef.current = window.setTimeout(() => setIsPulsing(false), 520);
+  };
+
+  /** 하단 메뉴를 누를 때 독 애니메이션을 실행하고 활성 메뉴 재선택만 스크롤을 초기화한다. */
+  const handleNavigationClick = (event, isSelected) => {
+    if (!shouldResetNavigationOnClick(event)) return;
+    pulseDock();
+    if (shouldResetSelectedNavigation(event, isSelected)) onNavigate?.();
   };
 
   return (
@@ -111,7 +120,7 @@ export default function BottomNav({ embedded = false, compact = false }) {
               key={item.to}
               to={item.to}
               end={item.end}
-              onClick={pulseDock}
+              onClick={(event) => handleNavigationClick(event, isSelected)}
               aria-label={item.label}
               className={`relative z-10 flex flex-1 flex-col items-center justify-center min-w-0 rounded-full transition-[height,color] duration-300 ease-out active:scale-95 ${
                 compact ? 'h-9' : 'h-10'

@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getCommonTicketBalance, getTicketBalance } from '../api/tickets.js'
 import { useAsync } from '../hooks/useAsync.js'
-import { summarizeTickets } from '../utils/myTickets.js'
+import { createRetryScheduler, summarizeTickets } from '../utils/myTickets.js'
 import MyTicketsContext from './myTicketsContext.js'
 import { useUser } from './useUser.js'
 
 const emptyCreators = new Map()
 const emptyFailures = new Set()
 
-// 응모권 적립은 Redis에서 먼저 접수되고 DB 반영이 비동기라, 적립·응모 직후 한 번 더 불러와 늦게 반영된 값도 따라간다.
-const REFRESH_AGAIN_MS = 2000
+// 응모권 적립은 Redis에서 먼저 접수되고 DB 반영이 비동기라, 적립·응모 직후 바로 불러온 값에는 아직 반영 전의 수량이 남을 수 있다.
+// 값이 바뀔 때까지 이 간격(2초, 5초, 10초 시점)으로 다시 불러오고, 바뀐 것을 확인하면 멈춘다. 끝까지 안 바뀌어도 여기서 그친다.
+const REFRESH_RETRY_GAPS_MS = [2000, 3000, 5000]
 // 탭으로 돌아올 때마다 불러오지 않도록 최소 간격을 둔다.
 const VISIBLE_REFRESH_MIN_GAP_MS = 10_000
 
@@ -45,15 +46,23 @@ export function MyTicketsProvider({ children }) {
     { enabled: memberId != null && followsReady },
   )
 
-  // 다시 불러오기. 바로 한 번, 그리고 DB 반영이 늦을 수 있어 잠시 뒤 한 번 더.
-  // 연속으로 불러도 잠시 뒤 조회가 쌓이지 않도록 대기 중인 타이머는 하나만 둔다.
-  const refreshAgainTimer = useRef(null)
-  const refresh = useCallback(() => {
-    setRefreshKey((key) => key + 1)
-    clearTimeout(refreshAgainTimer.current)
-    refreshAgainTimer.current = setTimeout(() => setRefreshKey((key) => key + 1), REFRESH_AGAIN_MS)
+  // 다시 불러오기. 바로 한 번 불러오고, 총 개수가 그대로면 DB 반영이 아직일 수 있어 정해진 간격으로 몇 번 더 불러온다.
+  // 재시도 규칙(값이 바뀌면 멈춤, 연속 호출 처리)은 utils/myTickets.js의 createRetryScheduler가 맡는다.
+  const totalRef = useRef(null)
+  const retrierRef = useRef(null)
+  useEffect(() => {
+    const retrier = createRetryScheduler({
+      gapsMs: REFRESH_RETRY_GAPS_MS,
+      getValue: () => totalRef.current,
+      run: () => setRefreshKey((key) => key + 1),
+    })
+    retrierRef.current = retrier
+    return () => {
+      retrier.stop()
+      retrierRef.current = null
+    }
   }, [])
-  useEffect(() => () => clearTimeout(refreshAgainTimer.current), [])
+  const refresh = useCallback(() => retrierRef.current?.start(), [])
 
   // 다른 탭·앱에서 응모권이 바뀌었을 수 있어 화면으로 돌아오면 다시 불러온다.
   useEffect(() => {
@@ -71,6 +80,9 @@ export function MyTicketsProvider({ children }) {
 
   const current = data?.memberId === memberId ? data : null
   const summary = useMemo(() => (current ? summarizeTickets(current) : null), [current])
+  useEffect(() => {
+    totalRef.current = summary ? summary.total : null
+  }, [summary])
 
   const value = useMemo(
     () => ({

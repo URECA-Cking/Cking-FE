@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { MAX_BADGE_COUNT, formatTicketBadge, summarizeTickets } from '../src/utils/myTickets.js'
+import { MAX_BADGE_COUNT, createRetryScheduler, formatTicketBadge, summarizeTickets } from '../src/utils/myTickets.js'
 
 const creators = (entries) => new Map(entries.map(([id, balance]) => [id, { balance }]))
 
@@ -59,4 +59,86 @@ test('일부 조회가 실패했으면 헤더 숫자 뒤에 +를 붙인다', () 
   assert.equal(formatTicketBadge(12, true), '12+')
   assert.equal(formatTicketBadge(12, false), '12')
   assert.equal(formatTicketBadge(1000, true), '999+')
+})
+
+// ── 반영 확인 재조회 스케줄러 ─────────────────────────────────────────────
+
+function schedulerHarness(t, initialValue) {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const state = { value: initialValue, runs: 0 }
+  const scheduler = createRetryScheduler({
+    gapsMs: [2000, 3000, 5000],
+    getValue: () => state.value,
+    run: () => { state.runs += 1 },
+  })
+  return { state, scheduler, tick: (ms) => t.mock.timers.tick(ms) }
+}
+
+test('start하면 바로 한 번 불러오고, 값이 그대로면 2초·5초·10초에 다시 불러온 뒤 멈춘다', (t) => {
+  const { state, scheduler, tick } = schedulerHarness(t, 10)
+  scheduler.start()
+  assert.equal(state.runs, 1)
+  tick(1999)
+  assert.equal(state.runs, 1)
+  tick(1)
+  assert.equal(state.runs, 2)
+  tick(3000)
+  assert.equal(state.runs, 3)
+  tick(5000)
+  assert.equal(state.runs, 4)
+  tick(60_000)
+  assert.equal(state.runs, 4)
+})
+
+test('값이 바뀐 것을 확인하면 남은 재조회를 하지 않는다', (t) => {
+  const { state, scheduler, tick } = schedulerHarness(t, 10)
+  scheduler.start()
+  state.value = 9
+  tick(60_000)
+  assert.equal(state.runs, 1)
+})
+
+test('두 번째 재조회에서 반영이 확인되면 거기서 멈춘다', (t) => {
+  const { state, scheduler, tick } = schedulerHarness(t, 10)
+  scheduler.start()
+  tick(2000)
+  assert.equal(state.runs, 2)
+  state.value = 9
+  tick(60_000)
+  assert.equal(state.runs, 2)
+})
+
+test('앞선 재조회가 남아 있을 때 다시 start하면 값이 바뀌어도 끝까지 재조회한다', (t) => {
+  const { state, scheduler, tick } = schedulerHarness(t, 10)
+  scheduler.start()
+  state.value = 9 // 첫 행동의 반영이 보이는 상태에서 두 번째 행동을 한다
+  scheduler.start()
+  assert.equal(state.runs, 2)
+  tick(2000)
+  tick(3000)
+  tick(5000)
+  assert.equal(state.runs, 5)
+  tick(60_000)
+  assert.equal(state.runs, 5)
+})
+
+test('재조회가 모두 끝난 뒤의 start는 처음처럼 값이 바뀌면 멈춘다', (t) => {
+  const { state, scheduler, tick } = schedulerHarness(t, 10)
+  scheduler.start()
+  tick(2000)
+  tick(3000)
+  tick(5000)
+  assert.equal(state.runs, 4)
+  scheduler.start()
+  state.value = 8
+  tick(60_000)
+  assert.equal(state.runs, 5)
+})
+
+test('stop하면 대기 중인 재조회를 취소한다', (t) => {
+  const { state, scheduler, tick } = schedulerHarness(t, 10)
+  scheduler.start()
+  scheduler.stop()
+  tick(60_000)
+  assert.equal(state.runs, 1)
 })

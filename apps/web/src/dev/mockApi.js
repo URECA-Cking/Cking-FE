@@ -8,6 +8,7 @@
 import { quizMockRoutes } from './quizMock.js'
 
 const STORAGE_KEY = 'cking.mock'
+const COMMON_REFLECT_DELAY_MS = 6000
 const HOUR = 3600 * 1000
 const DAY = 24 * HOUR
 
@@ -79,6 +80,7 @@ export function installMockApiIfRequested() {
   const posts = empty ? {} : buildPosts(now)
   const follows = empty ? [] : FOLLOWED
   let attendanceDone = false
+  let attendanceAt = null // 출석 완료 시각. 공용 응모권 잔액은 실제 BE처럼 이 시각에서 한참 뒤에야 늘어난다.
 
   const page = (items) => ({ items, page: 0, size: items.length, totalElements: items.length, totalPages: 1, hasNext: false })
   const me = {
@@ -98,7 +100,11 @@ export function installMockApiIfRequested() {
     ['GET', /^\/api\/events$/, () => page(events)],
     ['GET', /^\/api\/creators\/(\d+)\/tickets$/, (id) => ({ creatorId: Number(id), balance: BALANCES[id] ?? 0 })],
     // 공용 응모권 잔액. 이벤트 목업의 myCommonTicketBalance와 같은 값이고, 팔로우·이벤트가 없는 시나리오(empty)는 0이다.
-    ['GET', /^\/api\/tickets\/common$/, () => ({ userId: me.memberId, balance: empty ? 0 : 2, updatedAt: new Date(now).toISOString() })],
+    // 출석을 완료하면 DB 반영이 비동기인 것처럼 COMMON_REFLECT_DELAY_MS 뒤에 1장이 늘어난다.
+    ['GET', /^\/api\/tickets\/common$/, () => {
+      const reflected = attendanceAt !== null && Date.now() - attendanceAt > COMMON_REFLECT_DELAY_MS
+      return { userId: me.memberId, balance: (empty ? 0 : 2) + (reflected ? 1 : 0), updatedAt: new Date().toISOString() }
+    }],
     ['GET', /^\/api\/creators\/(\d+)\/posts$/, (id, url) => page((posts[id] ?? []).slice(0, Number(url.searchParams.get('size')) || 20))],
     ['GET', /^\/api\/creators\/(\d+)\/space$/, (id) => {
       const creator = CREATORS.find((c) => c.creatorId === Number(id))
@@ -110,6 +116,7 @@ export function installMockApiIfRequested() {
       /^\/api\/missions\/(\d+)\/complete$/,
       () => {
         attendanceDone = true
+        attendanceAt = Date.now()
         return { status: 202, code: 'EARN_ACCEPTED', data: { missionId: 7, rewardAmount: 1, completedAt: new Date().toISOString() } }
       },
     ],

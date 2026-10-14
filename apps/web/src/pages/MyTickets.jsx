@@ -5,14 +5,14 @@ import { ErrorBlock, LoadingBlock } from '../components/ui/States.jsx'
 import { useMyTickets } from '../context/useMyTickets.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
-import { loadCreatorDirectory } from '../api/creators.js'
+import { getCreatorCatalog } from '../api/creators.js'
 import { spacePath } from '../api/creatorSpace.js'
 import { formatNumber } from '../utils/format.js'
 
 // 팔로우한 크리에이터가 많아도 화면이 길어지지 않게 처음에는 이만큼만 보여 주고 나머지는 "더보기"로 펼친다.
 const INITIAL_CREATOR_COUNT = 5
 
-const cardClass ='flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card'
+const cardClass = 'flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card'
 
 /**
  * 내 응모권. 팔로우한 크리에이터별 응모권과 공용 응모권의 개수를 보여 준다.
@@ -22,12 +22,12 @@ const cardClass ='flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-c
 export default function MyTickets() {
   const { followedCreators, followsReady, followsError, reloadFollows } = useUser()
   const { ready, loading, summary, creators: balances, failedIds, refresh } = useMyTickets()
-  const directory = useAsync(() => loadCreatorDirectory(), [], {
+  const directory = useAsync(() => getCreatorCatalog(), [], {
     fallbackMessage: '크리에이터 정보를 불러오지 못했습니다.',
   })
 
   const followedProfiles = useMemo(
-    () => (directory.data?.creators ?? []).filter((creator) => followedCreators.includes(creator.creatorId)),
+    () => (directory.data ?? []).filter((creator) => followedCreators.includes(creator.creatorId)),
     [directory.data, followedCreators],
   )
 

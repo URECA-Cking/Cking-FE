@@ -1,10 +1,14 @@
 import { ApiError, apiClient, describeError } from './client.js'
+import {
+  isSupportedSubscriptionVerificationImage,
+  SUBSCRIPTION_VERIFICATION_IMAGE_TYPES,
+} from '../utils/subscriptionVerificationImage.js'
 
 // Cking-BE docs/domains/subscription-verification/api.md.
 // 브라우저 검증은 불필요한 업로드를 줄이기 위한 보조 수단이며, 이미지의 실제 형식·해상도 판단은 서버가 한다.
 export const SUBSCRIPTION_VERIFICATION_IMAGE_LIMITS = {
   maxBytes: 5 * 1024 * 1024,
-  types: ['image/jpeg', 'image/png'],
+  types: SUBSCRIPTION_VERIFICATION_IMAGE_TYPES,
 }
 
 const missionPath = (creatorId, missionId) => `/api/creators/${creatorId}/missions/${missionId}/subscription-verifications`
@@ -33,7 +37,7 @@ export function getLatestSubscriptionVerification(creatorId, missionId) {
 }
 
 export function validateSubscriptionVerificationImage(file) {
-  if (!SUBSCRIPTION_VERIFICATION_IMAGE_LIMITS.types.includes(file.type)) {
+  if (!isSupportedSubscriptionVerificationImage(file)) {
     return 'JPEG 또는 PNG 이미지만 올릴 수 있어요.'
   }
   if (file.size > SUBSCRIPTION_VERIFICATION_IMAGE_LIMITS.maxBytes) {

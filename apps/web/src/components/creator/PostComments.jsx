@@ -21,6 +21,10 @@ import { useAsync } from '../../hooks/useAsync.js'
 import { useProfileSetupRedirect } from '../../hooks/useProfileSetupRedirect.js'
 import { formatDateTime } from '../../utils/format.js'
 import { ceilToMinute, describeCommentRestriction } from '../../utils/sanctionNotice.js'
+import { createCommentBlockAsAdmin, deleteCommentAsAdmin } from '../../api/adminComments.js'
+import { createCommentBlock } from '../../api/creatorCommentBlocks.js'
+import { useUser } from '../../context/useUser.js'
+import { canBlockAuthor, canDeleteComment, deleteRoute, moderationActor } from '../../utils/commentModeration.js'
 
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
 // counted: 재조회한 서버 전체 개수(totalElements)가 이미 포함하고 있는 created 댓글 ID.
@@ -53,6 +57,7 @@ const inputClass =
  */
 export default function PostComments({ creatorId, postId, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostRestricted }) {
   const showToast = useToast()
+  const { isAdmin } = useUser()
   const redirectToProfileSetup = useProfileSetupRedirect()
   const first = useAsync(
     () => getPostComments(creatorId, postId),
@@ -104,6 +109,8 @@ export default function PostComments({ creatorId, postId, authenticated, followi
   // 목록이 보일 때만 입력창을 연다: 최초 조회가 실패한 채 작성하면 저장은 되는데 오류 화면 때문에 결과가 보이지 않는다.
   const listReady = !first.loading && !first.error && page != null
   const isOwn = (comment) => memberId != null && Number(comment.authorMemberId) === Number(memberId)
+  // 남의 댓글을 조치(차단·삭제)할 자격. 게시글 주인(크리에이터)이 우선이고, 아니면 관리자다. 호출하는 API만 다르다.
+  const actor = moderationActor({ isMine, isAdmin })
 
   // 불러온 페이지를 처음부터 다시 읽어 서버 상태와 맞춘다. 실패해도 이미 보이는 댓글은 그대로 둔다.
   async function refreshQuietly() {
@@ -215,10 +222,16 @@ export default function PostComments({ creatorId, postId, authenticated, followi
 
   async function remove(comment) {
     if (deletingId != null) return
-    if (!window.confirm('이 댓글을 삭제할까요? 삭제하면 되돌릴 수 없어요.')) return
+    const route = deleteRoute({ actor, isOwn: isOwn(comment) })
+    const confirmMessage = route === 'admin'
+      ? '관리자 권한으로 이 댓글을 삭제할까요? 되돌릴 수 없고, 작성자에게 경고나 알림은 가지 않아요.'
+      : '이 댓글을 삭제할까요? 삭제하면 되돌릴 수 없어요.'
+    if (!window.confirm(confirmMessage)) return
     setDeletingId(comment.commentId)
     try {
-      await deleteComment(creatorId, postId, comment.commentId)
+      // 관리자는 게시글·소유 관계를 따지지 않는 관리자 API를 쓰고, 본인 댓글과 게시글 주인의 삭제는 기존 API를 쓴다.
+      if (route === 'admin') await deleteCommentAsAdmin(comment.commentId)
+      else await deleteComment(creatorId, postId, comment.commentId)
       showToast('댓글을 삭제했어요.')
     } catch (error) {
       const gone = error instanceof ApiError && error.code === 'RESOURCE_NOT_FOUND'
@@ -262,7 +275,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                 </time>
                 {comment.updatedAt !== comment.createdAt && <span className="font-label-xs text-label-xs text-outline">수정됨</span>}
                 {/* 크리에이터가 남의 댓글 작성자를 내 스페이스에서 차단한다. 가려진 댓글도 authorMemberId는 내려온다. */}
-                {authenticated && isMine && !isOwn(comment) && comment.authorMemberId != null && (
+                {canBlockAuthor({ authenticated, actor, isOwn: isOwn(comment), authorMemberId: comment.authorMemberId }) && (
                   <CommentMoreMenu onBlock={() => setBlockingMember({ memberId: comment.authorMemberId, name: comment.authorName })} />
                 )}
               </div>
@@ -297,7 +310,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                   ) : (
                     <p className="whitespace-pre-wrap break-words font-body-sm text-body-sm text-on-surface">{comment.content}</p>
                   )}
-                  {((authenticated && (isOwn(comment) || isMine)) || !isOwn(comment)) && (
+                  {(canDeleteComment({ authenticated, actor, isOwn: isOwn(comment) }) || !isOwn(comment)) && (
                     <div className="mt-2 flex justify-end gap-3">
                       {/* 수정은 쓰기 권한이 있을 때만(팔로우를 끊은 작성자는 서버가 거절한다). 삭제는 팔로우와 무관하다. */}
                       {isOwn(comment) && canWrite && (
@@ -310,7 +323,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                           수정
                         </button>
                       )}
-                      {authenticated && (isOwn(comment) || isMine) && (
+                      {canDeleteComment({ authenticated, actor, isOwn: isOwn(comment) }) && (
                         <button
                           type="button"
                           onClick={() => remove(comment)}
@@ -399,8 +412,10 @@ export default function PostComments({ creatorId, postId, authenticated, followi
       </div>
       {blockingMember !== null && (
         <CommentBlockSheet
-          memberId={blockingMember.memberId}
           memberName={blockingMember.name}
+          createBlock={(days) => (actor === 'admin'
+            ? createCommentBlockAsAdmin({ creatorId, memberId: blockingMember.memberId, days })
+            : createCommentBlock({ memberId: blockingMember.memberId, days }))}
           onClose={() => setBlockingMember(null)}
           onBlocked={(block) => {
             const target = blockingMember.name || '이 회원'

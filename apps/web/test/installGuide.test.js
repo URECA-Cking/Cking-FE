@@ -16,10 +16,6 @@ test('지원 환경의 user agent를 설치 안내 환경으로 판별한다', (
     'android-chrome',
   )
   assert.equal(
-    detectInstallEnvironment('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 CriOS/120.0 Mobile Safari/537.36'),
-    null,
-  )
-  assert.equal(
     detectInstallEnvironment('Mozilla/5.0 (Linux; Android 14) SamsungBrowser/24.0 Chrome/117.0 Mobile Safari/537.36'),
     'android-samsung-internet',
   )
@@ -35,6 +31,10 @@ test('지원 환경의 user agent를 설치 안내 환경으로 판별한다', (
 
 test('판별할 수 없는 환경은 설치 절차를 만들지 않고 안전하게 처리한다', () => {
   assert.equal(detectInstallEnvironment('Mozilla/5.0 (X11; Linux x86_64) Firefox/121.0'), null)
+  assert.equal(
+    detectInstallEnvironment('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 CriOS/120.0 Mobile Safari/537.36'),
+    null,
+  )
   assert.equal(detectInstallEnvironment(null), null)
   assert.equal(getInstallGuide('unsupported'), null)
   assert.deepEqual(getInstallGuide('ios-safari').steps, ['공유', '홈 화면에 추가', '웹 앱으로 열기', '추가'])

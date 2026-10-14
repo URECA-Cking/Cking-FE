@@ -60,20 +60,18 @@ export default function InstallBanner() {
             {showManualGuide ? '설치 방법 닫기' : '설치 방법 보기'}
           </button>
 
-          {showManualGuide && (
-            <div id="install-manual-guide" className="rounded-xl bg-berry-tint px-3 py-2 text-berry-deep">
-              <p className="font-label-xs text-label-xs font-bold">{guide.label} 설치 방법</p>
-              <ol className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5 font-label-xs text-label-xs leading-relaxed">
-                {guide.steps.map((step, index) => (
-                  <li key={step}>
-                    {index > 0 && <span aria-hidden="true"> → </span>}
-                    {step}
-                  </li>
-                ))}
-              </ol>
-              <p className="mt-1 font-label-xs text-label-xs leading-relaxed">{guide.note}</p>
-            </div>
-          )}
+          <div id="install-manual-guide" hidden={!showManualGuide} className="rounded-xl bg-berry-tint px-3 py-2 text-berry-deep">
+            <p className="font-label-xs text-label-xs font-bold">{guide.label} 설치 방법</p>
+            <ol className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5 font-label-xs text-label-xs leading-relaxed">
+              {guide.steps.map((step, index) => (
+                <li key={step}>
+                  {index > 0 && <span aria-hidden="true"> → </span>}
+                  {step}
+                </li>
+              ))}
+            </ol>
+            <p className="mt-1 font-label-xs text-label-xs leading-relaxed">{guide.note}</p>
+          </div>
         </>
       )}
     </div>

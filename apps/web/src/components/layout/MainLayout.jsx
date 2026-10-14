@@ -58,6 +58,14 @@ export default function MainLayout() {
   /** 활성 하단 메뉴 재선택 시 현재 history 위치를 최상단으로 초기화한다. */
   const handleNavigationScrollReset = () => resetNavigationScroll(scrollRef.current, location.key, resetChrome)
 
+  /** 복원 대기 중 사용자가 직접 스크롤하려 할 때 RAF를 취소하고 입력을 우선한다. */
+  const cancelScrollRestore = useCallback(() => {
+    if (!isRestoringScrollRef.current) return
+    if (restoreFrameRef.current !== null) window.cancelAnimationFrame(restoreFrameRef.current)
+    restoreFrameRef.current = null
+    isRestoringScrollRef.current = false
+  }, [])
+
   // 새 화면 진입은 최상단에서 시작하고, POP 뒤로 가기만 비동기 콘텐츠가 늘어날 때까지 제한적으로 위치를 복원한다.
   useLayoutEffect(() => {
     const targetScrollTop = restoreNavigationScroll(scrollRef.current, navigationType, location.key, resetChrome)
@@ -87,11 +95,9 @@ export default function MainLayout() {
 
     restoreFrameRef.current = window.requestAnimationFrame(restoreUntilReady)
     return () => {
-      if (restoreFrameRef.current !== null) window.cancelAnimationFrame(restoreFrameRef.current)
-      restoreFrameRef.current = null
-      isRestoringScrollRef.current = false
+      cancelScrollRestore()
     }
-  }, [location.key, navigationType, resetChrome])
+  }, [cancelScrollRestore, location.key, navigationType, resetChrome])
 
   return (
     <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
@@ -112,6 +118,8 @@ export default function MainLayout() {
       <main
         ref={scrollRef}
         onScroll={handleScrollPositionSave}
+        onWheel={cancelScrollRestore}
+        onTouchStart={cancelScrollRestore}
         className={`flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] ${
           appBarTitle ? 'pt-[calc(env(safe-area-inset-top,0px)+3.5rem)]' : 'pt-safe'
         }`}

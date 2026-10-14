@@ -1,6 +1,7 @@
 const scrollPositions = new Map()
 export const MAX_SCROLL_POSITION_ENTRIES = 100
 export const MAX_SCROLL_RESTORE_ATTEMPTS = 120
+export const SCROLL_RESTORE_TOLERANCE_PX = 1
 
 /** 현재 탭의 일반 클릭일 때만 네비게이션 스크롤 초기화를 허용한다. */
 export function shouldResetNavigationOnClick(event) {
@@ -46,7 +47,7 @@ export function restoreNavigationScroll(scrollContainer, navigationType, locatio
 
 /** 복원 목표에 아직 닿지 않았고 제한 횟수가 남았을 때만 다음 프레임 복원을 계속한다. */
 export function shouldContinueNavigationScrollRestore(targetScrollTop, currentScrollTop, attempt) {
-  return currentScrollTop < targetScrollTop && attempt < MAX_SCROLL_RESTORE_ATTEMPTS
+  return targetScrollTop - currentScrollTop > SCROLL_RESTORE_TOLERANCE_PX && attempt < MAX_SCROLL_RESTORE_ATTEMPTS
 }
 
 /** 활성 하단 메뉴를 다시 누를 때 현재 history 위치도 최상단으로 초기화한다. */

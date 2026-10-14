@@ -9,6 +9,7 @@ import {
   shouldResetNavigationOnClick,
   shouldResetSelectedNavigation,
   MAX_SCROLL_POSITION_ENTRIES,
+  SCROLL_RESTORE_TOLERANCE_PX,
 } from '../src/components/layout/navigationScroll.js'
 
 test('하단 메뉴 이동은 공용 스크롤을 최상단으로 옮기고 앱 크롬을 초기화한다', () => {
@@ -75,6 +76,11 @@ test('복원 목표에 닿을 때까지 제한 횟수 안에서만 다음 프레
   assert.equal(shouldContinueNavigationScrollRestore(800, 120, 0), true)
   assert.equal(shouldContinueNavigationScrollRestore(800, 800, 0), false)
   assert.equal(shouldContinueNavigationScrollRestore(800, 120, 120), false)
+})
+
+test('1px 이하 서브픽셀 차이는 복원 완료로 본다', () => {
+  assert.equal(shouldContinueNavigationScrollRestore(450.8, 450.8 - SCROLL_RESTORE_TOLERANCE_PX, 0), false)
+  assert.equal(shouldContinueNavigationScrollRestore(450.8, 450.8 - SCROLL_RESTORE_TOLERANCE_PX - 0.01, 0), true)
 })
 
 test('스크롤 위치는 최근 history 항목 수만 유지한다', () => {

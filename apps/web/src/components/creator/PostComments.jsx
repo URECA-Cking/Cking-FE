@@ -25,7 +25,7 @@ import { describeCommentRestriction } from '../../utils/sanctionNotice.js'
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [], counted: [] }
 
 function describeCommentError(error, fallback) {
-  // 작성·수정 제한(플랫폼 제한·스페이스 차단)은 BE 메시지의 UTC 해제 시각을 한국 시간으로 바꿔 안내한다.
+  // 작성·수정 제한(플랫폼 제한·스페이스 차단)은 BE 메시지의 UTC 해제 시각을 앱 공통 시각 표기(브라우저 시간대)로 바꿔 안내한다.
   if (error instanceof ApiError) {
     const restriction = describeCommentRestriction(error.code, error.message)
     if (restriction) return restriction
@@ -219,6 +219,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
       showToast('댓글을 삭제했어요.')
     } catch (error) {
       const gone = error instanceof ApiError && error.code === 'RESOURCE_NOT_FOUND'
+      // 삭제는 작성 제한의 대상이 아니라서 제한 오류(COMMENT_RESTRICTED 등)는 오지 않는다. 공통 문구 매핑만 쓴다.
       showToast(describeCommentError(error, '댓글을 삭제하지 못했어요.'), { icon: 'error' })
       if (!gone) {
         setDeletingId(null)

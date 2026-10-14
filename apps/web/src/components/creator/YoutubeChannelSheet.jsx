@@ -14,6 +14,7 @@ const MAX_LENGTH = 100
 const inputClass =
   'w-full rounded-xl bg-surface-container px-3 py-2.5 font-body-sm text-body-sm text-on-surface shadow-sm placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none'
 
+/** 크리에이터가 저장한 구독 인증 대상 YouTube 채널을 불러온다. */
 async function loadMyYoutubeChannel() {
   try {
     return await getMyYoutubeChannel()
@@ -46,6 +47,7 @@ export default function YoutubeChannelSheet({ open, onClose }) {
   )
 }
 
+/** 채널명과 handle을 입력받아 구독 인증 대상 채널을 저장하는 폼을 표시한다. */
 function YoutubeChannelForm({ initialChannel, onSaved }) {
   const showToast = useToast()
   const [channelName, setChannelName] = useState(initialChannel?.channelName ?? '')
@@ -53,6 +55,7 @@ function YoutubeChannelForm({ initialChannel, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
+  /** 입력값을 검증한 뒤 구독 인증 대상 채널을 저장하고 최신 상태를 반영한다. */
   async function save(event) {
     event.preventDefault()
     const name = channelName.trim()
@@ -84,7 +87,7 @@ function YoutubeChannelForm({ initialChannel, onSaved }) {
       </p>
       <label className="flex flex-col gap-1">
         <span className="font-label-xs text-label-xs text-on-surface-variant">채널명</span>
-        <input value={channelName} maxLength={MAX_LENGTH} onChange={(event) => setChannelName(event.target.value)} placeholder="예상치 못한 필름" className={inputClass} disabled={saving} />
+        <input value={channelName} maxLength={MAX_LENGTH} onChange={(event) => setChannelName(event.target.value)} placeholder="채널명을 입력해주세요" className={inputClass} disabled={saving} />
       </label>
       <label className="flex flex-col gap-1">
         <span className="font-label-xs text-label-xs text-on-surface-variant">채널 handle</span>
@@ -92,7 +95,7 @@ function YoutubeChannelForm({ initialChannel, onSaved }) {
           value={channelHandle}
           maxLength={MAX_LENGTH}
           onChange={(event) => setChannelHandle(event.target.value)}
-          placeholder="@unexpectedfilm"
+          placeholder="핸들명을 입력해주세요. ex. @example"
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}

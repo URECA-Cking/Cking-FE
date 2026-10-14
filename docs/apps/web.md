@@ -16,6 +16,8 @@ Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서
 
 `/studio*`는 내 스페이스로 리다이렉트한다. `/space/:slug`는 비로그인 공개 조회를 허용한다. 그 밖의 사용자 경로는 `RequireUser`, Creator 운영은 추가로 `RequireRole role="creator"`를 사용한다.
 
+크리에이터 스페이스의 탭 선택은 현재 방문 기록 항목의 라우터 상태에 보관한다. 홈 탭의 `결과 확인`에서 이벤트 상세로 이동한 뒤 화면 또는 브라우저 뒤로 가기로 돌아오면 홈 탭이 다시 열린다. 다른 탭에서도 상세 화면 복귀 시 마지막으로 선택한 탭을 유지한다.
+
 ### 상태와 인증
 
 `UserContext`가 `/api/me`, 세션 상태, 역할, 팔로우 상태를 관리한다. Access JWT는 `sessionStorage`에 두며, `apps/web/src/api/client.js`가 Web 전용 refresh와 401 동작을 처리한다. 공통 HTTP 전송과 토큰 저장소의 저수준 로직은 `packages/shared`를 사용한다. Toast는 `ToastContext`가 담당한다. Web 전용 상태·Context·페이지는 Admin과 공유하지 않는다.

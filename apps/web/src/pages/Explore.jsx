@@ -197,7 +197,7 @@ export default function Explore() {
             value={query}
             onChange={(event) => { setQuery(event.target.value); setCreatorLimit(CREATOR_PAGE_SIZE) }}
             className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-all shadow-sm"
-            placeholder="크리에이터를 검색해봐 (아티스트, 유튜버, 스트리머)"
+            placeholder="크리에이터를 검색해 보세요 (아티스트, 유튜버, 스트리머)"
             type="search"
           />
           {query && (
@@ -216,7 +216,7 @@ export default function Explore() {
           <span className="font-label-xs text-label-xs text-on-surface-variant truncate">
             {trending.length > 0
               ? `진행 중인 이벤트: ${trending.map((creator) => creator.name).join(' & ')} 확인해보기!`
-              : '새로운 이벤트가 열리면 여기에서 가장 먼저 알려줄게요!'}
+              : '새로운 이벤트가 열리면 여기에서 가장 먼저 알려드릴게요!'}
           </span>
         </div>
       </div>

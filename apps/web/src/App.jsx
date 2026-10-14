@@ -7,6 +7,7 @@ import MyEntries from './pages/MyEntries.jsx'
 import MyWinners from './pages/MyWinners.jsx'
 import Notifications from './pages/Notifications.jsx'
 import MyPage from './pages/MyPage.jsx'
+import MyTickets from './pages/MyTickets.jsx'
 import Login from './pages/Login.jsx'
 import OAuthCallback from './pages/OAuthCallback.jsx'
 import Onboarding from './pages/Onboarding.jsx'
@@ -37,6 +38,7 @@ function App() {
         <Route path="/my-winners" element={<MyWinners />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/my-page" element={<MyPage />} />
+        <Route path="/my-tickets" element={<MyTickets />} />
       </Route>
 
       <Route

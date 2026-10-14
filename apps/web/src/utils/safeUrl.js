@@ -12,3 +12,14 @@ export function toSafeHttpUrl(value) {
     return null
   }
 }
+
+/** 이미지 주소는 절대 http(s) URL 또는 파일 미리보기의 blob: URL만 허용한다. */
+export function toSafeImageUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null
+  try {
+    const url = new URL(value.trim())
+    return ['http:', 'https:', 'blob:'].includes(url.protocol) ? url.href : null
+  } catch {
+    return null
+  }
+}

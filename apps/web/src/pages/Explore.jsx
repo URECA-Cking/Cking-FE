@@ -18,6 +18,7 @@ import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
 import { describeError } from '../api/client.js'
 import { spacePath } from '../api/creatorSpace.js'
+import { toSafeImageUrl } from '../utils/safeUrl.js'
 
 // 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
 const CREATOR_PAGE_SIZE = 30
@@ -35,7 +36,7 @@ const EVENT_FILTERS = [
 
 function CreatorBanner({ src, profileSrc }) {
   const [failedSrcs, setFailedSrcs] = useState(() => new Set())
-  const imageSrc = [src, profileSrc].find((candidate) => candidate && !failedSrcs.has(candidate))
+  const imageSrc = [src, profileSrc].map(toSafeImageUrl).find((candidate) => candidate && !failedSrcs.has(candidate))
 
   return (
     <div className="relative flex h-full w-full items-center justify-center bg-surface-container text-on-surface-variant">

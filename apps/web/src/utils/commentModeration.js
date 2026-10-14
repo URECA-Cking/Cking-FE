@@ -13,9 +13,13 @@ export function moderationActor({ isMine, isAdmin }) {
   return isAdmin ? 'admin' : null
 }
 
-/** 댓글 작성자를 차단하는 메뉴를 보일지. 로그인한 조치 자격자가 남의 댓글을 볼 때만이고, 작성자 ID가 있어야 한다(가려진 댓글도 ID는 온다). */
-export function canBlockAuthor({ authenticated, actor, isOwn, authorMemberId }) {
-  return Boolean(authenticated) && actor !== null && !isOwn && authorMemberId != null
+/**
+ * 댓글 작성자를 차단하는 메뉴를 보일지. 로그인한 조치 자격자가 남의 댓글을 볼 때만이고, 작성자 ID가 있어야 한다(가려진 댓글도 ID는 온다).
+ * 게시글 주인(스페이스 주인)이 쓴 댓글(writtenByCreator)은 자기 스페이스에서 차단할 수 없으므로 메뉴를 숨긴다.
+ * 작성자가 관리자인지는 댓글 응답으로 알 수 없어 그 경우는 서버가 거절한 뒤 안내한다.
+ */
+export function canBlockAuthor({ authenticated, actor, isOwn, authorMemberId, writtenByCreator }) {
+  return Boolean(authenticated) && actor !== null && !isOwn && !writtenByCreator && authorMemberId != null
 }
 
 /** 댓글 삭제 버튼을 보일지. 작성자 본인과 조치 자격자(게시글 주인·관리자)다. */

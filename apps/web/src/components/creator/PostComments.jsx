@@ -275,7 +275,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                 </time>
                 {comment.updatedAt !== comment.createdAt && <span className="font-label-xs text-label-xs text-outline">수정됨</span>}
                 {/* 크리에이터가 남의 댓글 작성자를 내 스페이스에서 차단한다. 가려진 댓글도 authorMemberId는 내려온다. */}
-                {canBlockAuthor({ authenticated, actor, isOwn: isOwn(comment), authorMemberId: comment.authorMemberId }) && (
+                {canBlockAuthor({ authenticated, actor, isOwn: isOwn(comment), authorMemberId: comment.authorMemberId, writtenByCreator: comment.writtenByCreator }) && (
                   <CommentMoreMenu onBlock={() => setBlockingMember({ memberId: comment.authorMemberId, name: comment.authorName })} />
                 )}
               </div>

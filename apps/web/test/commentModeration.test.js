@@ -20,6 +20,13 @@ test('차단 메뉴는 로그인한 조치 자격자가 남의 댓글을 볼 때
   assert.equal(canBlockAuthor({ ...base, authorMemberId: undefined }), false)
 })
 
+test('게시글 주인(스페이스 주인)이 쓴 댓글에는 관리자에게도 차단 메뉴를 보이지 않는다', () => {
+  const base = { authenticated: true, actor: 'admin', isOwn: false, authorMemberId: 7 }
+  assert.equal(canBlockAuthor({ ...base, writtenByCreator: true }), false)
+  assert.equal(canBlockAuthor({ ...base, writtenByCreator: false }), true)
+  assert.equal(canBlockAuthor({ ...base, writtenByCreator: undefined }), true)
+})
+
 test('삭제 버튼은 작성자 본인과 조치 자격자(크리에이터·관리자)에게 보인다', () => {
   assert.equal(canDeleteComment({ authenticated: true, actor: null, isOwn: true }), true)
   assert.equal(canDeleteComment({ authenticated: true, actor: 'admin', isOwn: false }), true)

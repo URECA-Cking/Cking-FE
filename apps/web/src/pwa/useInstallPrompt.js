@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { detectInstallEnvironment } from './installGuide.js'
+import { detectInstallEnvironment, isMobileDevice } from './installGuide.js'
 
 const DISMISS_KEY = 'cking.installPromptDismissed'
 
@@ -47,7 +47,9 @@ export function useInstallPrompt() {
     }
   }, [])
 
-  const environment = typeof navigator === 'undefined' ? null : detectInstallEnvironment(navigator.userAgent)
+  const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent
+  const environment = detectInstallEnvironment(userAgent)
+  const isMobile = isMobileDevice(userAgent)
 
   /** 브라우저가 제공한 설치 팝업을 사용자 요청으로 열고 선택 결과를 돌려준다. */
   const install = useCallback(async () => {
@@ -72,7 +74,7 @@ export function useInstallPrompt() {
     canInstall: Boolean(deferredPrompt),
     environment,
     standalone,
-    visible: !standalone && !dismissed,
+    visible: isMobile && !standalone && !dismissed,
     install,
     dismiss,
   }

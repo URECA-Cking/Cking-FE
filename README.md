@@ -62,7 +62,7 @@ npm run test:e2e:admin
 
 - `apps/web/public/manifest.webmanifest` — standalone 실행, 기본(다크) 테마·배경 색상(실행 중에는 선택한 모드에 맞춰 `theme-color` 갱신), 바로가기(내 응모/알림)
 - `apps/web/public/sw.js` — 앱 셸은 stale-while-revalidate, `/api`는 네트워크 우선(오프라인일 때만 마지막 성공 응답). Access JWT가 붙은 요청은 캐시하지 않음
-- 홈 화면 설치 배너(`InstallBanner`)는 standalone 실행 시 숨기며, iOS Safari·iOS Chrome·Android Chrome·Android 삼성 인터넷별 절차를 안내한다. 환경을 감지하지 못하면 사용자가 브라우저를 선택할 수 있고, `beforeinstallprompt` 지원 환경에서는 사용자의 버튼 동작으로 설치 팝업을 연다.
+- 홈 화면 설치 배너(`InstallBanner`)는 standalone 실행 시 숨기며 모바일에서만 표시한다. iOS Safari·iOS Chrome·Android Chrome·Android 삼성 인터넷별 절차를 안내하고, Android 앱 내 브라우저는 외부 브라우저로 연 뒤 설치하도록 안내한다. 일반 모바일 환경을 감지하지 못하면 사용자가 브라우저를 선택할 수 있고, `beforeinstallprompt` 지원 환경에서는 사용자의 버튼 동작으로 설치 팝업을 연다.
 - 아이콘은 디자인 원본(CKing 로고)에서 만든 PNG를 `apps/web/public/icons/`에 직접 두고 쓴다(생성 스크립트 없음)
 
 서비스 워커는 프로덕션 빌드에서만 등록됩니다. 설치 동작을 확인하려면 `npm run build && npm run preview`.

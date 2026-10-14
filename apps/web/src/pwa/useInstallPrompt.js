@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
+import { detectInstallEnvironment } from './installGuide.js'
 
 const DISMISS_KEY = 'cking.installPromptDismissed'
 
+/** 현재 창이 이미 설치된 standalone 웹앱으로 실행 중인지 확인한다. */
 function alreadyStandalone() {
   if (typeof window === 'undefined') return false
   return (
@@ -27,10 +29,12 @@ export function useInstallPrompt() {
   })
 
   useEffect(() => {
+    /** 브라우저가 설치 프롬프트를 준비했을 때 나중에 사용자 동작으로 실행하도록 저장한다. */
     function onBeforeInstallPrompt(event) {
       event.preventDefault()
       setDeferredPrompt(event)
     }
+    /** 설치가 끝난 뒤 설치 안내를 즉시 숨긴다. */
     function onInstalled() {
       setDeferredPrompt(null)
       setStandalone(true)
@@ -43,8 +47,9 @@ export function useInstallPrompt() {
     }
   }, [])
 
-  const isIos = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
+  const environment = typeof navigator === 'undefined' ? null : detectInstallEnvironment(navigator.userAgent)
 
+  /** 브라우저가 제공한 설치 팝업을 사용자 요청으로 열고 선택 결과를 돌려준다. */
   const install = useCallback(async () => {
     if (!deferredPrompt) return false
     deferredPrompt.prompt()
@@ -53,6 +58,7 @@ export function useInstallPrompt() {
     return choice?.outcome === 'accepted'
   }, [deferredPrompt])
 
+  /** 사용자가 닫은 설치 안내를 현재 브라우저에 기억한다. */
   const dismiss = useCallback(() => {
     setDismissed(true)
     try {
@@ -64,9 +70,9 @@ export function useInstallPrompt() {
 
   return {
     canInstall: Boolean(deferredPrompt),
-    needsIosGuide: isIos && !standalone,
+    environment,
     standalone,
-    visible: !standalone && !dismissed && (Boolean(deferredPrompt) || (isIos && !standalone)),
+    visible: !standalone && !dismissed,
     install,
     dismiss,
   }

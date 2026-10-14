@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useInstallPrompt } from '../../pwa/useInstallPrompt.js'
+import { getInstallGuide, INSTALL_GUIDE_OPTIONS } from '../../pwa/installGuide.js'
 
-/** 홈 화면 설치(웹앱) 유도 배너. 설치 가능하거나 iOS일 때만 노출된다. */
+/** 홈 화면 설치(웹앱) 유도 배너. 현재 환경에 맞는 절차 또는 브라우저 설치 팝업을 제공한다. */
 export default function InstallBanner() {
-  const { visible, canInstall, needsIosGuide, install, dismiss } = useInstallPrompt()
-  const [showIosGuide, setShowIosGuide] = useState(false)
+  const { visible, canInstall, environment, install, dismiss } = useInstallPrompt()
+  const [selectedEnvironment, setSelectedEnvironment] = useState(null)
+  const guide = getInstallGuide(selectedEnvironment ?? environment)
 
   if (!visible) return null
 
@@ -31,19 +33,47 @@ export default function InstallBanner() {
         </button>
       </div>
 
-      {showIosGuide && (
-        <p className="font-label-xs text-label-xs text-berry-deep bg-berry-tint rounded-xl px-3 py-2 leading-relaxed">
-          Safari 하단의 공유 버튼을 누른 뒤 &ldquo;홈 화면에 추가&rdquo;를 선택해주세요.
-        </p>
+      {guide ? (
+        <div className="rounded-xl bg-berry-tint px-3 py-2 text-berry-deep">
+          <p className="font-label-xs text-label-xs font-bold">{guide.label} 설치 방법</p>
+          <ol className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5 font-label-xs text-label-xs leading-relaxed">
+            {guide.steps.map((step, index) => (
+              <li key={step}>
+                {index > 0 && <span aria-hidden="true"> → </span>}
+                {step}
+              </li>
+            ))}
+          </ol>
+          <p className="mt-1 font-label-xs text-label-xs leading-relaxed">메뉴 이름이나 위치는 브라우저 버전에 따라 조금 다를 수 있어요.</p>
+        </div>
+      ) : (
+        <label className="flex flex-col gap-1 font-label-xs text-label-xs text-on-surface-variant">
+          사용하는 브라우저를 선택해주세요.
+          <select
+            aria-label="설치 방법을 볼 브라우저 선택"
+            value={selectedEnvironment ?? ''}
+            onChange={(event) => setSelectedEnvironment(event.target.value || null)}
+            className="h-10 rounded-xl border border-border-rose bg-surface-container-lowest px-3 text-on-surface"
+          >
+            <option value="">브라우저 선택</option>
+            {INSTALL_GUIDE_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
 
-      <button
-        type="button"
-        onClick={() => (canInstall ? install() : setShowIosGuide(true))}
-        className="w-full h-10 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
-      >
-        {canInstall ? '홈 화면에 추가' : needsIosGuide ? '추가 방법 보기' : '홈 화면에 추가'}
-      </button>
+      {canInstall && (
+        <button
+          type="button"
+          onClick={install}
+          className="w-full h-10 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
+        >
+          앱 설치하기
+        </button>
+      )}
     </div>
   )
 }

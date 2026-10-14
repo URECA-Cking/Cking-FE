@@ -40,7 +40,7 @@ const NAV_ITEMS = [
 const INDICATOR_MOTION_MS = 520;
 
 /** 시안의 프로스티드 글래스 하단 독. 알림은 앱바에서 연다. */
-export default function BottomNav({ embedded = false, compact = false }) {
+export default function BottomNav({ embedded = false, compact = false, onNavigate }) {
   const { pathname } = useLocation();
   const previousIndex = useRef(null);
   const pulseTimerRef = useRef(null);
@@ -73,6 +73,12 @@ export default function BottomNav({ embedded = false, compact = false }) {
     window.requestAnimationFrame(() => setIsPulsing(true));
     window.clearTimeout(pulseTimerRef.current);
     pulseTimerRef.current = window.setTimeout(() => setIsPulsing(false), 520);
+  };
+
+  /** 하단 메뉴를 누를 때 독 애니메이션과 페이지 스크롤 초기화를 함께 실행한다. */
+  const handleNavigationClick = () => {
+    pulseDock();
+    onNavigate?.();
   };
 
   return (
@@ -111,7 +117,7 @@ export default function BottomNav({ embedded = false, compact = false }) {
               key={item.to}
               to={item.to}
               end={item.end}
-              onClick={pulseDock}
+              onClick={handleNavigationClick}
               aria-label={item.label}
               className={`relative z-10 flex flex-1 flex-col items-center justify-center min-w-0 rounded-full transition-[height,color] duration-300 ease-out active:scale-95 ${
                 compact ? 'h-9' : 'h-10'

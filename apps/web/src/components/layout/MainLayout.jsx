@@ -10,6 +10,7 @@ import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 import { useAppBack } from '../../hooks/useAppBack.js'
 import { useMyTickets } from '../../context/useMyTickets.js'
+import { resetNavigationScroll } from './navigationScroll.js'
 
 const APP_BAR_TITLES = {
   '/': { title: 'Cking' },
@@ -26,7 +27,7 @@ export default function MainLayout() {
   const { pathname } = useLocation()
   const goBack = useAppBack('/')
   const scrollRef = useRef(null)
-  const { headerVisible, bottomCompact } = useScrollChrome(scrollRef)
+  const { headerVisible, bottomCompact, resetChrome } = useScrollChrome(scrollRef)
   const online = useOnline()
   const appBarTitle = APP_BAR_TITLES[pathname]
 
@@ -38,6 +39,9 @@ export default function MainLayout() {
   const unreadCount = notifications.filter((item) => !item.readAt).length
   // 헤더 응모권 버튼의 총 개수. 아직 불러오지 못했으면 null이라 자리 표시를 보여 준다.
   const { summary: ticketSummary } = useMyTickets()
+
+  /** 하단 메뉴 전환 시 공용 스크롤과 스크롤 기반 앱 크롬을 기본 상태로 초기화한다. */
+  const handleNavigationScrollReset = () => resetNavigationScroll(scrollRef.current, resetChrome)
 
   return (
     <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
@@ -72,7 +76,7 @@ export default function MainLayout() {
         )}
         <Outlet context={{ notifications, unreadCount, reloadNotifications: reload }} />
       </main>
-      <BottomNav embedded compact={bottomCompact} />
+      <BottomNav embedded compact={bottomCompact} onNavigate={handleNavigationScrollReset} />
     </div>
   )
 }

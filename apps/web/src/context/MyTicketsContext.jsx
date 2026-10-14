@@ -11,6 +11,15 @@ const REFRESH_RETRY_GAPS_MS = [2000, 3000, 5000]
 // 탭으로 돌아올 때마다 불러오지 않도록 최소 간격을 둔다.
 const VISIBLE_REFRESH_MIN_GAP_MS = 10_000
 
+// 조회 실패에 어느 회원의 요청이었는지 붙인다. useAsync는 요청을 막아 둔 동안(다른 회원으로 바뀐 직후 팔로우 목록이 준비되기 전 등)
+// 이전 오류를 지우지 않으므로, 이 값으로 현재 회원의 실패만 보여 주려는 것이다.
+class MyTicketsLoadError extends Error {
+  constructor(memberId, cause) {
+    super('내 응모권을 불러오지 못했습니다.', { cause })
+    this.memberId = memberId
+  }
+}
+
 /**
  * 내 응모권(공용 응모권 + 팔로우한 크리에이터별 응모권)을 한 곳에서 불러와 헤더 버튼과 내 응모권 화면이 나눠 쓴다.
  * - BE 요약 API(GET /api/me/tickets) 한 번으로 공용 잔액, 크리에이터별 잔액(이름·이미지 포함), 서버가 계산한 합계를 받는다.
@@ -29,8 +38,14 @@ export function MyTicketsProvider({ children }) {
   const followsSettled = followsReady || followsError != null
   const idsKey = useMemo(() => [...new Set(followedCreators)].sort((a, b) => a - b).join(','), [followedCreators])
 
-  const { data, loading, error, reload } = useAsync(
-    async () => ({ memberId, summary: normalizeSummary(await getMyTicketsSummary()) }),
+  const { data, loading, error, errorObject, reload } = useAsync(
+    async () => {
+      try {
+        return { memberId, summary: normalizeSummary(await getMyTicketsSummary()) }
+      } catch (cause) {
+        throw new MyTicketsLoadError(memberId, cause)
+      }
+    },
     [memberId, idsKey, refreshKey],
     { enabled: memberId != null && followsSettled, fallbackMessage: '응모권을 불러오지 못했습니다.' },
   )
@@ -77,12 +92,12 @@ export function MyTicketsProvider({ children }) {
       ready: summary !== null,
       loading,
       // 요약을 받은 적이 없거나 마지막 조회가 실패했을 때의 안내 문구. 값이 있으면 이전 값을 계속 보여 주므로 안내만 더한다.
-      error: memberId != null && error ? error : null,
+      error: memberId != null && error && errorObject?.memberId === memberId ? error : null,
       summary,
       refresh,
       reload,
     }),
-    [summary, loading, error, memberId, refresh, reload],
+    [summary, loading, error, errorObject, memberId, refresh, reload],
   )
 
   return <MyTicketsContext.Provider value={value}>{children}</MyTicketsContext.Provider>

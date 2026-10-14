@@ -39,20 +39,47 @@ test('팔로우한 크리에이터가 없으면 빈 목록과 공용 잔액만 �
   assert.equal(summary.total, 2)
 })
 
-test('합계 필드가 빠진 응답은 목록과 공용 잔액으로 대신 계산한다', () => {
-  const summary = normalizeSummary({ common: { balance: 1 }, creators: [{ creatorId: 1, creatorName: 'a', balance: 4 }, { creatorId: 2, creatorName: 'b', balance: 2 }] })
-  assert.equal(summary.creatorTotal, 6)
-  assert.equal(summary.total, 7)
-})
-
-test('숫자가 아닌 잔액은 0으로 보고, 이름이 없으면 빈 문자열이다', () => {
-  const summary = normalizeSummary({ common: { balance: 'x' }, creators: [{ creatorId: 1, balance: 'y' }], creatorTotal: 0, total: 0 })
+test('0장은 BE가 돌려준 balance 0일 때만 나온다', () => {
+  const summary = normalizeSummary({ common: { balance: 0 }, creators: [{ creatorId: 1, creatorName: '하늘', balance: 0 }], creatorTotal: 0, total: 0 })
   assert.equal(summary.commonCount, 0)
-  assert.deepEqual(summary.creators, [{ creatorId: 1, name: '', avatar: null, balance: 0 }])
+  assert.equal(summary.total, 0)
+  assert.deepEqual(summary.creators, [{ creatorId: 1, name: '하늘', avatar: null, balance: 0 }])
 })
 
-test('응답이 비어 있어도 0장으로 정리한다', () => {
-  assert.deepEqual(normalizeSummary(null), { commonCount: 0, creators: [], creatorTotal: 0, total: 0 })
+test('이름이나 이미지가 비어 있어도 던지지 않고 빈 문자열·null로 둔다', () => {
+  const summary = normalizeSummary({ common: { balance: 1 }, creators: [{ creatorId: 1, balance: 4 }], creatorTotal: 4, total: 5 })
+  assert.deepEqual(summary.creators, [{ creatorId: 1, name: '', avatar: null, balance: 4 }])
+})
+
+test('응답이 비어 있거나 객체가 아니면 0장으로 정리하지 않고 던진다', () => {
+  for (const bad of [null, undefined, 'ok', 7, [], true]) {
+    assert.throws(() => normalizeSummary(bad), /내 응모권 요약 응답이 올바르지 않습니다/, String(bad))
+  }
+})
+
+// 오류 문구에 어느 필드가 잘못됐는지 들어 있는지만 본다(정규식 이스케이프를 피하려고 문자열 포함으로 비교).
+const throwsAbout = (fn, field) => assert.throws(fn, (error) => error instanceof Error && error.message.includes(field))
+
+test('필수 구조가 빠졌으면 던진다', () => {
+  throwsAbout(() => normalizeSummary(response({ common: null })), 'common')
+  throwsAbout(() => normalizeSummary(response({ common: undefined })), 'common')
+  throwsAbout(() => normalizeSummary(response({ creators: null })), 'creators')
+  throwsAbout(() => normalizeSummary(response({ creators: {} })), 'creators')
+  throwsAbout(() => normalizeSummary(response({ creators: [null] })), 'creators[0]')
+})
+
+test('숫자가 아닌 잔액이나 합계는 0으로 보지 않고 던진다', () => {
+  throwsAbout(() => normalizeSummary(response({ common: { balance: 'x' } })), 'common.balance')
+  throwsAbout(() => normalizeSummary(response({ common: { balance: null } })), 'common.balance')
+  throwsAbout(() => normalizeSummary(response({ common: { balance: Number.NaN } })), 'common.balance')
+  throwsAbout(() => normalizeSummary(response({ creators: [{ creatorId: 1, balance: 'y' }] })), 'creators[0].balance')
+  throwsAbout(() => normalizeSummary(response({ creators: [{ balance: 3 }] })), 'creators[0].creatorId')
+})
+
+test('서버 합계가 빠졌으면 목록으로 대신 계산하지 않고 던진다', () => {
+  throwsAbout(() => normalizeSummary(response({ creatorTotal: undefined })), 'creatorTotal')
+  throwsAbout(() => normalizeSummary(response({ total: undefined })), 'total')
+  throwsAbout(() => normalizeSummary(response({ total: '13' })), 'total')
 })
 
 test('헤더 숫자는 999를 넘으면 999+로 줄인다', () => {

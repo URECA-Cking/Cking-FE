@@ -30,6 +30,16 @@ Creator Space 게시물 상세는 작성자 이름과 작성 시각, 이미지, 
 
 API 사용 범위와 정본 링크는 [api-coverage.md](../api-coverage.md)를 따른다.
 
+### Creator Quiz 최종 문항 구성
+
+내 Quiz 검토 시트에서 최신 미게시 Revision의 문항을 선택·재정렬·편집하거나 직접 추가한다. 최종 미리보기 후 저장하고 서버에서 받은 Revision을 다시 확인해 책임 승인한다. 게시 요청은 별도로 실행하며 AI 원본의 기존 Judge 승인 흐름은 유지한다.
+
+원본 평가와 현재 수정 상태를 구분한다. 수동 문항에 근거가 없으면 근거 없음으로 표시하며 자동 AI 재평가를 하지 않는다. 최초 게시 이후에는 공개를 취소해도 편집할 수 없고 같은 고정 Revision만 재게시한다. 신규 필드가 없는 BE 응답에서는 편집 진입을 숨긴다.
+
+편집 UUID·정규화 요청 본문·저장 결과는 Creator/Quiz별 별도 localStorage 키에 보관한다. Web Locks와 조건부 갱신으로 탭 간 요청을 보호하고 응답 유실은 같은 UUID·본문으로 복구한다. 저장소/Web Locks가 불가능하면 저장 요청을 보내지 않는다. stale 충돌에서는 작성 내용을 보존하고 최신본을 확인하며 사용자의 명시적 선택 없이 새 UUID로 저장하지 않는다. Generation/Judge 기록은 변경하지 않는다.
+
+계약 정본은 [BE 문항 구성·책임 승인](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/composition-api.md)이다. 실제 BE·Provider 통합 검증은 별도 승인 후 수행한다.
+
 ### 실행 환경과 회귀 검증
 
 로컬에서 `VITE_API_BASE_URL`을 비우면 `/api`는 Web과 같은 출처로 요청되고 Vite가 `VITE_API_PROXY_TARGET`(기본 `http://localhost:8080`)으로 전달한다. OAuth 시작은 페이지 이동이므로 프록시를 거치지 않고 백엔드 주소로 직접 이동한다. `VITE_ADMIN_BASE_URL`은 독립 Admin 앱 주소이며, 운영 빌드에서 값이 없으면 이동 가능한 관리자 링크 대신 `서비스 준비 중` 비활성 항목을 표시한다. 개발 배포 빌드는 CI가 API와 Admin 주소를 주입한다.

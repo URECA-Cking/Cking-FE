@@ -62,3 +62,15 @@ export async function publishQuiz(quizId, revisionId) {
 export async function unpublishQuiz(quizId) {
   return apiClient.post(`/api/creator/quizzes/${quizId}/unpublish`);
 }
+
+/** POST /api/creator/quizzes/{quizId}/revisions — 신규 201 / replay 200 모두 Revision을 반환한다. */
+export async function composeQuizRevision(quizId, body) {
+  return apiClient.post(`/api/creator/quizzes/${quizId}/revisions`, body);
+}
+
+/** 기존 Judge 승인과 분리된 Creator 책임 승인. 서버가 반환한 최종 hash를 사용한다. */
+export async function approveQuizByCreator(quizId, revisionId, revisionSha256) {
+  return apiClient.post(`/api/creator/quizzes/${quizId}/revisions/${revisionId}/creator-approval`, {
+    revisionSha256, acknowledgeResponsibility: true,
+  });
+}

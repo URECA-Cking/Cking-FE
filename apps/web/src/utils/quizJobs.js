@@ -139,6 +139,7 @@ export function canApprove(revision, evaluation) {
 /** 게시 가능 여부. 승인된 최신 revision이고 그 revision을 이미 게시 중이 아니어야 한다. */
 export function canPublish(quiz, revision) {
   if (!quiz || !revision || !revision.latest || revision.reviewStatus !== 'APPROVED') return false
+  if (revision.origin === 'CREATOR_COMPOSED' && revision.approvalPolicyVersion !== 'CREATOR_REVIEW_V1') return false
   return !(quiz.publicationStatus === 'PUBLISHED' && quiz.publishedRevisionId === revision.revisionId)
 }
 
@@ -158,6 +159,9 @@ export function isUncertainError(error) {
 }
 
 const ERROR_MESSAGES = {
+  QUIZ_REVISION_CONFLICT: '편집 기준이 바뀌었거나 hash가 달라요. 최신 Revision을 확인해 주세요.',
+  QUIZ_EDIT_REQUEST_CONFLICT: '같은 저장 UUID의 요청 내용이 달라요. 기존 저장 기록을 확인해 주세요.',
+  QUIZ_CONTENT_LOCKED: '최초 게시한 Quiz는 게시 취소 후에도 편집할 수 없어요.',
   QUIZ_GENERATION_REQUEST_CONFLICT: '이전 생성 요청과 입력이 달라 처리하지 못했어요. 다시 요청해 주세요.',
   QUIZ_GENERATION_IN_PROGRESS: '이미 진행 중인 Quiz 생성이 있어요. 끝난 뒤 다시 요청해 주세요.',
   QUIZ_GENERATION_DISABLED: '지금은 AI Quiz 생성 기능을 사용할 수 없어요.',

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import TicketLedgerSheet from '../components/ticket/TicketLedgerSheet.jsx'
 import MySpaceLink from '../components/creator/MySpaceLink.jsx'
 import { LoadingBlock, ErrorBlock, StatusPill } from '../components/ui/States.jsx'
@@ -96,13 +97,7 @@ export default function MyPage() {
   return (
     <div className="flex flex-col w-full px-margin pt-space-md pb-8 gap-space-lg md:mx-auto md:max-w-5xl md:px-8">
       <section className="flex items-center gap-space-md p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
-        <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center shrink-0 overflow-hidden">
-          {user?.profileImageUrl ? (
-            <img src={user.profileImageUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <MaterialIcon name="person" className="text-on-primary text-[28px]" />
-          )}
-        </div>
+        <ProfilePhoto src={user?.profileImageUrl} className="h-16 w-16 shrink-0" iconClassName="text-[28px]" />
         <div className="min-w-0 flex-1">
           {/* 공개 이름은 닉네임이다. 설정 전에는 OAuth 이름으로 대신하지 않고 안내만 보여준다. */}
           <p className="font-title-lg text-title-lg text-on-surface font-bold truncate">
@@ -182,7 +177,7 @@ export default function MyPage() {
               className="flex items-center justify-between p-space-sm rounded-xl bg-surface-container-lowest shadow-card"
             >
               <Link to={spacePath(creator.handle)} className="flex items-center gap-space-sm min-w-0 flex-1">
-                <img src={creator.avatar} alt={creator.name} className="w-9 h-9 rounded-full object-cover" />
+                <ProfilePhoto src={creator.avatar} className="h-9 w-9 shrink-0" />
                 <div className="min-w-0">
                   <span className="font-label-md text-label-md text-on-surface font-semibold truncate block">
                     {creator.name}

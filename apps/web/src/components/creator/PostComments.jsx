@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import CommentReportSheet from './CommentReportSheet.jsx'
-import { CreatorPhoto } from './CreatorAvatarItem.jsx'
+import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError } from '../../api/client.js'
@@ -243,7 +243,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 {/* 가려진 댓글은 작성자가 아닌 조회자에게 이름·사진이 null로 오므로 이름 자리에 안내 문구를 둔다. */}
                 <span className="h-7 w-7 shrink-0">
-                  <CreatorPhoto key={comment.authorProfileImageUrl ?? comment.commentId} src={comment.authorProfileImageUrl} />
+                  <ProfilePhoto src={comment.authorProfileImageUrl} className="h-full w-full" />
                 </span>
                 <span className="font-label-md text-label-md font-semibold text-on-surface">{comment.authorName ?? '가려진 댓글'}</span>
                 {comment.writtenByCreator && <StatusPill label="크리에이터" icon="verified" tone="bg-primary text-on-primary" />}

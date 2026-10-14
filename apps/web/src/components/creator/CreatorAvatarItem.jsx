@@ -1,27 +1,6 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import MaterialIcon from '../ui/MaterialIcon.jsx'
+import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { spacePath } from '../../api/creatorSpace.js'
-
-/** 프로필 이미지가 없거나 불러오지 못하면 사람 아이콘으로 대신한다. */
-export function CreatorPhoto({ src }) {
-  const [broken, setBroken] = useState(false)
-  if (!src || broken) {
-    return (
-      <span className="w-full h-full rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant">
-        <MaterialIcon name="person" className="text-[20px]" />
-      </span>
-    )
-  }
-  return (
-    <img
-      className="w-full h-full rounded-full object-cover bg-surface-container"
-      src={src}
-      alt=""
-      onError={() => setBroken(true)}
-    />
-  )
-}
 
 /**
  * 홈 "소식" 가로 행의 크리에이터 항목. 최근 글이 있으면(isNew) 링 색만 바뀐다.
@@ -44,8 +23,7 @@ export default function CreatorAvatarItem({ creator, isNew = false }) {
             NEW
           </span>
         )}
-        {/* 주소가 바뀌면 깨짐 상태를 새로 시작하도록 key를 준다. */}
-        <CreatorPhoto key={creator.avatar} src={creator.avatar} />
+        <ProfilePhoto src={creator.avatar} className="h-full w-full" />
       </span>
       <span className="mt-1 font-label-sm text-label-sm text-on-surface-variant font-normal truncate max-w-full">
         {creator.name}

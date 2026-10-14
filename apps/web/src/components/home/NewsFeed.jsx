@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CreatorPhoto } from '../creator/CreatorAvatarItem.jsx'
+import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { spacePath } from '../../api/creatorSpace.js'
 import SectionTitle from './SectionTitle.jsx'
 import { formatRelativeTime } from '../../utils/format.js'
@@ -41,7 +41,7 @@ export default function NewsFeed({ creators, posts }) {
             >
               <span className="flex items-center gap-2 min-w-0">
                 <span className="block h-6 w-6 flex-shrink-0 rounded-full overflow-hidden">
-                  <CreatorPhoto src={creator.avatar} />
+                  <ProfilePhoto src={creator.avatar} className="h-full w-full" />
                 </span>
                 <span className="min-w-0 font-label-sm text-label-sm text-outline font-normal truncate">
                   <span className="text-on-surface font-semibold">{creator.name}</span> · {formatRelativeTime(post.createdAt)}

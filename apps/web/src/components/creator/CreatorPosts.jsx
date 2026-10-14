@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../ui/States.jsx'
 import PostComments from './PostComments.jsx'
 import PostEditorSheet from './PostEditorSheet.jsx'
@@ -433,16 +434,9 @@ function Caption({ name, content }) {
 /** 작성자 줄. 내 글이면 ⋯ 메뉴로 수정·삭제를 연다. */
 function AuthorRow({ creatorName, profileImageUrl, isMine, onEdit, onDelete, deleting }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [avatarFailed, setAvatarFailed] = useState(false)
   return (
     <div className="flex items-center gap-2.5 px-margin py-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-container text-on-surface-variant">
-        {profileImageUrl && !avatarFailed ? (
-          <img src={profileImageUrl} alt="" className="h-full w-full object-cover" onError={() => setAvatarFailed(true)} />
-        ) : (
-          <MaterialIcon name="person" className="text-[18px]" />
-        )}
-      </span>
+      <ProfilePhoto src={profileImageUrl} className="h-8 w-8 shrink-0" iconClassName="text-[18px]" />
       <span className="min-w-0 flex-1 truncate font-label-md text-label-md font-semibold text-on-surface">{creatorName}</span>
       {isMine && onEdit && (
         <div className="relative">

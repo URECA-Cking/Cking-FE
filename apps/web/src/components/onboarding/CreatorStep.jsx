@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import FollowStatus from '../creator/FollowStatus.jsx'
 import OnboardingFooter, { GhostButton, PrimaryButton } from './OnboardingFooter.jsx'
@@ -75,25 +76,14 @@ function useCreatorSearch(keyword) {
   return { items, hasNext, loading: first.loading, loadingMore, error: first.error, moreError, reload: first.reload, loadMore }
 }
 
-function Avatar({ src, name }) {
-  if (src) return <img className="w-14 h-14 rounded-full object-cover bg-surface-container-high shrink-0" src={src} alt="" />
-  return (
-    <div
-      className="w-14 h-14 rounded-full bg-berry-tint text-primary flex items-center justify-center font-title-md text-title-md font-bold shrink-0"
-      aria-hidden="true"
-    >
-      {name?.slice(0, 1)}
-    </div>
-  )
-}
-
+/** 추천·검색 결과의 크리에이터와 관심 상태를 한 줄에 표시한다. */
 function CreatorRow({ creator, reason, followed, disabled, onToggle, subtags = [], mySubtags = [] }) {
   return (
     <li className="flex items-center gap-3 p-3 rounded-2xl bg-surface-container-lowest shadow-card">
       {/* 플로우: 추천·검색 결과에서 크리에이터 스페이스를 둘러본 뒤 팔로우를 정한다. 팔로우 버튼은 링크 밖에 둔다. */}
       {/* 추천 API 응답에는 slug가 없어 handle이 비어 있다. 그때는 creatorId 경로로 연다. */}
       <Link to={creator.handle ? spacePath(creator.handle) : `/creators/${creator.creatorId}`} className="min-w-0 flex-1 flex items-center gap-3">
-        <Avatar src={creator.avatar} name={creator.name} />
+        <ProfilePhoto src={creator.avatar} className="h-14 w-14 shrink-0" iconClassName="text-[28px]" />
         <div className="min-w-0 flex-1 flex flex-col gap-0.5">
           <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
           {creator.bio && <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">{creator.bio}</p>}

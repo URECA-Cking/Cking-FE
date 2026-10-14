@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
 import InterestEditor from '../components/creator/InterestEditor.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../components/ui/States.jsx'
@@ -260,7 +261,7 @@ export default function Explore() {
                 <div key={creator.creatorId} className="w-full p-3 rounded-2xl bg-surface-container-lowest shadow-card flex items-center justify-between gap-3">
                   <Link to={spacePath(creator.handle)} className="flex items-center gap-3 min-w-0">
                     <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                      <img className="w-full h-full object-cover" src={creator.avatar} alt={creator.name} loading="lazy" decoding="async" />
+                      <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
                     </div>
                     <div className="min-w-0 flex flex-col">
                       <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
@@ -344,7 +345,7 @@ export default function Explore() {
                       {index + 1}
                     </span>
                     <div className="relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                      <img className="w-full h-full object-cover" src={creator.avatar} alt={creator.name} loading="lazy" decoding="async" />
+                      <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
                     </div>
                     <div className="min-w-0 flex flex-col">
                       <div className="flex items-center gap-1">

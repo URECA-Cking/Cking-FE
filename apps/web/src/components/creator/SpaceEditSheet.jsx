@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import BottomSheet from '../ui/BottomSheet.jsx'
-import MaterialIcon from '../ui/MaterialIcon.jsx'
+import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { Spinner } from '../ui/States.jsx'
 import ActivityNameSection from './ActivityNameSection.jsx'
 import { useToast } from '../../context/useToast.js'
@@ -52,6 +52,7 @@ export default function SpaceEditSheet({ open, onClose, space, onSaved }) {
   )
 }
 
+/** 열린 스페이스 편집 시트의 프로필 사진·소개·주소 입력과 저장 상태를 관리한다. */
 function SpaceEditForm({ space, onSaved }) {
   const showToast = useToast()
   const [profile, setProfile] = useState({
@@ -213,15 +214,7 @@ function SpaceEditForm({ space, onSaved }) {
               aria-label="프로필 사진 변경"
               className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-surface-container active:scale-95 transition-transform disabled:opacity-70"
             >
-              {shownImage ? (
-                <img src={shownImage} alt="" className="h-full w-full object-cover" />
-              ) : (
-                // 기본 이미지로 되돌리는 중이면 사람 아이콘이 아니라 되돌림 표시를 보여준다. BE가 기본 이미지 주소를 응답으로 주지 않아
-                // 복귀 결과는 저장한 뒤에야 알 수 있다.
-                <span className="flex h-full w-full items-center justify-center text-on-surface-variant">
-                  <MaterialIcon name={pendingKey === null ? 'restart_alt' : 'person'} className="text-[40px]" />
-                </span>
-              )}
+              <ProfilePhoto src={shownImage} className="h-full w-full" iconClassName="text-[40px]" />
               {photoBusy && (
                 <span className="absolute inset-0 flex items-center justify-center bg-black/40">
                   <Spinner className="h-6 w-6 text-white" />

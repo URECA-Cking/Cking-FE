@@ -4,6 +4,7 @@
 // 사용: 개발 서버에서 주소 끝에 ?mock=1(팬) / ?mock=creator(크리에이터) / ?mock=empty(팔로우·이벤트 없음)를 붙인다.
 // ?mock=restricted(플랫폼 댓글 작성 제한)·?mock=blocked(스페이스 차단)는 팬 시나리오에 더해, 댓글 작성·수정이
 // 403(COMMENT_RESTRICTED·SPACE_COMMENT_BLOCKED)으로 막히고 제재 알림이 도착한 상태를 보여준다.
+// ?mock=creator는 내 스페이스(하늘)에서 댓글의 "…" 메뉴로 차단을 걸고 "차단 관리" 탭에서 해제하는 것까지 보여준다.
 // 선택은 sessionStorage에 남아 이동해도 유지되고, ?mock=0으로 끈다.
 // AI Quiz(생성·검토·Judge·게시, 팬 응시)는 quizMock.js가 맡는다.
 
@@ -84,6 +85,20 @@ export function installMockApiIfRequested() {
   const sanctionError = scenario === 'blocked'
     ? { status: 403, code: 'SPACE_COMMENT_BLOCKED', data: null, message: `이 스페이스에서 댓글 작성이 제한되었습니다. 해제 시각(UTC): ${sanctionEnd}` }
     : { status: 403, code: 'COMMENT_RESTRICTED', data: null, message: `댓글 작성이 제한되었습니다. 해제 시각(UTC): ${sanctionEnd}` }
+  // 크리에이터 시나리오의 스페이스 댓글 차단(BE sanction/api.md). 해제·생성 결과가 목록에 반영되도록 상태를 들고 있다.
+  const blockAt = (offset) => new Date(now + offset).toISOString()
+  // 차단 중인 회원을 두 페이지(20+4)가 되도록 늘려 "더 보기"와 해제 뒤 목록 맞춤을 확인할 수 있게 한다.
+  const extraBlocks = Array.from({ length: 23 }, (_, i) => ({
+    sanctionId: 4 + i, memberId: 100 + i, memberName: `후원자 ${i + 1}`, startedAt: blockAt(-(i + 3) * HOUR), endsAt: blockAt((10 + i) * DAY + 1500), releasedAt: null,
+  }))
+  const blocks = [
+    { sanctionId: 3, memberId: 12, memberName: '열혈팬', startedAt: blockAt(-2 * DAY), endsAt: blockAt(5 * DAY + 1500), releasedAt: null },
+    ...extraBlocks,
+    { sanctionId: 2, memberId: 13, memberName: '지나가던 사람', startedAt: blockAt(-9 * DAY), endsAt: blockAt(21 * DAY), releasedAt: blockAt(-8 * DAY) },
+    { sanctionId: 1, memberId: 14, memberName: '예전 악플러', startedAt: blockAt(-40 * DAY), endsAt: blockAt(-33 * DAY), releasedAt: null },
+  ]
+  const blockView = (block) => ({ ...block, active: block.releasedAt === null && Date.parse(block.endsAt) > Date.now() })
+  const blockError = (status, code, message) => ({ status, code, data: null, message })
   const minuteUtc = (iso) => `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`
   const endsUtc = minuteUtc(new Date(now + 3 * DAY + 60000).toISOString())
   // 제목·본문은 BE SanctionNotificationService와 같은 문구다(플랫폼 제한 / 크리에이터의 스페이스 차단).
@@ -133,6 +148,38 @@ export function installMockApiIfRequested() {
     ['GET', /^\/api\/me\/follows$/, () => page(follows.map((creatorId) => ({ creatorId })))],
     ['GET', /^\/api\/me\/notifications$/, () => page(empty ? [] : sanctionMode ? sanctionNotifications : [{ notificationId: 1, readAt: null, createdAt: new Date(now - HOUR).toISOString() }])],
     ['PATCH', /^\/api\/me\/notifications\/(\d+)\/read$/, (id) => ({ notificationId: Number(id), readAt: new Date().toISOString() })],
+    ...(creatorMode
+      ? [
+          ['GET', /^\/api\/creators\/(\d+)\/posts\/(\d+)\/comments$/, (_id, postId) => page([
+            { commentId: 501, postId: Number(postId), authorMemberId: 12, authorName: '열혈팬', authorProfileImageUrl: null, writtenByCreator: false, content: '오늘도 응원해요!', filtered: false, revealable: false, createdAt: blockAt(-3 * HOUR), updatedAt: blockAt(-3 * HOUR) },
+            { commentId: 502, postId: Number(postId), authorMemberId: 15, authorName: null, authorProfileImageUrl: null, writtenByCreator: false, content: null, filtered: true, revealable: true, createdAt: blockAt(-2 * HOUR), updatedAt: blockAt(-2 * HOUR) },
+            { commentId: 503, postId: Number(postId), authorMemberId: me.memberId, authorName: '하늘', authorProfileImageUrl: null, writtenByCreator: true, content: '다들 와줘서 고마워요', filtered: false, revealable: false, createdAt: blockAt(-1 * HOUR), updatedAt: blockAt(-1 * HOUR) },
+          ])],
+          ['POST', /^\/api\/creator\/comment-blocks$/, (url, init) => {
+            const body = JSON.parse(init.body ?? '{}')
+            if (!Number.isInteger(body.days) || body.days < 1 || body.days > 365) return blockError(400, 'VALIDATION_FAILED', '기간 오류')
+            if (body.memberId === me.memberId) return blockError(400, 'CANNOT_BLOCK_SELF', '자기 자신은 차단할 수 없습니다.')
+            const existing = blocks.find((block) => block.memberId === body.memberId && blockView(block).active)
+            if (existing) return { status: 201, code: 'SUCCESS', data: blockView(existing) }
+            const created = { sanctionId: Math.max(...blocks.map((block) => block.sanctionId)) + 1, memberId: body.memberId, memberName: body.memberId === 15 ? '가려진 회원' : `회원 ${body.memberId}`, startedAt: new Date().toISOString(), endsAt: new Date(Date.now() + body.days * DAY).toISOString(), releasedAt: null }
+            blocks.unshift(created)
+            return { status: 201, code: 'SUCCESS', data: blockView(created) }
+          }],
+          ['GET', /^\/api\/creator\/comment-blocks$/, (url) => {
+            const size = Number(url.searchParams.get('size')) || 20
+            const pageNo = Number(url.searchParams.get('page')) || 0
+            const views = blocks.map(blockView).filter((block) => url.searchParams.get('active') !== 'true' || block.active)
+            const items = views.slice(pageNo * size, (pageNo + 1) * size)
+            return { items, page: pageNo, size, totalElements: views.length, totalPages: Math.ceil(views.length / size), hasNext: (pageNo + 1) * size < views.length }
+          }],
+          ['POST', /^\/api\/creator\/comment-blocks\/(\d+)\/release$/, (id) => {
+            const block = blocks.find((item) => item.sanctionId === Number(id))
+            if (!block) return blockError(404, 'RESOURCE_NOT_FOUND', '없는 차단')
+            if (blockView(block).active) block.releasedAt = new Date().toISOString()
+            return blockView(block)
+          }],
+        ]
+      : []),
     // 제재 시나리오에서만: 댓글 목록은 비어 있고, 작성·수정은 제한 오류로 막힌다(삭제는 막지 않는다).
     ...(sanctionMode
       ? [

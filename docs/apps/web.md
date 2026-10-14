@@ -24,6 +24,8 @@ Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서
 
 회원·크리에이터 프로필 사진은 Web 공통 `ProfilePhoto`로 표시한다. 사진 URL이 없거나 이미지 로딩에 실패하면 사람 아이콘을 보여주며, URL이 바뀌면 새 사진을 다시 표시한다. 사진 업로드·저장과 Creator Space의 기본 이미지 URL 결정은 기존 API 흐름을 따른다.
 
+Creator Space 게시물 상세는 작성자 이름과 작성 시각, 이미지, 본문, 좋아요, 댓글 목록·입력창 순으로 표시한다. 본문에는 작성자 이름을 반복하지 않고, 댓글은 상세를 열면 바로 조회한다. 좋아요와 댓글의 권한·오류 처리는 기존 게시물·댓글 API 흐름을 따른다.
+
 `apps/web`은 PUBLIC, USER, CREATOR API를 소유한다. 공통화 후보는 앱 독립적인 UI·HTTP 클라이언트·유틸·실제 공통 타입뿐이며, `UserContext`, 팔로우 상태, Web/Creator 화면은 shared에 두지 않는다. 관리자 콘솔은 `VITE_ADMIN_BASE_URL`로 독립 Admin 앱에 진입한다.
 
 API 사용 범위와 정본 링크는 [api-coverage.md](../api-coverage.md)를 따른다.

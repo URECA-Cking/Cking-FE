@@ -74,7 +74,7 @@ export function useInstallPrompt() {
     canInstall: Boolean(deferredPrompt),
     environment,
     standalone,
-    visible: isMobile && !standalone && !dismissed,
+    visible: isMobile && !standalone && !dismissed && (environment !== null || Boolean(deferredPrompt)),
     install,
     dismiss,
   }

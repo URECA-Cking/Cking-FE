@@ -38,14 +38,6 @@ export const INSTALL_GUIDES = Object.freeze({
   },
 })
 
-/** 사용자가 직접 선택할 수 있도록 지원 환경 목록을 순서대로 제공한다. */
-export const INSTALL_GUIDE_OPTIONS = Object.freeze([
-  INSTALL_GUIDES[IOS_SAFARI],
-  INSTALL_GUIDES[IOS_CHROME],
-  INSTALL_GUIDES[ANDROID_CHROME],
-  INSTALL_GUIDES[ANDROID_SAMSUNG_INTERNET],
-])
-
 /** 전달값을 안전하게 user agent 비교용 소문자 문자열로 바꾼다. */
 function normalizeUserAgent(userAgent) {
   return String(userAgent ?? '').toLowerCase()

@@ -29,3 +29,21 @@ export function describeEntryResult(result) {
     message: known?.message ?? result?.message ?? '응모 결과를 확인하지 못했어요.',
   }
 }
+
+/**
+ * 서버가 요청을 실제로 수락했는지 클라이언트가 확정할 수 없는 결과인지 판별한다.
+ * 이 경우 새 requestId로 다시 응모하면 중복 차감 위험이 있으므로, 기존 요청을
+ * 같은 내용으로 재전송해 서버의 멱등 응답을 받아야 한다.
+ */
+export function requiresSameRequestRetry(outcome) {
+  return outcome?.code === 'NETWORK_ERROR' || outcome?.code === 'SYSTEM_ERROR'
+}
+
+/**
+ * 시트를 닫았다가 다시 열어도 복구할 수 있도록, 미확정 응모의 요청 내용을 보관한다.
+ * route가 같은 컴포넌트를 재사용할 수 있어 eventId까지 함께 비교한다.
+ */
+export function restorePendingEntryAttempt(pendingEntry, eventId) {
+  if (!pendingEntry || String(pendingEntry.eventId) !== String(eventId)) return null
+  return pendingEntry
+}

@@ -11,6 +11,7 @@ import { useAsync } from '../hooks/useAsync.js'
 import { useEntryStatus } from '../hooks/useEntryStatus.js'
 import { getEvent } from '../api/events.js'
 import { applyEntry, describeEntryResult } from '../api/entries.js'
+import { requiresSameRequestRetry, restorePendingEntryAttempt } from '../utils/entryResult.js'
 import { useProfileSetupRedirect } from '../hooks/useProfileSetupRedirect.js'
 import { getPublicWinners } from '../api/winners.js'
 import { getMyWinners } from '../api/myWinners.js'
@@ -61,6 +62,9 @@ export default function EventDetail() {
   const [phase, setPhase] = useState('idle') // idle | submitting | done
   const [result, setResult] = useState(null)
   const [requestId, setRequestId] = useState(() => newRequestId())
+  // 네트워크/서버 오류는 서버가 이미 응모를 수락했을 가능성이 있다. 시트를 닫아도 같은
+  // requestId·내용으로 다시 확인할 수 있게 현재 이벤트의 미확정 요청을 남겨 둔다.
+  const [pendingEntry, setPendingEntry] = useState(null)
 
   const { data: event, loading, error, reload, setData: setEvent } = useAsync(
     () => getEvent(eventId),
@@ -175,6 +179,19 @@ export default function EventDetail() {
       showToast('지금은 응모할 수 있는 상태가 아니에요.', { icon: 'error' })
       return
     }
+
+    // 응답 유실 뒤 시트를 닫았다가 다시 연 경우에는 새 요청을 만들지 않는다. 같은
+    // requestId 재전송만이 서버의 멱등 처리(DUPLICATE_REPLAY)를 보장한다.
+    const restored = restorePendingEntryAttempt(pendingEntry, eventId)
+    if (restored) {
+      setAttempt(restored.attempt)
+      setRequestId(restored.requestId)
+      setResult(restored.outcome)
+      setPhase('done')
+      setSheetOpen(true)
+      return
+    }
+
     openingRef.current = true
     setOpening(true)
     try {
@@ -226,6 +243,11 @@ export default function EventDetail() {
       const outcome = describeEntryResult(envelope)
       setResult(outcome)
       setPhase('done')
+      if (requiresSameRequestRetry(outcome)) {
+        setPendingEntry({ eventId, requestId, attempt, outcome })
+      } else {
+        setPendingEntry(null)
+      }
       // SUCCESS와 DUPLICATE_REPLAY 모두 원래 응모가 현황에 반영됐는지 확인해야 한다.
       if (outcome.accepted) entryStatus.acceptEntry(requestId)
       showToast(outcome.message, { icon: outcome.accepted ? 'check_circle' : 'error' })
@@ -253,6 +275,11 @@ export default function EventDetail() {
       const outcome = describeEntryResult(error)
       setResult(outcome)
       setPhase('done')
+      if (requiresSameRequestRetry(outcome)) {
+        setPendingEntry({ eventId, requestId, attempt, outcome })
+      } else {
+        setPendingEntry(null)
+      }
       showToast(outcome.message, { icon: 'error' })
     }
   }

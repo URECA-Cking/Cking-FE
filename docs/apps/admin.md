@@ -44,3 +44,5 @@ HTTP 전송·토큰 저장소·MaterialIcon·포맷터·조회 훅은 `packages/
 ## 로컬 E2E 확인
 
 `npm run test:e2e:admin`은 실제 개발 배포 환경에서 관리자 로그인, Refresh Cookie를 이용한 세션 복원, 로그아웃과 보호 라우트 차단을 확인하는 선택적 Playwright 테스트다. CI와 기본 `npm run test`에는 포함하지 않는다. 테스트 계정은 `E2E_ADMIN_LOGIN_ID`, `E2E_ADMIN_PASSWORD` 환경변수로 전달하며 저장소에 기록하지 않는다.
+
+응모권 관리의 실제 FE·BE·Redis·MySQL 검증은 [TC-08 실행 절차와 결과](../verification/tc-08-admin-ticket-e2e.md)를 따른다. 조회와 보정 테스트는 기존 Admin E2E 명령에서 `--grep 'TC-08'`로 선택하며, 보정은 격리된 테스트 데이터가 준비된 경우에만 실행한다.

@@ -95,7 +95,7 @@ function YoutubeChannelForm({ initialChannel, onSaved }) {
           value={channelHandle}
           maxLength={MAX_LENGTH}
           onChange={(event) => setChannelHandle(event.target.value)}
-          placeholder="핸들명을 입력해주세요. ex. @example"
+          placeholder="핸들명을 입력해주세요. (예: @example)"
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}

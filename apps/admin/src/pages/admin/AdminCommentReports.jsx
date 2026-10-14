@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import ConfirmModal from '../../components/ConfirmModal.jsx'
+import SpaceBlockModal from '../../components/SpaceBlockModal.jsx'
 import { AdminPageHeader } from '../../components/AdminContent.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { getCommentReports, hideReportedComment, rejectCommentReports } from '../../api/admin.js'
+import { deleteComment, getCommentReports, hideReportedComment, rejectCommentReports } from '../../api/admin.js'
 import { ApiError, describeError } from '../../api/client.js'
 import { formatDateTime } from '../../utils/format.js'
 import {
@@ -17,6 +18,7 @@ import {
   reportStatusLabel,
   viewAfterRefresh,
 } from '../../utils/commentReport.js'
+import { blockSuccessMessage, deleteConfirm } from '../../utils/spaceCommentBlock.js'
 
 const PAGE_SIZE = 20
 
@@ -31,14 +33,17 @@ const STATUS_OPTIONS = [
 /**
  * 신고된 게시글 댓글을 댓글별로 모아 확인하고 숨기거나 신고를 반려한다(BE 이슈 #485·#499).
  * 한 댓글의 접수 신고는 한 번에 처리되고, 숨김은 되돌릴 수 없다.
+ * 처리 상태와 상관없이 댓글을 삭제하거나 작성자를 그 스페이스에서 차단할 수 있다(BE 이슈 #584).
  */
 export default function AdminCommentReports() {
   const showToast = useToast()
   // 탭과 페이지는 함께 바뀌므로 한 상태로 둔다. 재조회가 끝난 뒤 시작할 때와 같은 위치일 때만 페이지를 줄이기 위해서다.
   const [view, setView] = useState({ status: 'PENDING', page: 0 })
   const { status, page } = view
-  // pending: null | { action: 'hide' | 'reject', item }
+  // pending: null | { action: 'hide' | 'reject' | 'delete', item }
   const [pending, setPending] = useState(null)
+  // blocking: 스페이스 차단 모달을 열어 둔 신고된 댓글. 크리에이터·작성 회원 ID는 이 행에서 가져온다.
+  const [blocking, setBlocking] = useState(null)
   const [busy, setBusy] = useState(false)
   const { data, loading, error, reload } = useAsync(
     () => getCommentReports({ status: status || undefined, page, size: PAGE_SIZE }),
@@ -56,8 +61,13 @@ export default function AdminCommentReports() {
     const { action, item } = pending
     setBusy(true)
     try {
-      const result = action === 'hide' ? await hideReportedComment(item.commentId) : await rejectCommentReports(item.commentId)
-      showToast(actionSuccessMessage(action, result?.handledReportCount ?? 0))
+      if (action === 'delete') {
+        await deleteComment(item.commentId)
+        showToast('댓글을 삭제했어요.')
+      } else {
+        const result = action === 'hide' ? await hideReportedComment(item.commentId) : await rejectCommentReports(item.commentId)
+        showToast(actionSuccessMessage(action, result?.handledReportCount ?? 0))
+      }
       setPending(null)
       await refresh()
     } catch (err) {
@@ -82,13 +92,15 @@ export default function AdminCommentReports() {
     if (refreshed) setView((current) => viewAfterRefresh(started, current, (refreshed.items ?? []).length))
   }
 
-  const confirm = pending ? actionConfirm(pending.action, pending.item.pendingReportCount) : null
+  const confirm = pending
+    ? (pending.action === 'delete' ? deleteConfirm(pending.item) : actionConfirm(pending.action, pending.item.pendingReportCount))
+    : null
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <AdminPageHeader
         title="댓글 신고"
-        description="신고된 게시글 댓글을 댓글별로 확인하고 숨기거나 신고를 반려합니다."
+        description="신고된 게시글 댓글을 댓글별로 확인하고 숨기거나 신고를 반려합니다. 댓글 삭제와 스페이스 차단도 할 수 있습니다."
       />
 
       <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="note">
@@ -119,7 +131,7 @@ export default function AdminCommentReports() {
         {!loading && !error && items.length === 0 && (
           <EmptyBlock icon="flag" message={status === 'PENDING' ? '처리할 신고가 없습니다.' : '조건에 해당하는 신고된 댓글이 없습니다.'} />
         )}
-        {!loading && !error && items.length > 0 && <ReportTable items={items} busy={busy} onAction={(action, item) => setPending({ action, item })} />}
+        {!loading && !error && items.length > 0 && <ReportTable items={items} busy={busy} onAction={(action, item) => setPending({ action, item })} onBlock={setBlocking} />}
         {!loading && !error && (
           <Pagination
             page={data?.page ?? page}
@@ -130,6 +142,18 @@ export default function AdminCommentReports() {
           />
         )}
       </section>
+
+      {blocking && (
+        <SpaceBlockModal
+          creatorId={blocking.creatorId}
+          memberId={blocking.authorMemberId}
+          onClose={() => setBlocking(null)}
+          onBlocked={(block) => {
+            setBlocking(null)
+            showToast(blockSuccessMessage(block))
+          }}
+        />
+      )}
 
       {pending && (
         <ConfirmModal
@@ -153,7 +177,7 @@ function actionErrorMessage(error) {
   return describeError(error, '조치를 처리하지 못했습니다.')
 }
 
-function ReportTable({ items, busy, onAction }) {
+function ReportTable({ items, busy, onAction, onBlock }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[960px] text-left text-sm">
@@ -191,14 +215,19 @@ function ReportTable({ items, busy, onAction }) {
               </td>
               <td className="px-4 py-3 text-slate-600">{formatDateTime(item.latestReportedAt)}</td>
               <td className="px-5 py-3 text-right">
-                {canHandle(item) ? (
-                  <div className="flex justify-end gap-2">
-                    <button type="button" disabled={busy} onClick={() => onAction('reject', item)} className="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">반려</button>
-                    <button type="button" disabled={busy} onClick={() => onAction('hide', item)} className="h-8 rounded-md bg-red-700 px-3 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50">숨기기</button>
-                  </div>
-                ) : (
-                  <span className="text-xs text-slate-400">처리 완료</span>
-                )}
+                <div className="flex flex-wrap justify-end gap-2">
+                  {canHandle(item) ? (
+                    <>
+                      <button type="button" disabled={busy} onClick={() => onAction('reject', item)} className="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">반려</button>
+                      <button type="button" disabled={busy} onClick={() => onAction('hide', item)} className="h-8 rounded-md bg-red-700 px-3 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50">숨기기</button>
+                    </>
+                  ) : (
+                    <span className="self-center text-xs text-slate-400">처리 완료</span>
+                  )}
+                  {/* 처리 상태와 상관없이 쓸 수 있다. 차단은 이 댓글 작성자를 그 스페이스에서만 막고, 삭제는 되돌릴 수 없다. */}
+                  <button type="button" disabled={busy} onClick={() => onBlock(item)} className="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">스페이스 차단</button>
+                  <button type="button" disabled={busy} onClick={() => onAction('delete', item)} className="h-8 rounded-md border border-red-300 px-3 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50">삭제</button>
+                </div>
               </td>
             </tr>
           ))}

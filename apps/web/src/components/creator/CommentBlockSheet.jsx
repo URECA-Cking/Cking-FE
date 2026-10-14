@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
-import { createCommentBlock } from '../../api/creatorCommentBlocks.js'
 import {
   BLOCK_DAYS_MAX,
   BLOCK_DAYS_MIN,
@@ -13,13 +12,15 @@ const inputClass =
   'w-24 px-3 py-2 rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none shadow-sm transition-all'
 
 /**
- * 내 스페이스에서 회원의 댓글 작성·수정을 일정 기간 막는 창(Cking-BE sanction/api.md '크리에이터 스페이스 댓글 차단 API').
+ * 스페이스에서 회원의 댓글 작성·수정을 일정 기간 막는 창(Cking-BE sanction/api.md '크리에이터 스페이스 댓글 차단 API'·'관리자 스페이스 댓글 차단 API').
+ * 게시글 주인(크리에이터)과 관리자가 함께 쓰며, 호출할 API는 createBlock으로 받는다(관리자는 스페이스를 직접 지정해야 한다).
  * 게시글 상세 모달(z-60) 위에 떠야 해서 신고 창처럼 따로 둔다. 차단해도 이미 쓴 댓글은 그대로 남는다.
  * 이미 유효한 차단이 있으면 서버가 새로 만들지 않고 기존 차단을 돌려주므로, 완료 뒤에는 돌려받은 차단의 종료 시각을 안내한다.
  *
- * @param {{ memberId: number, memberName: string | null, onClose: () => void, onBlocked: (block: object) => void }} props
+ * @param {{ memberName: string | null, createBlock: (days: number) => Promise<object>,
+ *   onClose: () => void, onBlocked: (block: object) => void }} props
  */
-export default function CommentBlockSheet({ memberId, memberName, onClose, onBlocked }) {
+export default function CommentBlockSheet({ memberName, createBlock, onClose, onBlocked }) {
   const [daysText, setDaysText] = useState(String(BLOCK_DAYS_PRESETS[1]))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -47,7 +48,7 @@ export default function CommentBlockSheet({ memberId, memberName, onClose, onBlo
     setSubmitting(true)
     setError('')
     try {
-      const block = await createCommentBlock({ memberId, days })
+      const block = await createBlock(days)
       onBlocked(block)
     } catch (blockError) {
       setError(commentBlockErrorMessage(blockError, '차단하지 못했어요. 잠시 뒤에 다시 시도해주세요.'))
@@ -84,7 +85,7 @@ export default function CommentBlockSheet({ memberId, memberName, onClose, onBlo
         </div>
 
         <p className="font-body-sm text-body-sm text-on-surface-variant">
-          정한 기간 동안 내 스페이스에서 댓글을 쓰거나 수정할 수 없어요. 이미 쓴 댓글은 그대로 남고, 다른 스페이스에서는 쓸 수 있어요.
+          정한 기간 동안 이 스페이스에서 댓글을 쓰거나 수정할 수 없어요. 이미 쓴 댓글은 그대로 남고, 다른 스페이스에서는 쓸 수 있어요.
           이미 차단 중이면 기존 차단이 유지돼요.
         </p>
 

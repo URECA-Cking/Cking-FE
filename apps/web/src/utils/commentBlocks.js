@@ -18,8 +18,9 @@ export function parseBlockDays(text) {
 const BLOCK_ERROR_MESSAGES = {
   CANNOT_BLOCK_SELF: '자기 자신은 차단할 수 없어요.',
   CANNOT_BLOCK_ADMIN: '관리자는 차단할 수 없어요.',
+  CANNOT_BLOCK_SPACE_OWNER: '스페이스 주인은 자기 스페이스에서 차단할 수 없어요.',
   VALIDATION_FAILED: `차단 기간은 ${BLOCK_DAYS_MIN}일 이상 ${BLOCK_DAYS_MAX}일 이하로 입력해주세요.`,
-  FORBIDDEN: '크리에이터 계정만 댓글 차단을 관리할 수 있어요.',
+  FORBIDDEN: '크리에이터나 관리자 계정만 댓글 차단을 관리할 수 있어요.',
   RESOURCE_NOT_FOUND: '대상을 찾을 수 없어요. 이미 사라진 회원이거나 차단일 수 있어요.',
 }
 

@@ -104,6 +104,11 @@ export function patch(path, body, params, options) {
   return request(path, { ...options, method: 'PATCH', body, params })
 }
 
+/** 관리자 화면이 사용하는 DELETE 요청을 실행한다. 본문 없는 204 응답은 undefined를 돌려준다. */
+export function del(path, params, options) {
+  return request(path, { ...options, method: 'DELETE', params })
+}
+
 /** API 오류를 화면에 표시할 안전한 한국어 문구로 정리한다. */
 export function describeError(error, fallback = '요청을 처리하지 못했습니다.') {
   return error instanceof ApiError && error.code === 'FORBIDDEN'

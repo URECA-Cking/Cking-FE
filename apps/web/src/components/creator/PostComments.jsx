@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import CommentBlockSheet from './CommentBlockSheet.jsx'
+import CommentMoreMenu from './CommentMoreMenu.jsx'
 import CommentReportSheet from './CommentReportSheet.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../ui/States.jsx'
@@ -18,7 +20,7 @@ import {
 import { useAsync } from '../../hooks/useAsync.js'
 import { useProfileSetupRedirect } from '../../hooks/useProfileSetupRedirect.js'
 import { formatDateTime } from '../../utils/format.js'
-import { describeCommentRestriction } from '../../utils/sanctionNotice.js'
+import { ceilToMinute, describeCommentRestriction } from '../../utils/sanctionNotice.js'
 
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
 // counted: 재조회한 서버 전체 개수(totalElements)가 이미 포함하고 있는 created 댓글 ID.
@@ -74,6 +76,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
   const [deletingId, setDeletingId] = useState(null)
   // 신고 창을 연 댓글 ID(없으면 null).
   const [reportingId, setReportingId] = useState(null)
+  const [blockingMember, setBlockingMember] = useState(null) // { memberId, name } 크리에이터가 차단하려는 작성자
   // 필터링된 댓글에서 사용자가 펼친 원문. 요청 시점의 updatedAt과 함께 저장해, 그 뒤 댓글이 고쳐져 다시 판정되면 이전 원문을 쓰지 않는다.
   const [originals, setOriginals] = useState({})
   const revealing = useRef(new Set())
@@ -258,6 +261,10 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                   {formatDateTime(comment.createdAt)}
                 </time>
                 {comment.updatedAt !== comment.createdAt && <span className="font-label-xs text-label-xs text-outline">수정됨</span>}
+                {/* 크리에이터가 남의 댓글 작성자를 내 스페이스에서 차단한다. 가려진 댓글도 authorMemberId는 내려온다. */}
+                {authenticated && isMine && !isOwn(comment) && comment.authorMemberId != null && (
+                  <CommentMoreMenu onBlock={() => setBlockingMember({ memberId: comment.authorMemberId, name: comment.authorName })} />
+                )}
               </div>
               {editing?.commentId === comment.commentId ? (
                 <div className="flex flex-col gap-2">
@@ -390,6 +397,19 @@ export default function PostComments({ creatorId, postId, authenticated, followi
           </div>
         )}
       </div>
+      {blockingMember !== null && (
+        <CommentBlockSheet
+          memberId={blockingMember.memberId}
+          memberName={blockingMember.name}
+          onClose={() => setBlockingMember(null)}
+          onBlocked={(block) => {
+            const target = blockingMember.name || '이 회원'
+            setBlockingMember(null)
+            // 이미 유효한 차단이 있으면 기존 차단이 돌아온다. 요청한 기간이 아니라 돌려받은 종료 시각을 안내한다.
+            showToast(`${target}을(를) ${formatDateTime(ceilToMinute(new Date(block.endsAt)))}까지 차단했어요.`)
+          }}
+        />
+      )}
       {reportingId !== null && (
         <CommentReportSheet
           creatorId={creatorId}

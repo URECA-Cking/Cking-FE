@@ -68,6 +68,8 @@
 | GET/POST | `/api/creator/quizzes`, `/api/creator/quizzes/{quizId}`, `.../revisions/{revisionId}`, `.../approve`, `.../reject`, `/api/creator/quizzes/{quizId}/publish`, `.../unpublish` | 내 스페이스 Quiz 탭: 내 Quiz 목록·상세, revision 검토(정답·해설·근거), 승인(Judge ALL_PASS일 때만)·반려, 게시·게시 중지. 개발용 더미 API로만 확인했고 실제 BE에서는 미검증 | 연동 | [AI Quiz](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/api.md) |
 | POST/GET | `/api/creator/quizzes/generations`, `/api/creator/quizzes/generations/{generationId}` | 내 스페이스 Quiz 탭의 AI Quiz 생성 요청·상태 조회. requestId·generationId를 Creator별로 브라우저에 저장해 새로고침 뒤 복구, 응답 불확실 재시도는 같은 requestId. 실제 BE 미검증(dev 생성 기능 기본 OFF) | 연동 | [AI Quiz](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/api.md) |
 | POST/GET | `/api/creator/quizzes/{quizId}/revisions/{revisionId}/judge-evaluations`, `.../judge-evaluations/{evaluationId}` | 내 스페이스 Quiz 탭의 GPT Judge 평가 요청·조회(문항별 7개 항목·집계). requestId·evaluationId를 브라우저에 저장해 복구하며, 저장값이 없는 기기에서는 이전 평가를 볼 수 없다(BE에 revision별 최근 평가 조회 없음). 실제 BE 미검증(dev Judge 기능 기본 OFF) | 연동 | [Judge](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/judge-api.md) |
+| POST | `/api/creator/quizzes/{quizId}/revisions` | Creator 문항 선택·편집·추가와 새 Revision 저장. 별도 UUID·본문 기록으로 응답 유실·탭 경쟁 복구. 실제 BE 미검증 | 연동 | [문항 구성·책임 승인](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/composition-api.md) |
+| POST | `/api/creator/quizzes/{quizId}/revisions/{revisionId}/creator-approval` | 서버에 저장한 최종 hash를 명시적으로 책임 승인. 기존 Judge 승인과 분리, 게시 요청은 별도. 실제 BE 미검증 | 연동 | [문항 구성·책임 승인](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/composition-api.md) |
 
 ## Admin — ADMIN
 

@@ -6,6 +6,7 @@
 //   생성: [실패] FAILED · [모름] UNKNOWN · [꺼짐] 503 · [진행중] 409 · [응답유실] 첫 요청 응답 유실(작업은 생성) · [서버오류] 첫 요청 500(작업은 생성)
 //   평가: [불통과] HAS_FAIL · [보류] UNCERTAIN_ONLY · [평가실패] 1회차 FAILED · [평가모름] 1회차 UNKNOWN · [평가꺼짐] 503 · [평가유실] 첫 요청 응답 유실
 
+import { compositionBody } from '../utils/quizComposition.js'
 import { parseYoutubeVideoId } from '../utils/quizJobs.js'
 
 const STATE_KEY = 'cking.mock.quiz.v2'
@@ -220,19 +221,21 @@ const pageOf = (items, url) => {
  */
 export function quizMockRoutes({ myCreatorId, memberId }) {
   // 요청마다 저장값을 읽고 진행시킨 뒤 저장한다(다른 탭·새로고침과 같은 상태를 본다).
-  const withState = (handler) => async (...args) => {
+  let operation = Promise.resolve()
+  const withState = handler => async (...args) => {
     await sleep(LATENCY_MS)
-    const now = Date.now()
-    const state = load(now)
-    state.generations.forEach((job) => advanceGeneration(state, job, now))
-    state.judges.forEach((job) => advanceJudge(state, job, now))
-    try {
-      const result = handler(state, now, ...args)
-      // 생성·평가 Job의 status 필드를 mockApi가 HTTP 상태로 읽지 않도록 성공 응답도 봉투로 감싼다.
-      return result?.code ? result : { status: 200, code: 'SUCCESS', data: result }
-    } finally {
-      store(state)
-    }
+    const work = operation.then(async () => {
+      const now = Date.now(), state = load(now)
+      state.generations.forEach(job => advanceGeneration(state, job, now))
+      state.judges.forEach(job => advanceJudge(state, job, now))
+      await ensureCompositionMetadata(state)
+      try {
+        const result = await handler(state, now, ...args)
+        return result?.code ? result : { status: 200, code: 'SUCCESS', data: result }
+      } finally { store(state) }
+    })
+    operation = work.catch(() => {})
+    return work
   }
   const creatorOnly = (handler) => withState((state, now, ...args) => (myCreatorId ? handler(state, now, ...args) : fail(403, 'FORBIDDEN', '이 기능을 사용할 권한이 없는 계정입니다.')))
   const myQuiz = (state, quizId) => {
@@ -250,6 +253,8 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
 
   return [
     // ---- Creator ----
+    ['POST', /^\/api\/creator\/quizzes\/(\d+)\/revisions$/, creatorOnly((state, now, quizId, url, init) => composeMockRevision(state, myCreatorId, quizId, readBody(init), now))],
+    ['POST', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)\/creator-approval$/, creatorOnly((state, now, quizId, revisionId, url, init) => approveMockComposition(state, myCreatorId, quizId, revisionId, readBody(init), now))],
     ['GET', /^\/api\/creator\/quizzes$/, creatorOnly((state, now, url) => pageOf(
       state.quizzes.filter((quiz) => quiz.creatorId === myCreatorId)
         .sort((a, b) => b.createdAt - a.createdAt || b.quizId - a.quizId)
@@ -295,6 +300,9 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
       if (error) return error
       return {
         ...publicationView(quiz), creatorId: quiz.creatorId, videoId: quiz.videoId, createdAt: iso(quiz.createdAt), updatedAt: iso(quiz.updatedAt),
+        origin: latestRevision(quiz).origin, parentRevisionId: latestRevision(quiz).parentRevisionId,
+        hashVersion: latestRevision(quiz).hashVersion, approvalPolicyVersion: latestRevision(quiz).approvalPolicyVersion,
+        contentLocked: quiz.contentLocked, canEdit: !quiz.contentLocked,
         revisions: quiz.revisions.map((revision) => ({
           revisionId: revision.revisionId, revisionNo: revision.revisionNo, title: revision.title, reviewStatus: revision.reviewStatus,
           decidedAt: iso(revision.decidedAt), createdAt: iso(revision.createdAt),
@@ -304,14 +312,7 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
     ['GET', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)$/, creatorOnly((state, now, quizId, revisionId) => {
       const { quiz, revision, error } = myRevision(state, quizId, revisionId)
       if (error) return error
-      return {
-        quizId: quiz.quizId, revisionId: revision.revisionId, revisionNo: revision.revisionNo,
-        latest: latestRevision(quiz).revisionId === revision.revisionId,
-        published: quiz.publicationStatus === 'PUBLISHED' && quiz.publishedRevisionId === revision.revisionId,
-        title: revision.title, videoId: quiz.videoId, promptVersion: 'quiz-mcq-v1', contentText: quiz.contentText,
-        reviewStatus: revision.reviewStatus, decisionReason: revision.decisionReason, decidedAt: iso(revision.decidedAt),
-        createdAt: iso(revision.createdAt), questions: revision.questions,
-      }
+      return compositionRevisionView(state, quiz, revision)
     })],
     ['POST', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)\/judge-evaluations$/, creatorOnly((state, now, quizId, revisionId, url, init) => {
       const { quiz, revision, error } = myRevision(state, quizId, revisionId)
@@ -352,10 +353,12 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
     ['POST', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)\/approve$/, creatorOnly((state, now, quizId, revisionId) => {
       const { quiz, revision, error } = myRevision(state, quizId, revisionId)
       if (error) return error
+      if (revision.origin === 'CREATOR_COMPOSED') return fail(409, 'QUIZ_REVISION_CONFLICT')
       if (revision.reviewStatus === 'REJECTED') return fail(409, 'QUIZ_REVISION_ALREADY_DECIDED')
       if (revision.reviewStatus === 'PENDING_REVIEW') {
         const passed = state.judges.some((job) => job.revisionId === revision.revisionId && job.status === 'SUCCEEDED' && job.aggregation === 'ALL_PASS')
         if (!passed) return fail(409, 'QUIZ_JUDGE_EVALUATION_REQUIRED')
+        revision.approvalPolicyVersion = 'LEGACY_JUDGE_V1'
         revision.reviewStatus = 'APPROVED'
         revision.decidedAt = now
         quiz.updatedAt = now
@@ -383,9 +386,12 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
       const revision = quiz.revisions.find((item) => item.revisionId === revisionId)
       if (!revisionId) return fail(400, 'VALIDATION_FAILED', 'revisionId가 필요합니다.')
       if (!revision) return fail(404, 'QUIZ_REVISION_NOT_FOUND')
+      if (quiz.contentLocked && quiz.lockedRevisionId !== revisionId) return fail(409, 'QUIZ_CONTENT_LOCKED')
       if (latestRevision(quiz).revisionId !== revisionId) return fail(409, 'QUIZ_REVISION_NOT_LATEST')
       if (revision.reviewStatus !== 'APPROVED') return fail(409, 'QUIZ_REVISION_NOT_APPROVED')
       if (!(quiz.publicationStatus === 'PUBLISHED' && quiz.publishedRevisionId === revisionId)) {
+        quiz.contentLocked = true
+        quiz.lockedRevisionId = revisionId
         quiz.publicationStatus = 'PUBLISHED'
         quiz.publishedRevisionId = revisionId
         quiz.publishedAt = now
@@ -501,4 +507,117 @@ export function findMyQuizAttempt(state, { memberId, creatorId, quizId }, now) {
   const entry = state.attempts.find((item) => item.memberId === memberId && item.quizId === quizId)
   if (!entry || entry.creatorId !== creatorId) return fail(404, 'QUIZ_ATTEMPT_NOT_FOUND', '응시 기록을 찾을 수 없습니다.')
   return withPaymentStatus(entry, now)
+}
+
+// 문항 구성 Mock도 BE와 같은 길이 접두어와 SHA-256 Revision 계약을 사용한다.
+const hashField = value => { const s = String(value); return `${new TextEncoder().encode(s).length}:${s}` }
+const sha256 = async value => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))].map(b => b.toString(16).padStart(2, '0')).join('')
+async function mockRevisionHash(quiz, revision, parent = null) {
+  const contentHash = await sha256(quiz.contentText ?? '')
+  const fields = [parent ? 'quiz-revision-v2' : 'quiz-revision-v1', contentHash, revision.title, revision.promptVersion ?? 'quiz-mcq-v1']
+  if (parent) fields.push(parent.revisionId, parent.revisionSha256)
+  fields.push(revision.questions.length)
+  for (const q of revision.questions) {
+    if (parent) fields.push(q.changeType, q.originQuestionId ?? '', q.previousQuestionId ?? '')
+    fields.push(q.question, q.options.length, ...q.options.map(o => o.text), q.correctOptionIndex, q.explanation, q.sourceEvidence)
+  }
+  return sha256(fields.map(hashField).join(''))
+}
+export async function ensureCompositionMetadata(state) {
+  state.compositions ??= []
+  for (const quiz of state.quizzes) {
+    quiz.contentLocked ??= quiz.publicationStatus === 'PUBLISHED' || quiz.publicationStatus === 'UNPUBLISHED' || !!quiz.publishedAt
+    quiz.lockedRevisionId ??= quiz.contentLocked ? quiz.publishedRevisionId ?? null : null
+    for (const revision of quiz.revisions) {
+      revision.origin ??= 'AI_GENERATED'; revision.hashVersion ??= 'quiz-revision-v1'; revision.parentRevisionId ??= null
+      revision.questions.forEach((q, i) => { q.questionId ??= revision.revisionId * 10 + i; q.changeType ??= null; q.originQuestionId ??= null; q.previousQuestionId ??= null })
+      revision.revisionSha256 ??= await mockRevisionHash(quiz, revision)
+      revision.approvalPolicyVersion ??= revision.reviewStatus === 'APPROVED' ? 'LEGACY_JUDGE_V1' : null
+    }
+  }
+  state.seq = Math.max(state.seq, ...state.quizzes.flatMap(q => q.revisions.flatMap(r => r.questions.map(item => item.questionId))))
+}
+export function compositionRevisionView(state, quiz, revision) {
+  const latest = latestRevision(quiz).revisionId === revision.revisionId
+  return { quizId: quiz.quizId, revisionId: revision.revisionId, revisionNo: revision.revisionNo, latest,
+    published: quiz.publicationStatus === 'PUBLISHED' && quiz.publishedRevisionId === revision.revisionId,
+    title: revision.title, videoId: quiz.videoId, promptVersion: revision.promptVersion ?? 'quiz-mcq-v1', contentText: quiz.contentText,
+    reviewStatus: revision.reviewStatus, decisionReason: revision.decisionReason ?? null, decidedAt: iso(revision.decidedAt), createdAt: iso(revision.createdAt),
+    origin: revision.origin, parentRevisionId: revision.parentRevisionId, hashVersion: revision.hashVersion, revisionSha256: revision.revisionSha256,
+    approvalPolicyVersion: revision.approvalPolicyVersion ?? null, contentLocked: quiz.contentLocked, canEdit: latest && !quiz.contentLocked,
+    questionCount: revision.questions.length, optionCount: revision.questions[0]?.options.length ?? 4,
+    questions: revision.questions.map(q => {
+      const originId = q.changeType === null ? q.questionId : q.originQuestionId
+      const source = quiz.revisions.find(r => r.questions.some(o => o.questionId === originId))
+      const original = source?.questions.find(o => o.questionId === originId)
+      const job = (state.judges ?? []).find(j => j.revisionId === source?.revisionId && j.status === 'SUCCEEDED')
+      const judged = job?.questions.find(item => item.questionNo === original.questionNo)
+      const items = Object.values(judged?.items ?? {})
+      const sourceEvaluation = judged ? { resultId: job.resultId, resultSha256: job.resultSha256 ?? 'a'.repeat(64), revisionId: source.revisionId, questionNo: original.questionNo, items: judged.items } : null
+      const evaluationStatus = q.changeType === 'CREATOR_ADDED' ? 'NOT_EVALUATED' : q.editedHistory || q.changeType === 'CREATOR_EDITED' ? 'NOT_REVALIDATED'
+        : !judged ? 'NOT_EVALUATED' : items.some(i => i.verdict === 'fail') ? 'FAIL' : items.some(i => i.verdict === 'uncertain') ? 'UNCERTAIN' : 'PASS'
+      return { ...q, originQuestionId: originId, evaluationStatus, sourceEvaluation }
+    }),
+  }
+}
+export async function composeMockRevision(state, creatorId, quizId, body, now) {
+  const quiz = findQuiz(state, quizId)
+  if (!quiz) return fail(404, 'QUIZ_NOT_FOUND')
+  if (quiz.creatorId !== creatorId) return fail(403, 'FORBIDDEN')
+  if (!UUID.test(body.requestId ?? '')) return fail(400, 'VALIDATION_FAILED')
+  const parent = quiz.revisions.find(r => r.revisionId === body.baseRevisionId)
+  if (!parent) return fail(404, 'QUIZ_REVISION_NOT_FOUND')
+  let normalized
+  try {
+    const draft = body.questions.map((q, i) => {
+      const original = parent.questions.find(o => o.questionId === q.sourceQuestionId)
+      if (q.sourceQuestionId && !original) throw Error('source')
+      if (!q.sourceQuestionId && !q.content) throw Error('content')
+      return { id: String(i), sourceQuestionId: q.sourceQuestionId, selected: true, edited: !!q.content,
+        ...(q.content ?? { ...original, options: original.options.map(o => o.text) }) }
+    })
+    normalized = compositionBodyForMock(parent, body, draft)
+  } catch { return fail(400, 'VALIDATION_FAILED') }
+  const fingerprint = JSON.stringify(normalized)
+  const previous = (state.compositions ?? []).find(r => r.quizId === quiz.quizId && r.requestId === body.requestId)
+  if (previous) return previous.fingerprint === fingerprint
+    ? { status: 200, code: 'SUCCESS', data: compositionRevisionView(state, quiz, quiz.revisions.find(r => r.revisionId === previous.revisionId)) }
+    : fail(409, 'QUIZ_EDIT_REQUEST_CONFLICT')
+  if (quiz.contentLocked) return fail(409, 'QUIZ_CONTENT_LOCKED')
+  if (latestRevision(quiz).revisionId !== parent.revisionId || parent.revisionSha256 !== body.baseRevisionSha256) return fail(409, 'QUIZ_REVISION_CONFLICT')
+  const revision = { revisionId: ++state.seq, revisionNo: parent.revisionNo + 1, title: parent.title, promptVersion: parent.promptVersion ?? 'quiz-mcq-v1', origin: 'CREATOR_COMPOSED', hashVersion: 'quiz-revision-v2', parentRevisionId: parent.revisionId, reviewStatus: 'PENDING_REVIEW', createdAt: now,
+    questions: normalized.questions.map((selection, questionNo) => {
+      const prior = parent.questions.find(q => q.questionId === selection.sourceQuestionId)
+      const content = selection.content ?? { question: prior.question, options: prior.options.map(o => o.text), correctOptionIndex: prior.correctOptionIndex, explanation: prior.explanation, sourceEvidence: prior.sourceEvidence }
+      const originId = prior ? prior.changeType === null ? prior.questionId : prior.originQuestionId : null
+      const original = originId ? quiz.revisions.flatMap(r => r.questions).find(q => q.questionId === originId) : null
+      const same = original && JSON.stringify([content.question, content.options, content.correctOptionIndex, content.explanation, content.sourceEvidence]) === JSON.stringify([original.question, original.options.map(o => o.text), original.correctOptionIndex, original.explanation, original.sourceEvidence])
+      const changeType = !originId ? 'CREATOR_ADDED' : same ? 'AI_UNCHANGED' : 'CREATOR_EDITED'
+      return { ...content, questionId: ++state.seq, questionNo, options: content.options.map((text, optionNo) => ({ text, optionNo })), changeType,
+        originQuestionId: originId, previousQuestionId: prior?.questionId ?? null, editedHistory: !!prior?.editedHistory || prior?.changeType === 'CREATOR_EDITED' || changeType === 'CREATOR_EDITED' }
+    }) }
+  revision.revisionSha256 = await mockRevisionHash(quiz, revision, parent)
+  quiz.revisions.push(revision); quiz.updatedAt = now
+  state.compositions ??= []; state.compositions.push({ quizId: quiz.quizId, requestId: body.requestId, fingerprint, revisionId: revision.revisionId })
+  return { status: 201, code: 'SUCCESS', data: compositionRevisionView(state, quiz, revision) }
+}
+function compositionBodyForMock(parent, body, draft) {
+  return compositionBody({ ...parent, revisionSha256: body.baseRevisionSha256 }, draft)
+}
+export function approveMockComposition(state, creatorId, quizId, revisionId, body, now) {
+  const quiz = findQuiz(state, quizId)
+  if (!quiz) return fail(404, 'QUIZ_NOT_FOUND')
+  if (quiz.creatorId !== creatorId) return fail(403, 'FORBIDDEN')
+  if (body.acknowledgeResponsibility !== true || !/^[a-f0-9]{64}$/.test(body.revisionSha256 ?? '')) return fail(400, 'VALIDATION_FAILED')
+  const r = quiz.revisions.find(item => item.revisionId === Number(revisionId))
+  if (!r) return fail(404, 'QUIZ_REVISION_NOT_FOUND')
+  if (r.origin !== 'CREATOR_COMPOSED' || r.revisionSha256 !== body.revisionSha256) return fail(409, 'QUIZ_REVISION_CONFLICT')
+  if (r.reviewStatus !== 'PENDING_REVIEW') {
+    if (r.reviewStatus !== 'APPROVED' || r.approvalPolicyVersion !== 'CREATOR_REVIEW_V1') return fail(409, 'QUIZ_REVISION_ALREADY_DECIDED')
+  } else {
+    if (quiz.contentLocked) return fail(409, 'QUIZ_CONTENT_LOCKED')
+    if (latestRevision(quiz).revisionId !== r.revisionId) return fail(409, 'QUIZ_REVISION_CONFLICT')
+    r.reviewStatus = 'APPROVED'; r.approvalPolicyVersion = 'CREATOR_REVIEW_V1'; r.decidedAt = now; quiz.updatedAt = now
+  }
+  return { status: 200, code: 'SUCCESS', data: { quizId: quiz.quizId, revisionId: r.revisionId, reviewStatus: r.reviewStatus, reason: null, decidedAt: iso(r.decidedAt) } }
 }

@@ -191,11 +191,18 @@ export function installMockApiIfRequested() {
     ['GET', /^\/api\/creators$/, () => page(CREATORS)],
     ['GET', /^\/api\/events$/, () => page(events)],
     ['GET', /^\/api\/creators\/(\d+)\/tickets$/, (id) => ({ creatorId: Number(id), balance: BALANCES[id] ?? 0 })],
-    // 공용 응모권 잔액. 이벤트 목업의 myCommonTicketBalance와 같은 값이고, 팔로우·이벤트가 없는 시나리오(empty)는 0이다.
-    // 출석을 완료하면 DB 반영이 비동기인 것처럼 COMMON_REFLECT_DELAY_MS 뒤에 1장이 늘어난다.
-    ['GET', /^\/api\/tickets\/common$/, () => {
+    // 내 응모권 요약(GET /api/me/tickets). 공용 잔액은 이벤트 목업의 myCommonTicketBalance와 같은 값이고, 팔로우·이벤트가 없는 시나리오(empty)는 0이다.
+    // 출석을 완료하면 DB 반영이 비동기인 것처럼 COMMON_REFLECT_DELAY_MS 뒤에 공용 1장이 늘어난다. 합계는 서버처럼 전체 기준으로 계산한다.
+    ['GET', /^\/api\/me\/tickets$/, () => {
       const reflected = attendanceAt !== null && Date.now() - attendanceAt > COMMON_REFLECT_DELAY_MS
-      return { userId: me.memberId, balance: (empty ? 0 : 2) + (reflected ? 1 : 0), updatedAt: new Date().toISOString() }
+      const commonBalance = (empty ? 0 : 2) + (reflected ? 1 : 0)
+      const updatedAt = new Date().toISOString()
+      const creators = follows.map((creatorId) => {
+        const creator = CREATORS.find((c) => c.creatorId === creatorId)
+        return { creatorId, creatorName: creator?.creatorName ?? null, profileImageUrl: creator?.profileImageUrl ?? null, balance: BALANCES[creatorId] ?? 0, updatedAt }
+      })
+      const creatorTotal = creators.reduce((sum, creator) => sum + creator.balance, 0)
+      return { common: { balance: commonBalance, updatedAt }, creators, creatorTotal, total: commonBalance + creatorTotal }
     }],
     ['GET', /^\/api\/creators\/(\d+)\/posts$/, (id, url) => page((posts[id] ?? []).slice(0, Number(url.searchParams.get('size')) || 20))],
     ['GET', /^\/api\/creators\/(\d+)\/space$/, (id) => {

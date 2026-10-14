@@ -52,7 +52,6 @@ export default function MainLayout() {
           showNotificationBell={!appBarTitle.hideBell}
           showTicketButton={!appBarTitle.hideTickets}
           ticketCount={ticketSummary ? ticketSummary.total : null}
-          ticketPartial={ticketSummary ? ticketSummary.partial : false}
         />
       )}
       <main

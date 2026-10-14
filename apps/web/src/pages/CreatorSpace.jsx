@@ -377,45 +377,47 @@ export default function CreatorSpace() {
     refreshMyTickets()
   }
 
-  // 관심 등록·편집·공유 버튼 행. 좁은 화면에서는 소개 아래에 가로로 꽉 차게, md 이상에서는 이름 옆에 놓는다.
+  // 팬에게는 관심 등록과 공유를, 본인에게는 편집·채널 설정·공유를 같은 자리에서 제공한다.
   const actions = (
     <div className="flex items-center gap-space-xs">
-      <button
-        type="button"
-        onClick={handleFollow}
-        disabled={isMine || (authenticated && (!followsReady || pendingFollowIds.has(creator.creatorId) || (isCreator && !mySpace.data)))}
-        className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed md:flex-none md:px-5 ${
-          following || isMine ? 'bg-surface-container-highest text-on-surface' : 'bg-primary text-on-primary'
-        }`}
-      >
-        <MaterialIcon name={following ? 'check' : 'add'} filled={following} className="text-[18px]" />
-        <span className="font-label-md text-label-md font-semibold">{isMine ? '내 스페이스' : pendingFollowIds.has(creator.creatorId) ? '처리 중...' : following ? '관심 중' : '관심 등록'}</span>
-      </button>
+      {!isMine && (
+        <button
+          type="button"
+          onClick={handleFollow}
+          disabled={authenticated && (!followsReady || pendingFollowIds.has(creator.creatorId) || (isCreator && !mySpace.data))}
+          className={`flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 md:flex-none md:px-5 ${
+            following ? 'bg-surface-container-highest text-on-surface' : 'bg-primary text-on-primary'
+          }`}
+        >
+          <MaterialIcon name={following ? 'check' : 'add'} filled={following} className="text-[18px]" />
+          <span className="font-label-md text-label-md font-semibold">{pendingFollowIds.has(creator.creatorId) ? '처리 중...' : following ? '관심 중' : '관심 등록'}</span>
+        </button>
+      )}
       {isMine && (
         <button
           type="button"
           onClick={() => setEditOpen(true)}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-container-highest py-2 text-on-surface transition-all active:scale-95 md:flex-none md:px-5"
+          className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-container-highest text-on-surface transition-all active:scale-95 md:flex-none md:px-5"
         >
           <MaterialIcon name="edit" className="text-[18px]" />
-          <span className="font-label-md text-label-md font-semibold">스페이스 편집</span>
+          <span className="whitespace-nowrap font-label-md text-label-md font-semibold">스페이스 편집</span>
         </button>
       )}
       {isMine && (
         <button
           type="button"
           onClick={() => setYoutubeChannelSettingsOpen(true)}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-container-highest py-2 text-on-surface transition-all active:scale-95 md:flex-none md:px-5"
+          className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-container-highest text-on-surface transition-all active:scale-95 md:flex-none md:px-5"
         >
           <MaterialIcon name="subscriptions" className="text-[18px]" />
-          <span className="font-label-md text-label-md font-semibold">YouTube 채널</span>
+          <span className="whitespace-nowrap font-label-md text-label-md font-semibold">YouTube 채널</span>
         </button>
       )}
       <button
         type="button"
         aria-label="공유하기"
         onClick={handleShare}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface transition-all active:scale-95"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface transition-all active:scale-95"
       >
         <MaterialIcon name="share" className="text-[20px]" />
       </button>

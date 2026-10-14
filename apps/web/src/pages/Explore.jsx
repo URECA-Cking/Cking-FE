@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
-import PersonIcon from '../components/ui/PersonIcon.jsx'
+import CreatorBanner from '../components/creator/CreatorBanner.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
 import InterestEditor from '../components/creator/InterestEditor.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../components/ui/States.jsx'
@@ -18,7 +18,6 @@ import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
 import { describeError } from '../api/client.js'
 import { spacePath } from '../api/creatorSpace.js'
-import { toSafeImageUrl } from '../utils/safeUrl.js'
 
 // 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
 const CREATOR_PAGE_SIZE = 30
@@ -33,20 +32,6 @@ const EVENT_FILTERS = [
   { id: 'UPCOMING', label: '오픈 예정' },
   { id: 'CLOSED', label: '종료' },
 ]
-
-function CreatorBanner({ src, profileSrc }) {
-  const [failedSrcs, setFailedSrcs] = useState(() => new Set())
-  const imageSrc = [src, profileSrc].map(toSafeImageUrl).find((candidate) => candidate && !failedSrcs.has(candidate))
-
-  return (
-    <div className="relative flex h-full w-full items-center justify-center bg-surface-container text-on-surface-variant">
-      <PersonIcon className="h-12 w-12" />
-      {imageSrc && (
-        <img className="absolute inset-0 h-full w-full object-cover" src={imageSrc} alt="" loading="lazy" decoding="async" onError={() => setFailedSrcs((current) => new Set(current).add(imageSrc))} />
-      )}
-    </div>
-  )
-}
 
 /**
  * 탐색 화면.

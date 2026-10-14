@@ -108,8 +108,8 @@ export default function CreatorSpace() {
   // 로그인 상태를 복원하는 동안(loading)에는 로그인 안내를 띄우지 않아 로그인 사용자에게 깜빡이지 않게 한다.
   const anonymous = status === 'anonymous'
 
-  // 홈의 게시물 카드처럼 특정 탭을 가리키며 들어오면(location.state.tab) 그 탭으로 연다.
-  const [tab, setTab] = useState(location.state?.tab ?? 'home')
+  // 현재 탭을 방문 기록 항목에 보관해 상세 화면에서 돌아올 때 마지막 선택을 복원한다.
+  const tab = location.state?.tab ?? 'home'
   const [ledgerOpen, setLedgerOpen] = useState(false)
   // 미션 적립이 접수됐지만 잔액 반영을 확인하지 못했을 때: { creatorId, expected }. expected는 반영됐다고 볼 잔액이고,
   // 적립 전 잔액을 몰라 숫자로 판단할 수 없으면 null이다(이때는 적립 내역에서 확인하도록 안내한다).
@@ -167,6 +167,14 @@ export default function CreatorSpace() {
   // useAsync는 재조회 중 이전 data를 유지한다. Creator를 이동했을 때 이전 채널을 새 Space에 보이지 않게 응답의 소유 Creator를 확인한다.
   const currentYoutubeChannel = isYoutubeChannelForCreator(youtubeChannel.data, creatorId) ? youtubeChannel.data : null
   const goLogin = () => navigate('/login', { state: { from: location.pathname + location.search } })
+  /** 탭 선택을 현재 방문 기록에 반영해 상세 화면과 브라우저 뒤로 가기에서 같은 탭으로 돌아온다. */
+  function selectTab(nextTab) {
+    navigate(location.pathname + location.search + location.hash, {
+      replace: true,
+      state: { ...location.state, tab: nextTab },
+      preventScrollReset: true,
+    })
+  }
   // 크리에이터인 경우에만 내 Space를 조회해 지금 보는 Space가 내 것인지 판별한다.
   const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator })
   const isMine = creatorId !== null && mySpace.data?.creatorId === creatorId
@@ -298,7 +306,7 @@ export default function CreatorSpace() {
 
   // 좋아요 미션은 서버가 게시글 좋아요를 확인해야 완료로 인정하므로 완료 API를 호출하지 않고 게시글로 안내한다.
   function goLikePosts() {
-    setTab('posts')
+    selectTab('posts')
     showToast('게시글에 좋아요를 누르면 미션이 완료돼요.')
   }
 
@@ -543,7 +551,7 @@ export default function CreatorSpace() {
                 type="button"
                 role="tab"
                 aria-selected={tab === item.id}
-                onClick={() => setTab(item.id)}
+                onClick={() => selectTab(item.id)}
                 className={`shrink-0 min-h-[44px] pt-3 pb-2.5 border-b-2 font-title-md text-title-md transition-colors ${
                   tab === item.id
                     ? 'border-primary text-on-surface font-bold'
@@ -594,7 +602,7 @@ export default function CreatorSpace() {
               </div>
             )}
 
-            <UpcomingSchedules creatorId={creator.creatorId} onShowAll={() => setTab('calendar')} />
+            <UpcomingSchedules creatorId={creator.creatorId} onShowAll={() => selectTab('calendar')} />
 
             <div className="flex flex-col gap-space-sm">
               <div className="flex items-center justify-between">

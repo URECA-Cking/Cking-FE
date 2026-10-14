@@ -10,7 +10,12 @@ import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 import { useAppBack } from '../../hooks/useAppBack.js'
 import { useMyTickets } from '../../context/useMyTickets.js'
-import { resetNavigationScroll, restoreNavigationScroll, saveNavigationScroll } from './navigationScroll.js'
+import {
+  resetNavigationScroll,
+  restoreNavigationScroll,
+  saveNavigationScroll,
+  shouldContinueNavigationScrollRestore,
+} from './navigationScroll.js'
 
 const APP_BAR_TITLES = {
   '/': { title: 'Cking' },
@@ -29,6 +34,8 @@ export default function MainLayout() {
   const { pathname } = location
   const goBack = useAppBack('/')
   const scrollRef = useRef(null)
+  const isRestoringScrollRef = useRef(false)
+  const restoreFrameRef = useRef(null)
   const { headerVisible, bottomCompact, resetChrome } = useScrollChrome(scrollRef)
   const online = useOnline()
   const appBarTitle = APP_BAR_TITLES[pathname]
@@ -44,15 +51,46 @@ export default function MainLayout() {
 
   /** 현재 history 위치에서 사용자가 읽고 있던 공용 스크롤 위치를 기록한다. */
   const handleScrollPositionSave = useCallback(() => {
+    if (isRestoringScrollRef.current) return
     saveNavigationScroll(location.key, scrollRef.current?.scrollTop ?? 0)
   }, [location.key])
 
   /** 활성 하단 메뉴 재선택 시 현재 history 위치를 최상단으로 초기화한다. */
   const handleNavigationScrollReset = () => resetNavigationScroll(scrollRef.current, location.key, resetChrome)
 
-  // 새 화면 진입은 최상단에서 시작하고, POP 뒤로 가기만 해당 history 위치의 스크롤을 복원한다.
+  // 새 화면 진입은 최상단에서 시작하고, POP 뒤로 가기만 비동기 콘텐츠가 늘어날 때까지 제한적으로 위치를 복원한다.
   useLayoutEffect(() => {
-    restoreNavigationScroll(scrollRef.current, navigationType, location.key, resetChrome)
+    const targetScrollTop = restoreNavigationScroll(scrollRef.current, navigationType, location.key, resetChrome)
+    if (navigationType !== 'POP' || targetScrollTop === 0) return undefined
+
+    isRestoringScrollRef.current = true
+    let attempt = 0
+
+    /** 콘텐츠 높이가 아직 부족해 목표 위치에 닿지 못하면 다음 프레임에 다시 복원한다. */
+    const restoreUntilReady = () => {
+      const scrollContainer = scrollRef.current
+      if (!scrollContainer) {
+        isRestoringScrollRef.current = false
+        return
+      }
+
+      scrollContainer.scrollTop = targetScrollTop
+      if (!shouldContinueNavigationScrollRestore(targetScrollTop, scrollContainer.scrollTop, attempt)) {
+        isRestoringScrollRef.current = false
+        restoreFrameRef.current = null
+        return
+      }
+
+      attempt += 1
+      restoreFrameRef.current = window.requestAnimationFrame(restoreUntilReady)
+    }
+
+    restoreFrameRef.current = window.requestAnimationFrame(restoreUntilReady)
+    return () => {
+      if (restoreFrameRef.current !== null) window.cancelAnimationFrame(restoreFrameRef.current)
+      restoreFrameRef.current = null
+      isRestoringScrollRef.current = false
+    }
   }, [location.key, navigationType, resetChrome])
 
   return (

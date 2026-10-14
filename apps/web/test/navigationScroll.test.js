@@ -5,7 +5,10 @@ import {
   resolveNavigationScrollTop,
   restoreNavigationScroll,
   saveNavigationScroll,
+  shouldContinueNavigationScrollRestore,
   shouldResetNavigationOnClick,
+  shouldResetSelectedNavigation,
+  MAX_SCROLL_POSITION_ENTRIES,
 } from '../src/components/layout/navigationScroll.js'
 
 test('하단 메뉴 이동은 공용 스크롤을 최상단으로 옮기고 앱 크롬을 초기화한다', () => {
@@ -55,7 +58,39 @@ test('새 탭을 여는 보조 키 클릭은 현재 탭의 초기화를 요청�
   const plainClick = { defaultPrevented: false, button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false }
 
   assert.equal(shouldResetNavigationOnClick(plainClick), true)
+  assert.equal(shouldResetNavigationOnClick(null), false)
   assert.equal(shouldResetNavigationOnClick({ ...plainClick, ctrlKey: true }), false)
   assert.equal(shouldResetNavigationOnClick({ ...plainClick, metaKey: true }), false)
   assert.equal(shouldResetNavigationOnClick({ ...plainClick, button: 1 }), false)
+})
+
+test('다른 하단 메뉴 클릭은 이전 history 위치를 초기화하지 않는다', () => {
+  const plainClick = { defaultPrevented: false, button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false }
+
+  assert.equal(shouldResetSelectedNavigation(plainClick, false), false)
+  assert.equal(shouldResetSelectedNavigation(plainClick, true), true)
+})
+
+test('복원 목표에 닿을 때까지 제한 횟수 안에서만 다음 프레임 복원을 계속한다', () => {
+  assert.equal(shouldContinueNavigationScrollRestore(800, 120, 0), true)
+  assert.equal(shouldContinueNavigationScrollRestore(800, 800, 0), false)
+  assert.equal(shouldContinueNavigationScrollRestore(800, 120, 120), false)
+})
+
+test('스크롤 위치는 최근 history 항목 수만 유지한다', () => {
+  const evictedKey = 'evicted-scroll-position'
+  saveNavigationScroll(evictedKey, 10)
+  for (let index = 0; index <= MAX_SCROLL_POSITION_ENTRIES; index += 1) {
+    saveNavigationScroll(`scroll-position-${index}`, index)
+  }
+
+  assert.equal(resolveNavigationScrollTop('POP', evictedKey), 0)
+  assert.equal(resolveNavigationScrollTop('POP', `scroll-position-${MAX_SCROLL_POSITION_ENTRIES}`), MAX_SCROLL_POSITION_ENTRIES)
+})
+
+test('앱 크롬 초기화 콜백이 없어도 스크롤 복원과 초기화가 안전하게 끝난다', () => {
+  const scrollContainer = { scrollTop: 24 }
+
+  assert.doesNotThrow(() => restoreNavigationScroll(scrollContainer, 'PUSH', 'missing-reset', undefined))
+  assert.doesNotThrow(() => resetNavigationScroll(scrollContainer, 'missing-reset', undefined))
 })

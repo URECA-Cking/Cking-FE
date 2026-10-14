@@ -8,7 +8,7 @@ import couponIcon from '@cking/shared/icons/coupon.svg?raw';
 import couponOutlineIcon from '@cking/shared/icons/coupon-outline.svg?raw';
 import profileIcon from '@cking/shared/icons/profile.svg?raw';
 import profileOutlineIcon from '@cking/shared/icons/profile-outline.svg?raw';
-import { shouldResetNavigationOnClick } from './navigationScroll.js';
+import { shouldResetNavigationOnClick, shouldResetSelectedNavigation } from './navigationScroll.js';
 
 const NAV_ITEMS = [
   {
@@ -77,11 +77,11 @@ export default function BottomNav({ embedded = false, compact = false, onNavigat
     pulseTimerRef.current = window.setTimeout(() => setIsPulsing(false), 520);
   };
 
-  /** 하단 메뉴를 누를 때 독 애니메이션과 페이지 스크롤 초기화를 함께 실행한다. */
-  const handleNavigationClick = (event) => {
+  /** 하단 메뉴를 누를 때 독 애니메이션을 실행하고 활성 메뉴 재선택만 스크롤을 초기화한다. */
+  const handleNavigationClick = (event, isSelected) => {
     if (!shouldResetNavigationOnClick(event)) return;
     pulseDock();
-    onNavigate?.();
+    if (shouldResetSelectedNavigation(event, isSelected)) onNavigate?.();
   };
 
   return (
@@ -120,7 +120,7 @@ export default function BottomNav({ embedded = false, compact = false, onNavigat
               key={item.to}
               to={item.to}
               end={item.end}
-              onClick={handleNavigationClick}
+              onClick={(event) => handleNavigationClick(event, isSelected)}
               aria-label={item.label}
               className={`relative z-10 flex flex-1 flex-col items-center justify-center min-w-0 rounded-full transition-[height,color] duration-300 ease-out active:scale-95 ${
                 compact ? 'h-9' : 'h-10'

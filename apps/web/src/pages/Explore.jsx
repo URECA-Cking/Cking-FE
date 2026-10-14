@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
+import PersonIcon from '../components/ui/PersonIcon.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
 import InterestEditor from '../components/creator/InterestEditor.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../components/ui/States.jsx'
@@ -32,15 +33,16 @@ const EVENT_FILTERS = [
   { id: 'CLOSED', label: '종료' },
 ]
 
-function CreatorBanner({ src }) {
-  const [failedSrc, setFailedSrc] = useState(null)
-  const showImage = Boolean(src) && failedSrc !== src
+function CreatorBanner({ src, profileSrc }) {
+  const [failedSrcs, setFailedSrcs] = useState(() => new Set())
+  const imageSrc = [src, profileSrc].find((candidate) => candidate && !failedSrcs.has(candidate))
 
-  return showImage ? (
-    <img className="w-full h-full object-cover" src={src} alt="" loading="lazy" decoding="async" onError={() => setFailedSrc(src)} />
-  ) : (
-    <div className="flex h-full w-full items-center justify-center bg-surface-container text-on-surface-variant">
-      <MaterialIcon name="person" className="text-[48px]" />
+  return (
+    <div className="relative flex h-full w-full items-center justify-center bg-surface-container text-on-surface-variant">
+      <PersonIcon className="h-12 w-12" />
+      {imageSrc && (
+        <img className="absolute inset-0 h-full w-full object-cover" src={imageSrc} alt="" loading="lazy" decoding="async" onError={() => setFailedSrcs((current) => new Set(current).add(imageSrc))} />
+      )}
     </div>
   )
 }
@@ -159,7 +161,7 @@ export default function Explore() {
       >
         <Link to={spacePath(creator.handle)} onClick={onOpen ? () => onOpen(creator.creatorId) : undefined} className="block">
           <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
-            <CreatorBanner src={creator.banner} />
+            <CreatorBanner src={creator.banner} profileSrc={creator.avatar} />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
             {creator.openEventCount > 0 && (
               <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-xs text-label-xs font-semibold flex items-center gap-1">

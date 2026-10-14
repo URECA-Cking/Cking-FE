@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import BottomSheet from '../ui/BottomSheet.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
+import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { Spinner } from '../ui/States.jsx'
 import ActivityNameSection from './ActivityNameSection.jsx'
 import { useToast } from '../../context/useToast.js'
@@ -214,7 +215,13 @@ function SpaceEditForm({ space, onSaved }) {
               aria-label="프로필 사진 변경"
               className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-surface-container active:scale-95 transition-transform disabled:opacity-70"
             >
-              <ProfilePhoto src={shownImage} className="h-full w-full" iconClassName="text-[40px]" />
+              {pendingKey === null ? (
+                <span className="flex h-full w-full items-center justify-center text-on-surface-variant">
+                  <MaterialIcon name="restart_alt" className="text-[40px]" />
+                </span>
+              ) : (
+                <ProfilePhoto src={shownImage} className="h-full w-full" iconClassName="text-[40px]" />
+              )}
               {photoBusy && (
                 <span className="absolute inset-0 flex items-center justify-center bg-black/40">
                   <Spinner className="h-6 w-6 text-white" />

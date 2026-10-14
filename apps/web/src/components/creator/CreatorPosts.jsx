@@ -14,6 +14,7 @@ import { formatDateTime, formatNumber } from '../../utils/format.js'
 const MEDIA_RATIO_RANGE = [0.8, 1.91]
 const INFO_PANEL_WIDTH = 400
 
+/** 게시물 이미지 비율과 유무에 맞춰 데스크톱 상세 창의 크기를 계산한다. */
 function modalSize(ratio, hasMedia) {
   if (!hasMedia) return { '--modal-w': '560px', '--modal-h': 'min(92dvh, 720px)' }
   const mediaWidth = `min(800px, min(92dvh, 820px) * ${ratio}, 100vw - ${INFO_PANEL_WIDTH + 48}px)`
@@ -23,6 +24,7 @@ function modalSize(ratio, hasMedia) {
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
+/** 크리에이터 게시물 목록과 상세, 작성·수정·삭제 및 좋아요 상태를 관리한다. */
 export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostCountChange, onMissionAwarded }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
@@ -61,6 +63,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     return true
   }) : []
   const deletedIds = new Set(local.deleted)
+  /** 서버 응답 위에 최신 좋아요 처리 결과를 적용한다. */
   const applyLike = (post) => (likeOverrides[post.postId] ? { ...post, ...likeOverrides[post.postId] } : post)
   const posts = [...local.created.filter((post) => !seenPostIds.has(post.postId)), ...loadedPosts]
     .filter((post) => !deletedIds.has(post.postId))
@@ -68,11 +71,13 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
 
   // 로컬 변경분과 이어 붙인 페이지는 새 조회가 성공한 뒤에만 지운다. 실패하면 방금 저장·삭제한 결과를 그대로 둔다.
   // 새 목록 응답에는 서버의 최신 좋아요 값이 들어 있으므로 이전 덮어쓰기 값을 정리한다(열린 상세의 값은 유지).
+  /** 목록 재조회 후 열린 상세 게시물의 좋아요 상태만 남긴다. */
   function clearListLikeOverrides() {
     const keep = detailPostId.current
     setLikeOverrides((current) => (keep != null && keep in current ? { [keep]: current[keep] } : {}))
   }
 
+  /** 첫 페이지를 다시 읽고 목록·로컬 변경분을 서버 응답에 맞춘다. */
   async function reloadFirst() {
     const generation = ++listGeneration.current
     loadingMore.current = false
@@ -87,6 +92,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }
 
   // 저장·삭제 성공 뒤 서버 순서로 보정한다. 실패해도 이미 반영한 목록은 그대로 두고 알림만 띄운다.
+  /** 저장·삭제 후 화면을 유지하면서 게시물 목록을 동기화한다. */
   async function refreshQuietly() {
     const generation = ++listGeneration.current
     loadingMore.current = false
@@ -108,6 +114,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     }
   }
 
+  /** 저장 결과를 목록에 먼저 반영하고 서버 목록을 재조회한다. */
   function handleSaved(saved, edited) {
     setLocal((current) => edited
       ? { ...current, updated: { ...current.updated, [saved.postId]: saved } }
@@ -117,6 +124,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     refreshQuietly()
   }
 
+  /** 삭제된 게시물을 목록에서 제외하고 서버 목록을 재조회한다. */
   function markDeleted(postId) {
     setLocal((current) => ({ ...current, deleted: [...current.deleted, postId] }))
     onPostCountChange?.()
@@ -125,12 +133,14 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
 
   // 이미지 주소는 10분만 유효하다. 썸네일이 실패하면 목록을 다시 받아 새 주소로 바꾼다(60초에 한 번만, 다시 실패해도 반복하지 않는다).
   const lastThumbRefresh = useRef(0)
+  /** 썸네일 주소가 만료되면 일정 간격을 두고 목록을 다시 읽는다. */
   function handleThumbError() {
     if (sync !== 'synced' || Date.now() - lastThumbRefresh.current < 60_000) return
     lastThumbRefresh.current = Date.now()
     refreshQuietly()
   }
 
+  /** 중복 요청과 오래된 응답을 걸러 다음 게시물 페이지를 불러온다. */
   async function loadMore() {
     if (!lastPage?.hasNext || loadingMore.current || sync !== 'synced') return
     loadingMore.current = true
@@ -148,6 +158,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     }
   }
 
+  /** 게시물 상세를 열고 최신 상세 응답을 목록의 좋아요 상태에도 반영한다. */
   async function openDetail(postId) {
     const seq = ++detailSeq.current
     detailPostId.current = postId
@@ -177,6 +188,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }
 
   // 좋아요·취소는 서버 응답의 liked·likeCount를 그대로 반영한다(낙관적 갱신 없음). 처리 중에는 버튼을 막아 연타로 상태가 어긋나지 않게 한다.
+  /** 서버의 좋아요·취소 응답으로 목록과 상세의 좋아요 상태를 갱신한다. */
   async function handleLike(post) {
     if (!authenticated) {
       onLogin()
@@ -197,6 +209,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     }
   }
 
+  /** 삭제 확인 후 게시물을 삭제하고 상세와 목록을 갱신한다. */
   async function handleDelete(post) {
     if (deletingId != null) return
     if (!window.confirm('이 게시글을 삭제할까요? 삭제하면 이미지와 댓글도 함께 사라지고 되돌릴 수 없어요.')) return
@@ -216,15 +229,18 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }
 
   // 댓글 쪽에서 팔로워 전용 오류를 받으면(다른 곳에서 팔로우를 해제한 경우 등) 상세를 닫고 목록을 다시 받아 잠금 상태를 반영한다.
+  /** 팔로우 권한이 사라진 게시물의 상세를 닫고 목록을 다시 읽는다. */
   const handlePostRestricted = () => {
     closeDetail()
     reloadFirst()
   }
+  /** 진행 중인 상세 조회를 무효화하고 상세 화면을 닫는다. */
   const closeDetail = () => {
     detailSeq.current += 1
     detailPostId.current = null
     setDetail(null)
   }
+  /** 잠긴 게시물의 로그인·팔로우·재조회 동작을 선택한다. */
   const lockedAction = () => {
     if (!authenticated) onLogin()
     else if (!following && !isMine) onFollow()
@@ -233,6 +249,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   const lockedLabel = !authenticated ? '로그인하고 팔로우하기' : following || isMine ? '다시 확인' : '팔로우하기'
 
   // 수정은 바텀시트(z-40)로 열리므로 전체 화면 상세(z-60)를 먼저 닫는다.
+  /** 상세를 닫고 선택한 게시물을 수정 화면에 전달한다. */
   const editFromDetail = (post) => {
     closeDetail()
     setEditor({ post })
@@ -412,14 +429,13 @@ function PostGridTile({ post, onOpen, onImageError }) {
   )
 }
 
-/** 본문: "이름 내용" 한 덩어리로 보여주고 길면 접는다. */
-function Caption({ name, content }) {
+/** 게시물 본문만 보여주고 길면 접는다. */
+function Caption({ content }) {
   const [expanded, setExpanded] = useState(false)
   const long = content.length > 90 || content.split('\n').length > 3
   return (
     <div className="font-body-md text-body-md text-on-surface">
       <p className={`whitespace-pre-wrap break-words ${expanded || !long ? '' : 'line-clamp-3'}`}>
-        <span className="mr-1.5 font-semibold">{name}</span>
         {content}
       </p>
       {long && !expanded && (
@@ -431,13 +447,24 @@ function Caption({ name, content }) {
   )
 }
 
-/** 작성자 줄. 내 글이면 ⋯ 메뉴로 수정·삭제를 연다. */
-function AuthorRow({ creatorName, profileImageUrl, isMine, onEdit, onDelete, deleting }) {
+/** 작성자 이름 옆에 작성 시각을 보여주고, 내 글이면 공개 범위와 수정·삭제 메뉴를 제공한다. */
+function AuthorRow({ creatorName, profileImageUrl, createdAt, visibility, isMine, onEdit, onDelete, deleting }) {
   const [menuOpen, setMenuOpen] = useState(false)
   return (
     <div className="flex items-center gap-2.5 px-margin py-2.5">
       <ProfilePhoto src={profileImageUrl} className="h-8 w-8 shrink-0" iconClassName="text-[18px]" />
-      <span className="min-w-0 flex-1 truncate font-label-md text-label-md font-semibold text-on-surface">{creatorName}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate font-label-md text-label-md font-semibold text-on-surface">{creatorName}</span>
+          <time dateTime={createdAt} className="shrink-0 font-label-xs text-label-xs text-outline">{formatDateTime(createdAt)}</time>
+        </div>
+        {isMine && (
+          <span className="flex items-center gap-1 font-label-xs text-label-xs text-outline">
+            <MaterialIcon name={visibility === 'FOLLOWERS' ? 'lock' : 'public'} className="text-[14px]" />
+            {visibility === 'FOLLOWERS' ? '팔로워 공개' : '전체 공개'}
+          </span>
+        )}
+      </div>
       {isMine && onEdit && (
         <div className="relative">
           <button
@@ -467,24 +494,22 @@ function AuthorRow({ creatorName, profileImageUrl, isMine, onEdit, onDelete, del
 }
 
 /**
- * 상세 본문. 좁은 화면에서는 작성자 → 이미지 → 정보·댓글 순으로 쌓고,
- * 넓은 화면(md 이상)에서는 왼쪽 이미지, 오른쪽 작성자·본문·댓글(children)의 2단으로 나눈다.
+ * 게시물 상세를 좁은 화면에서는 작성자 → 이미지 → 본문 → 좋아요 → 댓글 순으로 쌓고,
+ * 넓은 화면(md 이상)에서는 왼쪽 이미지, 오른쪽 작성자·본문·좋아요·댓글(children)의 2단으로 나눈다.
  */
 function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLockedAction, lockedLabel, lockedDisabled, isMine, onEdit, onDelete, deleting, onMediaRatio, children }) {
   const [restricted, setRestricted] = useState(false)
+  /** 이미지 재조회에서 접근 제한을 확인하면 본문과 댓글을 숨긴다. */
   const handleRestricted = useCallback(() => setRestricted(true), [])
   const commentsRef = useRef(null)
-  // 인스타처럼 댓글은 접어 두고, 댓글 아이콘·개수를 누르면 펼친다.
-  const [commentsOpen, setCommentsOpen] = useState(false)
-  useEffect(() => {
-    if (commentsOpen) commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [commentsOpen])
+  /** 댓글 버튼을 누르면 이미 표시된 댓글 영역으로 스크롤한다. */
+  const scrollToComments = () => commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const locked = post.locked || restricted
   const hasMedia = !locked && post.imageCount > 0
   const hasLikes = typeof post.likeCount === 'number'
   const liked = Boolean(post.liked)
   const author = (
-    <AuthorRow creatorName={creatorName} profileImageUrl={profileImageUrl} isMine={isMine} onEdit={onEdit} onDelete={onDelete} deleting={deleting} />
+    <AuthorRow creatorName={creatorName} profileImageUrl={profileImageUrl} createdAt={post.createdAt} visibility={post.visibility} isMine={isMine} onEdit={onEdit} onDelete={onDelete} deleting={deleting} />
   )
   return (
     <>
@@ -516,6 +541,11 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
           </div>
         ) : (
           <>
+            {post.content && (
+              <div className="px-margin pt-2.5">
+                <Caption content={post.content} />
+              </div>
+            )}
             <div className="flex items-center gap-4 px-margin pt-2.5">
                 {hasLikes && (
                   <button
@@ -532,39 +562,24 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
                 )}
                 <button
                   type="button"
-                  aria-label={commentsOpen ? '댓글 접기' : '댓글 보기'}
-                  aria-expanded={commentsOpen}
-                  onClick={() => setCommentsOpen((open) => !open)}
+                  aria-label="댓글로 이동"
+                  onClick={scrollToComments}
                   className="flex items-center gap-1.5 font-label-md text-label-md text-on-surface active:scale-95"
                 >
-                  <MaterialIcon name="chat_bubble" filled={commentsOpen} className="text-[22px]" />
+                  <MaterialIcon name="chat_bubble" className="text-[22px]" />
                   {typeof post.commentCount === 'number' && formatNumber(post.commentCount)}
                 </button>
               </div>
-            {post.content && (
-              <div className="px-margin pt-2.5">
-                <Caption name={creatorName} content={post.content} />
-              </div>
-            )}
           </>
         )}
-        <div className="flex items-center gap-1.5 px-margin pt-2 font-label-xs text-label-xs text-outline">
-          <time dateTime={post.createdAt}>{formatDateTime(post.createdAt)}</time>
-          {isMine && (
-            <>
-              <span aria-hidden="true">·</span>
-              <MaterialIcon name={post.visibility === 'FOLLOWERS' ? 'lock' : 'public'} className="text-[14px]" />
-              <span>{post.visibility === 'FOLLOWERS' ? '팔로워 공개' : '전체 공개'}</span>
-            </>
-          )}
-        </div>
-        <div ref={commentsRef} className="px-margin pt-space-md pb-space-sm">{commentsOpen && !locked && children}</div>
+        {!locked && <div ref={commentsRef} className="px-margin pb-space-sm">{children}</div>}
       </article>
       </div>
     </>
   )
 }
 
+/** 게시물 이미지를 캐러셀로 보여주고 만료된 이미지 주소를 복구한다. */
 function PostImages({ post, creatorName, onRestricted, onRatio }) {
   const [images, setImages] = useState(post.images ?? [])
   const [unavailable, setUnavailable] = useState(() => new Set())
@@ -577,6 +592,7 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
   const attemptedNull = useRef(false)
   const failedAttempts = useRef(new Map())
 
+  /** 게시물을 다시 조회해 이미지 주소와 접근 권한을 갱신한다. */
   const refresh = useCallback(async () => {
     if (pending.current) return
     pending.current = true
@@ -611,6 +627,7 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
     }
   }, [images, refresh])
 
+  /** 이미지 로딩 실패 시 주소를 한 번 갱신하고 재실패 시 대체 화면을 표시한다. */
   function handleError(image) {
     const attempts = failedAttempts.current.get(image.imageKey) ?? 0
     if (attempts >= 1) {
@@ -621,6 +638,7 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
     refresh()
   }
 
+  /** 지정한 이미지로 캐러셀을 이동한다. */
   const goTo = useCallback((index) => {
     const node = scroller.current
     if (!node) return
@@ -631,6 +649,7 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
   // 방향키로도 넘긴다. 댓글 입력 중에는 커서 이동에 쓰이므로 입력 요소에서는 무시한다.
   useEffect(() => {
     if (images.length < 2) return undefined
+    /** 입력 요소 밖에서 누른 좌우 방향키로 이미지를 넘긴다. */
     function onKeyDown(event) {
       if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
       const target = event.target

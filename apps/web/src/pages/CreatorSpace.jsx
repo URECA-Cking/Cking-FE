@@ -397,7 +397,7 @@ export default function CreatorSpace() {
         <button
           type="button"
           onClick={() => setEditOpen(true)}
-          className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-container-highest text-on-surface transition-all active:scale-95 md:flex-none md:px-5"
+          className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-container-highest px-2.5 text-on-surface transition-all active:scale-95 md:flex-none md:px-5"
         >
           <MaterialIcon name="edit" className="text-[18px]" />
           <span className="whitespace-nowrap font-label-md text-label-md font-semibold">스페이스 편집</span>
@@ -407,7 +407,7 @@ export default function CreatorSpace() {
         <button
           type="button"
           onClick={() => setYoutubeChannelSettingsOpen(true)}
-          className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-container-highest text-on-surface transition-all active:scale-95 md:flex-none md:px-5"
+          className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-container-highest px-2.5 text-on-surface transition-all active:scale-95 md:flex-none md:px-5"
         >
           <MaterialIcon name="subscriptions" className="text-[18px]" />
           <span className="whitespace-nowrap font-label-md text-label-md font-semibold">YouTube 채널</span>

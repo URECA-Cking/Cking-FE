@@ -70,7 +70,7 @@ export default function SpaceBlockModal({ creatorId, memberId, onClose, onBlocke
         <h2 id="space-block-title" className="text-lg font-semibold text-slate-950">스페이스에서 댓글 차단</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           회원 #{memberId}이(가) 스페이스(Creator #{creatorId})에서 댓글을 쓰거나 수정할 수 없게 해요. 이미 쓴 댓글은 그대로 남고 다른 스페이스에서는 쓸 수 있어요.
-          차단된 회원에게 알림이 가고, 이미 차단 중이면 기존 차단이 유지돼요.
+          새로 차단하면 해당 회원에게 알림이 가요. 이미 차단 중이면 기존 차단이 그대로 유지되고 새 알림은 가지 않아요.
         </p>
 
         <fieldset className="mt-5" disabled={busy}>

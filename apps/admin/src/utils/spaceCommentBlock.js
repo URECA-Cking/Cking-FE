@@ -93,7 +93,7 @@ export function deleteConfirm(item) {
 export function releaseConfirm(block) {
   return {
     title: '차단을 해제할까요?',
-    message: `${block?.memberName ?? `회원 #${block?.memberId}`}의 스페이스 #${block?.creatorId} 차단을 지금 해제해요. 차단됐던 회원에게 해제 알림이 가요.`,
+    message: `${block?.memberName ?? `회원 #${block?.memberId}`}의 스페이스 #${block?.creatorId} 차단을 지금 해제해요. 차단 중인 회원에게 해제 알림이 가요(이미 끝난 차단이면 알림은 가지 않아요).`,
     confirmLabel: '해제하기',
     confirmTone: 'bg-slate-700 hover:bg-slate-800',
   }

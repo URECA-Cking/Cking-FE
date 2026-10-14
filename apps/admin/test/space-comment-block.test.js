@@ -89,6 +89,7 @@ test('댓글 삭제 확인 문구는 되돌릴 수 없음과 경고·알림·기
 test('해제 확인 문구에 대상 회원과 스페이스가 들어가고 이름이 없으면 회원 ID로 대신한다', () => {
   assert.match(releaseConfirm({ memberName: '열혈팬', memberId: 12, creatorId: 3 }).message, /열혈팬.*스페이스 #3/)
   assert.match(releaseConfirm({ memberName: null, memberId: 12, creatorId: 3 }).message, /회원 #12/)
+  assert.match(releaseConfirm({ memberName: '열혈팬', memberId: 12, creatorId: 3 }).message, /이미 끝난 차단이면 알림은 가지 않아요/)
 })
 
 test('차단 완료 안내는 돌려받은 종료 시각을 올림해 앱 표기로 보여준다', () => {

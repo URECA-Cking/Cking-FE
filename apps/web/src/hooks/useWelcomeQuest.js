@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useAsync } from './useAsync.js'
 import { ApiError, newRequestId } from '../api/client.js'
 import { claimWelcomeQuestStep, getWelcomeQuest } from '../api/welcomeQuest.js'
@@ -15,10 +15,13 @@ import { markStepClaimed } from '../utils/welcomeQuest.js'
  *   (같은 requestId는 요청 내용이 같아야 서버가 복구할 수 있다). 그 요청이 정리된 뒤에야 새 answer가 쓰인다.
  * - claimingSteps: 지금 지급 요청 중인 단계들. 버튼 비활성화·진행 표시에 쓴다.
  * 요청 ID와 진행 상태는 회원별로 따로 관리해, 계정이 바뀌어도 이전 회원의 requestId를 재사용하지 않는다.
+ * 조회 결과도 요청한 회원과 함께 보관해, 계정이 바뀌면 새 조회가 끝나기 전·실패한 뒤에도 이전 회원의 상태를 보여 주지 않는다.
+ * 승인 불명 요청의 requestId·answer는 메모리에만 있어 새로고침이나 언마운트 뒤에는 사라진다(복구 방식은 화면 연동 때 검토).
  */
 export function useWelcomeQuest(memberId) {
-  const { data: quest, loading, error, reload, setData } = useAsync(
-    () => getWelcomeQuest(),
+  // 조회 결과에 요청한 회원을 함께 담는다. 공용 useAsync는 의존성이 바뀌어도 이전 결과를 지우지 않기 때문이다.
+  const { data: loaded, loading, error, reload, setData } = useAsync(
+    () => getWelcomeQuest().then((result) => ({ owner: memberId, quest: result })),
     [memberId],
     { enabled: memberId != null, fallbackMessage: '웰컴 퀘스트를 불러오지 못했습니다.' },
   )
@@ -28,17 +31,12 @@ export function useWelcomeQuest(memberId) {
   const attempts = useRef(new Map())
   // 같은 틱에 연달아 눌러도 한 번만 보내기 위한 진행 중 키(state는 다음 렌더에야 바뀐다).
   const inFlight = useRef(new Set())
-  // 응답이 늦게 도착했을 때 지금 회원인지 확인하기 위한 현재 회원.
-  const currentMember = useRef(memberId)
 
-  useEffect(() => {
-    currentMember.current = memberId
-  }, [memberId])
-
-  /** 요청을 보낸 회원이 아직 현재 회원일 때만 단계를 CLAIMED로 표시한다. 계정이 바뀌었으면 다른 회원의 상태를 건드리지 않는다. */
+  /** 지급을 요청한 회원의 조회 상태일 때만 단계를 CLAIMED로 표시한다. 저장된 조회 결과가 다른 회원의 것이면 건드리지 않는다. */
   const markClaimed = useCallback((owner, step) => {
-    if (currentMember.current !== owner) return
-    setData((current) => markStepClaimed(current, step))
+    setData((current) => (
+      current?.owner === owner ? { ...current, quest: markStepClaimed(current.quest, step) } : current
+    ))
   }, [setData])
 
   /** 단계 보상 지급을 요청하고 결과에 따라 상태와 requestId를 정리한다. */
@@ -74,6 +72,8 @@ export function useWelcomeQuest(memberId) {
     }
   }, [memberId, markClaimed])
 
+  // 지금 회원이 요청해 받은 결과만 보여 준다. 계정이 바뀐 직후나 새 조회가 실패한 뒤에도 이전 회원의 상태는 숨긴다.
+  const quest = memberId != null && loaded?.owner === memberId ? loaded.quest : null
   const claimingSteps = claiming.filter((item) => item.memberId === memberId).map((item) => item.step)
 
   return { quest, loading, error, reload, claim, claimingSteps }

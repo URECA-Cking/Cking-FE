@@ -45,11 +45,18 @@ async function screen() {
     window.requests = []
     window.claimResponses = []
     window.pending = {}
+    window.getQueue = []
     const envelope = (status, code, data, message = null) => new Response(JSON.stringify({ code, data, message }), { status })
     window.fetch = (url, options) => {
       const body = options.body ? JSON.parse(options.body) : null
       window.requests.push({ url: new URL(String(url), location.href).pathname, method: options.method, body })
-      if (options.method === 'GET') return Promise.resolve(envelope(200, 'SUCCESS', quest))
+      if (options.method === 'GET') {
+        // getQueue에 넣어 둔 응답을 차례로 쓰고, 없으면 기본 QUEST를 돌려준다. deferred면 테스트가 resolveGet으로 끝낼 때까지 대기시킨다.
+        const planned = window.getQueue.shift()
+        const result = planned ?? { status: 200, code: 'SUCCESS', data: quest }
+        if (planned?.deferred) return new Promise((resolve) => { window.resolveGet = () => resolve(envelope(result.status, result.code, result.data ?? null, result.message ?? null)) })
+        return Promise.resolve(envelope(result.status, result.code, result.data ?? null, result.message ?? null))
+      }
       const next = window.claimResponses.shift()
       // deferred 응답은 테스트가 resolvePending으로 직접 끝낼 때까지 대기시킨다.
       // raw 응답은 JSON이 아닌 본문(프록시의 HTML 오류 등)을 그대로 돌려준다.
@@ -359,6 +366,102 @@ test('승인 불명 요청이 정리되면 다음 시도는 새 requestId와 새
     const [first] = await posts(page)
     assert.notEqual(fresh.body.requestId, first.body.requestId)
     assert.equal(fresh.body.answer, false)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+/** 회원 B에게 보여 줄 서버 상태. 회원 A(기본 QUEST)와 구분되도록 SIGNUP이 이미 지급된 상태다. */
+const QUEST_B = {
+  eligible: true,
+  completed: false,
+  items: [
+    { step: 'SIGNUP', rewardAmount: 1, status: 'CLAIMED' },
+    { step: 'FOLLOW', rewardAmount: 1, status: 'CLAIMABLE' },
+    { step: 'QUIZ', rewardAmount: 1, status: 'CLAIMABLE' },
+  ],
+  bonus: { step: 'BONUS', rewardAmount: 1, status: 'CLAIMABLE' },
+}
+
+test('회원이 바뀐 뒤 새 조회가 끝나기 전에는 이전 회원의 상태를 숨기고, 끝나면 새 회원의 상태를 보여준다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    assert.equal(await read(page, 'items'), 'SIGNUP:CLAIMABLE,FOLLOW:NOT_MET,QUIZ:CLAIMABLE')
+
+    await page.evaluate((quest) => {
+      window.getQueue.push({ deferred: true, status: 200, code: 'SUCCESS', data: quest })
+      window.renderWelcomeQuest(8)
+    }, QUEST_B)
+    await waitText(page, 'loading', 'true')
+    assert.equal(await read(page, 'items'), '')
+    assert.equal(await read(page, 'eligible'), 'undefined')
+
+    await page.evaluate(() => window.resolveGet())
+    await waitText(page, 'items', 'SIGNUP:CLAIMED,FOLLOW:CLAIMABLE,QUIZ:CLAIMABLE')
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('회원이 바뀐 뒤 새 조회가 실패해도 이전 회원의 상태는 보이지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+
+    await page.evaluate(() => {
+      window.getQueue.push({ status: 500, code: 'INTERNAL_SERVER_ERROR', message: '조회 실패' })
+      window.renderWelcomeQuest(8)
+    })
+    await page.waitForFunction(() => document.querySelector('[data-testid="error"]').textContent !== '')
+    assert.equal(await read(page, 'items'), '')
+    assert.equal(await read(page, 'eligible'), 'undefined')
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('이전 회원의 늦은 지급 응답은 새 회원의 조회 상태를 바꾸지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    await page.evaluate(() => window.claimResponses.push(
+      { deferred: true, step: 'FOLLOW', status: 202, code: 'EARN_ACCEPTED', data: { step: 'FOLLOW', rewardAmount: 1, status: 'CLAIMED' } },
+    ))
+    await page.evaluate(() => { window.claimStep('FOLLOW') })
+    await waitText(page, 'claiming', 'FOLLOW')
+
+    await page.evaluate((quest) => {
+      window.getQueue.push({ status: 200, code: 'SUCCESS', data: quest })
+      window.renderWelcomeQuest(8)
+    }, QUEST_B)
+    await waitText(page, 'items', 'SIGNUP:CLAIMED,FOLLOW:CLAIMABLE,QUIZ:CLAIMABLE')
+
+    await page.evaluate(() => window.pending.FOLLOW())
+    await page.waitForFunction(() => window.requests.length >= 3)
+    await page.waitForTimeout(100)
+    assert.equal(await read(page, 'items'), 'SIGNUP:CLAIMED,FOLLOW:CLAIMABLE,QUIZ:CLAIMABLE')
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('새 회원의 조회가 끝나기 전에 새 회원의 지급이 성공해도 이전 회원의 조회 상태를 바꾸지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+
+    await page.evaluate((quest) => {
+      window.getQueue.push({ deferred: true, status: 200, code: 'SUCCESS', data: quest })
+      window.renderWelcomeQuest(8)
+    }, QUEST_B)
+    await waitText(page, 'loading', 'true')
+    await page.evaluate((response) => window.claimResponses.push(response), accepted('FOLLOW'))
+    assert.equal((await claim(page, 'FOLLOW')).ok, true)
+
+    // 조회가 끝나면 서버가 알려 준 상태 그대로 보인다. 그 사이 지급 성공이 이전 회원의 데이터에 섞이지 않았다.
+    await page.evaluate(() => window.resolveGet())
+    await waitText(page, 'items', 'SIGNUP:CLAIMED,FOLLOW:CLAIMABLE,QUIZ:CLAIMABLE')
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

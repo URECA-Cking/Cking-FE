@@ -70,7 +70,7 @@ export default function ExploreSearch() {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-all shadow-sm"
+          className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-colors shadow-sm"
           placeholder="크리에이터를 검색해 보세요"
           type="search"
         />

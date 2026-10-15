@@ -203,7 +203,7 @@ export default function Explore() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-all shadow-sm"
+            className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-colors shadow-sm"
             placeholder={tab === 'event' ? '이벤트 제목이나 크리에이터로 검색해 보세요' : '크리에이터를 검색해 보세요 (아티스트, 유튜버, 스트리머)'}
             type="search"
           />

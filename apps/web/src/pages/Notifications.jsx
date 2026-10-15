@@ -22,6 +22,9 @@ export default function Notifications() {
   const showToast = useToast()
   const {
     unreadCount: totalUnreadCount,
+    notificationsData,
+    notificationsLoading,
+    notificationsError,
     reloadNotifications,
     markNotificationReadLocally,
     markAllNotificationsReadLocally,
@@ -30,15 +33,27 @@ export default function Notifications() {
   const [page, setPage] = useState(0)
   const [readingId, setReadingId] = useState(null)
   const [markingAll, setMarkingAll] = useState(false)
+  const chunkPage = Math.floor(page / 5)
 
-  const { data, loading, error, reload, setData } = useAsync(
-    () => getMyNotifications({ page, size: 20 }),
-    [page],
-    { fallbackMessage: '알림을 불러오지 못했습니다.' },
+  const { data: extraData, loading: extraLoading, error: extraError, reload: reloadExtra, setData: setExtraData } = useAsync(
+    () => getMyNotifications({ page: chunkPage, size: 100 }),
+    [chunkPage],
+    { enabled: chunkPage > 0, fallbackMessage: '알림을 불러오지 못했습니다.' },
   )
 
-  const items = data?.items ?? []
-  const unreadCount = Math.max(totalUnreadCount, items.filter((item) => !item.readAt).length)
+  const data = chunkPage === 0 ? notificationsData : extraData?.page === chunkPage ? extraData : null
+  const offset = (page % 5) * 20
+  const items = data?.items.slice(offset, offset + 20) ?? []
+  const hasNext = Boolean(data && (data.items.length > offset + 20 || data.hasNext))
+  const loading = chunkPage === 0 ? notificationsLoading : extraLoading || (!data && !extraError)
+  const error = chunkPage === 0 ? notificationsError : extraError
+  const canMarkAllRead = Boolean(notificationsData?.totalElements || data?.totalElements)
+
+  /** 현재 목록 페이지와 헤더의 서버 상태를 필요한 조회만으로 다시 맞춘다. */
+  async function reloadCurrentPage() {
+    if (chunkPage === 0) return reloadNotifications()
+    return Promise.all([reloadExtra(), reloadNotifications()])
+  }
 
   /** 항목 선택 시 목록과 배지를 먼저 갱신하고 서버 결과로 확정한다. */
   async function handleOpen(notification) {
@@ -48,12 +63,14 @@ export default function Notifications() {
       const optimisticReadAt = new Date().toISOString()
       /** 선택한 알림의 읽음 시각을 목록과 배지에 같은 값으로 반영한다. */
       const updateReadAt = (readAt) => {
-        setData((current) => current && ({
-          ...current,
-          items: current.items.map((item) =>
-            item.notificationId === notification.notificationId ? { ...item, readAt } : item,
-          ),
-        }))
+        if (chunkPage > 0) {
+          setExtraData((current) => current && ({
+            ...current,
+            items: current.items.map((item) =>
+              item.notificationId === notification.notificationId ? { ...item, readAt } : item,
+            ),
+          }))
+        }
         markNotificationReadLocally(notification.notificationId, readAt)
       }
       updateReadAt(optimisticReadAt)
@@ -63,7 +80,8 @@ export default function Notifications() {
       } catch (err) {
         updateReadAt(null)
         showToast(describeError(err, '읽음 처리에 실패했습니다.'), { icon: 'error' })
-        await Promise.all([reload(), reloadNotifications()])
+        await reloadCurrentPage()
+        return
       } finally {
         setReadingId(null)
       }
@@ -73,28 +91,32 @@ export default function Notifications() {
 
   /** 서버의 전체 읽음 API를 한 번 호출하고 목록과 배지를 다시 조회한다. */
   async function markAllRead() {
-    if (unreadCount === 0 || markingAll || readingId !== null) return
+    if (!canMarkAllRead || markingAll || readingId !== null) return
     setMarkingAll(true)
     const optimisticReadAt = new Date().toISOString()
-    setData((current) => current && ({
-      ...current,
-      items: current.items.map((item) => item.readAt ? item : { ...item, readAt: optimisticReadAt }),
-    }))
+    if (chunkPage > 0) {
+      setExtraData((current) => current && ({
+        ...current,
+        items: current.items.map((item) => item.readAt ? item : { ...item, readAt: optimisticReadAt }),
+      }))
+    }
     markAllNotificationsReadLocally(optimisticReadAt)
     try {
       const result = await readAllNotifications()
-      await Promise.all([reload(), reloadNotifications()])
+      await reloadCurrentPage()
       showToast(`${result.readCount}개의 알림을 읽음 처리했어요.`)
     } catch (err) {
-      setData((current) => current && ({
-        ...current,
-        items: current.items.map((item) =>
-          item.readAt === optimisticReadAt ? { ...item, readAt: null } : item,
-        ),
-      }))
+      if (chunkPage > 0) {
+        setExtraData((current) => current && ({
+          ...current,
+          items: current.items.map((item) =>
+            item.readAt === optimisticReadAt ? { ...item, readAt: null } : item,
+          ),
+        }))
+      }
       rollbackAllNotificationsReadLocally(optimisticReadAt)
       showToast(describeError(err, '읽음 처리에 실패했습니다.'), { icon: 'error' })
-      await Promise.all([reload(), reloadNotifications()])
+      await reloadCurrentPage()
     } finally {
       setMarkingAll(false)
     }
@@ -104,13 +126,13 @@ export default function Notifications() {
     <div className="flex min-h-full flex-col w-full px-margin pt-space-md pb-8 gap-space-sm md:mx-auto md:max-w-4xl md:px-8">
       <div className="flex items-center justify-between mb-1">
         <div>
-          {unreadCount > 0 && (
+          {totalUnreadCount > 0 && (
             <p className="font-label-sm text-label-sm text-primary font-semibold mt-0.5">
-              읽지 않은 알림 {unreadCount}개
+              {notificationsData?.hasNext ? '최근 100건 중 읽지 않은 알림' : '읽지 않은 알림'} {totalUnreadCount}개
             </p>
           )}
         </div>
-        {unreadCount > 0 && (
+        {canMarkAllRead && (
           <button
             type="button"
             onClick={markAllRead}
@@ -123,7 +145,7 @@ export default function Notifications() {
       </div>
 
       {loading && <LoadingBlock label="알림을 불러오는 중..." />}
-      {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
+      {!loading && error && <ErrorBlock message={error} onRetry={reloadCurrentPage} />}
       {!loading && !error && items.length === 0 && (
         <div className="flex flex-1 items-center justify-center">
           <EmptyBlock icon="notifications_off" message="아직 도착한 알림이 없어요. 당첨 결과나 계정 안내가 있으면 알려드릴게요!" />
@@ -173,7 +195,7 @@ export default function Notifications() {
         )
       })}
 
-      {data?.hasNext && (
+      {hasNext && (
         <button
           type="button"
           onClick={() => setPage((prev) => prev + 1)}

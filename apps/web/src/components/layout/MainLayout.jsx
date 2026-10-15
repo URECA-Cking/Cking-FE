@@ -1,11 +1,11 @@
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
-import { useCallback, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import BottomNav from './BottomNav.jsx'
 import { TopHeader } from './TopHeader.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useOnline } from '../../hooks/useOnline.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { getAllMyNotifications } from '../../api/notifications.js'
+import { getMyNotifications } from '../../api/notifications.js'
 import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 import { useAppBack } from '../../hooks/useAppBack.js'
@@ -41,11 +41,22 @@ export default function MainLayout() {
   const online = useOnline()
   const appBarTitle = APP_BAR_TITLES[pathname]
 
-  // 헤더 배지는 목록의 모든 페이지를 기준으로 계산한다.
+  // 미확인 개수 API가 없어 첫 100건만 조회한다. 전체 개수 계약이 추가되면 배지 조회를 교체한다.
   // 이 레이아웃은 RequireUser 안에서만 렌더링되므로 항상 로그인된 상태에서 조회한다.
-  const { data, reload, setData } = useAsync(() => getAllMyNotifications(), [pathname])
+  const { data, loading: notificationsLoading, error: notificationsError, reload, setData } = useAsync(
+    () => getMyNotifications({ page: 0, size: 100 }),
+    [],
+    { fallbackMessage: '알림을 불러오지 못했습니다.' },
+  )
   const notifications = data?.items ?? []
   const unreadCount = notifications.filter((item) => !item.readAt).length
+
+  const previousPathnameRef = useRef(pathname)
+  // 알림 화면에 다시 들어올 때만 서버 상태를 갱신한다. 최초 마운트 조회는 useAsync가 담당한다.
+  useEffect(() => {
+    if (pathname === '/notifications' && previousPathnameRef.current !== '/notifications') reload()
+    previousPathnameRef.current = pathname
+  }, [pathname, reload])
 
   /** 알림 하나의 읽음 상태를 헤더 배지의 목록에도 즉시 반영한다. */
   const markNotificationReadLocally = (notificationId, readAt) => {
@@ -135,6 +146,7 @@ export default function MainLayout() {
           title={appBarTitle.title}
           centered={appBarTitle.centered}
           unreadCount={unreadCount}
+          unreadCountPartial={Boolean(data?.hasNext)}
           embedded
           hidden={!headerVisible}
           onBack={appBarTitle.back ? goBack : undefined}
@@ -164,6 +176,9 @@ export default function MainLayout() {
         <Outlet context={{
           notifications,
           unreadCount,
+          notificationsData: data,
+          notificationsLoading,
+          notificationsError,
           reloadNotifications: reload,
           markNotificationReadLocally,
           markAllNotificationsReadLocally,

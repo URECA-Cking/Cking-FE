@@ -95,7 +95,7 @@ export default function MissionSection({ memberId }) {
           <div key={mission.missionId} className="rounded-3xl bg-surface-container p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <span className="rounded-md bg-primary/15 px-2 py-0.5 font-label-sm text-label-sm font-semibold text-primary">DAILY CHECK-IN</span>
+                {stamps && <span className="rounded-md bg-primary/15 px-2 py-0.5 font-label-sm text-label-sm font-semibold text-primary">DAILY CHECK-IN</span>}
                 <p className="mt-1 font-label-md text-label-md text-on-surface line-clamp-2">
                   {MISSION_LABELS[mission.type] ?? '미션'}
                   <span className="ml-2 font-label-sm text-label-sm text-on-surface-variant font-normal">응모권 +{mission.rewardAmount}</span>
@@ -125,7 +125,7 @@ export default function MissionSection({ memberId }) {
                             : 'bg-on-surface/5 text-outline'
                       }`}
                     >
-                      <span className="text-[9px] font-bold opacity-80">{slot.next ? '오늘' : `DAY ${index + 1}`}</span>
+                      <span className="text-[9px] font-bold opacity-80">DAY {index + 1}</span>
                       <span
                         className={`my-0.5 flex h-[22px] items-center ${
                           slot.stamped && justStamped && index === stampedCount - 1 ? 'animate-stamp-pop' : ''

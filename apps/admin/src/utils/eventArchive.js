@@ -17,3 +17,8 @@ export function canUnarchiveEvent(event) {
 export function archiveStatusSearch(archiveStatus) {
   return archiveStatus === 'ARCHIVED' ? '?archiveStatus=ARCHIVED' : ''
 }
+
+/** 보관함은 PUBLISHED Event만 서버에서 받으므로 별도 상태 필터를 노출하지 않는다. */
+export function shouldShowEventStatusFilter(archiveStatus) {
+  return archiveStatus !== 'ARCHIVED'
+}

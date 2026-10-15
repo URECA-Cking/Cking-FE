@@ -17,7 +17,7 @@ import StatusBadge from '../../components/StatusBadge.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { EVENT_ARCHIVE_VIEWS, archiveStatusSearch, canArchiveEvent, canUnarchiveEvent } from '../../utils/eventArchive.js'
+import { EVENT_ARCHIVE_VIEWS, archiveStatusSearch, canArchiveEvent, canUnarchiveEvent, shouldShowEventStatusFilter } from '../../utils/eventArchive.js'
 import { EVENT_OPERATION_FLOW, eventStatusMeta } from '../../utils/eventStatus.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 
@@ -50,6 +50,7 @@ export function AdminEventsPage() {
     : '조건에 해당하는 이벤트가 없습니다.'
 
   function changeArchiveStatus(next) {
+    setStatus('')
     setSearchParams(next === 'ARCHIVED' ? { archiveStatus: 'ARCHIVED' } : {})
   }
 
@@ -68,12 +69,12 @@ export function AdminEventsPage() {
         <label className="min-w-64 flex-1 text-xs font-medium text-slate-600">검색
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="이벤트 ID, 이벤트명 또는 Creator 검색" className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-pink-600 focus:ring-1 focus:ring-pink-600" />
         </label>
-        <label className="w-40 text-xs font-medium text-slate-600">상태
+        {shouldShowEventStatusFilter(archiveStatus) && <label className="w-40 text-xs font-medium text-slate-600">상태
           <select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600">
             <option value="">전체</option>
             {STATUS_OPTIONS.map((option) => <option key={option.status} value={option.status}>{option.label}</option>)}
           </select>
-        </label>
+        </label>}
         <button type="button" onClick={() => void reload()} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button>
       </div>
       {loading && <LoadingBlock label="이벤트 목록을 불러오는 중..." />}

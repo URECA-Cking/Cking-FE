@@ -63,6 +63,7 @@ test('진행 중인 GET보다 개별 읽음이 먼저 끝나도 카드와 헤더
     await page.getByText('오래된 알림 1').waitFor()
     assert.equal(await page.getByText('읽지 않은 알림 1개').count(), 0)
     await page.getByRole('link', { name: '홈' }).click()
+    await page.getByRole('button', { name: '알림 열기' }).waitFor()
     assert.equal(await page.getByLabel('읽지 않은 알림 1개').count(), 0)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
@@ -84,6 +85,7 @@ test('개별 읽음 실패 시 카드와 배지를 복구하고 알림 화면에
     await page.waitForFunction(() => document.querySelectorAll('[aria-label="읽지 않음"]').length === 1)
     assert.equal(await page.getByRole('button', { name: /알림 1/ }).count(), 1)
     await page.getByRole('link', { name: '홈' }).click()
+    await page.getByLabel('읽지 않은 알림 1개').waitFor({ state: 'attached' })
     assert.equal(await page.getByLabel('읽지 않은 알림 1개').count(), 1)
     assert.deepEqual(errors, [])
   } finally { await page.close() }

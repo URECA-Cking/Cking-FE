@@ -47,6 +47,15 @@ async function screen(initialQuest) {
   page.on('pageerror', (error) => errors.push(error.message))
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
+  await boot(page, initialQuest)
+  return { page, errors }
+}
+
+/**
+ * 페이지를 처음부터 다시 열고 서버 흉내와 번들을 올린다. 새로고침을 흉내 낼 때도 쓴다.
+ * 메모리 상태는 사라지고 같은 출처의 localStorage는 남는다.
+ */
+async function boot(page, initialQuest) {
   await page.goto('http://localhost/home-test')
   await page.evaluate((state) => {
     window.quest = state
@@ -57,6 +66,7 @@ async function screen(initialQuest) {
     window.requests = []
     window.scrolled = 0
     window.failClaims = 0
+    window.questFailures = 0
     Element.prototype.scrollIntoView = () => { window.scrolled += 1 }
     const envelope = (status, code, data, message = null) => new Response(JSON.stringify({ code, data, message }), { status })
     const recommendations = {
@@ -68,7 +78,11 @@ async function screen(initialQuest) {
       const path = new URL(String(url), location.href).pathname
       const body = options.body ? JSON.parse(options.body) : null
       window.requests.push({ path, method: options.method, body })
-      if (path === '/api/me/welcome-quest') return Promise.resolve(envelope(200, 'SUCCESS', window.quest))
+      if (path === '/api/me/welcome-quest') {
+        // questFailures가 남아 있으면 상태 조회를 서버 오류로 실패시킨다.
+        if (window.questFailures > 0) { window.questFailures -= 1; return Promise.resolve(envelope(500, 'INTERNAL_SERVER_ERROR', null, '조회 실패')) }
+        return Promise.resolve(envelope(200, 'SUCCESS', window.quest))
+      }
       const claim = path.match(/^\/api\/me\/welcome-quest\/(\w+)\/claim$/)
       if (claim) {
         const step = claim[1]
@@ -89,7 +103,6 @@ async function screen(initialQuest) {
     }
   }, initialQuest)
   await page.addScriptTag({ content: bundle })
-  return { page, errors }
 }
 
 /** 지급(POST) 요청만 모아 돌려준다. */
@@ -316,6 +329,42 @@ test('같은 화면에서 회원이 바뀌면 추천 크리에이터를 다시 �
 
     await page.evaluate(() => window.renderHome([], 8))
     await page.waitForFunction(() => window.requests.filter((request) => request.path === '/api/me/creator-recommendations').length === 2)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('SIGNUP 자동 지급이 승인 불명으로 끝난 뒤 새로고침하면 같은 requestId로 복구한다', async () => {
+  const { page, errors } = await screen(quest())
+  try {
+    await page.evaluate(() => { localStorage.clear(); window.failClaims = 1; window.renderHome([]) })
+    await waitWelcome(page)
+    await page.waitForFunction(() => window.toasts.includes('서버 오류'))
+    const [first] = await claims(page)
+    assert.equal(first.path, '/api/me/welcome-quest/SIGNUP/claim')
+
+    // 새로고침: 서버에서는 아직 승인 전이라 CLAIMABLE로 조회된다. 자동 지급이 새 UUID를 만들지 않고 보존한 요청으로 복구해야 한다.
+    await boot(page, quest())
+    await page.evaluate(() => window.renderHome([]))
+    await page.getByText('응모권 +1장 지급 완료').waitFor()
+
+    const [retry] = await claims(page)
+    assert.equal(retry.path, '/api/me/welcome-quest/SIGNUP/claim')
+    assert.equal(retry.body.requestId, first.body.requestId)
+    assert.equal(await page.evaluate(() => localStorage.getItem('cking.welcomeClaimAttempts.7')), null)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('퀘스트 상태 조회가 실패하면 다시 시도를 보여주고, 성공하면 신규 회원 홈이 나온다', async () => {
+  const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
+  try {
+    await page.evaluate(() => { window.questFailures = 1; window.renderHome([]) })
+    await page.getByText('웰컴 퀘스트를 불러오지 못했어요.').waitFor()
+    assert.equal((await bodyText(page)).includes('무료 응모권 4장'), false)
+
+    await page.getByRole('button', { name: '다시 시도' }).click()
+    await waitWelcome(page)
+    assert.equal(await page.getByText('웰컴 퀘스트를 불러오지 못했어요.').count(), 0)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

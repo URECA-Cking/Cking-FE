@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { isSupportedJpegOrPng } from '../src/utils/imageMime.js'
+import { isSupportedJpegOrPng } from '../src/imageValidation.js'
 
 test('JPEG와 PNG MIME type은 파일명과 무관하게 허용한다', () => {
   assert.equal(isSupportedJpegOrPng({ name: 'photo', type: 'image/jpeg' }), true)

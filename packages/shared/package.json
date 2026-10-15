@@ -9,7 +9,8 @@
     "./MaterialIcon": "./src/MaterialIcon.jsx",
     "./icons/*": "./src/icons/*",
     "./useAsync": "./src/useAsync.js",
-    "./format": "./src/format.js"
+    "./format": "./src/format.js",
+    "./imageValidation": "./src/imageValidation.js"
   },
   "peerDependencies": { "react": "^19.2.8" },
   "scripts": {

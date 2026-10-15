@@ -94,7 +94,8 @@ export default function Home() {
         onClaim: () => claimWelcome(WELCOME_QUEST_STEPS.BONUS),
       }
     : null
-  const attendance = <MissionSection memberId={user?.memberId} welcomeBonus={welcomeBonus} />
+  // 출석 카드는 회원 번호를 key로 둬서 계정이 바뀌면 통째로 새로 만든다. 보너스를 받은 표시와 출석 요청 상태(requestId 포함)가 이전 회원의 것으로 남지 않게 한다.
+  const attendance = <MissionSection key={user?.memberId} memberId={user?.memberId} welcomeBonus={welcomeBonus} />
 
   return (
     <div className="flex flex-col w-full pb-6">

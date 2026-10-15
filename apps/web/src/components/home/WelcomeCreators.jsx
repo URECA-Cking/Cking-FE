@@ -20,8 +20,9 @@ const RECOMMEND_SIZE = 10
  */
 export default function WelcomeCreators({ sectionRef, onFollowed }) {
   const showToast = useToast()
-  const { toggleFollow, isFollowing, followsReady, pendingFollowIds } = useUser()
-  const recommended = useAsync(() => getMyCreatorRecommendations({ size: RECOMMEND_SIZE }), [], {
+  const { user, toggleFollow, isFollowing, followsReady, pendingFollowIds } = useUser()
+  // 회원이 바뀌면 그 회원 기준으로 다시 조회한다. 같은 회원이 머무는 동안에는 팔로우로 목록이 흔들리지 않게 다시 부르지 않는다.
+  const recommended = useAsync(() => getMyCreatorRecommendations({ size: RECOMMEND_SIZE }), [user?.memberId], {
     fallbackMessage: '추천 크리에이터를 불러오지 못했어요.',
   })
   const { impressionRef, trackClick } = useRecommendationEvents(recommended.data?.requestId ?? null)

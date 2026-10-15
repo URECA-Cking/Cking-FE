@@ -169,10 +169,10 @@ test('당첨·미당첨 결과 알림은 유형과 서버 문구를 표시하고
   }
 })
 
-/** 제목이 같은 알림 카드 버튼. 숨기기 버튼은 글자가 "숨기기"뿐이라 섞이지 않는다. */
+/** 제목이 같은 알림 카드 버튼. 삭제 버튼은 글자가 "삭제"뿐이라 섞이지 않는다. */
 const card = (page, title) => page.locator('button', { hasText: title })
 
-/** 알림 카드를 마우스로 왼쪽으로 끌어 숨기기 버튼을 연다. */
+/** 알림 카드를 마우스로 왼쪽으로 끌어 삭제 버튼을 연다. */
 async function swipeOpen(page, title) {
   const box = await card(page, title).boundingBox()
   const y = box.y + box.height / 2
@@ -180,6 +180,17 @@ async function swipeOpen(page, title) {
   await page.mouse.down()
   await page.mouse.move(box.x + box.width - 60, y + 2, { steps: 4 })
   await page.mouse.move(box.x + box.width - 140, y + 2, { steps: 4 })
+  await page.mouse.up()
+}
+
+/** 알림 카드를 마우스로 카드 너비의 85%만큼 끝까지 밀었다가 놓는다(바로 삭제 기준 65%를 넘긴다). */
+async function swipeFar(page, title) {
+  const box = await card(page, title).boundingBox()
+  const y = box.y + box.height / 2
+  await page.mouse.move(box.x + box.width - 10, y)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width - 60, y + 2, { steps: 4 })
+  await page.mouse.move(box.x + box.width - 10 - box.width * 0.85, y + 2, { steps: 8 })
   await page.mouse.up()
 }
 
@@ -192,17 +203,17 @@ async function openNotifications(page, items) {
   await page.evaluate((data) => window.respond(1, data), list(items))
 }
 
-test('왼쪽으로 밀어도 숨겨지지 않고 숨기기 버튼을 눌러야 숨겨지며 목록과 배지가 바로 줄어든다', async () => {
+test('왼쪽으로 밀어도 삭제되지 않고 삭제 버튼을 눌러야 삭제되며 목록과 안 읽은 알림 수가 바로 줄어든다', async () => {
   const { page, errors } = await screen()
   try {
     await openNotifications(page, [item(1), item(2)])
     await card(page, '알림 1').waitFor()
     await page.getByText('읽지 않은 알림 2개').waitFor()
     await swipeOpen(page, '알림 1')
-    // 밀기만으로는 알림을 열거나 숨기지 않는다.
+    // 밀기만으로는 알림을 열거나 삭제하지 않는다.
     assert.equal(await page.evaluate(() => window.requests.length), 2)
     assert.equal(await card(page, '알림 1').count(), 1)
-    await page.getByRole('button', { name: '알림 숨기기: 알림 1' }).click()
+    await page.getByRole('button', { name: '알림 삭제: 알림 1' }).click()
     await requestCount(page, 3)
     assert.match(await page.evaluate(() => window.requests[2].url), /\/api\/me\/notifications\/1\/hide$/)
     assert.equal(await page.evaluate(() => window.requests[2].method), 'PATCH')
@@ -219,13 +230,13 @@ test('왼쪽으로 밀어도 숨겨지지 않고 숨기기 버튼을 눌러야 �
   } finally { await page.close() }
 })
 
-test('숨기기에 실패하면 알림과 배지를 되돌리고 오류를 알린다', async () => {
+test('삭제에 실패하면 알림과 안 읽은 알림 수를 되돌리고 오류를 알린다', async () => {
   const { page, errors } = await screen()
   try {
     await openNotifications(page, [item(1), item(2)])
     await card(page, '알림 1').waitFor()
     await swipeOpen(page, '알림 1')
-    await page.getByRole('button', { name: '알림 숨기기: 알림 1' }).click()
+    await page.getByRole('button', { name: '알림 삭제: 알림 1' }).click()
     await requestCount(page, 3)
     await page.evaluate(() => window.respond(2, null, 500))
     await requestCount(page, 4)
@@ -237,20 +248,20 @@ test('숨기기에 실패하면 알림과 배지를 되돌리고 오류를 알�
   } finally { await page.close() }
 })
 
-test('숨긴 직후 늦게 도착한 오래된 목록 응답이 숨긴 알림을 되살리지 않는다', async () => {
+test('삭제한 직후 늦게 도착한 오래된 목록 응답이 삭제한 알림을 되살리지 않는다', async () => {
   const { page, errors } = await screen()
   try {
     await requestCount(page, 1)
     await page.evaluate((data) => window.respond(0, data), list([item(1), item(2)]))
     await page.getByRole('button', { name: '알림 열기' }).click()
     await requestCount(page, 2)
-    // 화면 진입 조회(1)가 끝나기 전에 레이아웃이 가진 목록으로 숨긴다.
+    // 화면 진입 조회(1)가 끝나기 전에 레이아웃이 가진 목록으로 삭제한다.
     await card(page, '알림 1').waitFor()
     await swipeOpen(page, '알림 1')
-    await page.getByRole('button', { name: '알림 숨기기: 알림 1' }).click()
+    await page.getByRole('button', { name: '알림 삭제: 알림 1' }).click()
     await requestCount(page, 3)
     await page.evaluate(() => window.respond(2, { notificationId: 1, hiddenAt: '2026-10-16T00:00:00Z' }))
-    // 숨기기 전에 시작한 오래된 응답이 알림 1을 담은 채 늦게 도착해도 목록에 나타나지 않는다.
+    // 삭제하기 전에 시작한 오래된 응답이 알림 1을 담은 채 늦게 도착해도 목록에 나타나지 않는다.
     await page.evaluate((data) => window.respond(1, data), list([item(1), item(2)]))
     await card(page, '알림 2').waitFor()
     assert.equal(await card(page, '알림 1').count(), 0)
@@ -258,18 +269,39 @@ test('숨긴 직후 늦게 도착한 오래된 목록 응답이 숨긴 알림을
   } finally { await page.close() }
 })
 
-test('열린 카드는 Esc로 닫히고 숨기기 요청은 보내지 않는다', async () => {
+test('열린 카드는 Esc로 닫히고 삭제 요청은 보내지 않는다', async () => {
   const { page, errors } = await screen()
   try {
     await openNotifications(page, [item(1), item(2)])
     await card(page, '알림 1').waitFor()
     await swipeOpen(page, '알림 1')
-    await page.getByRole('button', { name: '알림 숨기기: 알림 1' }).waitFor()
+    await page.getByRole('button', { name: '알림 삭제: 알림 1' }).waitFor()
     await page.keyboard.press('Escape')
-    // 닫히면 숨기기 버튼은 접근성 트리에서 빠지고 카드는 그대로 남는다.
-    await page.getByRole('button', { name: '알림 숨기기: 알림 1' }).waitFor({ state: 'detached' })
+    // 닫히면 삭제 버튼은 접근성 트리에서 빠지고 카드는 그대로 남는다.
+    await page.getByRole('button', { name: '알림 삭제: 알림 1' }).waitFor({ state: 'detached' })
     assert.equal(await card(page, '알림 1').count(), 1)
     assert.equal(await page.evaluate(() => window.requests.length), 2)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('끝까지 밀고 놓으면 삭제 버튼을 누르지 않아도 바로 삭제 요청을 보내고 알림을 열지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await openNotifications(page, [item(1), item(2)])
+    await card(page, '알림 1').waitFor()
+    await swipeFar(page, '알림 1')
+    await requestCount(page, 3)
+    assert.match(await page.evaluate(() => window.requests[2].url), /\/api\/me\/notifications\/1\/hide$/)
+    assert.equal(await page.evaluate(() => window.requests[2].method), 'PATCH')
+    // 읽음 요청(알림 열기)은 가지 않는다. 서버 응답 전에 목록과 안 읽은 알림 수에서 먼저 빠진다.
+    assert.equal(await page.evaluate(() => window.requests.filter((request) => request.url.endsWith('/read')).length), 0)
+    await card(page, '알림 1').waitFor({ state: 'detached' })
+    await page.getByText('읽지 않은 알림 1개').waitFor()
+    await page.evaluate(() => window.respond(2, { notificationId: 1, hiddenAt: '2026-10-16T00:00:00Z' }))
+    await requestCount(page, 4)
+    await page.evaluate((data) => window.respond(3, data), list([item(2)]))
+    assert.equal(await card(page, '알림 2').count(), 1)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

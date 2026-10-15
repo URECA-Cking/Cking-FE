@@ -17,7 +17,7 @@ import { localizeNoticeBody } from '../utils/sanctionNotice.js'
  * PATCH /api/me/notifications/{id}/read 로 읽음 처리한 뒤 관련 이벤트로 이동한다.
  * 전체 읽음은 서버의 일괄 읽음 API를 사용한다.
  * 제재 알림은 event·drawing이 null이라 이동 없이 읽음 처리만 한다.
- * 카드를 왼쪽으로 밀어 드러난 "숨기기"를 누르면 PATCH /api/me/notifications/{id}/hide 로 알림함에서 숨긴다(삭제 아님, 되돌릴 수 없음).
+ * 카드를 왼쪽으로 밀어 드러난 "삭제"를 누르면 PATCH /api/me/notifications/{id}/hide 로 알림함에서 지운다(서버는 숨김으로 기록하고 되돌릴 수 없음).
  */
 export default function Notifications() {
   const navigate = useNavigate()
@@ -113,7 +113,7 @@ export default function Notifications() {
       if (err?.code !== 'NOTIFICATION_NOT_FOUND') {
         unhideNotificationLocally(id)
         if (chunkPage > 0) unhideExtra(id)
-        showToast(describeError(err, '알림을 숨기지 못했습니다.'), { icon: 'error' })
+        showToast(describeError(err, '알림을 삭제하지 못했습니다.'), { icon: 'error' })
         await reloadCurrentPage()
         setHidingId(null)
         return
@@ -193,7 +193,7 @@ export default function Notifications() {
             onHide={() => handleHide(item)}
             hiding={hidingId === item.notificationId}
             disabled={markingAll || readingId !== null || (hidingId !== null && hidingId !== item.notificationId)}
-            label={`알림 숨기기: ${item.title}`}
+            label={`알림 삭제: ${item.title}`}
           >
           <button
             type="button"

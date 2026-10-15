@@ -6,7 +6,7 @@ const root = createRoot(document.getElementById('root'))
 
 /** 훅의 상태와 지급 결과를 화면에 문자열로 드러내 테스트가 읽을 수 있게 하는 확인용 컴포넌트. */
 function Probe({ memberId }) {
-  const { quest, loading, error, claim, claimingStep } = useWelcomeQuest(memberId)
+  const { quest, loading, error, claim, claimingSteps } = useWelcomeQuest(memberId)
   window.claimStep = async (step, options) => {
     try {
       window.claimResult = { ok: true, value: await claim(step, options) }
@@ -23,7 +23,7 @@ function Probe({ memberId }) {
       <p data-testid="completed">{String(quest?.completed)}</p>
       <p data-testid="items">{statuses}</p>
       <p data-testid="bonus">{quest?.bonus?.status ?? ''}</p>
-      <p data-testid="claiming">{claimingStep ?? ''}</p>
+      <p data-testid="claiming">{claimingSteps.join(',')}</p>
     </div>
   )
 }

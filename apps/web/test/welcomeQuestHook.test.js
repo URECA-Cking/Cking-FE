@@ -44,12 +44,15 @@ async function screen() {
   await page.evaluate((quest) => {
     window.requests = []
     window.claimResponses = []
+    window.pending = {}
     const envelope = (status, code, data, message = null) => new Response(JSON.stringify({ code, data, message }), { status })
     window.fetch = (url, options) => {
       const body = options.body ? JSON.parse(options.body) : null
       window.requests.push({ url: new URL(String(url), location.href).pathname, method: options.method, body })
       if (options.method === 'GET') return Promise.resolve(envelope(200, 'SUCCESS', quest))
       const next = window.claimResponses.shift()
+      // deferred 응답은 테스트가 resolvePending으로 직접 끝낼 때까지 대기시킨다.
+      if (next.deferred) return new Promise((resolve) => { window.pending[next.step] = () => resolve(envelope(next.status, next.code, next.data ?? null)) })
       return Promise.resolve(envelope(next.status, next.code, next.data ?? null, next.message ?? null))
     }
   }, QUEST)
@@ -208,6 +211,71 @@ test('세 단계를 모두 받으면 completed가 되고, 보너스는 따로 CL
     assert.equal(await read(page, 'bonus'), 'CLAIMABLE')
     await claim(page, 'BONUS')
     await waitText(page, 'bonus', 'CLAIMED')
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('여러 단계를 동시에 요청해도 먼저 끝난 단계가 다른 단계의 진행 표시를 지우지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    await page.evaluate(() => window.claimResponses.push(
+      { deferred: true, step: 'SIGNUP', status: 202, code: 'EARN_ACCEPTED', data: { step: 'SIGNUP', rewardAmount: 1, status: 'CLAIMED' } },
+      { deferred: true, step: 'BONUS', status: 202, code: 'EARN_ACCEPTED', data: { step: 'BONUS', rewardAmount: 1, status: 'CLAIMED' } },
+    ))
+
+    await page.evaluate(() => { window.claimStep('SIGNUP'); window.claimStep('BONUS') })
+    await waitText(page, 'claiming', 'SIGNUP,BONUS')
+
+    await page.evaluate(() => window.pending.SIGNUP())
+    await waitText(page, 'items', 'SIGNUP:CLAIMED')
+    assert.equal(await read(page, 'claiming'), 'BONUS')
+
+    await page.evaluate(() => window.pending.BONUS())
+    await waitText(page, 'bonus', 'CLAIMED')
+    await page.waitForFunction(() => document.querySelector('[data-testid="claiming"]').textContent === '')
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('같은 단계를 진행 중에 다시 요청하면 보내지 않고 null을 돌려준다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    await page.evaluate(() => window.claimResponses.push(
+      { deferred: true, step: 'SIGNUP', status: 202, code: 'EARN_ACCEPTED', data: { step: 'SIGNUP', rewardAmount: 1, status: 'CLAIMED' } },
+    ))
+    await page.evaluate(() => { window.claimStep('SIGNUP') })
+    await waitText(page, 'claiming', 'SIGNUP')
+
+    const duplicate = await claim(page, 'SIGNUP')
+
+    assert.deepEqual(duplicate, { ok: true, value: null })
+    assert.equal((await posts(page)).length, 1)
+    await page.evaluate(() => window.pending.SIGNUP())
+    await waitText(page, 'items', 'SIGNUP:CLAIMED')
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('회원이 바뀌면 이전 회원의 requestId를 재사용하지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    await page.evaluate(() => window.claimResponses.push({ status: 504, code: 'EARN_STATUS_UNKNOWN', message: '확인할 수 없어요' }))
+    assert.equal((await claim(page, 'SIGNUP')).ok, false)
+
+    await page.evaluate(() => window.renderWelcomeQuest(8))
+    await page.waitForFunction(() => window.requests.filter((request) => request.method === 'GET').length === 2)
+    await waitLoaded(page)
+    await page.evaluate((response) => window.claimResponses.push(response), accepted('SIGNUP'))
+    assert.equal((await claim(page, 'SIGNUP')).ok, true)
+
+    const [first, second] = await posts(page)
+    assert.notEqual(first.body.requestId, second.body.requestId)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

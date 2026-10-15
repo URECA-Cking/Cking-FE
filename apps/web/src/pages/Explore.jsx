@@ -1,19 +1,17 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import CreatorBanner from '../components/creator/CreatorBanner.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
-import InterestEditor from '../components/creator/InterestEditor.jsx'
-import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../components/ui/States.jsx'
+import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
-import { getMyCreatorRecommendations, getSimilarCreators, loadCreatorDirectory } from '../api/creators.js'
+import { loadCreatorDirectory } from '../api/creators.js'
 import { getMySpace } from '../api/creatorSpace.js'
 import { getEvents } from '../api/events.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
-import { useRecommendationEvents } from '../hooks/useRecommendationEvents.js'
 import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
 import { filterExploreCreators, resetCreatorCarousel } from '../utils/exploreCreatorSection.js'
@@ -22,10 +20,6 @@ import { spacePath } from '../api/creatorSpace.js'
 
 // 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
 const CREATOR_PAGE_SIZE = 30
-// 추천은 BE 상한(20)까지 한 번에 받고 화면에서 나눠 보여준다. 더 보기마다 다시 받으면 응답 ID(수집 단위)가 바뀐다.
-const RECOMMEND_MAX = 20
-const RECOMMEND_PAGE_SIZE = 10
-const SIMILAR_SIZE = 5
 
 const EVENT_FILTERS = [
   { id: '', label: '전체' },
@@ -44,6 +38,7 @@ export default function Explore() {
   const pageRef = useRef(null)
   const creatorCarouselRef = useRef(null)
   const showToast = useToast()
+  const navigate = useNavigate()
   const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds, isCreator } = useUser()
   const mySpace = useAsync(
     () => getMySpace().then((space) => ({ ...space, memberId: user.memberId })),
@@ -53,6 +48,7 @@ export default function Explore() {
   const ownSpaceReady = isCreator && !mySpace.loading && mySpace.data?.memberId === user?.memberId
   const ownCreatorId = ownSpaceReady ? mySpace.data.creatorId : null
   const ownSpacePending = isCreator && !ownSpaceReady
+  const [tab, setTab] = useState('creator')
   const [query, setQuery] = useState('')
   const [creatorFilter, setCreatorFilter] = useState('전체')
   const [eventFilter, setEventFilter] = useState('IN_PROGRESS')
@@ -68,38 +64,10 @@ export default function Explore() {
   )
 
   const creators = useMemo(() => directory.data?.creators ?? [], [directory.data])
-  const creatorsById = useMemo(() => new Map(creators.map((creator) => [creator.creatorId, creator])), [creators])
-
-  // AI 추천 응답은 이름·이미지·소개만 주므로 카드(배너·진행 중 이벤트)는 전체 목록의 같은 크리에이터로 그린다.
-  const recommendation = useAsync(
-    () => getMyCreatorRecommendations({ size: RECOMMEND_MAX }),
-    [user?.memberId],
-    { enabled: Boolean(user), fallbackMessage: '추천 크리에이터를 불러오지 못했어요.' },
-  )
-  const { impressionRef, trackClick } = useRecommendationEvents(recommendation.data?.requestId ?? null)
-  const [recommendLimit, setRecommendLimit] = useState(RECOMMEND_PAGE_SIZE)
-  const recommendedCreators = useMemo(
-    () => (recommendation.data?.items ?? []).map((item) => creatorsById.get(item.creatorId)).filter(Boolean),
-    [recommendation.data, creatorsById],
-  )
-  const shownRecommended = recommendedCreators.slice(0, recommendLimit)
-
-  // 유사 크리에이터는 기준이 필요해서 가장 최근에 관심 등록한 크리에이터를 기준으로 삼는다(followedCreators는 최근 팔로우 순). 관심이 없으면 숨긴다.
-  const similarBaseId = followsReady ? (followedCreators[0] ?? null) : null
-  const similar = useAsync(
-    () => getSimilarCreators(similarBaseId, { size: SIMILAR_SIZE }),
-    [similarBaseId],
-    { enabled: similarBaseId !== null },
-  )
-  const similarCreators = useMemo(
-    () => (similar.data ?? []).map((candidate) => creatorsById.get(candidate.similarCreatorId)).filter(Boolean),
-    [similar.data, creatorsById],
-  )
-  const similarBase = creatorsById.get(similarBaseId)
 
   const filteredCreators = useMemo(
-    () => filterExploreCreators(creators, followedCreators, creatorFilter, query),
-    [creators, creatorFilter, query, followedCreators],
+    () => filterExploreCreators(creators, followedCreators, creatorFilter, ''),
+    [creators, creatorFilter, followedCreators],
   )
 
   // 진행 중 이벤트 수는 공개 API의 값만 사용한다.
@@ -115,7 +83,6 @@ export default function Explore() {
   const events = eventList.data?.items ?? []
   const shownCreators = useMemo(() => filteredCreators.slice(0, creatorLimit), [filteredCreators, creatorLimit])
   const renderedBalanceIds = [
-    ...shownRecommended.map((creator) => creator.creatorId),
     ...shownCreators.map((creator) => creator.creatorId),
     ...trending.map((creator) => creator.creatorId),
   ]
@@ -191,13 +158,21 @@ export default function Explore() {
   return (
     <div ref={pageRef} className="flex flex-col w-full pb-8">
       <div className="px-margin pt-space-md pb-space-sm flex flex-col gap-space-sm">
-        <div className="relative w-full">
+        <form
+          className="relative w-full"
+          onSubmit={(event) => {
+            event.preventDefault()
+            const keyword = query.trim()
+            // 보던 탭에 맞춰 검색 대상을 좁혀 연다. 결과 화면에서 '전체'로 넓힐 수 있다.
+            if (keyword) navigate(`/explore/search?q=${encodeURIComponent(keyword)}&type=${tab}`)
+          }}
+        >
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-outline">
             <MaterialIcon name="search" className="text-[20px]" />
           </div>
           <input
             value={query}
-            onChange={(event) => { setQuery(event.target.value); setCreatorLimit(CREATOR_PAGE_SIZE) }}
+            onChange={(event) => setQuery(event.target.value)}
             className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-all shadow-sm"
             placeholder="크리에이터를 검색해 보세요 (아티스트, 유튜버, 스트리머)"
             type="search"
@@ -206,89 +181,44 @@ export default function Explore() {
             <button
               type="button"
               aria-label="지우기"
-              onClick={() => { setQuery(''); setCreatorLimit(CREATOR_PAGE_SIZE) }}
+              onClick={() => setQuery('')}
               className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-outline hover:text-on-surface transition-colors"
             >
               <MaterialIcon name="cancel" className="text-[18px]" />
             </button>
           )}
+        </form>
+        <div role="tablist" className="flex border-b border-outline-variant/30">
+          {[['creator', '크리에이터'], ['event', '이벤트']].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`flex-1 h-10 -mb-px border-b-2 font-label-md text-label-md font-semibold transition-colors ${
+                tab === id ? 'border-primary text-on-surface' : 'border-transparent text-outline'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <div className="flex items-center gap-space-xs px-2 py-1 bg-surface-container-low rounded-lg">
-          <MaterialIcon name="local_fire_department" className="text-primary text-[16px] animate-pulse" />
-          <span className="font-label-xs text-label-xs text-on-surface-variant truncate">
-            {trending.length > 0
-              ? `진행 중인 이벤트: ${trending.map((creator) => creator.name).join(' & ')} 확인해보기!`
-              : '새로운 이벤트가 열리면 여기에서 가장 먼저 알려드릴게요!'}
+        {tab === 'creator' && (
+        <Link
+          to="/explore/recommend"
+          className="flex items-center justify-between gap-2 px-3 h-11 rounded-xl bg-berry-tint text-primary font-label-md text-label-md font-semibold active:scale-[0.98] transition-all"
+        >
+          <span className="flex items-center gap-1.5">
+            <MaterialIcon name="auto_awesome" className="text-[18px]" />
+            맞춤 추천 보기
           </span>
-        </div>
+          <MaterialIcon name="chevron_right" className="text-[20px]" />
+        </Link>
+        )}
       </div>
 
-      {user && (
-        <section className="mt-space-md flex flex-col">
-          <div className="px-margin">
-            <SectionHeader icon="auto_awesome" title="나를 위한 추천" action="관심 관리" actionTo="/onboarding/creators" />
-          </div>
-          <InterestEditor onSaved={() => { setRecommendLimit(RECOMMEND_PAGE_SIZE); recommendation.reload() }} />
-          {recommendation.loading && <LoadingBlock label="추천 크리에이터를 찾는 중..." />}
-          {!recommendation.loading && recommendation.error && (
-            <ErrorBlock message={recommendation.error} onRetry={recommendation.reload} />
-          )}
-          {!recommendation.loading && !recommendation.error && shownRecommended.length === 0 && (
-            <EmptyBlock icon="auto_awesome" message="아직 보여드릴 추천이 없어요. 관심 분야를 골라 보세요." />
-          )}
-          {!recommendation.loading && !recommendation.error && shownRecommended.length > 0 && (
-            <div className="flex overflow-x-auto md:grid md:grid-cols-2 xl:grid-cols-3 md:overflow-visible gap-space-md px-margin no-scrollbar snap-x snap-mandatory pt-1 pb-3">
-              {shownRecommended.map((creator) => renderCreatorCard(creator, { impressionRef, onOpen: trackClick }))}
-              {recommendedCreators.length > shownRecommended.length && (
-                <button
-                  type="button"
-                  onClick={() => setRecommendLimit((limit) => limit + RECOMMEND_PAGE_SIZE)}
-                  className="min-w-[120px] snap-center rounded-2xl bg-surface-container-low text-primary font-label-md text-label-md flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"
-                >
-                  <MaterialIcon name="add_circle" className="text-[28px]" />
-                  <span>더 보기</span>
-                </button>
-              )}
-            </div>
-          )}
-        </section>
-      )}
-
-      {similarBase && similarCreators.length > 0 && (
-        <section className="mt-space-md px-margin flex flex-col">
-          <SectionHeader icon="group" title={`${similarBase.name}와 비슷한 크리에이터`} />
-          <div className="flex flex-col gap-2.5">
-            {similarCreators.map((creator) => {
-              const followed = isFollowing(creator.creatorId)
-              return (
-                <div key={creator.creatorId} className="w-full p-3 rounded-2xl bg-surface-container-lowest shadow-card flex items-center justify-between gap-3">
-                  <Link to={spacePath(creator.handle)} className="flex items-center gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                      <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
-                    </div>
-                    <div className="min-w-0 flex flex-col">
-                      <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
-                      <span className="font-label-xs text-label-xs text-outline line-clamp-1">{creator.bio}</span>
-                    </div>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleFollow(creator)}
-                    disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
-                    className={`flex-shrink-0 px-3 h-8 rounded-full font-label-sm text-label-sm flex items-center gap-1 transition-all active:scale-95 disabled:opacity-60 ${
-                      followed ? 'bg-primary text-on-primary' : 'bg-berry-tint text-primary'
-                    }`}
-                  >
-                    <MaterialIcon name={followed ? 'done' : 'add'} className="text-[16px]" />
-                    <span>{followed ? '완료' : '관심'}</span>
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
+      {tab === 'creator' && (<>
       <section className="mt-space-md flex flex-col">
         <div className="px-margin mb-space-sm flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div className="flex min-w-0 items-center gap-1.5">
@@ -407,7 +337,10 @@ export default function Explore() {
         </section>
       )}
 
-      <section className="mt-space-lg flex flex-col">
+      </>)}
+
+      {tab === 'event' && (
+      <section className="mt-space-sm flex flex-col">
         <div className="px-margin flex items-center justify-between mb-space-sm">
           <div className="flex items-center gap-1.5">
             <MaterialIcon name="confirmation_number" filled className="text-primary text-[20px]" />
@@ -454,6 +387,7 @@ export default function Explore() {
           </div>
         )}
       </section>
+      )}
     </div>
   )
 }

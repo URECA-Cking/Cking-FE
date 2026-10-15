@@ -16,7 +16,7 @@ test.before(async () => {
     build: { write: false, minify: false, lib: { entry: fileURLToPath(new URL('./fixtures/homeBrowser.jsx', import.meta.url)), name: 'HomeTest', formats: ['iife'] } },
   })
   bundle = (Array.isArray(output) ? output[0] : output).output.find((part) => part.type === 'chunk').code
-  const paths = [process.env.NOTIFICATIONS_TEST_BROWSER, 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].filter(Boolean)
+  const paths = [process.env.HOME_TEST_BROWSER, 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].filter(Boolean)
   browser = await chromium.launch({ headless: true, ...(paths.find(existsSync) ? { executablePath: paths.find(existsSync) } : {}) })
 })
 test.after(async () => { await browser?.close() })
@@ -81,6 +81,65 @@ test('완료 체크는 톤에 따라 색이 바뀌고 크기를 따른다', asyn
     await page.waitForFunction(() => document.querySelector('#root > span').className.includes('bg-white'))
     assert.match(await mark.getAttribute('class'), /bg-white text-primary/)
     assert.equal(await mark.evaluate((node) => node.style.width), '18px')
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('바로 설치할 수 있는 환경에서는 접힌 줄에 앱 설치하기가 보이고, 거절하면 설치 방법 보기로 돌아온다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderInstallBanner())
+    await page.getByRole('button', { name: '설치 방법 보기' }).waitFor()
+    await page.evaluate(() => {
+      const event = new Event('beforeinstallprompt', { cancelable: true })
+      event.prompt = () => { window.prompted = true }
+      event.userChoice = Promise.resolve({ outcome: 'dismissed' })
+      window.dispatchEvent(event)
+    })
+    const install = page.getByRole('button', { name: '앱 설치하기' })
+    await install.waitFor()
+    assert.equal(await page.getByRole('button', { name: '설치 방법 보기' }).count(), 0)
+
+    await install.click()
+    await page.getByRole('button', { name: '설치 방법 보기' }).waitFor()
+    assert.equal(await page.evaluate(() => window.prompted), true)
+    assert.equal(await page.getByRole('button', { name: '앱 설치하기' }).count(), 0)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+/** 공용 미션과 출석 원장 응답을 흉내 낸다. 원장은 오늘부터 하루씩 거슬러 올라간 출석 적립 stampedDays건이다. */
+async function mockMissions(page, { type = 'ATTENDANCE', stampedDays = 0 } = {}) {
+  await page.evaluate(({ missionType, days }) => {
+    const respond = (data) => Promise.resolve(new Response(JSON.stringify({ code: 'SUCCESS', data, message: null }), { status: 200 }))
+    window.fetch = (url) => String(url).includes('/api/tickets/common/history')
+      ? respond({ items: Array.from({ length: days }, (_, index) => ({ type: 'EARN', missionId: 1, createdAt: new Date(Date.now() - index * 86400000).toISOString() })), hasNext: false })
+      : respond([{ missionId: 1, type: missionType, rewardAmount: 1, completedToday: false }])
+  }, { missionType: type, days: stampedDays })
+}
+
+test('출석 카드는 뱃지와 7칸을 보이고, 다음 칸에도 DAY 번호를 그대로 둔다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await mockMissions(page, { stampedDays: 2 })
+    await page.evaluate(() => window.renderMission(1))
+    await page.getByText('DAILY CHECK-IN').waitFor()
+    await page.getByText('최근 7일 중 2일 출석').waitFor()
+    const labels = await page.locator('ol[aria-label="최근 7일 출석 도장"] > li > span:first-child').allTextContents()
+    assert.deepEqual(labels, ['DAY 1', 'DAY 2', 'DAY 3', 'DAY 4', 'DAY 5', 'DAY 6', 'DAY 7'])
+    assert.equal(await page.getByRole('button', { name: '도장 찍기' }).count(), 1)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('출석이 아닌 공용 미션에는 DAILY CHECK-IN 뱃지와 도장 칸이 붙지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await mockMissions(page, { type: 'SURVEY' })
+    await page.evaluate(() => window.renderMission(1))
+    await page.getByRole('button', { name: '도장 찍기' }).waitFor()
+    assert.equal(await page.getByText('DAILY CHECK-IN').count(), 0)
+    assert.equal(await page.locator('ol[aria-label="최근 7일 출석 도장"]').count(), 0)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

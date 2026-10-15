@@ -80,7 +80,7 @@ npm run test:e2e:admin
 | 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}`, `GET /api/creators/{id}/posts`, `GET /api/creators/{id}/posts/{postId}`, (본인) `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug`, `GET /api/events?creatorId=`, `GET /api/creators/{id}/tickets`, `.../tickets/history`, `GET·POST .../missions`, YouTube 구독 인증 채널·제출·상태 조회 API, `GET /api/creators/{id}/calendar/schedules`, (로그인 시) `GET /api/me/calendar/schedules`, `PUT·DELETE /api/me/calendar/schedules/{id}` |
 | 이벤트 상세 · 응모 | `/events/:eventId` | `GET /api/events/{id}`, `GET /api/events/{id}/entry-status`, `POST /api/events/{id}/entries`, `GET /api/events/{id}/winners` |
 | 내 응모 | `/my-entries` | `GET /api/creators/{id}/tickets/history`, `GET /api/events/{id}/winners` |
-| 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH /api/me/notifications/{id}/read` |
+| 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH /api/me/notifications/{id}/read`, `PATCH /api/me/notifications/read` |
 | 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/creator/applications/me`, `POST /api/creator/applications` |
 | 이벤트 관리 (내 스페이스 이벤트 탭) | `/:slug` | `GET /api/creator/events`, `DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
 | 이벤트 작성 | `/creator/events/new` | `POST /api/creator/events` |

@@ -188,7 +188,7 @@ export default function Explore() {
             </button>
           )}
         </form>
-        <div role="tablist" className="flex border-b border-outline-variant/30">
+        <div role="tablist" className="relative flex border-b border-outline-variant/30">
           {[['creator', '크리에이터'], ['event', '이벤트']].map(([id, label]) => (
             <button
               key={id}
@@ -196,13 +196,19 @@ export default function Explore() {
               role="tab"
               aria-selected={tab === id}
               onClick={() => setTab(id)}
-              className={`flex-1 h-10 -mb-px border-b-2 font-label-md text-label-md font-semibold transition-colors ${
-                tab === id ? 'border-primary text-on-surface' : 'border-transparent text-outline'
+              className={`flex-1 h-10 font-label-md text-label-md font-semibold transition-colors ${
+                tab === id ? 'text-on-surface' : 'text-outline'
               }`}
             >
               {label}
             </button>
           ))}
+          {/* 탭 두 개가 같은 너비라 활성 탭 순서만큼 한 칸씩 밀어 밑줄이 미끄러지듯 옮겨 간다. */}
+          <span
+            aria-hidden="true"
+            className="absolute bottom-0 left-0 h-0.5 w-1/2 bg-primary transition-transform duration-200 ease-out motion-reduce:transition-none"
+            style={{ transform: `translateX(${tab === 'creator' ? 0 : 100}%)` }}
+          />
         </div>
         {tab === 'creator' && (
         <Link

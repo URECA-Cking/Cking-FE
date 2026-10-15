@@ -185,12 +185,18 @@ async function swipeOpen(page, title) {
 
 /** 알림 카드를 마우스로 카드 너비의 85%만큼 끝까지 밀었다가 놓는다(바로 삭제 기준 65%를 넘긴다). */
 async function swipeFar(page, title) {
-  const box = await card(page, title).boundingBox()
-  const y = box.y + box.height / 2
-  await page.mouse.move(box.x + box.width - 10, y)
+  // 판정 기준은 스와이프 영역(카드 버튼의 부모)의 너비다. 이 테스트 화면은 CSS가 없어 버튼이 글자 폭만큼만 차지하므로
+  // 카드 버튼이 아니라 영역의 너비로 거리를 잡고, 영역의 오른쪽 끝에서 눌러 왼쪽으로 끈다.
+  const cardBox = await card(page, title).boundingBox()
+  const area = await card(page, title).locator('..').boundingBox()
+  const y = cardBox.y + cardBox.height / 2
+  const startX = area.x + area.width - 10
+  await page.mouse.move(startX, y)
   await page.mouse.down()
-  await page.mouse.move(box.x + box.width - 60, y + 2, { steps: 4 })
-  await page.mouse.move(box.x + box.width - 10 - box.width * 0.85, y + 2, { steps: 8 })
+  await page.mouse.move(startX - 50, y + 2, { steps: 4 })
+  await page.mouse.move(startX - area.width * 0.85, y + 2, { steps: 8 })
+  // 놓기 전에 "놓으면 삭제" 안내가 보여야 한다(기준을 넘겼는지 확인).
+  await page.getByText('놓으면 삭제').waitFor({ timeout: 5000 })
   await page.mouse.up()
 }
 

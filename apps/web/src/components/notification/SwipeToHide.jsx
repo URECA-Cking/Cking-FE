@@ -51,8 +51,9 @@ export default function SwipeToHide({ open, onOpenChange, onHide, hiding = false
       event.currentTarget.setPointerCapture?.(event.pointerId)
     }
     moved.current = true
-    // 바로 삭제할 수 있도록 카드 너비까지 끌 수 있다.
-    setDragOffset(clampSwipeOffset(current.offset, dx, current.width || SWIPE_REVEAL))
+    // 바로 삭제할 수 있도록 카드 너비까지 끌 수 있다. 놓는 순간의 값은 렌더를 기다리지 않고 ref에 둔다(이벤트가 몰려 와도 마지막 위치를 쓴다).
+    current.latest = clampSwipeOffset(current.offset, dx, current.width || SWIPE_REVEAL)
+    setDragOffset(current.latest)
   }
 
   function finish(event) {
@@ -60,7 +61,7 @@ export default function SwipeToHide({ open, onOpenChange, onHide, hiding = false
     if (!current || current.id !== event.pointerId) return
     start.current = null
     if (current.axis !== 'x') return
-    const outcome = swipeOutcome(dragOffset ?? resting, current.width)
+    const outcome = swipeOutcome(current.latest ?? resting, current.width)
     setDragOffset(null)
     if (outcome === 'delete') {
       onOpenChange(false)

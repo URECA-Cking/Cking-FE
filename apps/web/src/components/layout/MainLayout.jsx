@@ -5,7 +5,7 @@ import { TopHeader } from './TopHeader.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useOnline } from '../../hooks/useOnline.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { getMyNotifications } from '../../api/notifications.js'
+import { getAllMyNotifications } from '../../api/notifications.js'
 import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 import { useAppBack } from '../../hooks/useAppBack.js'
@@ -28,6 +28,7 @@ const APP_BAR_TITLES = {
   '/my-tickets': { title: '내 응모권', back: true, hideTickets: true },
 }
 
+/** 사용자 화면의 헤더 배지와 공용 탐색 레이아웃을 관리한다. */
 export default function MainLayout() {
   const location = useLocation()
   const navigationType = useNavigationType()
@@ -40,12 +41,39 @@ export default function MainLayout() {
   const online = useOnline()
   const appBarTitle = APP_BAR_TITLES[pathname]
 
-  // 하단 탭의 읽지 않은 알림 배지는 실제 알림 목록에서 계산한다.
-  // 같은 결과를 홈 화면도 쓰기 때문에 Outlet context로 내려보내 중복 호출을 막는다.
+  // 헤더 배지는 목록의 모든 페이지를 기준으로 계산한다.
   // 이 레이아웃은 RequireUser 안에서만 렌더링되므로 항상 로그인된 상태에서 조회한다.
-  const { data, reload } = useAsync(() => getMyNotifications({ size: 50 }), [pathname])
+  const { data, reload, setData } = useAsync(() => getAllMyNotifications(), [pathname])
   const notifications = data?.items ?? []
   const unreadCount = notifications.filter((item) => !item.readAt).length
+
+  /** 알림 하나의 읽음 상태를 헤더 배지의 목록에도 즉시 반영한다. */
+  const markNotificationReadLocally = (notificationId, readAt) => {
+    setData((current) => current && ({
+      ...current,
+      items: current.items.map((item) =>
+        item.notificationId === notificationId ? { ...item, readAt } : item,
+      ),
+    }))
+  }
+
+  /** 전체 읽음 요청 동안 헤더 배지의 미확인 개수를 즉시 0으로 만든다. */
+  const markAllNotificationsReadLocally = (readAt) => {
+    setData((current) => current && ({
+      ...current,
+      items: current.items.map((item) => item.readAt ? item : { ...item, readAt }),
+    }))
+  }
+
+  /** 전체 읽음 요청이 실패하면 이번 요청에서 바꾼 배지 상태만 되돌린다. */
+  const rollbackAllNotificationsReadLocally = (optimisticReadAt) => {
+    setData((current) => current && ({
+      ...current,
+      items: current.items.map((item) =>
+        item.readAt === optimisticReadAt ? { ...item, readAt: null } : item,
+      ),
+    }))
+  }
   // 헤더 응모권 버튼의 총 개수. 아직 불러오지 못했으면 null이라 자리 표시를 보여 준다.
   const { summary: ticketSummary } = useMyTickets()
 
@@ -133,7 +161,14 @@ export default function MainLayout() {
             </span>
           </div>
         )}
-        <Outlet context={{ notifications, unreadCount, reloadNotifications: reload }} />
+        <Outlet context={{
+          notifications,
+          unreadCount,
+          reloadNotifications: reload,
+          markNotificationReadLocally,
+          markAllNotificationsReadLocally,
+          rollbackAllNotificationsReadLocally,
+        }} />
       </main>
       <BottomNav embedded compact={bottomCompact} onNavigate={handleNavigationScrollReset} />
     </div>

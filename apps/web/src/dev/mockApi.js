@@ -127,6 +127,34 @@ export function installMockApiIfRequested() {
           createdAt: new Date(now - 5 * DAY).toISOString(), readAt: new Date(now - 4 * DAY).toISOString(),
         },
       ]
+  const notificationReadKey = `cking.mock.notificationRead.${scenario}`
+  let savedNotificationRead = {}
+  try {
+    savedNotificationRead = JSON.parse(sessionStorage.getItem(notificationReadKey) ?? '{}')
+  } catch {
+    // 저장소를 못 쓰면 현재 탭에서만 읽음 상태를 유지한다.
+  }
+  const initialNotifications = empty ? [] : sanctionMode ? sanctionNotifications : [
+    {
+      notificationId: 1, event: { eventId: 11, title: '가을 팬미팅 초대' }, drawing: { drawingId: 1, drawNo: 0, drawType: 'INITIAL' },
+      type: 'INITIAL_WINNER', title: '당첨 안내', body: '가을 팬미팅에 당첨되었어요.',
+      readAt: null, createdAt: new Date(now - HOUR).toISOString(),
+    },
+  ]
+  const notifications = initialNotifications.map((item) => ({
+    ...item, readAt: savedNotificationRead[item.notificationId] ?? item.readAt,
+  }))
+
+  /** 개발용 알림의 읽음 시각을 새로고침 뒤에도 복원할 수 있게 저장한다. */
+  function saveNotificationRead() {
+    try {
+      sessionStorage.setItem(notificationReadKey, JSON.stringify(Object.fromEntries(
+        notifications.filter((item) => item.readAt).map((item) => [item.notificationId, item.readAt]),
+      )))
+    } catch {
+      // 저장소 접근이 막혀도 현재 탭의 API 동작은 유지한다.
+    }
+  }
   const events = empty ? [] : buildEvents(now)
   const posts = empty ? {} : buildPosts(now)
   const follows = empty ? [] : FOLLOWED
@@ -146,8 +174,32 @@ export function installMockApiIfRequested() {
     ['POST', /^\/api\/auth\/refresh$/, () => ({ accessToken: 'mock-token', expiresIn: 3600 })],
     ['GET', /^\/api\/me$/, () => me],
     ['GET', /^\/api\/me\/follows$/, () => page(follows.map((creatorId) => ({ creatorId })))],
-    ['GET', /^\/api\/me\/notifications$/, () => page(empty ? [] : sanctionMode ? sanctionNotifications : [{ notificationId: 1, readAt: null, createdAt: new Date(now - HOUR).toISOString() }])],
-    ['PATCH', /^\/api\/me\/notifications\/(\d+)\/read$/, (id) => ({ notificationId: Number(id), readAt: new Date().toISOString() })],
+    // 실제 목록 API처럼 page·size로 알림을 나눠 반환한다.
+    ['GET', /^\/api\/me\/notifications$/, (url) => {
+      const size = Number(url.searchParams.get('size')) || 20
+      const pageNo = Number(url.searchParams.get('page')) || 0
+      return {
+        items: notifications.slice(pageNo * size, (pageNo + 1) * size), page: pageNo, size,
+        totalElements: notifications.length, totalPages: Math.ceil(notifications.length / size),
+        hasNext: (pageNo + 1) * size < notifications.length,
+      }
+    }],
+    // 개별 읽음은 최초 읽음 시각을 유지하고 모의 서버 상태에 저장한다.
+    ['PATCH', /^\/api\/me\/notifications\/(\d+)\/read$/, (id) => {
+      const item = notifications.find((notification) => notification.notificationId === Number(id))
+      if (!item) return { status: 404, code: 'NOTIFICATION_NOT_FOUND', data: null, message: '알림을 찾을 수 없습니다.' }
+      item.readAt ??= new Date().toISOString()
+      saveNotificationRead()
+      return { notificationId: item.notificationId, readAt: item.readAt }
+    }],
+    // 전체 읽음은 아직 읽지 않은 건만 갱신하고 이번 처리 건수를 반환한다.
+    ['PATCH', /^\/api\/me\/notifications\/read$/, () => {
+      const readCount = notifications.filter((item) => !item.readAt).length
+      const readAt = new Date().toISOString()
+      notifications.forEach((item) => { item.readAt ??= readAt })
+      saveNotificationRead()
+      return { readCount }
+    }],
     ...(creatorMode
       ? [
           ['GET', /^\/api\/creators\/(\d+)\/posts\/(\d+)\/comments$/, (_id, postId) => page([

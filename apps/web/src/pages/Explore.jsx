@@ -16,6 +16,7 @@ import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { useRecommendationEvents } from '../hooks/useRecommendationEvents.js'
 import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
+import { filterExploreCreators, resetCreatorCarousel } from '../utils/exploreCreatorSection.js'
 import { describeError } from '../api/client.js'
 import { spacePath } from '../api/creatorSpace.js'
 
@@ -41,6 +42,7 @@ const EVENT_FILTERS = [
  */
 export default function Explore() {
   const pageRef = useRef(null)
+  const creatorCarouselRef = useRef(null)
   const showToast = useToast()
   const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds, isCreator } = useUser()
   const mySpace = useAsync(
@@ -95,16 +97,10 @@ export default function Explore() {
   )
   const similarBase = creatorsById.get(similarBaseId)
 
-  const filteredCreators = useMemo(() => {
-    const keyword = query.trim().toLowerCase()
-    return creators.filter((creator) => {
-      const matchesCategory = creatorFilter === '전체' || followedCreators.includes(creator.creatorId)
-      const matchesQuery =
-        !keyword ||
-        creator.name.toLowerCase().includes(keyword)
-      return matchesCategory && matchesQuery
-    })
-  }, [creators, creatorFilter, query, followedCreators])
+  const filteredCreators = useMemo(
+    () => filterExploreCreators(creators, followedCreators, creatorFilter, query),
+    [creators, creatorFilter, query, followedCreators],
+  )
 
   // 진행 중 이벤트 수는 공개 API의 값만 사용한다.
   const trending = useMemo(
@@ -133,6 +129,12 @@ export default function Explore() {
     } catch (error) {
       showToast(describeError(error, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
     }
+  }
+
+  function changeCreatorFilter(nextFilter) {
+    setCreatorFilter(nextFilter)
+    setCreatorLimit(CREATOR_PAGE_SIZE)
+    resetCreatorCarousel(creatorCarouselRef.current)
   }
 
   // 추천 섹션과 전체 목록이 같은 카드를 쓴다. 추천 카드만 노출·클릭 수집용 ref/onClick을 받는다.
@@ -288,8 +290,28 @@ export default function Explore() {
       )}
 
       <section className="mt-space-md flex flex-col">
-        <div className="px-margin">
-          <SectionHeader icon="groups" title="전체 크리에이터" />
+        <div className="px-margin mb-space-sm flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <MaterialIcon name="groups" className="text-[20px] text-primary" />
+            <h2 className="font-title-lg text-title-lg text-on-surface">크리에이터</h2>
+          </div>
+          <div className="flex shrink-0 items-center gap-2" aria-label="크리에이터 목록 필터">
+            {['전체', '관심'].map((item) => (
+              <button
+                key={item}
+                type="button"
+                aria-pressed={creatorFilter === item}
+                onClick={() => changeCreatorFilter(item)}
+                className={`min-h-9 rounded-full px-3 py-1.5 font-label-sm text-label-sm font-semibold whitespace-nowrap transition-all active:scale-95 ${
+                  creatorFilter === item
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                }`}
+              >
+                {item === '관심' ? `관심 ${followedCreators.length}` : item}
+              </button>
+            ))}
+          </div>
         </div>
         {directory.loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}
         {!directory.loading && directory.error && (
@@ -301,10 +323,16 @@ export default function Explore() {
           </button>
         )}
         {!directory.loading && !directory.error && filteredCreators.length === 0 && (
-          <EmptyBlock icon="person_search" message="조건에 맞는 크리에이터가 없어요." />
+          creatorFilter === '관심' && followedCreators.length === 0
+            ? <EmptyBlock
+              icon="favorite_border"
+              message="아직 관심 등록한 크리에이터가 없어요. 마음에 드는 크리에이터를 찾아보세요."
+              action={<button type="button" onClick={() => changeCreatorFilter('전체')} className="mt-2 min-h-10 rounded-xl bg-primary px-4 font-label-sm text-label-sm font-semibold text-on-primary active:scale-95">전체 크리에이터 보기</button>}
+            />
+            : <EmptyBlock icon="person_search" message="조건에 맞는 크리에이터가 없어요." />
         )}
         {!directory.loading && !directory.error && filteredCreators.length > 0 && (
-          <div className="flex overflow-x-auto md:grid md:grid-cols-2 xl:grid-cols-3 md:overflow-visible gap-space-md px-margin no-scrollbar snap-x snap-mandatory pt-1 pb-3">
+          <div ref={creatorCarouselRef} className="flex overflow-x-auto md:grid md:grid-cols-2 xl:grid-cols-3 md:overflow-visible gap-space-md px-margin no-scrollbar snap-x snap-mandatory pt-1 pb-3">
             {shownCreators.map((creator) => renderCreatorCard(creator))}
             {filteredCreators.length > shownCreators.length && (
               <button
@@ -378,36 +406,6 @@ export default function Explore() {
           </div>
         </section>
       )}
-
-      <section className="mt-space-lg flex flex-col">
-        <div className="px-margin flex items-center justify-between mb-space-sm">
-          <div className="flex items-center gap-1.5">
-            <MaterialIcon name="category" className="text-primary text-[20px]" />
-            <h2 className="font-title-lg text-title-lg text-on-surface">크리에이터 보기</h2>
-          </div>
-          {followedCreators.length > 0 && (
-            <span className="font-label-xs text-label-xs text-primary font-semibold">
-              관심 {followedCreators.length}명
-            </span>
-          )}
-        </div>
-        <div className="flex overflow-x-auto gap-2 px-margin no-scrollbar py-1">
-          {['전체', '관심'].map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => { setCreatorFilter(item); setCreatorLimit(CREATOR_PAGE_SIZE) }}
-              className={`px-4 py-2 rounded-full font-label-md text-label-md font-semibold whitespace-nowrap transition-all active:scale-95 ${
-                creatorFilter === item
-                  ? 'bg-primary text-on-primary shadow-sm'
-                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-              }`}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </section>
 
       <section className="mt-space-lg flex flex-col">
         <div className="px-margin flex items-center justify-between mb-space-sm">

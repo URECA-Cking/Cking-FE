@@ -134,6 +134,13 @@ export function installMockApiIfRequested() {
   } catch {
     // 저장소를 못 쓰면 현재 탭에서만 읽음 상태를 유지한다.
   }
+  const notificationHiddenKey = `cking.mock.notificationHidden.${scenario}`
+  let savedNotificationHidden = {}
+  try {
+    savedNotificationHidden = JSON.parse(sessionStorage.getItem(notificationHiddenKey) ?? '{}')
+  } catch {
+    // 저장소를 못 쓰면 현재 탭에서만 숨김 상태를 유지한다.
+  }
   const initialNotifications = empty ? [] : sanctionMode ? sanctionNotifications : [
     {
       notificationId: 1, event: { eventId: 11, title: '가을 팬미팅 초대' }, drawing: { drawingId: 1, drawNo: 0, drawType: 'INITIAL' },
@@ -151,6 +158,19 @@ export function installMockApiIfRequested() {
       sessionStorage.setItem(notificationReadKey, JSON.stringify(Object.fromEntries(
         notifications.filter((item) => item.readAt).map((item) => [item.notificationId, item.readAt]),
       )))
+    } catch {
+      // 저장소 접근이 막혀도 현재 탭의 API 동작은 유지한다.
+    }
+  }
+  // 숨긴 알림은 실제 BE처럼 목록·읽음에서 빠지지만 행은 남는다.
+  // 알림 ID별 최초 숨김 시각. 반복 숨김에도 이 값을 그대로 돌려준다.
+  const hiddenNotifications = new Map(Object.entries(savedNotificationHidden).map(([id, hiddenAt]) => [Number(id), hiddenAt]))
+  const visibleNotifications = () => notifications.filter((item) => !hiddenNotifications.has(item.notificationId))
+
+  /** 개발용 알림의 숨김 상태를 새로고침 뒤에도 복원할 수 있게 저장한다. */
+  function saveNotificationHidden() {
+    try {
+      sessionStorage.setItem(notificationHiddenKey, JSON.stringify(Object.fromEntries(hiddenNotifications)))
     } catch {
       // 저장소 접근이 막혀도 현재 탭의 API 동작은 유지한다.
     }
@@ -178,15 +198,16 @@ export function installMockApiIfRequested() {
     ['GET', /^\/api\/me\/notifications$/, (url) => {
       const size = Number(url.searchParams.get('size')) || 20
       const pageNo = Number(url.searchParams.get('page')) || 0
+      const visible = visibleNotifications()
       return {
-        items: notifications.slice(pageNo * size, (pageNo + 1) * size), page: pageNo, size,
-        totalElements: notifications.length, totalPages: Math.ceil(notifications.length / size),
-        hasNext: (pageNo + 1) * size < notifications.length,
+        items: visible.slice(pageNo * size, (pageNo + 1) * size), page: pageNo, size,
+        totalElements: visible.length, totalPages: Math.ceil(visible.length / size),
+        hasNext: (pageNo + 1) * size < visible.length,
       }
     }],
     // 개별 읽음은 최초 읽음 시각을 유지하고 모의 서버 상태에 저장한다.
     ['PATCH', /^\/api\/me\/notifications\/(\d+)\/read$/, (id) => {
-      const item = notifications.find((notification) => notification.notificationId === Number(id))
+      const item = visibleNotifications().find((notification) => notification.notificationId === Number(id))
       if (!item) return { status: 404, code: 'NOTIFICATION_NOT_FOUND', data: null, message: '알림을 찾을 수 없습니다.' }
       item.readAt ??= new Date().toISOString()
       saveNotificationRead()
@@ -194,11 +215,21 @@ export function installMockApiIfRequested() {
     }],
     // 전체 읽음은 아직 읽지 않은 건만 갱신하고 이번 처리 건수를 반환한다.
     ['PATCH', /^\/api\/me\/notifications\/read$/, () => {
-      const readCount = notifications.filter((item) => !item.readAt).length
+      const unread = visibleNotifications().filter((item) => !item.readAt)
       const readAt = new Date().toISOString()
-      notifications.forEach((item) => { item.readAt ??= readAt })
+      unread.forEach((item) => { item.readAt = readAt })
       saveNotificationRead()
-      return { readCount }
+      return { readCount: unread.length }
+    }],
+    // 숨김은 최초 숨김 시각을 유지하는 멱등 처리다. 이미 숨긴 알림에 다시 요청해도 성공한다.
+    ['PATCH', /^\/api\/me\/notifications\/(\d+)\/hide$/, (id) => {
+      const item = notifications.find((notification) => notification.notificationId === Number(id))
+      if (!item) return { status: 404, code: 'NOTIFICATION_NOT_FOUND', data: null, message: '알림을 찾을 수 없습니다.' }
+      if (!hiddenNotifications.has(item.notificationId)) {
+        hiddenNotifications.set(item.notificationId, new Date().toISOString())
+        saveNotificationHidden()
+      }
+      return { notificationId: item.notificationId, hiddenAt: hiddenNotifications.get(item.notificationId) }
     }],
     ...(creatorMode
       ? [

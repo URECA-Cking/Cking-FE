@@ -1,17 +1,18 @@
 import { useMemo, useState } from 'react'
 import { useAsync } from './useAsync.js'
 
-/** 조회 응답보다 늦게 확정된 읽음 상태가 오래된 응답에 덮이지 않도록 보관한다. */
+/** 조회 응답보다 늦게 확정된 읽음·숨김 상태가 오래된 응답에 덮이지 않도록 보관한다. */
 export function useNotificationPage(loader, deps, options) {
   const { data: serverData, ...request } = useAsync(loader, deps, options)
   const [readOverrides, setReadOverrides] = useState({})
+  const [hiddenIds, setHiddenIds] = useState({})
   const data = useMemo(() => serverData && ({
     ...serverData,
-    items: serverData.items.map((item) => {
+    items: serverData.items.filter((item) => !hiddenIds[item.notificationId]).map((item) => {
       const readAt = readOverrides[item.notificationId]
       return readAt ? { ...item, readAt } : item
     }),
-  }), [serverData, readOverrides])
+  }), [serverData, readOverrides, hiddenIds])
 
   /** 개별 읽음의 낙관적 값과 서버 확정값을 같은 알림에 적용한다. 실패하면 덮어쓰기를 제거한다. */
   const markRead = (notificationId, readAt) => {
@@ -45,5 +46,19 @@ export function useNotificationPage(loader, deps, options) {
     })
   }
 
-  return { ...request, data, markRead, markAllRead, rollbackAllRead }
+  /** 숨긴 알림을 목록에서 바로 뺀다. 나중에 도착한 오래된 GET 응답에도 다시 나타나지 않는다. */
+  const hide = (notificationId) => {
+    setHiddenIds((current) => ({ ...current, [notificationId]: true }))
+  }
+
+  /** 숨기기에 실패한 알림을 목록에 되돌린다. */
+  const unhide = (notificationId) => {
+    setHiddenIds((current) => {
+      const next = { ...current }
+      delete next[notificationId]
+      return next
+    })
+  }
+
+  return { ...request, data, markRead, markAllRead, rollbackAllRead, hide, unhide }
 }

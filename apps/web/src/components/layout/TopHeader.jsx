@@ -25,9 +25,10 @@ function useShare() {
 }
 
 /**
- * Main-tab app bar. Its centered title is intentionally independent from the right action.
+ * 메인 탭 앱바를 표시한다. 가운데 제목은 오른쪽 동작 버튼과 독립적으로 배치한다.
  * - onBack: 왼쪽에 뒤로 가기 버튼을 보여준다. centered와 함께 주면 제목은 가운데에 두고, 아니면 버튼 옆에 둔다(로고 대신).
  * - showNotificationBell: 오른쪽 알림 종 아이콘. 알림 화면처럼 이미 그 화면이면 false로 숨긴다.
+ * - unreadCountPartial: 전체 개수 API가 없어 최근 100건만 셌을 때 하한값으로 표시한다.
  * - showTicketButton / ticketCount: 알림 종 왼쪽의 응모권 버튼과 현재 총 응모권 개수. 개수를 아직 모르면(null) 자리 표시를 보여 준다.
  *   내 응모권 화면처럼 이미 그 화면이면 false로 숨긴다.
  */
@@ -35,6 +36,7 @@ export function TopHeader({
   title,
   centered = false,
   unreadCount = 0,
+  unreadCountPartial = false,
   embedded = false,
   hidden = false,
   onBack,
@@ -106,9 +108,9 @@ export function TopHeader({
               {unreadCount > 0 && (
                 <span
                   className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-error text-on-error font-label-xs text-[10px] leading-4 text-center font-bold"
-                  aria-label={`읽지 않은 알림 ${unreadCount}개`}
+                  aria-label={`${unreadCountPartial ? '최근 100건 중 ' : ''}읽지 않은 알림 ${unreadCount}개${unreadCountPartial ? ' 이상' : ''}`}
                 >
-                  {unreadCount > 99 ? '99+' : unreadCount}
+                  {unreadCount > 99 ? '99+' : unreadCountPartial ? `${unreadCount}+` : unreadCount}
                 </span>
               )}
             </Link>

@@ -1,10 +1,10 @@
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
-import { useCallback, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import BottomNav from './BottomNav.jsx'
 import { TopHeader } from './TopHeader.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useOnline } from '../../hooks/useOnline.js'
-import { useAsync } from '../../hooks/useAsync.js'
+import { useNotificationPage } from '../../hooks/useNotificationPage.js'
 import { getMyNotifications } from '../../api/notifications.js'
 import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
@@ -28,6 +28,7 @@ const APP_BAR_TITLES = {
   '/my-tickets': { title: '내 응모권', back: true, hideTickets: true },
 }
 
+/** 사용자 화면의 헤더 배지와 공용 탐색 레이아웃을 관리한다. */
 export default function MainLayout() {
   const location = useLocation()
   const navigationType = useNavigationType()
@@ -40,12 +41,28 @@ export default function MainLayout() {
   const online = useOnline()
   const appBarTitle = APP_BAR_TITLES[pathname]
 
-  // 하단 탭의 읽지 않은 알림 배지는 실제 알림 목록에서 계산한다.
-  // 같은 결과를 홈 화면도 쓰기 때문에 Outlet context로 내려보내 중복 호출을 막는다.
+  // 미확인 개수 API가 없어 첫 100건만 조회한다. 전체 개수 계약이 추가되면 배지 조회를 교체한다.
   // 이 레이아웃은 RequireUser 안에서만 렌더링되므로 항상 로그인된 상태에서 조회한다.
-  const { data, reload } = useAsync(() => getMyNotifications({ size: 50 }), [pathname])
+  const {
+    data, loading: notificationsLoading, error: notificationsError, reload,
+    markRead: markNotificationReadLocally,
+    markAllRead: markAllNotificationsReadLocally,
+    rollbackAllRead: rollbackAllNotificationsReadLocally,
+  } = useNotificationPage(
+    () => getMyNotifications({ page: 0, size: 100 }),
+    [],
+    { fallbackMessage: '알림을 불러오지 못했습니다.' },
+  )
   const notifications = data?.items ?? []
   const unreadCount = notifications.filter((item) => !item.readAt).length
+
+  const previousPathnameRef = useRef(pathname)
+  // 알림 화면에 다시 들어올 때만 서버 상태를 갱신한다. 최초 마운트 조회는 useAsync가 담당한다.
+  useEffect(() => {
+    if (pathname === '/notifications' && previousPathnameRef.current !== '/notifications') reload()
+    previousPathnameRef.current = pathname
+  }, [pathname, reload])
+
   // 헤더 응모권 버튼의 총 개수. 아직 불러오지 못했으면 null이라 자리 표시를 보여 준다.
   const { summary: ticketSummary } = useMyTickets()
 
@@ -107,6 +124,7 @@ export default function MainLayout() {
           title={appBarTitle.title}
           centered={appBarTitle.centered}
           unreadCount={unreadCount}
+          unreadCountPartial={Boolean(data?.hasNext)}
           embedded
           hidden={!headerVisible}
           onBack={appBarTitle.back ? goBack : undefined}
@@ -133,7 +151,17 @@ export default function MainLayout() {
             </span>
           </div>
         )}
-        <Outlet context={{ notifications, unreadCount, reloadNotifications: reload }} />
+        <Outlet context={{
+          notifications,
+          unreadCount,
+          notificationsData: data,
+          notificationsLoading,
+          notificationsError,
+          reloadNotifications: reload,
+          markNotificationReadLocally,
+          markAllNotificationsReadLocally,
+          rollbackAllNotificationsReadLocally,
+        }} />
       </main>
       <BottomNav embedded compact={bottomCompact} onNavigate={handleNavigationScrollReset} />
     </div>

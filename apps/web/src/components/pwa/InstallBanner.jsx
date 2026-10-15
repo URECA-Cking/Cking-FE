@@ -23,15 +23,25 @@ export default function InstallBanner() {
           <MaterialIcon name="install_mobile" className="text-[20px]" />
         </div>
         <p className="min-w-0 flex-1 font-label-md text-label-md font-bold text-on-surface truncate">Cking을 앱처럼 쓰기</p>
-        <button
-          type="button"
-          onClick={toggleManualGuide}
-          aria-expanded={showManualGuide}
-          aria-controls="install-manual-guide"
-          className="shrink-0 px-2 font-label-xs text-label-xs font-semibold text-primary"
-        >
-          {showManualGuide ? '설치 방법 닫기' : '설치 방법 보기'}
-        </button>
+        {canInstall ? (
+          <button
+            type="button"
+            onClick={install}
+            className="shrink-0 rounded-full bg-primary px-3 py-1 font-label-xs text-label-xs font-bold text-on-primary active:scale-[0.98] transition-all"
+          >
+            앱 설치하기
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={toggleManualGuide}
+            aria-expanded={showManualGuide}
+            aria-controls="install-manual-guide"
+            className="shrink-0 px-2 font-label-xs text-label-xs font-semibold text-primary"
+          >
+            {showManualGuide ? '설치 방법 닫기' : '설치 방법 보기'}
+          </button>
+        )}
         <button
           type="button"
           aria-label="설치 안내 닫기"
@@ -46,16 +56,6 @@ export default function InstallBanner() {
         <p className="font-label-xs text-label-xs text-on-surface-variant leading-relaxed">
           홈 화면에 추가하면 주소창 없이 전체 화면으로 실행되고, 오프라인에서도 마지막 화면을 볼 수 있어요.
         </p>
-
-        {canInstall && (
-          <button
-            type="button"
-            onClick={install}
-            className="w-full h-10 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
-          >
-            앱 설치하기
-          </button>
-        )}
 
         {guide && (
           <div className="rounded-xl bg-berry-tint px-3 py-2 text-berry-deep">

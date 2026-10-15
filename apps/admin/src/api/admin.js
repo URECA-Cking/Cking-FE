@@ -117,6 +117,16 @@ export async function closeEvent(eventId) {
   return post(`/api/events/${eventId}/close`)
 }
 
+/** PUBLISHED Event를 사용자·Creator 화면에서 제외하는 관리자 보관함으로 옮긴다. */
+export function archiveEvent(eventId) {
+  return patch(`/api/admin/events/${eventId}/archive`)
+}
+
+/** 보관 Event를 기존 PUBLISHED 상태로 다시 노출한다. */
+export function unarchiveEvent(eventId) {
+  return patch(`/api/admin/events/${eventId}/unarchive`)
+}
+
 /** 처리 상태별 Dead Stream 메시지를 페이지 단위로 조회한다. */
 export async function getDeadStreams({ status = 'UNRESOLVED', page = 0, size = 20 } = {}) {
   return get('/api/admin/dead-streams', { status, page, size })
@@ -263,13 +273,13 @@ export const OPERATING_EVENT_STATUSES = ['SCHEDULED', 'OPEN', 'CLOSING', 'CLOSED
 const DRAWING_READY_EVENT_STATUSES = ['CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
 
 /** 지정한 상태의 이벤트 목록을 마지막 페이지까지 조회한다. */
-async function getAllEventsByStatus(status, size) {
+async function getAllEventsByStatus(status, size, archiveStatus) {
   const items = []
   let page = 0
   let hasNext = true
 
   while (hasNext) {
-    const result = await get('/api/admin/events', { status, page, size })
+    const result = await get('/api/admin/events', { status, archiveStatus, page, size })
     items.push(...(result?.items ?? []))
     hasNext = result?.hasNext === true
     page += 1
@@ -279,9 +289,9 @@ async function getAllEventsByStatus(status, size) {
 }
 
 /** 지정된 상태 목록을 병렬로 조회해 하나의 이벤트 목록으로 합친다. */
-async function getEventsByStatuses(statuses, { size = 100 } = {}) {
+async function getEventsByStatuses(statuses, { size = 100, archiveStatus = 'ACTIVE' } = {}) {
   const eventsByStatus = await Promise.all(
-    statuses.map((status) => getAllEventsByStatus(status, size)),
+    statuses.map((status) => getAllEventsByStatus(status, size, archiveStatus)),
   )
   return { items: eventsByStatus.flat() }
 }
@@ -293,7 +303,8 @@ export function getDrawingEvents(options) {
 
 /** 운영 상태별 목록 계약을 합쳐 이벤트 관리 화면의 전체 목록을 제공한다. */
 export function getOperatingEvents(options) {
-  return getDrawingEvents(options)
+  const statuses = options?.archiveStatus === 'ARCHIVED' ? ['PUBLISHED'] : OPERATING_EVENT_STATUSES
+  return getEventsByStatuses(statuses, options)
 }
 
 /** 추첨 콘솔에는 이미 마감된 이벤트만 전달해 이벤트 운영 화면과 책임을 분리한다. */
@@ -302,8 +313,8 @@ export function getDrawingReadyEvents(options) {
 }
 
 /** 단건 조회 계약이 없으므로 운영 상태 목록에서 URL의 이벤트를 찾아 상세를 구성한다. */
-export async function getOperatingEvent(eventId) {
-  const result = await getOperatingEvents()
+export async function getOperatingEvent(eventId, { archiveStatus = 'ACTIVE' } = {}) {
+  const result = await getOperatingEvents({ archiveStatus })
   return result.items.find((item) => String(item.eventId) === String(eventId)) ?? null
 }
 

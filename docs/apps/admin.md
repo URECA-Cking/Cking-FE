@@ -9,7 +9,7 @@
 | `/admin` | 운영 우선순위·주의 상태·현재 운영 이벤트 Dashboard |
 | `/admin/reviews/creators`, `/admin/reviews/creators/:reviewId` | Creator 신청 목록·상세 심사와 승인·거절 |
 | `/admin/reviews/events`, `/admin/reviews/events/:reviewId` | 승인 대기 이벤트 목록·상세 심사와 승인·거절 |
-| `/admin/events`, `/admin/events/:eventId` | 운영 이벤트 목록·상세, 상태 흐름, 수동 마감 요청과 마감 처리 상태 확인 |
+| `/admin/events`, `/admin/events/:eventId` | 운영 이벤트·보관함 목록·상세, 상태 흐름, 수동 마감 요청, 결과 공개 Event 보관·복원 |
 | `/admin/drawings`, `/admin/drawings/:drawingId` | 마감 완료 이벤트의 Snapshot·초기 추첨·실패 추첨 재시도·결과·검증·공개 운영 (`/admin/console`은 목록으로 리디렉션) |
 | `/admin/winners`, `/admin/winners/:winnerId` | 당첨자 관리 진입·상세 상태 이력·수령 처리·자격 박탈 |
 | `/admin/redraws`, `/admin/redraws/:redrawRequestId` | 재추첨 요청 생성·Table 목록(심사/실행 상태 분리)·상세 심사·실행·실패 Drawing 재시도 |
@@ -20,7 +20,7 @@
 | `/admin/space-comment-blocks` | 모든 스페이스의 댓글 차단 목록(크리에이터·회원 ID 필터, 차단 중만 보기)과 해제 |
 | `/admin/space-templates` | Creator Space 템플릿 목록·추가·수정·활성화 (활성 템플릿은 항상 하나, Creator 승인 시 복사해 스페이스 생성) |
 
-`/admin/reviews/events`는 `PENDING_APPROVAL` 상태만 처리하는 심사 큐다. `/admin/events`는 기존 `/api/admin/events`의 상태별 조회를 합쳐 승인 완료 뒤 `SCHEDULED`부터 `PUBLISHED`까지의 이벤트를 추적한다. `SCHEDULED`는 오픈 예정 상태로 표시하되, `OPEN`부터 시작하는 실제 운영 흐름과는 구분하고 별도 관리자 작업을 노출하지 않는다. 단건 이벤트 조회 계약이 없으므로 상세도 같은 운영 목록에서 현재 서버 응답을 다시 찾아 구성한다. 심사 이력 필드의 제공 범위는 해당 API 계약을 확인한 뒤 결정한다.
+`/admin/reviews/events`는 `PENDING_APPROVAL` 상태만 처리하는 심사 큐다. `/admin/events`는 기존 `/api/admin/events`의 상태별 조회를 합쳐 승인 완료 뒤 `SCHEDULED`부터 `PUBLISHED`까지의 이벤트를 추적한다. 보관함은 `archiveStatus=ARCHIVED`로 결과 공개(`PUBLISHED`) Event만 별도 조회하며, 상세에서 보관·복원한다. 보관은 추첨·당첨 기록을 삭제하지 않고 사용자·Creator 화면, 응모, 내 당첨, 알림에서 Event를 제외한다. `SCHEDULED`는 오픈 예정 상태로 표시하되, `OPEN`부터 시작하는 실제 운영 흐름과는 구분하고 별도 관리자 작업을 노출하지 않는다. 단건 이벤트 조회 계약이 없으므로 상세도 같은 목록 범위에서 현재 서버 응답을 다시 찾아 구성한다. 심사 이력 필드의 제공 범위는 해당 API 계약을 확인한 뒤 결정한다.
 
 댓글 신고는 댓글 단위로 모아 보여주며, 한 댓글의 접수(PENDING) 신고를 숨김(RESOLVED)이나 반려(REJECTED)로 한 번에 처리한다. 숨김은 되돌리는 API가 없어 확인 창에서 이를 안내하고, 이미 처리된 댓글은 조치 버튼을 막는다. BE가 `COMMENT_REPORT_ALREADY_HANDLED`(409)나 404를 돌려주면(다른 관리자가 먼저 처리했거나 댓글이 삭제됨) 확인 창을 닫고 목록을 다시 읽는다. 댓글 원문이 그대로 보이는 관리자 전용 화면이며 신고자 정보는 BE가 주지 않는다.
 

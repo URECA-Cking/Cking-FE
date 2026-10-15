@@ -206,7 +206,7 @@ test('STEP 3은 펼쳐서 답을 서버에 보내고, 오답은 안내하고 정
     assert.equal(posted.at(-1).body.answer, true)
     assert.notEqual(posted[0].body.requestId, posted[1].body.requestId)
     assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '100')
-    assert.equal(await page.getByRole('link', { name: /응모하러 가기/ }).getAttribute('href'), '/explore')
+    assert.equal(await page.getByRole('link', { name: /응모하러 가기/ }).getAttribute('href'), '/explore?tab=event')
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

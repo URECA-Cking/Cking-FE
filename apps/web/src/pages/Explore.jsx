@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import CreatorBanner from '../components/creator/CreatorBanner.jsx'
@@ -20,6 +20,9 @@ import { spacePath } from '../api/creatorSpace.js'
 
 // 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
 const CREATOR_PAGE_SIZE = 30
+// 이벤트는 10개씩 늘려 가며 다시 받는다. BE 페이지 상한(100)을 넘기면 더 받을 수 없다.
+const EVENT_PAGE_SIZE = 10
+const EVENT_MAX_SIZE = 100
 
 const EVENT_FILTERS = [
   { id: '', label: '전체' },
@@ -39,6 +42,7 @@ export default function Explore() {
   const creatorCarouselRef = useRef(null)
   const showToast = useToast()
   const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
   const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds, isCreator } = useUser()
   const mySpace = useAsync(
     () => getMySpace().then((space) => ({ ...space, memberId: user.memberId })),
@@ -48,18 +52,20 @@ export default function Explore() {
   const ownSpaceReady = isCreator && !mySpace.loading && mySpace.data?.memberId === user?.memberId
   const ownCreatorId = ownSpaceReady ? mySpace.data.creatorId : null
   const ownSpacePending = isCreator && !ownSpaceReady
-  const [tab, setTab] = useState('creator')
-  const [query, setQuery] = useState('')
+  // 탭과 검색어는 주소에 둔다. 다른 화면의 '이벤트 둘러보기' 링크가 이벤트 탭으로 열 수 있고, 검색 뒤 뒤로 가기에서도 유지된다.
+  const tab = params.get('tab') === 'event' ? 'event' : 'creator'
+  const [query, setQuery] = useState(params.get('q') ?? '')
   const [creatorFilter, setCreatorFilter] = useState('전체')
   const [eventFilter, setEventFilter] = useState('IN_PROGRESS')
   const [creatorLimit, setCreatorLimit] = useState(CREATOR_PAGE_SIZE)
+  const [eventSize, setEventSize] = useState(EVENT_PAGE_SIZE)
 
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터를 불러오지 못했습니다.',
   })
   const eventList = useAsync(
-    () => getEvents({ status: eventFilter || undefined, size: 30 }),
-    [eventFilter],
+    () => getEvents({ status: eventFilter || undefined, size: eventSize }),
+    [eventFilter, eventSize],
     { fallbackMessage: '이벤트를 불러오지 못했습니다.' },
   )
 
@@ -80,7 +86,9 @@ export default function Explore() {
     [creators],
   )
 
-  const events = eventList.data?.items ?? []
+  // 필터를 바꿔 처음부터 다시 받는 동안에는 이전 필터의 목록을 보여주지 않는다. '더 보기'로 늘리는 중에는 목록을 유지한다.
+  const eventsFirstLoad = eventList.loading && eventSize === EVENT_PAGE_SIZE
+  const events = eventsFirstLoad ? [] : (eventList.data?.items ?? [])
   const shownCreators = useMemo(() => filteredCreators.slice(0, creatorLimit), [filteredCreators, creatorLimit])
   const renderedBalanceIds = [
     ...shownCreators.map((creator) => creator.creatorId),
@@ -96,6 +104,20 @@ export default function Explore() {
     } catch (error) {
       showToast(describeError(error, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
     }
+  }
+
+  function changeTab(next) {
+    setParams((current) => {
+      const nextParams = new URLSearchParams(current)
+      if (next === 'event') nextParams.set('tab', 'event')
+      else nextParams.delete('tab')
+      return nextParams
+    }, { replace: true })
+  }
+
+  function changeEventFilter(nextFilter) {
+    setEventFilter(nextFilter)
+    setEventSize(EVENT_PAGE_SIZE)
   }
 
   function changeCreatorFilter(nextFilter) {
@@ -164,7 +186,10 @@ export default function Explore() {
             event.preventDefault()
             const keyword = query.trim()
             // 보던 탭에 맞춰 검색 대상을 좁혀 연다. 결과 화면에서 '전체'로 넓힐 수 있다.
-            if (keyword) navigate(`/explore/search?q=${encodeURIComponent(keyword)}&type=${tab}`)
+            if (!keyword) return
+            // 뒤로 돌아왔을 때 검색어가 남도록 현재 기록에 q를 심어 두고 이동한다.
+            setParams((current) => { const next = new URLSearchParams(current); next.set('q', keyword); return next }, { replace: true })
+            navigate(`/explore/search?q=${encodeURIComponent(keyword)}&type=${tab}`)
           }}
         >
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-outline">
@@ -174,7 +199,7 @@ export default function Explore() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-all shadow-sm"
-            placeholder="크리에이터를 검색해 보세요 (아티스트, 유튜버, 스트리머)"
+            placeholder={tab === 'event' ? '이벤트 제목이나 크리에이터로 검색해 보세요' : '크리에이터를 검색해 보세요 (아티스트, 유튜버, 스트리머)'}
             type="search"
           />
           {query && (
@@ -195,7 +220,7 @@ export default function Explore() {
               type="button"
               role="tab"
               aria-selected={tab === id}
-              onClick={() => setTab(id)}
+              onClick={() => changeTab(id)}
               className={`flex-1 h-10 font-label-md text-label-md font-semibold transition-colors ${
                 tab === id ? 'text-on-surface' : 'text-outline'
               }`}
@@ -361,7 +386,7 @@ export default function Explore() {
             <button
               key={filter.id || 'all'}
               type="button"
-              onClick={() => setEventFilter(filter.id)}
+              onClick={() => changeEventFilter(filter.id)}
               className={`px-4 py-1.5 rounded-full font-label-sm text-label-sm font-semibold whitespace-nowrap transition-all active:scale-95 ${
                 eventFilter === filter.id
                   ? 'bg-inverse-surface text-inverse-on-surface shadow-sm'
@@ -373,14 +398,14 @@ export default function Explore() {
           ))}
         </div>
 
-        {eventList.loading && <LoadingBlock label="이벤트를 불러오는 중..." />}
+        {eventsFirstLoad && <LoadingBlock label="이벤트를 불러오는 중..." />}
         {!eventList.loading && eventList.error && (
           <ErrorBlock message={eventList.error} onRetry={eventList.reload} />
         )}
         {!eventList.loading && !eventList.error && events.length === 0 && (
           <EmptyBlock icon="event_busy" message="이 조건에 해당하는 이벤트가 없어요." />
         )}
-        {!eventList.loading && !eventList.error && events.length > 0 && (
+        {!eventList.error && events.length > 0 && (
           <div className="px-margin grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
             {events.map((event) => (
               <EventCard
@@ -391,6 +416,16 @@ export default function Explore() {
               />
             ))}
           </div>
+        )}
+        {!eventList.error && eventList.data?.hasNext && eventSize < EVENT_MAX_SIZE && (
+          <button
+            type="button"
+            onClick={() => setEventSize((size) => Math.min(size + EVENT_PAGE_SIZE, EVENT_MAX_SIZE))}
+            disabled={eventList.loading}
+            className="mx-margin mt-space-md h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all disabled:opacity-60"
+          >
+            {eventList.loading ? '불러오는 중...' : '더 보기'}
+          </button>
         )}
       </section>
       )}

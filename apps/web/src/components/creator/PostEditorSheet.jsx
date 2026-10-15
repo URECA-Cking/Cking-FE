@@ -4,6 +4,7 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError } from '../../api/client.js'
 import { POST_ERROR_MESSAGES, POST_LIMITS, createPost, updatePost, uploadPostImage } from '../../api/posts.js'
+import { isSupportedJpegOrPng } from '../../utils/imageMime.js'
 
 const inputClass =
   'w-full px-3 py-2.5 rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none shadow-sm transition-all'
@@ -34,7 +35,7 @@ function readImageSize(file) {
 
 /** 업로드 전에 형식·크기·해상도를 확인한다. 통과하면 null, 아니면 안내 문구. 최종 판단은 서버가 한다. */
 async function validateImage(file) {
-  if (!POST_LIMITS.imageTypes.includes(file.type)) return 'JPEG 또는 PNG 이미지만 올릴 수 있어요.'
+  if (!isSupportedJpegOrPng(file)) return 'JPEG 또는 PNG 이미지만 올릴 수 있어요.'
   if (file.size > POST_LIMITS.maxImageBytes) return '이미지는 5MB 이하만 올릴 수 있어요.'
   const size = await readImageSize(file)
   if (!size) return '이미지를 읽을 수 없어요. 손상된 파일이 아닌지 확인해주세요.'

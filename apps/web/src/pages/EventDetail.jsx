@@ -11,6 +11,7 @@ import { useAsync } from '../hooks/useAsync.js'
 import { useEntryStatus } from '../hooks/useEntryStatus.js'
 import { getEvent } from '../api/events.js'
 import { applyEntry, describeEntryResult } from '../api/entries.js'
+import { requiresSameRequestRetry, restorePendingEntryAttempt } from '../utils/entryResult.js'
 import { useProfileSetupRedirect } from '../hooks/useProfileSetupRedirect.js'
 import { getPublicWinners } from '../api/winners.js'
 import { getMyWinners } from '../api/myWinners.js'
@@ -61,6 +62,9 @@ export default function EventDetail() {
   const [phase, setPhase] = useState('idle') // idle | submitting | done
   const [result, setResult] = useState(null)
   const [requestId, setRequestId] = useState(() => newRequestId())
+  // 네트워크/서버 오류는 서버가 이미 응모를 수락했을 가능성이 있다. 시트를 닫아도 같은
+  // requestId·내용으로 다시 확인할 수 있게 현재 이벤트의 미확정 요청을 남겨 둔다.
+  const [pendingEntry, setPendingEntry] = useState(null)
 
   const { data: event, loading, error, reload, setData: setEvent } = useAsync(
     () => getEvent(eventId),
@@ -175,6 +179,19 @@ export default function EventDetail() {
       showToast('지금은 응모할 수 있는 상태가 아니에요.', { icon: 'error' })
       return
     }
+
+    // 응답 유실 뒤 시트를 닫았다가 다시 연 경우에는 새 요청을 만들지 않는다. 같은
+    // requestId 재전송만이 서버의 멱등 처리(DUPLICATE_REPLAY)를 보장한다.
+    const restored = restorePendingEntryAttempt(pendingEntry, eventId)
+    if (restored) {
+      setAttempt(restored.attempt)
+      setRequestId(restored.requestId)
+      setResult(restored.outcome)
+      setPhase('done')
+      setSheetOpen(true)
+      return
+    }
+
     openingRef.current = true
     setOpening(true)
     try {
@@ -210,41 +227,60 @@ export default function EventDetail() {
     setPhase('submitting')
     // 응모 현황에 반영됐는지 확인할 필요 수치의 기준을 이 시점에 잡는다. 같은 requestId로 재시도하면 처음 기준을 유지한다.
     entryStatus.beginEntry(requestId, attempt.count)
-    // 재시도해도 같은 requestId·종류·수량을 쓰므로 백엔드가 DUPLICATE_REPLAY로 안전하게 처리한다.
-    const envelope = await applyEntry(eventId, {
-      requestId,
-      ticketCount: attempt.count,
-      couponType: attempt.couponType,
-    })
-    // 닉네임을 설정하지 않은 회원은 응모할 수 없다. 응모 시트를 닫고 프로필 설정 화면으로 보낸다.
-    if (redirectToProfileSetup(envelope)) {
-      setPhase('idle')
-      setSheetOpen(false)
-      return
-    }
-    const outcome = describeEntryResult(envelope)
-    setResult(outcome)
-    setPhase('done')
-    // SUCCESS와 DUPLICATE_REPLAY 모두 원래 응모가 현황에 반영됐는지 확인해야 한다.
-    if (outcome.accepted) entryStatus.acceptEntry(requestId)
-    showToast(outcome.message, { icon: outcome.accepted ? 'check_circle' : 'error' })
+    try {
+      // 재시도해도 같은 requestId·종류·수량을 쓰므로 백엔드가 DUPLICATE_REPLAY로 안전하게 처리한다.
+      const envelope = await applyEntry(eventId, {
+        requestId,
+        ticketCount: attempt.count,
+        couponType: attempt.couponType,
+      })
+      // 닉네임을 설정하지 않은 회원은 응모할 수 없다. 응모 시트를 닫고 프로필 설정 화면으로 보낸다.
+      if (redirectToProfileSetup(envelope)) {
+        setPhase('idle')
+        setSheetOpen(false)
+        return
+      }
+      const outcome = describeEntryResult(envelope)
+      setResult(outcome)
+      setPhase('done')
+      if (requiresSameRequestRetry(outcome)) {
+        setPendingEntry({ eventId, requestId, attempt, outcome })
+      } else {
+        setPendingEntry(null)
+      }
+      // SUCCESS와 DUPLICATE_REPLAY 모두 원래 응모가 현황에 반영됐는지 확인해야 한다.
+      if (outcome.accepted) entryStatus.acceptEntry(requestId)
+      showToast(outcome.message, { icon: outcome.accepted ? 'check_circle' : 'error' })
 
-    if (outcome.accepted) {
-      // 이벤트를 다시 불러와도 DB 반영 전이면 서버가 옛 잔액을 줄 수 있어, 방금 쓴 만큼 뺀 값을 먼저 기억해 둔다.
-      setExpected((prev) => ({
-        eventId,
-        entries: {
-          ...(prev.eventId === eventId ? prev.entries : {}),
-          [attempt.couponType]: { value: attempt.balance - attempt.count, at: Date.now() },
-        },
-      }))
-      refreshMyTickets()
-      await syncBalances()
-      setTimeout(() => setSheetOpen(false), 1200)
-      // DB 반영이 끝났을 즈음 한 번 더 불러와 서버가 따라잡은 예상 값을 일찍 해제하고, 시간 제한으로 해제되는 때에도
-      // 한 번 더 불러와 그 사이 다른 곳에서 바뀐 잔액을 화면에 반영한다.
-      setTimeout(syncBalances, EXPECTED_SYNC_MS)
-      setTimeout(syncBalances, EXPECTED_TTL_MS + 500)
+      if (outcome.accepted) {
+        // 이벤트를 다시 불러와도 DB 반영 전이면 서버가 옛 잔액을 줄 수 있어, 방금 쓴 만큼 뺀 값을 먼저 기억해 둔다.
+        setExpected((prev) => ({
+          eventId,
+          entries: {
+            ...(prev.eventId === eventId ? prev.entries : {}),
+            [attempt.couponType]: { value: attempt.balance - attempt.count, at: Date.now() },
+          },
+        }))
+        refreshMyTickets()
+        await syncBalances()
+        setTimeout(() => setSheetOpen(false), 1200)
+        // DB 반영이 끝났을 즈음 한 번 더 불러와 서버가 따라잡은 예상 값을 일찍 해제하고, 시간 제한으로 해제되는 때에도
+        // 한 번 더 불러와 그 사이 다른 곳에서 바뀐 잔액을 화면에 반영한다.
+        setTimeout(syncBalances, EXPECTED_SYNC_MS)
+        setTimeout(syncBalances, EXPECTED_TTL_MS + 500)
+      }
+    } catch (error) {
+      // 네트워크 오류처럼 서버가 수락했는지 알 수 없는 경우에도 같은 requestId를 유지한다.
+      // done 상태가 되면 기존 재시도 버튼이 다시 열리고, 다음 요청은 DUPLICATE_REPLAY로 안전하게 복구된다.
+      const outcome = describeEntryResult(error)
+      setResult(outcome)
+      setPhase('done')
+      if (requiresSameRequestRetry(outcome)) {
+        setPendingEntry({ eventId, requestId, attempt, outcome })
+      } else {
+        setPendingEntry(null)
+      }
+      showToast(outcome.message, { icon: 'error' })
     }
   }
 

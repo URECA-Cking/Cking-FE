@@ -1,12 +1,13 @@
 import { ApiError, apiClient, describeError } from './client.js'
 import { getMe } from './auth.js'
+import { JPEG_PNG_IMAGE_TYPES } from '../utils/imageMime.js'
 
 // 내 프로필 API(Cking-BE #518 닉네임 정책, #519 프로필 사진 업로드 및 내 프로필 수정 API, docs/domains/member/api.md).
 
 export const PROFILE_IMAGE_LIMITS = {
   maxBytes: 5 * 1024 * 1024,
   minSize: 200,
-  types: ['image/jpeg', 'image/png'],
+  types: JPEG_PNG_IMAGE_TYPES,
 }
 
 /** GET /api/me. 프로필 필드(nickname, profileImageUrl, profileConfigured, nicknameChangeableAt, restorableNickname)를 포함한다. */

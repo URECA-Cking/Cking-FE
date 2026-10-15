@@ -68,10 +68,13 @@ export default function Home() {
   const [guideHidden, setGuideHidden] = useWelcomeGuideHidden(user?.memberId)
   const creatorsRef = useRef(null)
   const questActive = isWelcomeQuestActive(welcome.quest)
-  // 이번 화면에서 퀘스트가 진행 중인 것을 한 번이라도 봤는지. 마지막 단계를 받는 순간 완료 화면이 바로 사라지지 않고,
+  // 이번 화면에서 퀘스트가 진행 중인 것을 본 회원. 마지막 단계를 받는 순간 완료 화면이 바로 사라지지 않고,
   // 새로고침하거나 다시 들어올 때까지 완료 안내(웰컴 퀘스트 완료!)를 보여 주기 위해 기억한다.
-  const [questSeen, setQuestSeen] = useState(false)
-  if (questActive && !questSeen) setQuestSeen(true)
+  // 회원 번호와 함께 기억해, 같은 화면에서 계정이 바뀌어도 이전 회원의 기록이 다른 회원에게 남지 않게 한다.
+  const memberId = user?.memberId
+  const [seenMemberId, setSeenMemberId] = useState(null)
+  if (questActive && memberId != null && seenMemberId !== memberId) setSeenMemberId(memberId)
+  const questSeen = memberId != null && seenMemberId === memberId
   const isNewMember = questActive || (questSeen && welcome.quest?.eligible === true)
   // 퀘스트 상태를 처음 받아 오는 동안은 신규 여부를 모른다. 응모 섹션이 떴다가 사라지지 않게 그 사이에는 응모를 그리지 않는다.
   const questPending = user?.memberId != null && welcome.quest === null && welcome.loading

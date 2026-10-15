@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import FilledCheck from './FilledCheck.jsx'
 import { ErrorBlock } from '../ui/States.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
@@ -37,10 +38,12 @@ export default function MissionSection({ memberId }) {
   const [justStamped, setJustStamped] = useState(false)
   const requestIds = useRef(new Map())
 
+  /** 응답을 받은 미션을 오늘 완료한 상태로 표시한다. */
   const markCompleted = (missionId) => setData((current) => (
     (current ?? []).map((item) => (item.missionId === missionId ? { ...item, completedToday: true } : item))
   ))
 
+  /** 출석 미션 완료를 요청하고, 결과에 따라 도장·안내를 갱신하며 불확실한 실패는 같은 requestId로 재시도할 수 있게 둔다. */
   async function complete(mission) {
     setBusyId(mission.missionId)
     // 사용자가 다시 누른 새 시도가 아니라 불확실한 실패의 재시도라면 앞선 requestId를 그대로 쓴다.
@@ -89,53 +92,68 @@ export default function MissionSection({ memberId }) {
           : null
         const stampedCount = stamps ? stamps.filter((slot) => slot.stamped).length : 0
         return (
-          <div key={mission.missionId} className="rounded-2xl bg-gradient-to-r from-primary to-berry-deep px-4 py-3">
+          <div key={mission.missionId} className="rounded-3xl bg-surface-container p-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="min-w-0 font-label-md text-label-md text-on-primary line-clamp-2">
-                {MISSION_LABELS[mission.type] ?? '미션'}
-                <span className="ml-2 font-label-sm text-label-sm text-on-primary/80 font-normal">응모권 +{mission.rewardAmount}</span>
-              </p>
+              <div className="min-w-0">
+                {stamps && <span className="rounded-md bg-primary/15 px-2 py-0.5 font-label-sm text-label-sm font-semibold text-primary">DAILY CHECK-IN</span>}
+                <p className="mt-1 font-label-md text-label-md text-on-surface line-clamp-2">
+                  {MISSION_LABELS[mission.type] ?? '미션'}
+                  <span className="ml-2 font-label-sm text-label-sm text-on-surface-variant font-normal">응모권 +{mission.rewardAmount}</span>
+                </p>
+              </div>
               <button
                 type="button"
                 disabled={done || busy}
                 onClick={() => complete(mission)}
-                className="shrink-0 whitespace-nowrap rounded-full bg-white px-3.5 py-1.5 font-label-sm text-label-sm text-primary disabled:bg-white/25 disabled:text-on-primary/80 active:opacity-70 transition-opacity"
+                className="shrink-0 whitespace-nowrap rounded-full bg-primary px-3.5 py-1.5 font-label-sm text-label-sm text-on-primary disabled:bg-on-surface/10 disabled:text-outline active:opacity-70 transition-opacity"
               >
                 {busy ? '처리 중' : done ? '출석 완료' : '도장 찍기'}
               </button>
             </div>
             {stamps && (
               <>
-                <ol className="mt-3 flex items-center justify-between" aria-label="최근 7일 출석 도장">
+                <ol className="mt-3 grid grid-cols-7 gap-1.5 text-center" aria-label="최근 7일 출석 도장">
                   {stamps.map((slot, index) => (
                     <li
                       key={index}
                       aria-label={`${index + 1}번째 도장 ${slot.stamped ? '찍힘' : '비어 있음'}`}
-                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                      className={`flex flex-col items-center rounded-xl py-2 ${
                         slot.stamped
-                          ? `bg-white text-primary ring-2 ring-white/40 -rotate-[8deg] ${
-                              justStamped && index === stampedCount - 1 ? 'animate-stamp-pop' : ''
-                            }`
-                          : `border-2 ${slot.next ? 'border-white' : 'border-dashed border-white/40'}`
+                          ? 'bg-primary text-on-primary shadow-sm shadow-primary/30'
+                          : slot.next
+                            ? 'animate-pulse border-2 border-dashed border-tertiary-container bg-tertiary-container/10 text-tertiary-container'
+                            : 'bg-on-surface/5 text-outline'
                       }`}
                     >
-                      {slot.stamped && <MaterialIcon name="check" filled className="text-[18px]" />}
+                      <span className="text-[9px] font-bold opacity-80">DAY {index + 1}</span>
+                      <span
+                        className={`my-0.5 flex h-[22px] items-center ${
+                          slot.stamped && justStamped && index === stampedCount - 1 ? 'animate-stamp-pop' : ''
+                        }`}
+                      >
+                        {slot.stamped ? (
+                          <FilledCheck size={18} tone="onPrimary" />
+                        ) : (
+                          <MaterialIcon name={index === stamps.length - 1 ? 'workspace_premium' : 'confirmation_number'} className="text-[18px]" />
+                        )}
+                      </span>
+                      <span className="text-[9px] font-extrabold">+{mission.rewardAmount}장</span>
                     </li>
                   ))}
                 </ol>
                 {stampsReady ? (
-                  <p className="mt-2 font-label-xs text-label-xs text-on-primary/80 font-normal">
+                  <p className="mt-2 text-center font-label-xs text-label-xs text-on-surface-variant font-normal">
                     최근 7일 중 {stampedCount}일 출석 · 매일 오전 9시에 초기화돼요
                   </p>
                 ) : ledgerError && !ledgerLoading ? (
-                  <p className="mt-2 flex items-center justify-between gap-2 font-label-xs text-label-xs text-on-primary/80 font-normal">
+                  <p className="mt-2 flex items-center justify-between gap-2 font-label-xs text-label-xs text-on-surface-variant font-normal">
                     <span>출석 현황을 불러오지 못했어요.</span>
-                    <button type="button" onClick={reloadLedger} className="shrink-0 font-semibold text-on-primary underline underline-offset-2 active:opacity-70">
+                    <button type="button" onClick={reloadLedger} className="shrink-0 font-semibold text-primary underline underline-offset-2 active:opacity-70">
                       다시 시도
                     </button>
                   </p>
                 ) : (
-                  <p className="mt-2 font-label-xs text-label-xs text-on-primary/80 font-normal">출석 현황을 불러오는 중...</p>
+                  <p className="mt-2 text-center font-label-xs text-label-xs text-on-surface-variant font-normal">출석 현황을 불러오는 중...</p>
                 )}
               </>
             )}

@@ -9,11 +9,9 @@ import { ApiError, describeError, newRequestId } from '../../api/client.js'
 import { completeCommonMission, getCommonMissions } from '../../api/missions.js'
 import { getCommonTicketHistorySince } from '../../api/tickets.js'
 import { buildStampSlots } from '../../utils/attendanceStamps.js'
+import { keepsRequestId } from '../../utils/earnRetry.js'
 
 const MISSION_LABELS = { ATTENDANCE: '출석체크' }
-
-// 결과를 모르는 실패(네트워크 끊김·타임아웃·적립 장애·점검)는 서버가 이미 적립했을 수 있어 같은 requestId로 재시도해야 한다.
-const RETRY_WITH_SAME_ID = ['NETWORK_ERROR', 'EARN_STATUS_UNKNOWN', 'EARN_PROCESSING_FAILED', 'BALANCE_MAINTENANCE']
 
 // 출석 도장은 최근 7일(UTC 날짜 기준 경계 하루 여유 포함)의 출석 적립이 필요하다.
 const STAMP_WINDOW_MS = 8 * 24 * 60 * 60 * 1000
@@ -65,7 +63,7 @@ export default function MissionSection({ memberId }) {
         return
       }
       // ApiError가 아닌 예외도 서버 처리 여부를 알 수 없어 키를 유지한다. 확정된 실패(RETRY 목록 밖의 코드)만 키를 버린다.
-      if (code !== null && !RETRY_WITH_SAME_ID.includes(code)) requestIds.current.delete(mission.missionId)
+      if (!keepsRequestId(code)) requestIds.current.delete(mission.missionId)
       showToast(describeError(completeError, '미션을 완료하지 못했어요. 다시 눌러 주세요.'), { icon: 'error' })
     } finally {
       setBusyId(null)

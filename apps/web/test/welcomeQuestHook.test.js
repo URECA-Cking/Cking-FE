@@ -52,6 +52,8 @@ async function screen() {
       if (options.method === 'GET') return Promise.resolve(envelope(200, 'SUCCESS', quest))
       const next = window.claimResponses.shift()
       // deferred 응답은 테스트가 resolvePending으로 직접 끝낼 때까지 대기시킨다.
+      // raw 응답은 JSON이 아닌 본문(프록시의 HTML 오류 등)을 그대로 돌려준다.
+      if (next.raw !== undefined) return Promise.resolve(new Response(next.raw, { status: next.status }))
       if (next.deferred) return new Promise((resolve) => { window.pending[next.step] = () => resolve(envelope(next.status, next.code, next.data ?? null)) })
       return Promise.resolve(envelope(next.status, next.code, next.data ?? null, next.message ?? null))
     }
@@ -276,6 +278,87 @@ test('회원이 바뀌면 이전 회원의 requestId를 재사용하지 않는�
 
     const [first, second] = await posts(page)
     assert.notEqual(first.body.requestId, second.body.requestId)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('응답 코드가 없는 502(JSON 아님) 뒤에도 같은 requestId로 재시도한다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    await page.evaluate((response) => window.claimResponses.push(
+      { status: 502, raw: '<html><body>Bad Gateway</body></html>' },
+      { status: 200, code: 'ALREADY_PROCESSED', data: { step: 'SIGNUP', rewardAmount: 1, status: 'CLAIMED' } },
+    ), null)
+
+    assert.equal((await claim(page, 'SIGNUP')).ok, false)
+    assert.equal((await claim(page, 'SIGNUP')).ok, true)
+
+    const [first, second] = await posts(page)
+    assert.equal(first.body.requestId, second.body.requestId)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('코드가 있는 500도 승인 불명으로 보고 같은 requestId로 재시도한다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    await page.evaluate(() => window.claimResponses.push(
+      { status: 500, code: 'INTERNAL_SERVER_ERROR', message: '서버 오류' },
+      { status: 200, code: 'ALREADY_PROCESSED', data: { step: 'SIGNUP', rewardAmount: 1, status: 'CLAIMED' } },
+    ))
+
+    assert.deepEqual(await claim(page, 'SIGNUP'), { ok: false, code: 'INTERNAL_SERVER_ERROR' })
+    assert.equal((await claim(page, 'SIGNUP')).ok, true)
+
+    const [first, second] = await posts(page)
+    assert.equal(first.body.requestId, second.body.requestId)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('QUIZ 승인 불명 뒤 다른 answer로 다시 불러도 최초 requestId와 answer 그대로 재시도한다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    await page.evaluate((response) => window.claimResponses.push(
+      { status: 504, code: 'EARN_STATUS_UNKNOWN', message: '확인할 수 없어요' },
+      response,
+    ), accepted('QUIZ'))
+
+    assert.deepEqual(await claim(page, 'QUIZ', { answer: true }), { ok: false, code: 'EARN_STATUS_UNKNOWN' })
+    assert.equal((await claim(page, 'QUIZ', { answer: false })).ok, true)
+
+    const [first, retry] = await posts(page)
+    assert.equal(retry.body.requestId, first.body.requestId)
+    assert.equal(retry.body.answer, true)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('승인 불명 요청이 정리되면 다음 시도는 새 requestId와 새 answer를 쓴다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    await page.evaluate(() => window.claimResponses.push(
+      { status: 504, code: 'EARN_STATUS_UNKNOWN', message: '확인할 수 없어요' },
+      { status: 409, code: 'WELCOME_QUEST_ALREADY_CLAIMED', message: '이미 받았어요' },
+      { status: 409, code: 'WELCOME_QUEST_WRONG_ANSWER', message: '오답이에요' },
+    ))
+
+    await claim(page, 'QUIZ', { answer: true })
+    await claim(page, 'QUIZ', { answer: true })
+    await claim(page, 'QUIZ', { answer: false })
+
+    const [, , fresh] = await posts(page)
+    const [first] = await posts(page)
+    assert.notEqual(fresh.body.requestId, first.body.requestId)
+    assert.equal(fresh.body.answer, false)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

@@ -62,8 +62,8 @@ export default function MissionSection({ memberId }) {
         showToast('오늘은 이미 완료했어요.')
         return
       }
-      // ApiError가 아닌 예외도 서버 처리 여부를 알 수 없어 키를 유지한다. 확정된 실패(RETRY 목록 밖의 코드)만 키를 버린다.
-      if (!keepsRequestId(code)) requestIds.current.delete(mission.missionId)
+      // ApiError가 아닌 예외, 코드 없는 응답, 5xx도 서버 처리 여부를 알 수 없어 키를 유지한다. 서버가 처리하지 않았다고 알린 확정 실패만 키를 버린다.
+      if (!keepsRequestId(completeError)) requestIds.current.delete(mission.missionId)
       showToast(describeError(completeError, '미션을 완료하지 못했어요. 다시 눌러 주세요.'), { icon: 'error' })
     } finally {
       setBusyId(null)

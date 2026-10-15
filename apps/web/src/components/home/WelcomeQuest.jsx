@@ -158,13 +158,16 @@ export default function WelcomeQuest({ memberId, nickname, quest, claimingSteps,
     onClaim(WELCOME_QUEST_STEPS.SIGNUP)
   }, [memberId, signupStatus, onClaim])
 
-  /** 퀴즈에서 고른 답을 서버에 보내고, 정답이면 카드를 닫고 오답이면 안내 문구를 보여준다. */
+  /**
+   * 퀴즈에서 고른 답을 서버에 보내고, 정답이면 카드를 닫고 오답이면 안내 문구를 보여준다.
+   * 새 답을 보낼 때 이전 오답 문구를 먼저 지워, 이번 요청이 네트워크 오류 등으로 실패해도 예전 오답 안내가 남아 오해하지 않게 한다.
+   */
   async function answerQuiz(answer) {
+    setQuizMessage(null)
     const outcome = await onClaim(WELCOME_QUEST_STEPS.QUIZ, { answer })
     if (outcome.status === 'wrong') {
       setQuizMessage(outcome.message)
     } else if (outcome.status === 'claimed') {
-      setQuizMessage(null)
       setQuizOpen(false)
     }
   }

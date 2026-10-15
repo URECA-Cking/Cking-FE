@@ -24,6 +24,8 @@ Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서
 
 최초 당첨·재추첨 당첨·최초 추첨 미당첨 결과 발표 알림은 서버의 제목·본문을 표시하고, 유형별 문구와 아이콘으로 구분한다. 항목을 누르면 기존 개별 읽음 처리 후 공개 결과가 표시되는 해당 이벤트 상세(`/events/:eventId`)로 이동한다. 이벤트가 연결되지 않은 제재 알림은 읽음 처리만 한다.
 
+홈의 설치 안내(`InstallBanner`)는 기본으로 접혀 "Cking을 앱처럼 쓰기" 한 줄만 보이고, "설치 방법 보기"를 누르면 설명·설치 버튼·환경별 절차가 펼쳐진다. 출석 카드는 최근 7일 도장을 7칸으로 보여주며, 출석 완료·재시도·적립 규칙은 기존 공용 미션 API 계약을 그대로 따른다(칸마다 다른 보상은 없다). 완료 표시는 속이 찬 `FilledCheck`로 통일한다.
+
 ### 상태와 인증
 
 `UserContext`가 `/api/me`, 세션 상태, 역할, 팔로우 상태를 관리한다. Access JWT는 `sessionStorage`에 두며, `apps/web/src/api/client.js`가 Web 전용 refresh와 401 동작을 처리한다. 공통 HTTP 전송과 토큰 저장소의 저수준 로직은 `packages/shared`를 사용한다. Toast는 `ToastContext`가 담당한다. Web 전용 상태·Context·페이지는 Admin과 공유하지 않는다.

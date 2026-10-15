@@ -63,6 +63,9 @@ export default {
         'schedule-other': themeColor('schedule-other'),
         'surface-rose': '#fffbfd',
         'surface-rose-muted': themeColor('surface-rose-muted'),
+        // 웰컴 퀘스트의 강조(앰버)·성공(초록) 글씨 색. 밝은 배경에서도 읽히도록 index.css가 모드별 값을 준다.
+        'warm-accent': themeColor('warm-accent'),
+        'success-text': themeColor('success-text'),
         // 유리 질감 배경. 투명도(0.78)는 고정이고, 색만 모드에 따라 바뀐다(다크는 어두운 유리, 일반은 흰 유리).
         'surface-glass': 'rgb(var(--color-surface-glass) / 0.78)',
         'surface-glass-dark': 'rgba(15, 23, 42, 0.75)',

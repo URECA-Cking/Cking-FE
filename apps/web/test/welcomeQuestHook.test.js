@@ -40,6 +40,15 @@ async function screen() {
   page.on('pageerror', (error) => errors.push(error.message))
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
+  await boot(page)
+  return { page, errors }
+}
+
+/**
+ * 페이지를 처음부터 다시 열고 fetch 목과 번들을 올린다. 새로고침을 흉내 낼 때도 쓴다.
+ * 메모리 상태(훅의 보관 값)는 사라지고 같은 출처의 localStorage는 남는다.
+ */
+async function boot(page) {
   await page.goto('http://localhost/welcome-quest-test')
   await page.evaluate((quest) => {
     window.requests = []
@@ -58,15 +67,14 @@ async function screen() {
         return Promise.resolve(envelope(result.status, result.code, result.data ?? null, result.message ?? null))
       }
       const next = window.claimResponses.shift()
-      // deferred 응답은 테스트가 resolvePending으로 직접 끝낼 때까지 대기시킨다.
       // raw 응답은 JSON이 아닌 본문(프록시의 HTML 오류 등)을 그대로 돌려준다.
       if (next.raw !== undefined) return Promise.resolve(new Response(next.raw, { status: next.status }))
+      // deferred 응답은 테스트가 resolvePending으로 직접 끝낼 때까지 대기시킨다.
       if (next.deferred) return new Promise((resolve) => { window.pending[next.step] = () => resolve(envelope(next.status, next.code, next.data ?? null)) })
       return Promise.resolve(envelope(next.status, next.code, next.data ?? null, next.message ?? null))
     }
   }, QUEST)
   await page.addScriptTag({ content: bundle })
-  return { page, errors }
 }
 
 /** 화면에 드러난 훅 상태를 읽는다. */
@@ -176,18 +184,41 @@ test('QUIZ는 answer를 함께 보내고, 오답 뒤 다시 시도하면 새 req
   } finally { await page.close() }
 })
 
-test('다른 요청으로 이미 지급된 단계는 실패로 보이지 않고 CLAIMED로 맞춘다', async () => {
+test('다른 요청으로 이미 선점된 단계는 완료로 단정하지 않고 서버 상태를 다시 읽어 맞춘다', async () => {
   const { page, errors } = await screen()
   try {
     await page.evaluate(() => window.renderWelcomeQuest(7))
     await waitLoaded(page)
-    await page.evaluate(() => window.claimResponses.push({ status: 409, code: 'WELCOME_QUEST_ALREADY_CLAIMED', message: '이미 받았어요' }))
+    // 서버는 이미 승인한 상태로 다시 알려 준다.
+    await page.evaluate((quest) => {
+      window.getQueue.push({ status: 200, code: 'SUCCESS', data: { ...quest, items: quest.items.map((item) => (item.step === 'SIGNUP' ? { ...item, status: 'CLAIMED' } : item)) } })
+      window.claimResponses.push({ status: 409, code: 'WELCOME_QUEST_ALREADY_CLAIMED', message: '이미 받았어요' })
+    }, QUEST)
 
     const result = await claim(page, 'SIGNUP')
 
     assert.equal(result.ok, true)
     assert.equal(result.value.alreadyClaimed, true)
     await waitText(page, 'items', 'SIGNUP:CLAIMED')
+    const gets = await page.evaluate(() => window.requests.filter((request) => request.method === 'GET').length)
+    assert.equal(gets, 2)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('서버가 아직 승인 전이라 알리면 다른 요청으로 선점됐다는 응답이 와도 CLAIMED로 바꾸지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    // 기본 QUEST(아직 CLAIMABLE)가 다시 조회된다. 영속 선점은 있으나 승인 전인 요청(UUID를 잃은 경우)을 흉내 낸다.
+    await page.evaluate(() => window.claimResponses.push({ status: 409, code: 'WELCOME_QUEST_ALREADY_CLAIMED', message: '이미 받았어요' }))
+
+    await claim(page, 'SIGNUP')
+    await page.waitForFunction(() => window.requests.filter((request) => request.method === 'GET').length === 2)
+    await page.waitForFunction(() => document.querySelector('[data-testid="loading"]').textContent === 'false')
+
+    assert.equal((await read(page, 'items')).startsWith('SIGNUP:CLAIMABLE'), true)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
@@ -462,6 +493,92 @@ test('새 회원의 조회가 끝나기 전에 새 회원의 지급이 성공해
     // 조회가 끝나면 서버가 알려 준 상태 그대로 보인다. 그 사이 지급 성공이 이전 회원의 데이터에 섞이지 않았다.
     await page.evaluate(() => window.resolveGet())
     await waitText(page, 'items', 'SIGNUP:CLAIMED,FOLLOW:CLAIMABLE,QUIZ:CLAIMABLE')
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+/** 저장소에 남은 이 회원의 지급 시도를 읽는다. */
+const storedAttempts = (page, memberId = 7) => page.evaluate((id) => JSON.parse(localStorage.getItem(`cking.welcomeClaimAttempts.${id}`) ?? 'null'), memberId)
+
+test('승인 불명 뒤 새로고침해도 같은 requestId로 복구하고, 승인되면 보존한 요청을 지운다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => { localStorage.clear(); window.renderWelcomeQuest(7) })
+    await waitLoaded(page)
+    await page.evaluate(() => window.claimResponses.push({ status: 504, code: 'EARN_STATUS_UNKNOWN', message: '확인할 수 없어요' }))
+
+    assert.deepEqual(await claim(page, 'SIGNUP'), { ok: false, code: 'EARN_STATUS_UNKNOWN' })
+    const [first] = await posts(page)
+    assert.equal((await storedAttempts(page)).SIGNUP.requestId, first.body.requestId)
+
+    // 새로고침: 메모리 상태는 사라지고 저장소만 남는다.
+    await boot(page)
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    await page.evaluate((response) => window.claimResponses.push(response), accepted('SIGNUP'))
+
+    assert.equal((await claim(page, 'SIGNUP')).ok, true)
+    const [retry] = await posts(page)
+    assert.equal(retry.body.requestId, first.body.requestId)
+    assert.equal(await storedAttempts(page), null)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('QUIZ 승인 불명 뒤 새로고침해도 최초 answer를 그대로 보내 복구한다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => { localStorage.clear(); window.renderWelcomeQuest(7) })
+    await waitLoaded(page)
+    await page.evaluate(() => window.claimResponses.push({ status: 502, raw: '<html>Bad Gateway</html>' }))
+    await claim(page, 'QUIZ', { answer: true })
+    const [first] = await posts(page)
+
+    await boot(page)
+    await page.evaluate(() => window.renderWelcomeQuest(7))
+    await waitLoaded(page)
+    await page.evaluate((response) => window.claimResponses.push(response), accepted('QUIZ'))
+    assert.equal((await claim(page, 'QUIZ', { answer: false })).ok, true)
+
+    const [retry] = await posts(page)
+    assert.equal(retry.body.requestId, first.body.requestId)
+    assert.equal(retry.body.answer, true)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('서버가 처리하지 않았다고 확정한 실패는 보존한 요청을 지운다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => { localStorage.clear(); window.renderWelcomeQuest(7) })
+    await waitLoaded(page)
+    await page.evaluate(() => window.claimResponses.push({ status: 409, code: 'WELCOME_QUEST_WRONG_ANSWER', message: '오답이에요' }))
+
+    await claim(page, 'QUIZ', { answer: false })
+
+    assert.equal(await storedAttempts(page), null)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('다른 회원이 로그인해도 이전 회원이 보존한 요청은 쓰지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => { localStorage.clear(); window.renderWelcomeQuest(7) })
+    await waitLoaded(page)
+    await page.evaluate(() => window.claimResponses.push({ status: 504, code: 'EARN_STATUS_UNKNOWN', message: '확인할 수 없어요' }))
+    await claim(page, 'SIGNUP')
+    const savedFor7 = (await storedAttempts(page, 7)).SIGNUP.requestId
+
+    await boot(page)
+    await page.evaluate(() => window.renderWelcomeQuest(8))
+    await waitLoaded(page)
+    await page.evaluate((response) => window.claimResponses.push(response), accepted('SIGNUP'))
+    await claim(page, 'SIGNUP')
+
+    const [other] = await posts(page)
+    assert.notEqual(other.body.requestId, savedFor7)
+    assert.equal((await storedAttempts(page, 7)).SIGNUP.requestId, savedFor7)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

@@ -15,7 +15,7 @@ import {
 const STEPS = [
   { step: WELCOME_QUEST_STEPS.SIGNUP, no: 1, title: '크킹 가입 및 첫 로그인', icon: 'redeem', tile: 'bg-primary/15 text-primary' },
   { step: WELCOME_QUEST_STEPS.FOLLOW, no: 2, title: '관심 크리에이터 1명 팔로우', icon: 'person_add', tile: 'bg-primary/15 text-primary' },
-  { step: WELCOME_QUEST_STEPS.QUIZ, no: 3, title: '5초 OX 퀴즈 맛보기', icon: 'quiz', tile: 'bg-amber-400/20 text-amber-500' },
+  { step: WELCOME_QUEST_STEPS.QUIZ, no: 3, title: '5초 OX 퀴즈 맛보기', icon: 'quiz', tile: 'bg-warm-accent/20 text-warm-accent' },
 ]
 
 /**
@@ -45,7 +45,7 @@ function QuestHero({ nickname, quest }) {
             <span aria-hidden="true">🎉</span>
             첫 로그인 웰컴 기프트 도착
           </span>
-          <h2 className="mt-3 font-headline-md text-headline-md break-keep">
+          <h2 className="mt-3 font-headline-md text-headline-md break-keep [overflow-wrap:anywhere]">
             {allDone ? (
               '웰컴 퀘스트 완료!'
             ) : (
@@ -107,7 +107,7 @@ function QuizCard({ disabled, message, onAnswer }) {
           <span className="font-label-sm text-label-sm font-normal text-on-surface-variant">정답 시 즉시 +1장</span>
         </div>
         <p className="mb-4 font-label-md text-label-md font-bold leading-relaxed text-on-surface break-keep">
-          Q. 크킹에서는 크리에이터 미션에 참여하면 <span className="text-amber-400 underline underline-offset-2">무료로 응모권</span>을 모을 수 있다?
+          Q. 크킹에서는 크리에이터 미션에 참여하면 <span className="text-warm-accent underline underline-offset-2">무료로 응모권</span>을 모을 수 있다?
         </p>
         <div className="grid grid-cols-2 gap-3">
           <button
@@ -128,7 +128,7 @@ function QuizCard({ disabled, message, onAnswer }) {
           </button>
         </div>
         {message && (
-          <p role="alert" className="mt-3 text-center font-label-sm text-label-sm text-amber-400">
+          <p role="alert" className="mt-3 text-center font-label-sm text-label-sm text-warm-accent">
             {message}
           </p>
         )}
@@ -242,7 +242,7 @@ export default function WelcomeQuest({ memberId, nickname, quest, claimingSteps,
                       <span className="block font-label-md text-label-md font-extrabold text-on-surface break-keep">
                         STEP {definition.no}. {definition.title}
                       </span>
-                      <span className={`block font-label-sm text-label-sm font-bold truncate ${done ? 'text-emerald-500' : 'text-primary'}`}>
+                      <span className={`block font-label-sm text-label-sm font-bold break-keep ${done ? 'text-success-text' : 'text-primary'}`}>
                         {done ? '응모권 +1장 지급 완료' : '보상: 공통 응모권 +1장'}
                       </span>
                     </span>

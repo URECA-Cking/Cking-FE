@@ -21,9 +21,9 @@ function WelcomeBonusSlot({ received, claiming, onClaim }) {
   if (received) {
     return (
       <li aria-label="웰컴 보너스 받음" className="flex flex-col items-center rounded-xl bg-primary py-2 text-on-primary shadow-sm shadow-primary/30">
-        <span className="text-[9px] font-bold opacity-80">보너스</span>
+        <span className="whitespace-nowrap text-[10px] font-bold opacity-80">선물</span>
         <span className="my-0.5 flex h-[22px] items-center"><FilledCheck size={18} tone="onPrimary" /></span>
-        <span className="text-[9px] font-extrabold">+1장</span>
+        <span className="text-[10px] font-extrabold">+1장</span>
       </li>
     )
   }
@@ -34,11 +34,11 @@ function WelcomeBonusSlot({ received, claiming, onClaim }) {
         aria-label="웰컴 보너스 상자 열기"
         disabled={claiming}
         onClick={onClaim}
-        className="flex w-full animate-pulse flex-col items-center rounded-xl border-2 border-dashed border-amber-400 bg-amber-400/10 py-2 text-amber-500 disabled:opacity-60"
+        className="flex w-full animate-pulse flex-col items-center rounded-xl border-2 border-dashed border-warm-accent bg-warm-accent/10 py-2 text-warm-accent disabled:opacity-60"
       >
-        <span className="text-[9px] font-bold">보너스</span>
+        <span className="whitespace-nowrap text-[10px] font-bold">선물</span>
         <span aria-hidden="true" className="material-symbols-rounded my-0.5 text-[18px]">redeem</span>
-        <span className="text-[9px] font-extrabold">{claiming ? '여는 중' : '터치!'}</span>
+        <span className="whitespace-nowrap text-[10px] font-extrabold">{claiming ? '여는 중' : '터치!'}</span>
       </button>
     </li>
   )
@@ -174,7 +174,7 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
                               : 'bg-on-surface/5 text-outline'
                         }`}
                       >
-                        <span className="text-[9px] font-bold opacity-80">DAY {index + 1}</span>
+                        <span className="text-[10px] font-bold opacity-80">DAY {index + 1}</span>
                         <span
                           className={`my-0.5 flex h-[22px] items-center ${
                             slot.stamped && justStamped && index === stampedCount - 1 ? 'animate-stamp-pop' : ''
@@ -186,7 +186,7 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
                             <MaterialIcon name={index === stamps.length - 1 ? 'workspace_premium' : 'confirmation_number'} className="text-[18px]" />
                           )}
                         </span>
-                        <span className="text-[9px] font-extrabold">+{mission.rewardAmount}장</span>
+                        <span className="text-[10px] font-extrabold">+{mission.rewardAmount}장</span>
                       </li>
                     )
                   ))}
@@ -196,14 +196,14 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
                     type="button"
                     disabled={welcomeBonus.claiming}
                     onClick={claimBonus}
-                    className="mt-2 flex w-full items-center justify-center gap-1 rounded-xl border-2 border-dashed border-amber-400 bg-amber-400/10 py-2 font-label-sm text-label-sm font-bold text-amber-500 disabled:opacity-60"
+                    className="mt-2 flex w-full items-center justify-center gap-1 rounded-xl border-2 border-dashed border-warm-accent bg-warm-accent/10 py-2 font-label-sm text-label-sm font-bold text-warm-accent disabled:opacity-60"
                   >
                     <span aria-hidden="true" className="material-symbols-rounded text-[18px]">redeem</span>
                     {welcomeBonus.claiming ? '여는 중...' : '웰컴 보너스 상자 열기'}
                   </button>
                 )}
                 {bonusVisible && (
-                  <p className={`mt-2 text-center font-label-sm text-label-sm font-bold ${bonusReceived ? 'text-emerald-500' : 'text-amber-500'}`}>
+                  <p className={`mt-2 text-center font-label-sm text-label-sm font-bold ${bonusReceived ? 'text-success-text' : 'text-warm-accent'}`}>
                     {bonusReceived ? '웰컴 보너스 응모권 +1장이 지급되었어요!' : '깜짝 웰컴 보너스 상자를 터치해서 추가 응모권을 받아보세요!'}
                   </p>
                 )}

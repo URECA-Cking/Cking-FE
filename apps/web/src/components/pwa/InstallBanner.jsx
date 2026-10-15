@@ -22,7 +22,7 @@ export default function InstallBanner() {
         <div className="w-9 h-9 rounded-xl bg-berry-tint flex items-center justify-center text-primary shrink-0">
           <MaterialIcon name="install_mobile" className="text-[20px]" />
         </div>
-        <p className="min-w-0 flex-1 font-label-md text-label-md font-bold text-on-surface truncate">Cking을 앱처럼 쓰기</p>
+        <p className="min-w-0 flex-1 font-label-md text-label-md font-bold text-on-surface break-keep">Cking을 앱처럼 쓰기</p>
         {canInstall ? (
           <button
             type="button"

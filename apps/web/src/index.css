@@ -35,6 +35,12 @@
     --color-schedule-broadcast: 160 112 242; /* #a070f2 */
     --color-schedule-content-release: 195 122 0; /* #c37a00 */
     --color-schedule-other: 165 130 140; /* #a5828c */
+    /*
+     * 웰컴 퀘스트의 강조 글씨·아이콘 색(tailwind.config.js의 warm-accent·success-text).
+     * surface-container 이상의 카드와 그 위의 옅은 색 배경 위에서 대비 4.5 이상이 되도록 모드별로 따로 잡았다.
+     */
+    --color-warm-accent: 251 191 36; /* #fbbf24 */
+    --color-success-text: 52 211 153; /* #34d399 */
   }
 
   :root[data-theme='light'] {
@@ -59,6 +65,8 @@
     --color-schedule-broadcast: 124 58 237; /* #7c3aed */
     --color-schedule-content-release: 131 82 0; /* #835200 */
     --color-schedule-other: 89 64 71; /* #594047 */
+    --color-warm-accent: 146 64 14; /* #92400e */
+    --color-success-text: 4 120 87; /* #047857 */
   }
 
   /* 브라우저 기본 당겨서 새로고침·바운스를 끄고 PullToRefresh.jsx의 CKing 로고 연출로 대신한다. */

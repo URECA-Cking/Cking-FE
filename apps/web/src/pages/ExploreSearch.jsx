@@ -117,8 +117,8 @@ export default function ExploreSearch() {
                 <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
               </div>
               <div className="min-w-0 flex flex-col">
-                <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
-                <span className="font-label-xs text-label-xs text-outline line-clamp-1">{creator.bio}</span>
+                <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
+                <span className="font-body-sm text-body-sm text-outline line-clamp-1">{creator.bio}</span>
               </div>
             </Link>
             {/* 크리에이터만 볼 때는 그 크리에이터의 이벤트를 함께 보여 주고, 전체에서는 아래 이벤트 목록과 겹치므로 생략한다. */}

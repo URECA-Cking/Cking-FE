@@ -86,8 +86,8 @@ export default function ExploreRecommend() {
             <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
           </div>
           <div className="min-w-0 flex flex-col">
-            <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
-            <span className="font-label-xs text-label-xs text-outline line-clamp-1">{creator.bio}</span>
+            <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
+            <span className="font-body-sm text-body-sm text-outline line-clamp-1">{creator.bio}</span>
           </div>
         </Link>
         <button

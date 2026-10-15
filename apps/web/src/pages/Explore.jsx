@@ -21,6 +21,9 @@ import { spacePath } from '../api/creatorSpace.js'
 // 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
 const CREATOR_PAGE_SIZE = 30
 // 이벤트는 10개씩 늘려 가며 다시 받는다. BE 페이지 상한(100)을 넘기면 더 받을 수 없다.
+// 진행 중 이벤트가 많은 크리에이터는 3위까지 먼저 보이고 '더 보기'로 5위까지 펼친다.
+const TRENDING_PREVIEW = 3
+const TRENDING_MAX = 5
 const EVENT_PAGE_SIZE = 10
 const EVENT_MAX_SIZE = 100
 
@@ -58,6 +61,7 @@ export default function Explore() {
   const [creatorFilter, setCreatorFilter] = useState('전체')
   const [creatorSort, setCreatorSort] = useState('name-asc')
   const [sortOpen, setSortOpen] = useState(false)
+  const [trendingExpanded, setTrendingExpanded] = useState(false)
   const [eventFilter, setEventFilter] = useState('IN_PROGRESS')
   const [creatorLimit, setCreatorLimit] = useState(CREATOR_PAGE_SIZE)
   const [eventSize, setEventSize] = useState(EVENT_PAGE_SIZE)
@@ -84,7 +88,7 @@ export default function Explore() {
       [...creators]
         .filter((creator) => creator.openEventCount > 0)
         .sort((a, b) => b.openEventCount - a.openEventCount || b.events.length - a.events.length)
-        .slice(0, 3),
+        .slice(0, TRENDING_MAX),
     [creators],
   )
 
@@ -255,7 +259,7 @@ export default function Explore() {
         <div className="px-margin mb-space-sm flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1.5">
             <MaterialIcon name="groups" className="text-[20px] text-primary" />
-            <h2 className="font-title-lg text-title-lg text-on-surface">크리에이터</h2>
+            <h2 className="font-title-md text-title-md font-bold text-on-surface">크리에이터</h2>
           </div>
           <div className="relative shrink-0">
             <button
@@ -355,34 +359,43 @@ export default function Explore() {
           <div className="px-margin mb-space-lg flex flex-col">
             <div className="flex items-center gap-1.5 mb-space-sm">
               <MaterialIcon name="trending_up" className="text-tertiary text-[20px]" />
-              <h2 className="font-title-lg text-title-lg text-on-surface">진행 중 이벤트가 많은 크리에이터</h2>
+              <h2 className="font-title-md text-title-md font-bold text-on-surface">진행 중 이벤트가 많은 크리에이터</h2>
             </div>
             <div className="flex flex-col gap-2.5">
-              {trending.map((creator, index) => (
+              {trending.slice(0, trendingExpanded ? TRENDING_MAX : TRENDING_PREVIEW).map((creator, index) => (
                 <Link
                   key={creator.creatorId}
                   to={spacePath(creator.handle)}
-                  className="w-full p-3 rounded-2xl bg-surface-container-lowest shadow-card flex items-center gap-3 active:scale-[0.98] transition-all"
+                  className="w-full px-3 py-2 rounded-xl bg-surface-container-lowest shadow-card flex items-center gap-2.5 active:scale-[0.98] transition-all"
                 >
-                  <span className="font-metric-display text-metric-display text-primary w-4 text-center">{index + 1}</span>
-                  <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                  <span className="font-label-md text-label-md font-bold text-primary w-4 text-center">{index + 1}</span>
+                  <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
                     <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
                   </div>
                   <div className="min-w-0 flex flex-col">
-                    <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
-                    <span className="font-label-xs text-label-xs text-secondary font-semibold">
+                    <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
+                    <span className="font-label-sm text-label-sm text-secondary font-semibold">
                       진행 중 {creator.openEventCount}개 · 전체 {creator.events.length}개
                     </span>
                   </div>
                 </Link>
               ))}
             </div>
+            {trending.length > TRENDING_PREVIEW && (
+              <button
+                type="button"
+                onClick={() => setTrendingExpanded((expanded) => !expanded)}
+                className="mt-2 h-9 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
+              >
+                {trendingExpanded ? '접기' : '더 보기'}
+              </button>
+            )}
           </div>
         )}
         <div className="px-margin flex items-center justify-between mb-space-sm">
           <div className="flex items-center gap-1.5">
             <MaterialIcon name="confirmation_number" filled className="text-primary text-[20px]" />
-            <h2 className="font-title-lg text-title-lg text-on-surface">이벤트 둘러보기</h2>
+            <h2 className="font-title-md text-title-md font-bold text-on-surface">이벤트 둘러보기</h2>
           </div>
           <span className="font-label-xs text-label-xs text-on-surface-variant">
             {formatNumber(eventList.data?.totalElements ?? 0)}개

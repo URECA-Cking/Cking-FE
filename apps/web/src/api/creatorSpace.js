@@ -32,9 +32,17 @@ export function uploadSpaceProfileImage(file) {
   return apiClient.post('/api/creator/space/profile-images', form);
 }
 
-/** 스페이스 프로필 사진 업로드·저장 오류 코드별 문구. 모르는 코드는 서버 메시지나 상태 코드로 대신한다. */
+// POST /api/creator/space/banner-images - 배너 이미지 1장 업로드 → { imageKey }. 24시간 안에 연결하지 않으면 서버가 지운다.
+export function uploadSpaceBannerImage(file) {
+  const form = new FormData();
+  form.append('image', file);
+  return apiClient.post('/api/creator/space/banner-images', form);
+}
+
+/** 스페이스 프로필 사진·배너 업로드·저장 오류 코드별 문구. 모르는 코드는 서버 메시지나 상태 코드로 대신한다. */
 export const SPACE_IMAGE_ERROR_MESSAGES = {
   INVALID_SPACE_PROFILE_IMAGE: '이미지를 사용할 수 없어요. JPEG·PNG, 5MB 이하, 200×200px 이상인지 확인하고 사진을 다시 올려주세요.',
+  INVALID_SPACE_BANNER_IMAGE: '배너 이미지를 사용할 수 없어요. JPEG·PNG, 5MB 이하, 600×200px 이상인지 확인하고 배너를 다시 올려주세요.',
   UPLOAD_TOO_LARGE: '이미지가 너무 커요. 5MB 이하 이미지를 올려주세요.',
   IMAGE_PROCESSING_BUSY: '지금 사진을 처리하는 요청이 많아요. 잠시 뒤에 다시 시도해주세요.',
   VALIDATION_FAILED: '입력한 내용을 확인해주세요. 소개와 이미지 주소는 비워둘 수 없고 500자 이하여야 해요.',

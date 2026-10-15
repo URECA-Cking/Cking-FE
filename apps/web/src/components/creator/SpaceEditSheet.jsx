@@ -4,6 +4,7 @@ import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { Spinner } from '../ui/States.jsx'
 import ActivityNameSection from './ActivityNameSection.jsx'
+import CreatorBanner from './CreatorBanner.jsx'
 import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError } from '../../api/client.js'
 import {
@@ -11,9 +12,10 @@ import {
   changeMySpaceSlug,
   describeSpaceImageError,
   updateMySpace,
+  uploadSpaceBannerImage,
   uploadSpaceProfileImage,
 } from '../../api/creatorSpace.js'
-import { validateProfileImage } from '../../utils/imageFile.js'
+import { validateBannerImage, validateProfileImage } from '../../utils/imageFile.js'
 import { forgetPreviousSlug, readPreviousSlug, rememberPreviousSlug, selectRestorableSlug } from '../../utils/previousSlug.js'
 import { toSafeHttpUrl } from '../../utils/safeUrl.js'
 import { pickFields } from '../../utils/spaceProfile.js'
@@ -35,11 +37,92 @@ const inputClass =
   'w-full px-3 py-2.5 rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none shadow-sm transition-all'
 
 /**
+ * 스페이스 이미지(프로필 사진·배너) 한 종류의 선택·업로드 상태.
+ * pendingKey — undefined: 바꾸지 않음 / null: 기본 이미지로 / string: 새로 올린 이미지의 key.
+ * busy는 파일을 고른 순간부터(검증·업로드 중) 켜진다. 이 동안은 저장·변경을 막아 이전 선택의 결과가 나중 선택을 덮지 못하게 한다.
+ */
+function useSpaceImagePick({ validate, upload, failMessage }) {
+  const [pendingKey, setPendingKey] = useState(undefined)
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const seq = useRef(0)
+  const alive = useRef(true)
+  const fileInput = useRef(null)
+
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
+
+  // 방금 올린 이미지의 미리보기 주소(blob:). 바뀌거나 화면을 떠나면 해제한다.
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
+
+  async function handleFile(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || busy) return
+    const current = ++seq.current
+    const isLatest = () => alive.current && current === seq.current
+    setError('')
+    setBusy(true)
+    try {
+      const reason = await validate(file)
+      if (!isLatest()) return
+      if (reason) {
+        setError(reason)
+        return
+      }
+      const { imageKey } = await upload(file)
+      if (!isLatest()) return
+      setPendingKey(imageKey)
+      setPreviewUrl(URL.createObjectURL(file))
+    } catch (uploadError) {
+      if (isLatest()) setError(describeSpaceImageError(uploadError, failMessage))
+    } finally {
+      if (isLatest()) setBusy(false)
+    }
+  }
+
+  return {
+    pendingKey,
+    previewUrl,
+    busy,
+    error,
+    fileInput,
+    handleFile,
+    openPicker: () => fileInput.current?.click(),
+    /** 기본 이미지로 돌아가려는 선택. */
+    remove() {
+      setError('')
+      setPreviewUrl(null)
+      setPendingKey(null)
+    },
+    /** 기본 이미지로 되돌리려던 선택을 취소해 현재 이미지를 그대로 둔다. */
+    cancelRemove() {
+      setError('')
+      setPendingKey(undefined)
+    },
+    /** 저장된 이미지가 현재 이미지가 된다. 이후에는 바꾸지 않은 상태로 둔다. */
+    reset() {
+      setPendingKey(undefined)
+      setPreviewUrl(null)
+    },
+  }
+}
+
+/**
  * Creator 본인의 Space 편집(Cking-BE docs/domains/creator/space-api.md).
  * - 활동명: GET·PUT /api/creator/profile (ActivityNameSection). 저장하면 화면의 크리에이터 이름도 바로 바뀐다.
  * - 홈·프로필: PATCH /api/creator/space (소개·프로필 이미지 URL·배너 이미지 URL을 한 번에 교체)
  *   프로필 사진은 파일을 고르면 POST /api/creator/space/profile-images로 올려 key를 받고, 저장할 때 `profileImageKey`로 보낸다.
- *   바꾸지 않으면 key를 보내지 않아 현재 사진을 유지하고, 지우면 null을 보내 기본 이미지로 돌아간다. 배너는 BE에 업로드가 없어 URL 입력이다.
+ *   바꾸지 않으면 key를 보내지 않아 현재 사진을 유지하고, 지우면 null을 보내 기본 이미지로 돌아간다.
+ *   배너도 같다: 파일을 고르면 POST /api/creator/space/banner-images로 올려 key를 받고, 저장할 때 `bannerImageKey`로 보낸다.
+ *   배너 URL은 PATCH에 필수라 입력칸 없이 현재 값을 그대로 보내며, 업로드한 배너가 연결돼 있으면 BE가 무시한다.
  * - slug: PATCH /api/creator/space/slug
  *   BE는 버린 이전 slug를 14일 동안 본인 전용으로 예약해 14일 간격 없이 되돌릴 수 있게 하지만 이전 주소를 응답으로 주지 않아,
  *   이 브라우저에서 바꿀 때 이전 주소를 기억해 두었다가(utils/previousSlug.js) 되돌리기 버튼에 쓴다.
@@ -61,75 +144,27 @@ function SpaceEditForm({ space, onSaved }) {
     profileImageUrl: space.profileImageUrl ?? '',
     bannerImageUrl: space.bannerImageUrl ?? '',
   })
-  // undefined: 사진을 바꾸지 않음 / null: 기본 이미지로 / string: 새로 올린 사진의 key
-  const [pendingKey, setPendingKey] = useState(undefined)
-  const [previewUrl, setPreviewUrl] = useState(null)
-  // 파일을 고른 순간부터(검증·업로드 중) 켜진다. 이 동안은 저장·사진 변경을 막아 이전 선택의 결과가 나중 선택을 덮지 못하게 한다.
-  const [photoBusy, setPhotoBusy] = useState(false)
-  const [imageError, setImageError] = useState('')
-  const photoSeq = useRef(0)
-  const alive = useRef(true)
-  const fileInput = useRef(null)
+  const photo = useSpaceImagePick({
+    validate: validateProfileImage,
+    upload: uploadSpaceProfileImage,
+    failMessage: '사진을 올리지 못했어요. 다시 시도해주세요.',
+  })
+  const banner = useSpaceImagePick({
+    validate: validateBannerImage,
+    upload: uploadSpaceBannerImage,
+    failMessage: '배너를 올리지 못했어요. 다시 시도해주세요.',
+  })
   const [slug, setSlug] = useState(space.slug ?? '')
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingSlug, setSavingSlug] = useState(false)
   const [slugError, setSlugError] = useState(null)
 
-  useEffect(() => {
-    alive.current = true
-    return () => {
-      alive.current = false
-    }
-  }, [])
-
-  // 방금 올린 사진의 미리보기 주소(blob:). 바뀌거나 화면을 떠나면 해제한다.
-  useEffect(() => () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-  }, [previewUrl])
-
   const remainingDays = daysUntil(space.slugChangeableAt)
-  // 프로필 이미지 URL은 입력칸이 없어도 PATCH에 필수라 현재 값을 그대로 보낸다(업로드 사진이 연결돼 있으면 BE가 무시한다).
+  // 프로필 이미지·배너 URL은 입력칸이 없어도 PATCH에 필수라 현재 값을 그대로 보낸다(업로드한 이미지가 연결돼 있으면 BE가 무시한다).
   const profileValid = Object.values(profile).every((value) => value.trim() && value.length <= MAX_TEXT)
   // 방금 올린 사진은 미리보기(blob:) 주소로, 저장돼 있는 사진은 서버 주소가 http(s)일 때만 보여준다.
-  const shownImage = pendingKey === null ? null : (previewUrl ?? toSafeHttpUrl(space.profileImageUrl))
-
-  async function handleFile(event) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file || photoBusy) return
-    const seq = ++photoSeq.current
-    const isLatest = () => alive.current && seq === photoSeq.current
-    setImageError('')
-    setPhotoBusy(true)
-    try {
-      const reason = await validateProfileImage(file)
-      if (!isLatest()) return
-      if (reason) {
-        setImageError(reason)
-        return
-      }
-      const { imageKey } = await uploadSpaceProfileImage(file)
-      if (!isLatest()) return
-      setPendingKey(imageKey)
-      setPreviewUrl(URL.createObjectURL(file))
-    } catch (error) {
-      if (isLatest()) setImageError(describeSpaceImageError(error, '사진을 올리지 못했어요. 다시 시도해주세요.'))
-    } finally {
-      if (isLatest()) setPhotoBusy(false)
-    }
-  }
-
-  function removeImage() {
-    setImageError('')
-    setPreviewUrl(null)
-    setPendingKey(null)
-  }
-
-  /** 기본 이미지로 되돌리려던 선택을 취소해 현재 사진을 그대로 둔다. */
-  function cancelRemoveImage() {
-    setImageError('')
-    setPendingKey(undefined)
-  }
+  const shownImage = photo.pendingKey === null ? null : (photo.previewUrl ?? toSafeHttpUrl(space.profileImageUrl))
+  const imageBusy = photo.busy || banner.busy
 
   async function saveProfile() {
     setSavingProfile(true)
@@ -138,13 +173,18 @@ function SpaceEditForm({ space, onSaved }) {
         introText: profile.introText.trim(),
         profileImageUrl: profile.profileImageUrl.trim(),
         bannerImageUrl: profile.bannerImageUrl.trim(),
-        profileImageKey: pendingKey,
+        profileImageKey: photo.pendingKey,
+        bannerImageKey: banner.pendingKey,
       })
       onSaved(pickFields(updated, PROFILE_FIELDS))
-      // 저장된 사진이 현재 사진이 된다. 이후 저장에는 새 주소를 보내고 사진은 다시 바꾸지 않은 상태로 둔다.
-      setProfile((prev) => ({ ...prev, profileImageUrl: updated.profileImageUrl ?? prev.profileImageUrl }))
-      setPendingKey(undefined)
-      setPreviewUrl(null)
+      // 저장된 사진·배너가 현재 이미지가 된다. 이후 저장에는 새 주소를 보내고 이미지는 다시 바꾸지 않은 상태로 둔다.
+      setProfile((prev) => ({
+        ...prev,
+        profileImageUrl: updated.profileImageUrl ?? prev.profileImageUrl,
+        bannerImageUrl: updated.bannerImageUrl ?? prev.bannerImageUrl,
+      }))
+      photo.reset()
+      banner.reset()
       showToast('스페이스 정보를 저장했어요.')
     } catch (error) {
       showToast(describeSpaceImageError(error, '스페이스 정보를 저장하지 못했어요.'), { icon: 'error' })
@@ -210,39 +250,39 @@ function SpaceEditForm({ space, onSaved }) {
           <div className="flex items-center gap-space-md">
             <button
               type="button"
-              onClick={() => fileInput.current?.click()}
-              disabled={photoBusy || savingProfile}
+              onClick={photo.openPicker}
+              disabled={photo.busy || savingProfile}
               aria-label="프로필 사진 변경"
               className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-surface-container active:scale-95 transition-transform disabled:opacity-70"
             >
-              {pendingKey === null ? (
+              {photo.pendingKey === null ? (
                 <span className="flex h-full w-full items-center justify-center text-on-surface-variant">
                   <MaterialIcon name="restart_alt" className="text-[40px]" />
                 </span>
               ) : (
                 <ProfilePhoto src={shownImage} className="h-full w-full" iconClassName="text-[40px]" />
               )}
-              {photoBusy && (
+              {photo.busy && (
                 <span className="absolute inset-0 flex items-center justify-center bg-black/40">
                   <Spinner className="h-6 w-6 text-white" />
                 </span>
               )}
             </button>
-            <input ref={fileInput} type="file" accept="image/jpeg,image/png" className="hidden" onChange={handleFile} />
+            <input ref={photo.fileInput} type="file" accept="image/jpeg,image/png" className="hidden" onChange={photo.handleFile} />
             <div className="flex flex-col items-start gap-1">
               <button
                 type="button"
-                onClick={() => fileInput.current?.click()}
-                disabled={photoBusy || savingProfile}
+                onClick={photo.openPicker}
+                disabled={photo.busy || savingProfile}
                 className="font-label-md text-label-md font-semibold text-primary disabled:opacity-50"
               >
                 사진 변경
               </button>
-              {pendingKey !== null ? (
+              {photo.pendingKey !== null ? (
                 <button
                   type="button"
-                  onClick={removeImage}
-                  disabled={photoBusy || savingProfile}
+                  onClick={photo.remove}
+                  disabled={photo.busy || savingProfile}
                   className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
                 >
                   기본 이미지로
@@ -250,7 +290,7 @@ function SpaceEditForm({ space, onSaved }) {
               ) : (
                 <button
                   type="button"
-                  onClick={cancelRemoveImage}
+                  onClick={photo.cancelRemove}
                   disabled={savingProfile}
                   className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
                 >
@@ -258,27 +298,78 @@ function SpaceEditForm({ space, onSaved }) {
                 </button>
               )}
               <p className="font-label-xs text-label-xs text-on-surface-variant">
-                {pendingKey === null
+                {photo.pendingKey === null
                   ? '저장하면 스페이스 기본 이미지로 돌아가요. 기본 이미지는 저장한 뒤에 확인할 수 있어요.'
                   : 'JPEG·PNG, 5MB 이하, 200×200px 이상'}
               </p>
             </div>
           </div>
-          {imageError && <p className="font-label-xs text-label-xs text-error" role="alert">{imageError}</p>}
+          {photo.error && <p className="font-label-xs text-label-xs text-error" role="alert">{photo.error}</p>}
         </div>
-        <label className="flex flex-col gap-1">
-          <span className="font-label-xs text-label-xs text-on-surface-variant">배너 이미지 URL</span>
-          <input
-            type="url"
-            value={profile.bannerImageUrl}
-            maxLength={MAX_TEXT}
-            onChange={(event) => setProfile((prev) => ({ ...prev, bannerImageUrl: event.target.value }))}
-            className={inputClass}
-          />
-        </label>
+        <div className="flex flex-col gap-1">
+          <span className="font-label-xs text-label-xs text-on-surface-variant">배너 이미지</span>
+          <button
+            type="button"
+            onClick={banner.openPicker}
+            disabled={banner.busy || savingProfile}
+            aria-label="배너 이미지 변경"
+            className="relative aspect-[3/1] w-full overflow-hidden rounded-xl bg-surface-container active:scale-[0.99] transition-transform disabled:opacity-70"
+          >
+            {banner.pendingKey === null ? (
+              <span className="flex h-full w-full items-center justify-center text-on-surface-variant">
+                <MaterialIcon name="restart_alt" className="text-[40px]" />
+              </span>
+            ) : banner.previewUrl ? (
+              <img className="h-full w-full object-cover" src={banner.previewUrl} alt="" />
+            ) : (
+              <CreatorBanner src={space.bannerImageUrl} profileSrc={space.profileImageUrl} />
+            )}
+            {banner.busy && (
+              <span className="absolute inset-0 flex items-center justify-center bg-black/40">
+                <Spinner className="h-6 w-6 text-white" />
+              </span>
+            )}
+          </button>
+          <input ref={banner.fileInput} type="file" accept="image/jpeg,image/png" className="hidden" onChange={banner.handleFile} />
+          <div className="flex items-center gap-space-md">
+            <button
+              type="button"
+              onClick={banner.openPicker}
+              disabled={banner.busy || savingProfile}
+              className="font-label-md text-label-md font-semibold text-primary disabled:opacity-50"
+            >
+              배너 변경
+            </button>
+            {banner.pendingKey !== null ? (
+              <button
+                type="button"
+                onClick={banner.remove}
+                disabled={banner.busy || savingProfile}
+                className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
+              >
+                기본 배너로
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={banner.cancelRemove}
+                disabled={savingProfile}
+                className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
+              >
+                되돌리기 취소
+              </button>
+            )}
+          </div>
+          <p className="font-label-xs text-label-xs text-on-surface-variant">
+            {banner.pendingKey === null
+              ? '저장하면 스페이스 기본 배너로 돌아가요. 기본 배너는 저장한 뒤에 확인할 수 있어요.'
+              : 'JPEG·PNG, 5MB 이하, 600×200px 이상'}
+          </p>
+          {banner.error && <p className="font-label-xs text-label-xs text-error" role="alert">{banner.error}</p>}
+        </div>
         <button
           type="button"
-          disabled={!profileValid || savingProfile || photoBusy}
+          disabled={!profileValid || savingProfile || imageBusy}
           onClick={saveProfile}
           className="w-full h-11 rounded-xl bg-primary disabled:opacity-50 text-on-primary font-label-md text-label-md font-semibold active:scale-[0.98] transition-all"
         >

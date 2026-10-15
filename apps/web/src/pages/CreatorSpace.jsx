@@ -87,6 +87,7 @@ function ProfileIntro({ text }) {
  * 관심 등록, 본인 편집. 비로그인이면 이 영역에 로그인 안내를 보여준다.
  * 캘린더 탭·홈의 다가오는 일정은 GET /api/creators/{id}/calendar/schedules(추첨 이벤트와 별개인 크리에이터 일정)를 쓴다.
  * 게시물 탭은 공개 Post API로 조회하며 팔로워 공개 게시글은 권한에 따라 잠금 상태로 표시한다.
+ * 홈은 마감되지 않은 이벤트를 미리 보여주고, 이벤트 탭은 종료된 이벤트와 공개 결과로 이어지는 카드를 유지한다.
  * 내 Space면(GET /api/creator/space의 creatorId가 같으면) 편집할 수 있고, 이벤트 탭에서 이벤트를,
  * 캘린더 탭에서 일정을 관리한다(예전 크리에이터 스튜디오 기능). Quiz 탭에서는 AI Quiz를 만들고 검토·게시한다.
  */
@@ -191,7 +192,6 @@ export default function CreatorSpace() {
     () => events.filter((event) => event.displayStatus !== 'CLOSED'),
     [events],
   )
-  const publishedEvent = useMemo(() => events.find((event) => event.status === 'PUBLISHED'), [events])
 
   const following = creatorId !== null && isFollowing(creatorId)
 
@@ -647,26 +647,6 @@ export default function CreatorSpace() {
                 <EmptyBlock icon="event_busy" message={EMPTY_TAB_MESSAGE} />
               )}
             </div>
-
-            {publishedEvent && (
-              <Link
-                to={`/events/${publishedEvent.eventId}`}
-                className="flex items-center gap-space-sm p-space-md rounded-2xl bg-berry-tint border border-border-rose active:scale-[0.99] transition-all"
-              >
-                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary shrink-0">
-                  <MaterialIcon name="celebration" filled className="text-[20px]" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-label-md text-label-md text-berry-deep font-bold truncate">
-                    {publishedEvent.title} 결과가 공개됐어요
-                  </p>
-                  <p className="font-label-xs text-label-xs text-berry-deep/80">당첨 내역을 지금 바로 확인해 보세요!</p>
-                </div>
-                <span className="px-3 py-1.5 rounded-lg bg-primary text-on-primary font-label-xs text-label-xs font-bold shrink-0">
-                  결과 확인 &gt;
-                </span>
-              </Link>
-            )}
           </div>
         )}
 

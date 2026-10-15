@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import SwipeToHide from '../components/notification/SwipeToHide.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useNotificationPage } from '../hooks/useNotificationPage.js'
-import { getMyNotifications, readAllNotifications, readNotification } from '../api/notifications.js'
+import { getMyNotifications, hideNotification, readAllNotifications, readNotification } from '../api/notifications.js'
 import { describeError } from '../api/client.js'
 import { formatRelativeTime } from '../utils/format.js'
 import { NOTIFICATION_TYPE_META } from '../utils/eventStatus.js'
@@ -16,6 +17,7 @@ import { localizeNoticeBody } from '../utils/sanctionNotice.js'
  * PATCH /api/me/notifications/{id}/read 로 읽음 처리한 뒤 관련 이벤트로 이동한다.
  * 전체 읽음은 서버의 일괄 읽음 API를 사용한다.
  * 제재 알림은 event·drawing이 null이라 이동 없이 읽음 처리만 한다.
+ * 카드를 왼쪽으로 밀어 드러난 "숨기기"를 누르면 PATCH /api/me/notifications/{id}/hide 로 알림함에서 숨긴다(삭제 아님, 되돌릴 수 없음).
  */
 export default function Notifications() {
   const navigate = useNavigate()
@@ -29,15 +31,20 @@ export default function Notifications() {
     markNotificationReadLocally,
     markAllNotificationsReadLocally,
     rollbackAllNotificationsReadLocally,
+    hideNotificationLocally,
+    unhideNotificationLocally,
   } = useOutletContext()
   const [page, setPage] = useState(0)
   const [readingId, setReadingId] = useState(null)
   const [markingAll, setMarkingAll] = useState(false)
+  const [openId, setOpenId] = useState(null)
+  const [hidingId, setHidingId] = useState(null)
   const chunkPage = Math.floor(page / 5)
 
   const {
     data: extraData, loading: extraLoading, error: extraError, reload: reloadExtra,
     markRead: markExtraRead, markAllRead: markAllExtraRead, rollbackAllRead: rollbackAllExtraRead,
+    hide: hideExtra, unhide: unhideExtra,
   } = useNotificationPage(
     () => getMyNotifications({ page: chunkPage, size: 100 }),
     [chunkPage],
@@ -51,6 +58,11 @@ export default function Notifications() {
   const loading = chunkPage === 0 ? notificationsLoading : extraLoading || (!data && !extraError)
   const error = chunkPage === 0 ? notificationsError : extraError
   const canMarkAllRead = Boolean(totalUnreadCount > 0 || notificationsData?.hasNext)
+
+  // 숨겨서 마지막 페이지가 비면 한 페이지 앞으로 돌아간다(빈 목록 안내가 "알림 없음"으로 오해되지 않게).
+  useEffect(() => {
+    if (page > 0 && data && !loading && items.length === 0) setPage((prev) => Math.max(0, prev - 1))
+  }, [page, data, loading, items.length])
 
   /** 현재 목록 페이지와 헤더의 서버 상태를 필요한 조회만으로 다시 맞춘다. */
   async function reloadCurrentPage() {
@@ -86,9 +98,35 @@ export default function Notifications() {
     if (eventId) navigate(`/events/${eventId}`)
   }
 
+  /** 알림을 목록과 배지에서 먼저 빼고 서버에 숨김을 요청한다. 실패하면 되돌리고, 성공하면 서버 기준으로 목록을 다시 맞춘다. */
+  async function handleHide(notification) {
+    if (hidingId !== null) return
+    const id = notification.notificationId
+    setHidingId(id)
+    setOpenId(null)
+    hideNotificationLocally(id)
+    if (chunkPage > 0) hideExtra(id)
+    try {
+      await hideNotification(id)
+    } catch (err) {
+      // 이미 없는 알림이면 어차피 목록에서 빠질 알림이라 숨긴 것으로 둔다.
+      if (err?.code !== 'NOTIFICATION_NOT_FOUND') {
+        unhideNotificationLocally(id)
+        if (chunkPage > 0) unhideExtra(id)
+        showToast(describeError(err, '알림을 숨기지 못했습니다.'), { icon: 'error' })
+        await reloadCurrentPage()
+        setHidingId(null)
+        return
+      }
+    }
+    // 100건 단위로 받는 목록은 숨긴 만큼 서버 기준 위치가 당겨지므로 다시 맞춘다.
+    await reloadCurrentPage()
+    setHidingId(null)
+  }
+
   /** 서버의 전체 읽음 API를 한 번 호출하고 목록과 배지를 다시 조회한다. */
   async function markAllRead() {
-    if (!canMarkAllRead || markingAll || readingId !== null) return
+    if (!canMarkAllRead || markingAll || readingId !== null || hidingId !== null) return
     setMarkingAll(true)
     const optimisticReadAt = new Date().toISOString()
     if (chunkPage > 0) markAllExtraRead(optimisticReadAt)
@@ -148,12 +186,20 @@ export default function Notifications() {
         const meta = NOTIFICATION_TYPE_META[item.type] ?? { label: item.type, icon: 'notifications' }
         const unread = !item.readAt
         return (
-          <button
+          <SwipeToHide
             key={item.notificationId}
+            open={openId === item.notificationId}
+            onOpenChange={(next) => setOpenId(next ? item.notificationId : null)}
+            onHide={() => handleHide(item)}
+            hiding={hidingId === item.notificationId}
+            disabled={markingAll || readingId !== null || (hidingId !== null && hidingId !== item.notificationId)}
+            label={`알림 숨기기: ${item.title}`}
+          >
+          <button
             type="button"
             onClick={() => handleOpen(item)}
             disabled={markingAll || readingId !== null}
-            className={`p-space-md rounded-2xl shadow-card flex items-start gap-space-md text-left transition-all active:scale-[0.99] ${
+            className={`w-full p-space-md rounded-2xl flex items-start gap-space-md text-left transition-all active:scale-[0.99] ${
               unread ? 'bg-surface-container-lowest border border-border-rose' : 'bg-surface-container-low'
             }`}
           >
@@ -184,6 +230,7 @@ export default function Notifications() {
               {formatRelativeTime(item.createdAt)}
             </span>
           </button>
+          </SwipeToHide>
         )
       })}
 

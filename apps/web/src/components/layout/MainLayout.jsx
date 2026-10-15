@@ -48,6 +48,8 @@ export default function MainLayout() {
     markRead: markNotificationReadLocally,
     markAllRead: markAllNotificationsReadLocally,
     rollbackAllRead: rollbackAllNotificationsReadLocally,
+    hide: hideNotificationLocally,
+    unhide: unhideNotificationLocally,
   } = useNotificationPage(
     () => getMyNotifications({ page: 0, size: 100 }),
     [],
@@ -161,6 +163,8 @@ export default function MainLayout() {
           markNotificationReadLocally,
           markAllNotificationsReadLocally,
           rollbackAllNotificationsReadLocally,
+          hideNotificationLocally,
+          unhideNotificationLocally,
         }} />
       </main>
       <BottomNav embedded compact={bottomCompact} onNavigate={handleNavigationScrollReset} />

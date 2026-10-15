@@ -18,3 +18,8 @@ export async function readNotification(notificationId) {
 export async function readAllNotifications() {
   return apiClient.patch('/api/me/notifications/read');
 }
+
+/** PATCH /api/me/notifications/{notificationId}/hide로 알림 하나를 알림함에서 숨긴다. 알림은 지워지지 않고 되돌릴 수 없다. 이미 숨겼으면 성공으로 응답한다. */
+export async function hideNotification(notificationId) {
+  return apiClient.patch(`/api/me/notifications/${notificationId}/hide`);
+}

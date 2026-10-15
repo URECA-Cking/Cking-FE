@@ -7,6 +7,7 @@ import { SWIPE_REVEAL, clampSwipeOffset, isDeleteSwipe, swipeAxis, swipeOutcome 
  * 서버에는 숨김으로 기록하며 되돌릴 수 없다. 터치와 마우스 모두 포인터 이벤트로 처리하고, 세로 스크롤은 브라우저에 맡기고(touch-action: pan-y) 가로 이동만 가져온다.
  * 열림 여부(open)는 부모가 들고 있어 한 번에 하나의 카드만 열 수 있다. 밀었다 놓은 직후의 클릭은 카드의 동작(알림 열기)으로 보내지 않는다.
  * 열려 있는 동안 Esc를 누르면 닫는다. 키보드로 삭제하는 동작은 제공하지 않는다.
+ * 삭제는 손을 놓았을 때(pointerup)만 확정한다. 브라우저·OS가 입력을 취소(pointercancel)하면 삭제하지 않고 카드를 원래 자리로 되돌린다.
  */
 export default function SwipeToHide({ open, onOpenChange, onHide, hiding = false, disabled = false, label, children }) {
   const [dragOffset, setDragOffset] = useState(null)
@@ -71,6 +72,17 @@ export default function SwipeToHide({ open, onOpenChange, onHide, hiding = false
     onOpenChange(outcome === 'open')
   }
 
+  /**
+   * 브라우저·OS가 입력을 취소한 경우(pointercancel)다. 사용자가 놓은 것이 아니라서 삭제를 확정하지 않고 카드를 원래 자리로 되돌린다.
+   * 삭제는 되돌릴 수 없으므로 끝까지 끌던 중에 취소돼도 삭제하지 않는다.
+   */
+  function cancel(event) {
+    const current = start.current
+    if (!current || current.id !== event.pointerId) return
+    start.current = null
+    setDragOffset(null)
+  }
+
   /** 끌었다 놓은 직후의 클릭과, 열린 카드를 누르는 클릭은 카드 동작 대신 닫기만 한다. */
   function onClickCapture(event) {
     if (!moved.current && !open) return
@@ -101,7 +113,7 @@ export default function SwipeToHide({ open, onOpenChange, onHide, hiding = false
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finish}
-        onPointerCancel={finish}
+        onPointerCancel={cancel}
         onClickCapture={onClickCapture}
         style={{ transform: `translateX(${offset}px)`, touchAction: 'pan-y' }}
         className={`relative ${dragOffset === null ? 'transition-transform duration-200 ease-out' : 'select-none'}`}

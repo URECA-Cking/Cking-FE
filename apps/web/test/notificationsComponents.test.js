@@ -183,8 +183,8 @@ async function swipeOpen(page, title) {
   await page.mouse.up()
 }
 
-/** 알림 카드를 마우스로 카드 너비의 85%만큼 끝까지 밀었다가 놓는다(바로 삭제 기준 65%를 넘긴다). */
-async function swipeFar(page, title) {
+/** 알림 카드를 마우스로 카드 너비의 85%만큼 끝까지 밀고 놓지는 않는다(바로 삭제 기준 65%를 넘긴다). */
+async function dragFar(page, title) {
   // 판정 기준은 스와이프 영역(카드 버튼의 부모)의 너비다. 이 테스트 화면은 CSS가 없어 버튼이 글자 폭만큼만 차지하므로
   // 카드 버튼이 아니라 영역의 너비로 거리를 잡고, 영역의 오른쪽 끝에서 눌러 왼쪽으로 끈다.
   const cardBox = await card(page, title).boundingBox()
@@ -197,6 +197,11 @@ async function swipeFar(page, title) {
   await page.mouse.move(startX - area.width * 0.85, y + 2, { steps: 8 })
   // 놓기 전에 "놓으면 삭제" 안내가 보여야 한다(기준을 넘겼는지 확인).
   await page.getByText('놓으면 삭제').waitFor({ timeout: 5000 })
+}
+
+/** 알림 카드를 끝까지 밀었다가 놓는다. */
+async function swipeFar(page, title) {
+  await dragFar(page, title)
   await page.mouse.up()
 }
 
@@ -308,6 +313,33 @@ test('끝까지 밀고 놓으면 삭제 버튼을 누르지 않아도 바로 삭
     await requestCount(page, 4)
     await page.evaluate((data) => window.respond(3, data), list([item(2)]))
     assert.equal(await card(page, '알림 2').count(), 1)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('끝까지 끌던 중 입력이 취소(pointercancel)되면 삭제하지 않고 카드를 원래 자리로 되돌린다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await openNotifications(page, [item(1), item(2)])
+    await card(page, '알림 1').waitFor()
+    // 실제 마우스 이벤트의 pointerId를 기록해 두었다가 같은 ID로 취소 이벤트를 보낸다(브라우저·OS의 입력 취소를 흉내 낸다).
+    await page.evaluate(() => {
+      document.addEventListener('pointermove', (event) => { window.lastPointerId = event.pointerId }, true)
+    })
+    await dragFar(page, '알림 1')
+    await page.evaluate((title) => {
+      const area = [...document.querySelectorAll('button')].find((button) => button.textContent.includes(title)).parentElement
+      area.dispatchEvent(new PointerEvent('pointercancel', { pointerId: window.lastPointerId, pointerType: 'mouse', bubbles: true }))
+    }, '알림 1')
+    // 안내가 사라지고 카드가 제자리로 돌아온다.
+    await page.getByText('놓으면 삭제').waitFor({ state: 'detached' })
+    // 취소 뒤 실제로 손을 놓아도 삭제가 확정되지 않는다.
+    await page.mouse.up()
+    await page.waitForTimeout(300)
+    assert.equal(await page.evaluate(() => window.requests.length), 2)
+    assert.equal(await card(page, '알림 1').count(), 1)
+    await page.getByText('읽지 않은 알림 2개').waitFor()
+    assert.equal(await page.evaluate(() => window.requests.filter((request) => request.url.endsWith('/hide')).length), 0)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import CreatorBanner from '../components/creator/CreatorBanner.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
@@ -13,7 +14,7 @@ import { getEvents } from '../api/events.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
-import { filterExploreCreators, resetCreatorCarousel } from '../utils/exploreCreatorSection.js'
+import { CREATOR_SORTS, filterExploreCreators, resetCreatorCarousel, sortExploreCreators } from '../utils/exploreCreatorSection.js'
 import { describeError } from '../api/client.js'
 import { spacePath } from '../api/creatorSpace.js'
 
@@ -55,6 +56,8 @@ export default function Explore() {
   const tab = params.get('tab') === 'event' ? 'event' : 'creator'
   const [query, setQuery] = useState(params.get('q') ?? '')
   const [creatorFilter, setCreatorFilter] = useState('전체')
+  const [creatorSort, setCreatorSort] = useState('name-asc')
+  const [sortOpen, setSortOpen] = useState(false)
   const [eventFilter, setEventFilter] = useState('IN_PROGRESS')
   const [creatorLimit, setCreatorLimit] = useState(CREATOR_PAGE_SIZE)
   const [eventSize, setEventSize] = useState(EVENT_PAGE_SIZE)
@@ -71,8 +74,18 @@ export default function Explore() {
   const creators = useMemo(() => directory.data?.creators ?? [], [directory.data])
 
   const filteredCreators = useMemo(
-    () => filterExploreCreators(creators, followedCreators, creatorFilter, ''),
-    [creators, creatorFilter, followedCreators],
+    () => sortExploreCreators(filterExploreCreators(creators, followedCreators, creatorFilter, ''), creatorSort),
+    [creators, creatorFilter, creatorSort, followedCreators],
+  )
+
+  // 진행 중 이벤트 수는 공개 API의 값만 사용한다. 이벤트 탭에서 이벤트가 많이 열린 크리에이터를 소개한다.
+  const trending = useMemo(
+    () =>
+      [...creators]
+        .filter((creator) => creator.openEventCount > 0)
+        .sort((a, b) => b.openEventCount - a.openEventCount || b.events.length - a.events.length)
+        .slice(0, 3),
+    [creators],
   )
 
   // 필터를 바꿔 처음부터 다시 받는 동안에는 이전 필터의 목록을 보여주지 않는다. '더 보기'로 늘리는 중에는 목록을 유지한다.
@@ -239,28 +252,62 @@ export default function Explore() {
 
       {tab === 'creator' && (<>
       <section className="mt-space-md flex flex-col">
-        <div className="px-margin mb-space-sm flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="px-margin mb-space-sm flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1.5">
             <MaterialIcon name="groups" className="text-[20px] text-primary" />
             <h2 className="font-title-lg text-title-lg text-on-surface">크리에이터</h2>
           </div>
-          <div className="flex shrink-0 items-center gap-2" aria-label="크리에이터 목록 필터">
-            {['전체', '관심'].map((item) => (
-              <button
-                key={item}
-                type="button"
-                aria-pressed={creatorFilter === item}
-                onClick={() => changeCreatorFilter(item)}
-                className={`min-h-9 rounded-full px-3 py-1.5 font-label-sm text-label-sm font-semibold whitespace-nowrap transition-all active:scale-95 ${
-                  creatorFilter === item
-                    ? 'bg-primary text-on-primary shadow-sm'
-                    : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-                }`}
-              >
-                {item === '관심' ? `관심 ${followedCreators.length}` : item}
-              </button>
-            ))}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              aria-label="정렬"
+              aria-haspopup="menu"
+              aria-expanded={sortOpen}
+              onClick={() => setSortOpen((open) => !open)}
+              className="w-9 h-9 rounded-full flex items-center justify-center bg-surface-container-low text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all"
+            >
+              <MaterialIcon name="swap_vert" className="text-[20px]" />
+            </button>
+            {sortOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setSortOpen(false)} />
+                <div role="menu" className="absolute right-0 top-10 z-20 w-52 py-1 rounded-xl bg-surface-container-lowest shadow-card">
+                  {CREATOR_SORTS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={creatorSort === option.id}
+                      onClick={() => { setCreatorSort(option.id); setCreatorLimit(CREATOR_PAGE_SIZE); resetCreatorCarousel(creatorCarouselRef.current); setSortOpen(false) }}
+                      className={`w-full h-10 px-3 flex items-center justify-between font-label-md text-label-md ${
+                        creatorSort === option.id ? 'text-primary font-semibold' : 'text-on-surface'
+                      }`}
+                    >
+                      {option.label}
+                      {creatorSort === option.id && <MaterialIcon name="check" className="text-[18px]" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
+        </div>
+        <div className="px-margin mb-space-sm flex items-center gap-2" aria-label="크리에이터 목록 필터">
+          {['전체', '관심', '진행 중'].map((item) => (
+            <button
+              key={item}
+              type="button"
+              aria-pressed={creatorFilter === item}
+              onClick={() => changeCreatorFilter(item)}
+              className={`min-h-9 rounded-full px-3 py-1.5 font-label-sm text-label-sm font-semibold whitespace-nowrap transition-all active:scale-95 ${
+                creatorFilter === item
+                  ? 'bg-primary text-on-primary shadow-sm'
+                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+              }`}
+            >
+              {item === '관심' ? `관심 ${followedCreators.length}` : item}
+            </button>
+          ))}
         </div>
         {directory.loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}
         {!directory.loading && directory.error && (
@@ -278,7 +325,7 @@ export default function Explore() {
               message="아직 관심 등록한 크리에이터가 없어요. 마음에 드는 크리에이터를 찾아보세요."
               action={<button type="button" onClick={() => changeCreatorFilter('전체')} className="mt-2 min-h-10 rounded-xl bg-primary px-4 font-label-sm text-label-sm font-semibold text-on-primary active:scale-95">전체 크리에이터 보기</button>}
             />
-            : <EmptyBlock icon="person_search" message="조건에 맞는 크리에이터가 없어요." />
+            : <EmptyBlock icon="person_search" message={creatorFilter === '진행 중' ? '지금 진행 중인 이벤트가 있는 크리에이터가 없어요.' : '조건에 맞는 크리에이터가 없어요.'} />
         )}
         {!directory.loading && !directory.error && filteredCreators.length > 0 && (
           <div ref={creatorCarouselRef} className="flex overflow-x-auto md:grid md:grid-cols-2 xl:grid-cols-3 md:overflow-visible gap-space-md px-margin no-scrollbar snap-x snap-mandatory pt-1 pb-3">
@@ -304,6 +351,34 @@ export default function Explore() {
 
       {tab === 'event' && (
       <section className="mt-space-sm flex flex-col">
+        {trending.length > 0 && (
+          <div className="px-margin mb-space-lg flex flex-col">
+            <div className="flex items-center gap-1.5 mb-space-sm">
+              <MaterialIcon name="trending_up" className="text-tertiary text-[20px]" />
+              <h2 className="font-title-lg text-title-lg text-on-surface">진행 중 이벤트가 많은 크리에이터</h2>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              {trending.map((creator, index) => (
+                <Link
+                  key={creator.creatorId}
+                  to={spacePath(creator.handle)}
+                  className="w-full p-3 rounded-2xl bg-surface-container-lowest shadow-card flex items-center gap-3 active:scale-[0.98] transition-all"
+                >
+                  <span className="font-metric-display text-metric-display text-primary w-4 text-center">{index + 1}</span>
+                  <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                    <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
+                  </div>
+                  <div className="min-w-0 flex flex-col">
+                    <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
+                    <span className="font-label-xs text-label-xs text-secondary font-semibold">
+                      진행 중 {creator.openEventCount}개 · 전체 {creator.events.length}개
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="px-margin flex items-center justify-between mb-space-sm">
           <div className="flex items-center gap-1.5">
             <MaterialIcon name="confirmation_number" filled className="text-primary text-[20px]" />

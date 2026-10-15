@@ -368,3 +368,26 @@ test('퀘스트 상태 조회가 실패하면 다시 시도를 보여주고, 성
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
+
+test('같은 화면에서 회원이 바뀌어도 이전 회원이 받은 보너스 표시가 다른 회원의 상자에 남지 않는다', async () => {
+  // 세 단계를 모두 끝내 일반 홈을 쓰고 보너스만 남은 회원 A와 B다. 두 회원 모두 출석 카드가 같은 자리에서 쓰인다.
+  const done = { SIGNUP: 'CLAIMED', FOLLOW: 'CLAIMED', QUIZ: 'CLAIMED' }
+  const { page, errors } = await screen(quest(done))
+  try {
+    await page.evaluate(() => window.renderHome([], 7))
+    await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).click()
+    await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
+
+    // 회원 B로 전환한다. B의 보너스는 아직 받을 수 있는 상태다.
+    await page.evaluate((next) => { window.quest = next; window.renderHome([], 8) }, quest(done))
+    await page.getByText('깜짝 웰컴 보너스 상자를 터치해서 추가 응모권을 받아보세요!').waitFor()
+    assert.equal(await page.getByLabel('웰컴 보너스 받음').count(), 0)
+
+    // B도 정상적으로 지급받을 수 있다.
+    await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).click()
+    await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
+    const bonusClaims = (await claims(page)).filter((request) => request.path === '/api/me/welcome-quest/BONUS/claim')
+    assert.equal(bonusClaims.length, 2)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})

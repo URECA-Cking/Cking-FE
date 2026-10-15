@@ -10,9 +10,10 @@ export async function getTicketHistory(creatorId, { size = 20, cursor } = {}) {
   return apiClient.get(`/api/creators/${creatorId}/tickets/history`, { size, cursor });
 }
 
-// GET /api/tickets/common - 공용 응모권 잔액 조회(크리에이터와 무관). 헤더 응모권 버튼과 내 응모권 화면에서 쓴다.
-export async function getCommonTicketBalance() {
-  return apiClient.get('/api/tickets/common');
+// GET /api/me/tickets - 내 응모권 요약. 공용 잔액, 팔로우한 크리에이터별 잔액(이름·프로필 이미지 포함), 서버가 전체 기준으로 계산한
+// creatorTotal·total을 한 번에 돌려준다. 헤더 응모권 버튼과 내 응모권 화면이 쓴다(표시용 값이며 응모 가능 여부의 근거가 아니다).
+export async function getMyTicketsSummary() {
+  return apiClient.get('/api/me/tickets');
 }
 
 // GET /api/tickets/common/history - 공용 응모권 적립/사용 이력(커서 페이지네이션). 출석 도장은 여기 남은 출석 적립 기록으로 그린다.

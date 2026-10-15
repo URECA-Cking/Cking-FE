@@ -30,7 +30,6 @@ function useShare() {
  * - showNotificationBell: 오른쪽 알림 종 아이콘. 알림 화면처럼 이미 그 화면이면 false로 숨긴다.
  * - showTicketButton / ticketCount: 알림 종 왼쪽의 응모권 버튼과 현재 총 응모권 개수. 개수를 아직 모르면(null) 자리 표시를 보여 준다.
  *   내 응모권 화면처럼 이미 그 화면이면 false로 숨긴다.
- * - ticketPartial: 일부 응모권을 조회하지 못해 개수가 실제보다 적을 수 있으면 true. 개수 뒤에 "+"를 붙인다.
  */
 export function TopHeader({
   title,
@@ -42,7 +41,6 @@ export function TopHeader({
   showNotificationBell = true,
   showTicketButton = true,
   ticketCount = null,
-  ticketPartial = false,
 }) {
   return (
     <header
@@ -90,15 +88,11 @@ export function TopHeader({
             <Link
               to="/my-tickets"
               className="h-11 px-2 flex items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors"
-              aria-label={
-                ticketCount === null
-                  ? '내 응모권'
-                  : `내 응모권 ${ticketCount}장${ticketPartial ? ' 이상, 일부를 불러오지 못했어요' : ''}`
-              }
+              aria-label={ticketCount === null ? '내 응모권' : `내 응모권 ${ticketCount}장`}
             >
               <MaterialIcon name="confirmation_number" className="text-[22px]" />
               <span className="font-label-sm text-label-sm font-semibold tabular-nums text-on-surface">
-                {ticketCount === null ? '–' : formatTicketBadge(ticketCount, ticketPartial)}
+                {ticketCount === null ? '–' : formatTicketBadge(ticketCount)}
               </span>
             </Link>
           )}

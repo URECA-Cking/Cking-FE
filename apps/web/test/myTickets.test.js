@@ -1,50 +1,85 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { MAX_BADGE_COUNT, createRetryScheduler, formatTicketBadge, summarizeTickets } from '../src/utils/myTickets.js'
+import { MAX_BADGE_COUNT, createRetryScheduler, formatTicketBadge, normalizeSummary } from '../src/utils/myTickets.js'
 
-const creators = (entries) => new Map(entries.map(([id, balance]) => [id, { balance }]))
-
-test('크리에이터 응모권 합계와 공용 응모권을 더해 총 개수를 만든다', () => {
-  const summary = summarizeTickets({
-    common: { balance: 3 },
-    creators: creators([[1, 5], [2, 4]]),
-    failedIds: new Set(),
-  })
-  assert.deepEqual(summary, { commonCount: 3, creatorTotal: 9, total: 12, failedCount: 0, partial: false })
+const response = (overrides = {}) => ({
+  common: { balance: 6, updatedAt: '2026-10-14T00:00:00Z' },
+  creators: [
+    { creatorId: 1, creatorName: '하늘', profileImageUrl: 'https://img/1', balance: 4, updatedAt: '2026-10-14T00:00:00Z' },
+    { creatorId: 2, creatorName: '민준', profileImageUrl: null, balance: 3, updatedAt: null },
+  ],
+  creatorTotal: 7,
+  total: 13,
+  ...overrides,
 })
 
-test('팔로우한 크리에이터가 없으면 공용 응모권만 센다', () => {
-  const summary = summarizeTickets({ common: { balance: 2 }, creators: new Map(), failedIds: new Set() })
-  assert.equal(summary.total, 2)
+test('서버가 계산한 합계를 그대로 쓰고 크리에이터를 화면용 모양으로 바꾼다', () => {
+  assert.deepEqual(normalizeSummary(response()), {
+    commonCount: 6,
+    creators: [
+      { creatorId: 1, name: '하늘', avatar: 'https://img/1', balance: 4 },
+      { creatorId: 2, name: '민준', avatar: null, balance: 3 },
+    ],
+    creatorTotal: 7,
+    total: 13,
+  })
+})
+
+test('목록을 제한해도 서버 합계는 전체 기준이라 목록을 더한 값과 달라도 서버 값을 쓴다', () => {
+  // 서버가 팔로우한 모든 크리에이터 기준으로 계산했고 목록만 일부라면, 합계는 서버 값이 맞다.
+  const summary = normalizeSummary(response({ creators: [{ creatorId: 1, creatorName: '하늘', balance: 4 }], creatorTotal: 40, total: 46 }))
+  assert.equal(summary.creatorTotal, 40)
+  assert.equal(summary.total, 46)
+})
+
+test('팔로우한 크리에이터가 없으면 빈 목록과 공용 잔액만 센다', () => {
+  const summary = normalizeSummary({ common: { balance: 2 }, creators: [], creatorTotal: 0, total: 2 })
+  assert.deepEqual(summary.creators, [])
   assert.equal(summary.creatorTotal, 0)
+  assert.equal(summary.total, 2)
 })
 
-test('일부 크리에이터 조회가 실패하면 성공한 것만 합산하고 partial로 알린다', () => {
-  const summary = summarizeTickets({
-    common: { balance: 1 },
-    creators: creators([[1, 5]]),
-    failedIds: new Set([2, 3]),
-  })
-  assert.equal(summary.total, 6)
-  assert.equal(summary.failedCount, 2)
-  assert.equal(summary.partial, true)
+test('0장은 BE가 돌려준 balance 0일 때만 나온다', () => {
+  const summary = normalizeSummary({ common: { balance: 0 }, creators: [{ creatorId: 1, creatorName: '하늘', balance: 0 }], creatorTotal: 0, total: 0 })
+  assert.equal(summary.commonCount, 0)
+  assert.equal(summary.total, 0)
+  assert.deepEqual(summary.creators, [{ creatorId: 1, name: '하늘', avatar: null, balance: 0 }])
 })
 
-test('공용 응모권 조회가 실패하면 0으로 단정하지 않고 null로 두고 partial로 알린다', () => {
-  const summary = summarizeTickets({ common: null, creators: creators([[1, 5]]), failedIds: new Set() })
-  assert.equal(summary.commonCount, null)
-  assert.equal(summary.total, 5)
-  assert.equal(summary.failedCount, 1)
-  assert.equal(summary.partial, true)
+test('이름이나 이미지가 비어 있어도 던지지 않고 빈 문자열·null로 둔다', () => {
+  const summary = normalizeSummary({ common: { balance: 1 }, creators: [{ creatorId: 1, balance: 4 }], creatorTotal: 4, total: 5 })
+  assert.deepEqual(summary.creators, [{ creatorId: 1, name: '', avatar: null, balance: 4 }])
 })
 
-test('숫자가 아닌 잔액은 합산에서 뺀다', () => {
-  const summary = summarizeTickets({
-    common: { balance: 1 },
-    creators: new Map([[1, { balance: 'x' }], [2, { balance: 4 }]]),
-    failedIds: new Set(),
-  })
-  assert.equal(summary.creatorTotal, 4)
+test('응답이 비어 있거나 객체가 아니면 0장으로 정리하지 않고 던진다', () => {
+  for (const bad of [null, undefined, 'ok', 7, [], true]) {
+    assert.throws(() => normalizeSummary(bad), /내 응모권 요약 응답이 올바르지 않습니다/, String(bad))
+  }
+})
+
+// 오류 문구에 어느 필드가 잘못됐는지 들어 있는지만 본다(정규식 이스케이프를 피하려고 문자열 포함으로 비교).
+const throwsAbout = (fn, field) => assert.throws(fn, (error) => error instanceof Error && error.message.includes(field))
+
+test('필수 구조가 빠졌으면 던진다', () => {
+  throwsAbout(() => normalizeSummary(response({ common: null })), 'common')
+  throwsAbout(() => normalizeSummary(response({ common: undefined })), 'common')
+  throwsAbout(() => normalizeSummary(response({ creators: null })), 'creators')
+  throwsAbout(() => normalizeSummary(response({ creators: {} })), 'creators')
+  throwsAbout(() => normalizeSummary(response({ creators: [null] })), 'creators[0]')
+})
+
+test('숫자가 아닌 잔액이나 합계는 0으로 보지 않고 던진다', () => {
+  throwsAbout(() => normalizeSummary(response({ common: { balance: 'x' } })), 'common.balance')
+  throwsAbout(() => normalizeSummary(response({ common: { balance: null } })), 'common.balance')
+  throwsAbout(() => normalizeSummary(response({ common: { balance: Number.NaN } })), 'common.balance')
+  throwsAbout(() => normalizeSummary(response({ creators: [{ creatorId: 1, balance: 'y' }] })), 'creators[0].balance')
+  throwsAbout(() => normalizeSummary(response({ creators: [{ balance: 3 }] })), 'creators[0].creatorId')
+})
+
+test('서버 합계가 빠졌으면 목록으로 대신 계산하지 않고 던진다', () => {
+  throwsAbout(() => normalizeSummary(response({ creatorTotal: undefined })), 'creatorTotal')
+  throwsAbout(() => normalizeSummary(response({ total: undefined })), 'total')
+  throwsAbout(() => normalizeSummary(response({ total: '13' })), 'total')
 })
 
 test('헤더 숫자는 999를 넘으면 999+로 줄인다', () => {
@@ -52,13 +87,6 @@ test('헤더 숫자는 999를 넘으면 999+로 줄인다', () => {
   assert.equal(formatTicketBadge(12), '12')
   assert.equal(formatTicketBadge(MAX_BADGE_COUNT), '999')
   assert.equal(formatTicketBadge(1000), '999+')
-})
-
-test('일부 조회가 실패했으면 헤더 숫자 뒤에 +를 붙인다', () => {
-  assert.equal(formatTicketBadge(0, true), '0+')
-  assert.equal(formatTicketBadge(12, true), '12+')
-  assert.equal(formatTicketBadge(12, false), '12')
-  assert.equal(formatTicketBadge(1000, true), '999+')
 })
 
 // ── 반영 확인 재조회 스케줄러 ─────────────────────────────────────────────

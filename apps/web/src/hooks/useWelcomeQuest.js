@@ -4,6 +4,7 @@ import { ApiError, newRequestId } from '../api/client.js'
 import { claimWelcomeQuestStep, getWelcomeQuest } from '../api/welcomeQuest.js'
 import { keepsRequestId } from '../utils/earnRetry.js'
 import { markStepClaimed } from '../utils/welcomeQuest.js'
+import { readAttempt, removeAttempt, writeAttempt } from '../utils/welcomeAttempts.js'
 
 /**
  * 웰컴 퀘스트 상태 조회와 단계별 지급 요청을 묶은 훅. 화면은 이 훅의 상태와 claim만 사용한다.
@@ -16,7 +17,11 @@ import { markStepClaimed } from '../utils/welcomeQuest.js'
  * - claimingSteps: 지금 지급 요청 중인 단계들. 버튼 비활성화·진행 표시에 쓴다.
  * 요청 ID와 진행 상태는 회원별로 따로 관리해, 계정이 바뀌어도 이전 회원의 requestId를 재사용하지 않는다.
  * 조회 결과도 요청한 회원과 함께 보관해, 계정이 바뀌면 새 조회가 끝나기 전·실패한 뒤에도 이전 회원의 상태를 보여 주지 않는다.
- * 승인 불명 요청의 requestId·answer는 메모리에만 있어 새로고침이나 언마운트 뒤에는 사라진다(복구 방식은 화면 연동 때 검토).
+ * 승인 여부가 불확실한 요청의 requestId·answer는 회원·단계별로 브라우저 저장소에도 보존한다. 새로고침이나 홈 재진입 뒤에도
+ * 새 UUID를 만들지 않고 보존한 요청으로 복구하며, 승인되거나 서버가 처리하지 않았다고 확정할 때만 지운다.
+ * 저장소를 못 써도 이번 화면에서는 메모리 보관으로 같은 동작을 한다.
+ * 같은 회원·단계를 다른 requestId로 요청해 이미 받았다는 응답(WELCOME_QUEST_ALREADY_CLAIMED)을 받으면 지급 완료로 단정하지 않고
+ * 서버 상태를 다시 읽는다. 서버는 승인 전(PENDING·EXECUTING)인 요청에도 같은 응답을 줄 수 있어서다.
  */
 export function useWelcomeQuest(memberId) {
   // 조회 결과에 요청한 회원을 함께 담는다. 공용 useAsync는 의존성이 바뀌어도 이전 결과를 지우지 않기 때문이다.
@@ -27,7 +32,7 @@ export function useWelcomeQuest(memberId) {
   )
   // 지급 요청 중인 { memberId, step } 목록. 현재 회원의 것만 claimingSteps로 보여 준다.
   const [claiming, setClaiming] = useState([])
-  // 회원·단계별 지급 시도({ requestId, answer }). 승인 여부가 불확실한 실패 뒤의 재시도가 같은 ID와 같은 본문을 쓰도록 보관한다.
+  // 회원·단계별 지급 시도({ requestId, answer })의 메모리 보관. 저장소를 못 쓰는 환경에서도 같은 화면 안의 재시도를 이어 주는 보조다.
   const attempts = useRef(new Map())
   // 같은 틱에 연달아 눌러도 한 번만 보내기 위한 진행 중 키(state는 다음 렌더에야 바뀐다).
   const inFlight = useRef(new Set())
@@ -39,27 +44,42 @@ export function useWelcomeQuest(memberId) {
     ))
   }, [setData])
 
+  /** 이 단계의 보존된 지급 시도를 찾는다. 메모리에 없으면 저장소에서 읽어(새로고침 뒤 복구) 메모리에도 채운다. */
+  const findAttempt = useCallback((key, step) => {
+    const remembered = attempts.current.get(key)
+    if (remembered) return remembered
+    const stored = readAttempt(memberId, step)
+    if (stored) attempts.current.set(key, stored)
+    return stored
+  }, [memberId])
+
   /** 단계 보상 지급을 요청하고 결과에 따라 상태와 requestId를 정리한다. */
   const claim = useCallback(async (step, { answer } = {}) => {
     const key = `${memberId}:${step}`
     if (inFlight.current.has(key)) return null
     inFlight.current.add(key)
     setClaiming((current) => [...current, { memberId, step }])
-    // 불확실한 실패 뒤의 재시도라면 앞선 시도(requestId와 answer)를 그대로 쓴다. 새 시도는 새 ID와 지금 받은 answer를 쓴다.
-    const attempt = attempts.current.get(key) ?? { requestId: newRequestId(), answer }
+    // 불확실한 실패 뒤의 재시도(새로고침 뒤 포함)라면 앞선 시도(requestId와 answer)를 그대로 쓴다. 새 시도는 새 ID와 지금 받은 answer를 쓴다.
+    const attempt = findAttempt(key, step) ?? { requestId: newRequestId(), answer }
     attempts.current.set(key, attempt)
+    // 요청을 보내기 전에 보존해 두면 응답을 받기 전에 화면이 닫혀도 같은 requestId로 이어 갈 수 있다.
+    writeAttempt(memberId, step, attempt)
     try {
       const result = await claimWelcomeQuestStep(step, attempt)
       attempts.current.delete(key)
+      removeAttempt(memberId, step)
       markClaimed(memberId, step)
       return result
     } catch (claimError) {
       const code = claimError instanceof ApiError ? claimError.code : null
-      if (!keepsRequestId(claimError)) attempts.current.delete(key)
-      // 다른 요청으로 이미 지급된 단계라면 지급은 끝난 것이므로 실패로 보여 주지 않고 완료로 맞춘다.
+      if (!keepsRequestId(claimError)) {
+        attempts.current.delete(key)
+        removeAttempt(memberId, step)
+      }
+      // 같은 단계가 다른 요청으로 이미 선점됐다는 응답이다. 그 요청이 아직 승인 전일 수 있어 완료로 단정하지 않고 서버 상태를 다시 읽는다.
       if (code === 'WELCOME_QUEST_ALREADY_CLAIMED') {
-        markClaimed(memberId, step)
-        return { step, status: 'CLAIMED', alreadyClaimed: true }
+        reload()
+        return { step, alreadyClaimed: true }
       }
       throw claimError
     } finally {
@@ -70,7 +90,7 @@ export function useWelcomeQuest(memberId) {
         return index < 0 ? current : current.filter((_, position) => position !== index)
       })
     }
-  }, [memberId, markClaimed])
+  }, [memberId, markClaimed, findAttempt, reload])
 
   // 지금 회원이 요청해 받은 결과만 보여 준다. 계정이 바뀐 직후나 새 조회가 실패한 뒤에도 이전 회원의 상태는 숨긴다.
   const quest = memberId != null && loaded?.owner === memberId ? loaded.quest : null

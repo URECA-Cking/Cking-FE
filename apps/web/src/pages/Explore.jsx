@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
-import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import CreatorBanner from '../components/creator/CreatorBanner.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
@@ -76,23 +75,12 @@ export default function Explore() {
     [creators, creatorFilter, followedCreators],
   )
 
-  // 진행 중 이벤트 수는 공개 API의 값만 사용한다.
-  const trending = useMemo(
-    () =>
-      [...creators]
-        .filter((creator) => creator.openEventCount > 0)
-        .sort((a, b) => b.openEventCount - a.openEventCount || b.events.length - a.events.length)
-        .slice(0, 3),
-    [creators],
-  )
-
   // 필터를 바꿔 처음부터 다시 받는 동안에는 이전 필터의 목록을 보여주지 않는다. '더 보기'로 늘리는 중에는 목록을 유지한다.
   const eventsFirstLoad = eventList.loading && eventSize === EVENT_PAGE_SIZE
   const events = eventsFirstLoad ? [] : (eventList.data?.items ?? [])
   const shownCreators = useMemo(() => filteredCreators.slice(0, creatorLimit), [filteredCreators, creatorLimit])
   const renderedBalanceIds = [
     ...shownCreators.map((creator) => creator.creatorId),
-    ...trending.map((creator) => creator.creatorId),
   ]
   const visibleBalanceIds = useVisibleCreatorIds(pageRef, renderedBalanceIds)
   const { balances, failedIds, retry: retryBalances, loading: balancesLoading } = useCreatorBalances(visibleBalanceIds, user?.memberId)
@@ -311,62 +299,6 @@ export default function Explore() {
           </div>
         )}
       </section>
-
-      {trending.length > 0 && (
-        <section className="mt-space-lg px-margin flex flex-col">
-          <div className="flex items-center justify-between mb-space-sm">
-            <div className="flex items-center gap-1.5">
-              <MaterialIcon name="trending_up" className="text-tertiary text-[20px]" />
-              <h2 className="font-title-lg text-title-lg text-on-surface">진행 중 이벤트가 많은 크리에이터</h2>
-            </div>
-            <span className="font-label-xs text-label-xs text-outline">진행 중 이벤트 기준</span>
-          </div>
-          <div className="flex flex-col gap-2.5">
-            {trending.map((creator, index) => {
-              const followed = isFollowing(creator.creatorId)
-              return (
-                <div
-                  key={creator.creatorId}
-                  data-balance-creator-id={creator.creatorId}
-                  className="w-full p-3 rounded-2xl bg-surface-container-lowest shadow-card flex items-center justify-between gap-3"
-                >
-                  <Link to={spacePath(creator.handle)} className="flex items-center gap-3 min-w-0">
-                    <span className="font-metric-display text-metric-display text-primary w-4 text-center">
-                      {index + 1}
-                    </span>
-                    <div className="relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                      <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
-                    </div>
-                    <div className="min-w-0 flex flex-col">
-                      <div className="flex items-center gap-1">
-                        <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
-                        <MaterialIcon name="verified" filled className="text-[15px] text-primary" />
-                      </div>
-                      <div className="flex items-center gap-1 text-secondary font-semibold">
-                        <MaterialIcon name="arrow_drop_up" className="text-[14px]" />
-                        <span className="font-label-xs text-label-xs">
-                          진행 중 {creator.openEventCount}개 · 전체 {creator.events.length}개
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleFollow(creator)}
-                    disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
-                    className={`flex-shrink-0 px-3 h-8 rounded-full font-label-sm text-label-sm flex items-center gap-1 transition-all active:scale-95 disabled:opacity-60 ${
-                      followed ? 'bg-primary text-on-primary' : 'bg-berry-tint text-primary'
-                    }`}
-                  >
-                    <MaterialIcon name={followed ? 'done' : 'add'} className="text-[16px]" />
-                    <span>{followed ? '완료' : '관심'}</span>
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
 
       </>)}
 

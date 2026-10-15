@@ -70,10 +70,20 @@ export default function ExploreSearch() {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          className="w-full h-11 pl-10 pr-4 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-all shadow-sm"
+          className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-all shadow-sm"
           placeholder="크리에이터를 검색해 보세요"
           type="search"
         />
+        {query && (
+          <button
+            type="button"
+            aria-label="지우기"
+            onClick={() => setQuery('')}
+            className="absolute inset-y-0 right-0 pr-[calc(theme(spacing.margin)+0.875rem)] flex items-center text-outline hover:text-on-surface transition-colors"
+          >
+            <MaterialIcon name="cancel" className="text-[18px]" />
+          </button>
+        )}
       </form>
 
       <div role="tablist" aria-label="검색 대상" className="flex gap-2 px-margin pb-space-sm">

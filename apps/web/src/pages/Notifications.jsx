@@ -47,7 +47,7 @@ export default function Notifications() {
   const hasNext = Boolean(data && (data.items.length > offset + 20 || data.hasNext))
   const loading = chunkPage === 0 ? notificationsLoading : extraLoading || (!data && !extraError)
   const error = chunkPage === 0 ? notificationsError : extraError
-  const canMarkAllRead = Boolean(notificationsData?.totalElements || data?.totalElements)
+  const canMarkAllRead = Boolean(totalUnreadCount > 0 || notificationsData?.hasNext)
 
   /** 현재 목록 페이지와 헤더의 서버 상태를 필요한 조회만으로 다시 맞춘다. */
   async function reloadCurrentPage() {

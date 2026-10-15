@@ -1,11 +1,30 @@
 // Creator Space 템플릿 입력 규칙(Cking-BE docs/domains/creator/space-template-api.md). 화면에서 먼저 안내하는 용도이며 최종 판단은 서버가 한다.
+import { validateImageFile } from '@cking/shared/imageValidation'
 
 export const TEMPLATE_LIMITS = { introText: 500, profileImageUrl: 500, bannerImageUrl: 500, slugRule: 92 }
 
+/** 이미지 업로드 제한(BE 템플릿 이미지 업로드와 같은 값). 가로세로 비율은 BE도 강제하지 않는다. 형식은 JPEG·PNG만. */
+export const TEMPLATE_IMAGE_LIMITS = {
+  profileImageUrl: { maxBytes: 5 * 1024 * 1024, minWidth: 200, minHeight: 200 },
+  bannerImageUrl: { maxBytes: 5 * 1024 * 1024, minWidth: 600, minHeight: 200 },
+}
+
+/** 템플릿 이미지 업로드·저장 오류 코드별 문구. 모르는 코드는 서버 메시지나 상태 코드로 대신한다. */
+export const TEMPLATE_IMAGE_ERROR_MESSAGES = {
+  INVALID_SPACE_TEMPLATE_IMAGE: '이미지를 사용할 수 없어요. JPEG·PNG, 5MB 이하, 최소 해상도를 지키는지 확인하고 이미지를 다시 올려주세요.',
+  UPLOAD_TOO_LARGE: '이미지가 너무 커요. 5MB 이하 이미지를 올려주세요.',
+  IMAGE_PROCESSING_BUSY: '지금 이미지를 처리하는 요청이 많아요. 잠시 뒤에 다시 시도해주세요.',
+}
+
+/** 템플릿에 넣을 이미지를 올리기 전에 확인한다. 통과하면 null, 아니면 안내 문구. key는 profileImageUrl·bannerImageUrl이다. */
+export function validateTemplateImage(key, file, readSize) {
+  return validateImageFile(file, TEMPLATE_IMAGE_LIMITS[key], readSize)
+}
+
 export const TEMPLATE_FIELD_LABELS = {
   introText: '기본 소개 문구',
-  profileImageUrl: '기본 프로필 이미지 URL',
-  bannerImageUrl: '기본 배너 이미지 URL',
+  profileImageUrl: '기본 프로필 이미지',
+  bannerImageUrl: '기본 배너 이미지',
   slugRule: '주소(slug) 규칙',
 }
 
@@ -30,7 +49,7 @@ export function validateTemplate(fields) {
   const errors = {}
   for (const key of Object.keys(TEMPLATE_LIMITS)) {
     const value = String(fields?.[key] ?? '').trim()
-    if (value.length === 0) errors[key] = `${TEMPLATE_FIELD_LABELS[key]}을(를) 입력해주세요.`
+    if (value.length === 0) errors[key] = `${TEMPLATE_FIELD_LABELS[key]}${key in TEMPLATE_IMAGE_LIMITS ? '을(를) 올려주세요.' : '을(를) 입력해주세요.'}`
     else if (value.length > TEMPLATE_LIMITS[key]) errors[key] = `${TEMPLATE_FIELD_LABELS[key]}은(는) ${TEMPLATE_LIMITS[key]}자 이하로 입력해주세요.`
   }
   const slugRule = String(fields?.slugRule ?? '').trim()

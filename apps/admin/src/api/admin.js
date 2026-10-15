@@ -198,6 +198,22 @@ export async function updateSpaceTemplate(templateId, fields) {
   return patch(`/api/admin/creator-space-templates/${templateId}`, fields)
 }
 
+/** 템플릿에 넣을 기본 프로필 이미지 1장을 올려 CDN URL을 받는다. 템플릿에 연결되지 않으므로 URL을 생성·수정 요청에 넣어 저장해야 한다. */
+export async function uploadSpaceTemplateProfileImage(file) {
+  return uploadSpaceTemplateImage('/api/admin/creator-space-templates/profile-images', file)
+}
+
+/** 템플릿에 넣을 기본 배너 이미지 1장을 올려 CDN URL을 받는다. 템플릿에 연결되지 않으므로 URL을 생성·수정 요청에 넣어 저장해야 한다. */
+export async function uploadSpaceTemplateBannerImage(file) {
+  return uploadSpaceTemplateImage('/api/admin/creator-space-templates/banner-images', file)
+}
+
+function uploadSpaceTemplateImage(path, file) {
+  const form = new FormData()
+  form.append('image', file)
+  return post(path, form)
+}
+
 /** 템플릿을 활성화한다. 기존 활성 템플릿은 함께 비활성화되고, 이미 만든 스페이스는 바뀌지 않는다. */
 export async function activateSpaceTemplate(templateId) {
   return post(`/api/admin/creator-space-templates/${templateId}/activate`)

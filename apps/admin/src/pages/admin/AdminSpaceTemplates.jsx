@@ -1,21 +1,31 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ConfirmModal from '../../components/ConfirmModal.jsx'
 import { AdminPageHeader } from '../../components/AdminContent.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { activateSpaceTemplate, createSpaceTemplate, getAllSpaceTemplates, updateSpaceTemplate } from '../../api/admin.js'
+import {
+  activateSpaceTemplate,
+  createSpaceTemplate,
+  getAllSpaceTemplates,
+  updateSpaceTemplate,
+  uploadSpaceTemplateBannerImage,
+  uploadSpaceTemplateProfileImage,
+} from '../../api/admin.js'
 import { ApiError, describeError } from '../../api/client.js'
 import { formatDateTime } from '../../utils/format.js'
 import {
   SLUG_RULE_HINT,
   TEMPLATE_FIELD_LABELS,
+  TEMPLATE_IMAGE_ERROR_MESSAGES,
   TEMPLATE_LIMITS,
   previewSlug,
   templateFields,
   toTemplateRequest,
   validateTemplate,
+  validateTemplateImage,
 } from '../../utils/spaceTemplate.js'
+import { pickTemplateImage } from '../../utils/templateImagePick.js'
 
 const ERROR_MESSAGES = {
   VALIDATION_FAILED: '입력한 내용을 확인해주세요. 네 항목 모두 필수이고, 주소 규칙은 형식을 지켜야 해요.',
@@ -167,6 +177,9 @@ function TemplateFormModal({ template, onCancel, onSaved }) {
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
+  // 올리는 중인 이미지 수. 하나라도 있으면 저장하지 않는다(저장하면 올리는 중인 이미지가 빠진 채 저장된다).
+  const [uploadCount, setUploadCount] = useState(0)
+  const uploading = uploadCount > 0
 
   // 입력한 값이 처음과 다른지. 달라졌으면 Esc를 잘못 눌러 입력이 사라지지 않게 Esc로는 닫지 않는다.
   const initial = templateFields(template)
@@ -189,7 +202,7 @@ function TemplateFormModal({ template, onCancel, onSaved }) {
 
   async function submit(event) {
     event.preventDefault()
-    if (saving) return
+    if (saving || uploading) return
     const found = validateTemplate(fields)
     setErrors(found)
     if (Object.keys(found).length > 0) return
@@ -231,16 +244,24 @@ function TemplateFormModal({ template, onCancel, onSaved }) {
             <textarea {...fieldProps('introText')} rows="3" className={`${inputClass} resize-y`} />
             <FieldNote id="template-introText-note" error={errors.introText} note={`${fields.introText.trim().length}/${TEMPLATE_LIMITS.introText}`} />
           </div>
-          <div>
-            <FieldLabel htmlFor="template-profileImageUrl">{TEMPLATE_FIELD_LABELS.profileImageUrl}</FieldLabel>
-            <input {...fieldProps('profileImageUrl')} placeholder="https://" />
-            <FieldNote id="template-profileImageUrl-note" error={errors.profileImageUrl} />
-          </div>
-          <div>
-            <FieldLabel htmlFor="template-bannerImageUrl">{TEMPLATE_FIELD_LABELS.bannerImageUrl}</FieldLabel>
-            <input {...fieldProps('bannerImageUrl')} placeholder="https://" />
-            <FieldNote id="template-bannerImageUrl-note" error={errors.bannerImageUrl} />
-          </div>
+          <TemplateImageField
+            fieldKey="profileImageUrl"
+            value={fields.profileImageUrl}
+            disabled={saving}
+            error={errors.profileImageUrl}
+            upload={uploadSpaceTemplateProfileImage}
+            onUploaded={(url) => update('profileImageUrl', url)}
+            onBusyChange={(busy) => setUploadCount((count) => count + (busy ? 1 : -1))}
+          />
+          <TemplateImageField
+            fieldKey="bannerImageUrl"
+            value={fields.bannerImageUrl}
+            disabled={saving}
+            error={errors.bannerImageUrl}
+            upload={uploadSpaceTemplateBannerImage}
+            onUploaded={(url) => update('bannerImageUrl', url)}
+            onBusyChange={(busy) => setUploadCount((count) => count + (busy ? 1 : -1))}
+          />
           <div>
             <FieldLabel htmlFor="template-slugRule">{TEMPLATE_FIELD_LABELS.slugRule}</FieldLabel>
             <input {...fieldProps('slugRule')} placeholder="creator-{creatorId}" autoComplete="off" spellCheck={false} />
@@ -252,7 +273,7 @@ function TemplateFormModal({ template, onCancel, onSaved }) {
 
         <div className="mt-6 flex justify-end gap-2">
           <button type="button" onClick={onCancel} disabled={saving} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">취소</button>
-          <button type="submit" disabled={saving} className="h-9 rounded-md bg-pink-700 px-3 text-sm font-semibold text-white hover:bg-pink-800 disabled:opacity-50">{saving ? '저장하는 중...' : '저장'}</button>
+          <button type="submit" disabled={saving || uploading} className="h-9 rounded-md bg-pink-700 px-3 text-sm font-semibold text-white hover:bg-pink-800 disabled:opacity-50">{saving ? '저장하는 중...' : uploading ? '이미지 올리는 중...' : '저장'}</button>
         </div>
       </form>
     </div>
@@ -267,4 +288,83 @@ function FieldLabel({ htmlFor, children }) {
 function FieldNote({ id, error, note }) {
   if (error) return <span id={id} className="mt-1 block text-xs font-normal text-red-700" role="alert">{error}</span>
   return <span id={id} className="mt-1 block text-xs font-normal text-slate-500">{note}</span>
+}
+
+function describeImageError(error) {
+  if (error instanceof ApiError && TEMPLATE_IMAGE_ERROR_MESSAGES[error.code]) return TEMPLATE_IMAGE_ERROR_MESSAGES[error.code]
+  return describeError(error, '이미지를 올리지 못했습니다.')
+}
+
+/**
+ * 템플릿의 기본 프로필·배너 이미지를 파일로 올려 지정한다. 올리면 CDN URL을 받아 폼 값(`onUploaded`)에 넣고, 템플릿에는 저장해야 반영된다.
+ * 저장하지 않은 이미지는 서버가 24시간 뒤 정리할 수 있다. 파일을 고른 순간부터 검증·업로드가 끝날 때까지 `onBusyChange`로 알려 폼이 저장하지 못하게 한다.
+ */
+function TemplateImageField({ fieldKey, value, disabled, error, upload, onUploaded, onBusyChange }) {
+  const inputRef = useRef(null)
+  const busyRef = useRef(false)
+  const [uploading, setUploading] = useState(false)
+  const [message, setMessage] = useState('')
+  const [localPreview, setLocalPreview] = useState(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const previewUrl = localPreview ?? value
+  const profile = fieldKey === 'profileImageUrl'
+
+  // 만든 미리보기 URL은 바꾸거나 닫을 때 해제한다.
+  useEffect(() => () => { if (localPreview) URL.revokeObjectURL(localPreview) }, [localPreview])
+
+  async function pick(event) {
+    const file = event.target.files?.[0]
+    event.target.value = '' // 같은 파일을 다시 골라도 change가 일어나게 한다.
+    await pickTemplateImage(file, busyRef, {
+      validate: (picked) => validateTemplateImage(fieldKey, picked),
+      upload,
+      describeError: describeImageError,
+      onBusyChange: (busy) => {
+        setUploading(busy)
+        onBusyChange(busy)
+      },
+      onMessage: setMessage,
+      onUploaded: (picked, imageUrl) => {
+        setLoadFailed(false)
+        setLocalPreview(URL.createObjectURL(picked))
+        onUploaded(imageUrl)
+      },
+    })
+  }
+
+  const note = '저장해야 템플릿에 반영돼요. 올리고 저장하지 않으면 24시간 뒤 삭제될 수 있어요.'
+  const rule = profile ? 'JPEG·PNG, 5MB 이하, 200×200px 이상' : 'JPEG·PNG, 5MB 이하, 600×200px 이상'
+  return (
+    <div>
+      <FieldLabel htmlFor={`template-${fieldKey}`}>{TEMPLATE_FIELD_LABELS[fieldKey]}</FieldLabel>
+      <div className="mt-1.5 flex items-center gap-3">
+        {previewUrl && !loadFailed ? (
+          <img
+            src={previewUrl}
+            alt={`${TEMPLATE_FIELD_LABELS[fieldKey]} 미리보기`}
+            onError={() => setLoadFailed(true)}
+            className={profile ? 'h-16 w-16 shrink-0 rounded-full border border-slate-200 object-cover' : 'h-16 w-48 shrink-0 rounded-md border border-slate-200 object-cover'}
+          />
+        ) : (
+          <div className={`flex shrink-0 items-center justify-center bg-slate-100 text-xs text-slate-500 ${profile ? 'h-16 w-16 rounded-full' : 'h-16 w-48 rounded-md'}`}>
+            {previewUrl ? '불러오지 못함' : '이미지 없음'}
+          </div>
+        )}
+        <div>
+          <input ref={inputRef} type="file" accept="image/jpeg,image/png" hidden onChange={(event) => void pick(event)} />
+          <button
+            type="button"
+            id={`template-${fieldKey}`}
+            disabled={disabled || uploading}
+            aria-describedby={`template-${fieldKey}-note`}
+            onClick={() => inputRef.current?.click()}
+            className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {uploading ? '올리는 중...' : value ? '이미지 변경' : '이미지 선택'}
+          </button>
+        </div>
+      </div>
+      <FieldNote id={`template-${fieldKey}-note`} error={message || error} note={`${rule}. ${note}`} />
+    </div>
+  )
 }

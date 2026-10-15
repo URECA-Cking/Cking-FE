@@ -129,3 +129,42 @@ test('전체 읽음은 한 번 호출하고 후속 조회 실패를 따로 안�
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
+
+test('당첨·미당첨 결과 알림은 유형과 서버 문구를 표시하고 읽음 처리 후 해당 이벤트로 이동한다', async () => {
+  const cases = [
+    { type: 'INITIAL_WINNER', label: '최초 당첨', icon: 'celebration' },
+    { type: 'REDRAW_WINNER', label: '재추첨 당첨', icon: 'autorenew' },
+    { type: 'INITIAL_NON_WINNER', label: '이벤트 결과 발표', icon: 'campaign' },
+  ]
+
+  for (const [index, variant] of cases.entries()) {
+    const { page, errors } = await screen()
+    const eventId = 41 + index
+    const notification = {
+      ...item(index + 1), type: variant.type, title: `서버 제목 ${variant.type}`,
+      body: `서버 본문 ${variant.type}`, event: { eventId, title: `이벤트 ${eventId}` },
+      drawing: { drawingId: index + 1, drawNo: index, drawType: index === 1 ? 'REDRAW' : 'INITIAL' },
+    }
+    try {
+      await requestCount(page, 1)
+      await page.evaluate((data) => window.respond(0, data), list([notification]))
+      await page.getByRole('button', { name: '알림 열기' }).click()
+      await requestCount(page, 2)
+      await page.evaluate((data) => window.respond(1, data), list([notification]))
+
+      const card = page.getByRole('button', { name: new RegExp(`서버 제목 ${variant.type}`) })
+      await card.waitFor()
+      assert.equal(await card.getByText(variant.label, { exact: true }).count(), 1)
+      assert.equal(await card.getByText(variant.icon, { exact: true }).count(), 1)
+      assert.equal(await card.getByText(notification.title, { exact: true }).count(), 1)
+      assert.equal(await card.getByText(notification.body, { exact: true }).count(), 1)
+      await card.click()
+
+      await requestCount(page, 3)
+      assert.match(await page.evaluate(() => window.requests[2].url), new RegExp(`/api/me/notifications/${notification.notificationId}/read$`))
+      await page.evaluate(() => window.respond(2, { readAt: '2026-10-15T01:00:00Z' }))
+      await page.getByText(`이벤트 상세 ${eventId}`).waitFor()
+      assert.deepEqual(errors, [])
+    } finally { await page.close() }
+  }
+})

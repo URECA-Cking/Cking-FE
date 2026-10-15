@@ -78,6 +78,7 @@ export default function Home() {
   const isNewMember = questActive || (questSeen && welcome.quest?.eligible === true)
   // 퀘스트 상태를 처음 받아 오는 동안은 신규 여부를 모른다. 응모 섹션이 떴다가 사라지지 않게 그 사이에는 응모를 그리지 않는다.
   const questPending = user?.memberId != null && welcome.quest === null && welcome.loading
+  const questLoadFailed = user?.memberId != null && welcome.quest === null && !welcome.loading && Boolean(welcome.error)
 
   /** 팔로우 단계를 하러 가는 사용자를 인기 크리에이터 섹션으로 부드럽게 스크롤한다. */
   const goFollow = useCallback(() => {
@@ -99,6 +100,13 @@ export default function Home() {
     <div className="flex flex-col w-full pb-6">
       <InstallBanner />
       <WinnerBanner memberId={user?.memberId} />
+
+      {/* 퀘스트 상태를 못 받아 오면 신규 여부를 알 수 없어 일반 홈이 보인다. 일시 장애로 신규 회원의 퀘스트가 가려지지 않게 다시 시도할 수 있게 한다. */}
+      {questLoadFailed && (
+        <div className="mx-margin mt-4">
+          <InlineRetry message="웰컴 퀘스트를 불러오지 못했어요." onRetry={welcome.reload} />
+        </div>
+      )}
 
       {isNewMember && (
         <>

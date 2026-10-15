@@ -17,17 +17,21 @@ export default function InstallBanner() {
   }
 
   return (
-    <div className="mx-margin mt-space-sm rounded-2xl bg-surface-container-lowest border border-border-rose shadow-card p-space-md flex flex-col gap-space-sm">
-      <div className="flex items-start gap-space-sm">
-        <div className="w-10 h-10 rounded-xl bg-berry-tint flex items-center justify-center text-primary shrink-0">
-          <MaterialIcon name="install_mobile" className="text-[22px]" />
+    <div className="mx-margin mt-space-sm rounded-2xl bg-surface-container-lowest border border-border-rose shadow-card px-space-md py-space-sm flex flex-col gap-space-sm">
+      <div className="flex items-center gap-space-sm">
+        <div className="w-9 h-9 rounded-xl bg-berry-tint flex items-center justify-center text-primary shrink-0">
+          <MaterialIcon name="install_mobile" className="text-[20px]" />
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="font-label-md text-label-md font-bold text-on-surface">Cking을 앱처럼 쓰기</p>
-          <p className="font-label-xs text-label-xs text-on-surface-variant mt-0.5 leading-relaxed">
-            홈 화면에 추가하면 주소창 없이 전체 화면으로 실행되고, 오프라인에서도 마지막 화면을 볼 수 있어요.
-          </p>
-        </div>
+        <p className="min-w-0 flex-1 font-label-md text-label-md font-bold text-on-surface truncate">Cking을 앱처럼 쓰기</p>
+        <button
+          type="button"
+          onClick={toggleManualGuide}
+          aria-expanded={showManualGuide}
+          aria-controls="install-manual-guide"
+          className="shrink-0 px-2 font-label-xs text-label-xs font-semibold text-primary"
+        >
+          {showManualGuide ? '설치 방법 닫기' : '설치 방법 보기'}
+        </button>
         <button
           type="button"
           aria-label="설치 안내 닫기"
@@ -38,29 +42,23 @@ export default function InstallBanner() {
         </button>
       </div>
 
-      {canInstall && (
-        <button
-          type="button"
-          onClick={install}
-          className="w-full h-10 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
-        >
-          앱 설치하기
-        </button>
-      )}
+      <div id="install-manual-guide" className={`${showManualGuide ? 'flex' : 'hidden'} flex-col gap-space-sm`}>
+        <p className="font-label-xs text-label-xs text-on-surface-variant leading-relaxed">
+          홈 화면에 추가하면 주소창 없이 전체 화면으로 실행되고, 오프라인에서도 마지막 화면을 볼 수 있어요.
+        </p>
 
-      {guide && (
-        <>
+        {canInstall && (
           <button
             type="button"
-            onClick={toggleManualGuide}
-            aria-expanded={showManualGuide}
-            aria-controls="install-manual-guide"
-            className="self-center px-2 font-label-xs text-label-xs font-semibold text-primary"
+            onClick={install}
+            className="w-full h-10 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold active:scale-[0.98] transition-all"
           >
-            {showManualGuide ? '설치 방법 닫기' : '설치 방법 보기'}
+            앱 설치하기
           </button>
+        )}
 
-          <div id="install-manual-guide" hidden={!showManualGuide} className="rounded-xl bg-berry-tint px-3 py-2 text-berry-deep">
+        {guide && (
+          <div className="rounded-xl bg-berry-tint px-3 py-2 text-berry-deep">
             <p className="font-label-xs text-label-xs font-bold">{guide.label} 설치 방법</p>
             <ol className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5 font-label-xs text-label-xs leading-relaxed">
               {guide.steps.map((step, index) => (
@@ -72,8 +70,8 @@ export default function InstallBanner() {
             </ol>
             <p className="mt-1 font-label-xs text-label-xs leading-relaxed">{guide.note}</p>
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   )
 }

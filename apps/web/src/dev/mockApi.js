@@ -178,6 +178,24 @@ export function installMockApiIfRequested() {
   const events = empty ? [] : buildEvents(now)
   const posts = empty ? {} : buildPosts(now)
   const follows = empty ? [] : FOLLOWED
+  // 내 당첨 화면의 상세·진행 내역·포기 동선을 로컬에서도 확인할 수 있게 실제 Winner API 응답 필드를 유지한다.
+  const winners = empty
+    ? []
+    : [{
+        winnerId: 100,
+        eventId: 16,
+        drawingId: 200,
+        drawNo: 0,
+        drawType: 'INITIAL',
+        rankInDrawing: 1,
+        appliedTicketCount: 2,
+        winnerCreatedAt: new Date(now - 5 * DAY).toISOString(),
+        winnerManagementId: 300,
+        winnerManagementStatus: 'SELECTED',
+        winnerManagementCreatedAt: new Date(now - 5 * DAY).toISOString(),
+        winnerManagementUpdatedAt: new Date(now - 5 * DAY).toISOString(),
+      }]
+  const winnerHistoryById = new Map()
   let attendanceDone = false
   let attendanceAt = null // 출석 완료 시각. 공용 응모권 잔액은 실제 BE처럼 이 시각에서 한참 뒤에야 늘어난다.
 
@@ -312,7 +330,29 @@ export function installMockApiIfRequested() {
         return { userId: 900, items: empty ? [] : [earn(1, 3), earn(2, 2), earn(4, 1)], nextCursor: null, hasNext: false }
       },
     ],
-    ['GET', /^\/api\/me\/winners$/, () => (empty ? [] : [{ winnerId: 100, eventId: 16, winnerManagementStatus: 'SELECTED' }])],
+    ['GET', /^\/api\/me\/winners$/, () => winners],
+    ['GET', /^\/api\/winners\/(\d+)\/history$/, (winnerId) => {
+      if (!winners.some((winner) => winner.winnerId === Number(winnerId))) {
+        return { status: 404, code: 'WINNER_NOT_FOUND', data: null, message: '당첨 내역을 찾을 수 없습니다.' }
+      }
+      return winnerHistoryById.get(Number(winnerId)) ?? []
+    }],
+    ['POST', /^\/api\/me\/winners\/(\d+)\/decline$/, (winnerId) => {
+      const winner = winners.find((item) => item.winnerId === Number(winnerId))
+      if (!winner) return { status: 404, code: 'WINNER_NOT_FOUND', data: null, message: '당첨 내역을 찾을 수 없습니다.' }
+      if (winner.winnerManagementStatus !== 'SELECTED') {
+        return { status: 409, code: 'INVALID_STATE', data: null, message: '현재 상태에서는 당첨을 포기할 수 없습니다.' }
+      }
+      const changedAt = new Date().toISOString()
+      winner.winnerManagementStatus = 'DECLINED'
+      winner.winnerManagementUpdatedAt = changedAt
+      const history = winnerHistoryById.get(winner.winnerId) ?? []
+      winnerHistoryById.set(winner.winnerId, [
+        ...history,
+        { historyId: 1_000 + history.length, beforeStatus: 'SELECTED', afterStatus: 'DECLINED', reason: null, changedBy: me.memberId, changedAt },
+      ])
+      return null
+    }],
     // 크리에이터 모드의 내 Space(크리에이터 1). 내 Space 화면(Quiz 관리 등)을 확인할 때 쓴다.
     ['GET', /^\/api\/creator\/space$/, () => (creatorMode ? CREATORS[0] : { status: 403, code: 'FORBIDDEN', data: null })],
     ...quizMockRoutes({ myCreatorId: creatorMode ? 1 : null, memberId: me.memberId }),

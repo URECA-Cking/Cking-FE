@@ -4,7 +4,7 @@ import BottomNav from './BottomNav.jsx'
 import { TopHeader } from './TopHeader.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useOnline } from '../../hooks/useOnline.js'
-import { useAsync } from '../../hooks/useAsync.js'
+import { useNotificationPage } from '../../hooks/useNotificationPage.js'
 import { getMyNotifications } from '../../api/notifications.js'
 import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
@@ -43,7 +43,12 @@ export default function MainLayout() {
 
   // 미확인 개수 API가 없어 첫 100건만 조회한다. 전체 개수 계약이 추가되면 배지 조회를 교체한다.
   // 이 레이아웃은 RequireUser 안에서만 렌더링되므로 항상 로그인된 상태에서 조회한다.
-  const { data, loading: notificationsLoading, error: notificationsError, reload, setData } = useAsync(
+  const {
+    data, loading: notificationsLoading, error: notificationsError, reload,
+    markRead: markNotificationReadLocally,
+    markAllRead: markAllNotificationsReadLocally,
+    rollbackAllRead: rollbackAllNotificationsReadLocally,
+  } = useNotificationPage(
     () => getMyNotifications({ page: 0, size: 100 }),
     [],
     { fallbackMessage: '알림을 불러오지 못했습니다.' },
@@ -58,33 +63,6 @@ export default function MainLayout() {
     previousPathnameRef.current = pathname
   }, [pathname, reload])
 
-  /** 알림 하나의 읽음 상태를 헤더 배지의 목록에도 즉시 반영한다. */
-  const markNotificationReadLocally = (notificationId, readAt) => {
-    setData((current) => current && ({
-      ...current,
-      items: current.items.map((item) =>
-        item.notificationId === notificationId ? { ...item, readAt } : item,
-      ),
-    }))
-  }
-
-  /** 전체 읽음 요청 동안 헤더 배지의 미확인 개수를 즉시 0으로 만든다. */
-  const markAllNotificationsReadLocally = (readAt) => {
-    setData((current) => current && ({
-      ...current,
-      items: current.items.map((item) => item.readAt ? item : { ...item, readAt }),
-    }))
-  }
-
-  /** 전체 읽음 요청이 실패하면 이번 요청에서 바꾼 배지 상태만 되돌린다. */
-  const rollbackAllNotificationsReadLocally = (optimisticReadAt) => {
-    setData((current) => current && ({
-      ...current,
-      items: current.items.map((item) =>
-        item.readAt === optimisticReadAt ? { ...item, readAt: null } : item,
-      ),
-    }))
-  }
   // 헤더 응모권 버튼의 총 개수. 아직 불러오지 못했으면 null이라 자리 표시를 보여 준다.
   const { summary: ticketSummary } = useMyTickets()
 

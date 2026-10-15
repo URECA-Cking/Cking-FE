@@ -3,7 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
-import { useAsync } from '../hooks/useAsync.js'
+import { useNotificationPage } from '../hooks/useNotificationPage.js'
 import { getMyNotifications, readAllNotifications, readNotification } from '../api/notifications.js'
 import { describeError } from '../api/client.js'
 import { formatRelativeTime } from '../utils/format.js'
@@ -35,7 +35,10 @@ export default function Notifications() {
   const [markingAll, setMarkingAll] = useState(false)
   const chunkPage = Math.floor(page / 5)
 
-  const { data: extraData, loading: extraLoading, error: extraError, reload: reloadExtra, setData: setExtraData } = useAsync(
+  const {
+    data: extraData, loading: extraLoading, error: extraError, reload: reloadExtra,
+    markRead: markExtraRead, markAllRead: markAllExtraRead, rollbackAllRead: rollbackAllExtraRead,
+  } = useNotificationPage(
     () => getMyNotifications({ page: chunkPage, size: 100 }),
     [chunkPage],
     { enabled: chunkPage > 0, fallbackMessage: '알림을 불러오지 못했습니다.' },
@@ -51,8 +54,9 @@ export default function Notifications() {
 
   /** 현재 목록 페이지와 헤더의 서버 상태를 필요한 조회만으로 다시 맞춘다. */
   async function reloadCurrentPage() {
-    if (chunkPage === 0) return reloadNotifications()
-    return Promise.all([reloadExtra(), reloadNotifications()])
+    if (chunkPage === 0) return Boolean(await reloadNotifications())
+    const results = await Promise.all([reloadExtra(), reloadNotifications()])
+    return results.every(Boolean)
   }
 
   /** 항목 선택 시 목록과 배지를 먼저 갱신하고 서버 결과로 확정한다. */
@@ -63,14 +67,7 @@ export default function Notifications() {
       const optimisticReadAt = new Date().toISOString()
       /** 선택한 알림의 읽음 시각을 목록과 배지에 같은 값으로 반영한다. */
       const updateReadAt = (readAt) => {
-        if (chunkPage > 0) {
-          setExtraData((current) => current && ({
-            ...current,
-            items: current.items.map((item) =>
-              item.notificationId === notification.notificationId ? { ...item, readAt } : item,
-            ),
-          }))
-        }
+        if (chunkPage > 0) markExtraRead(notification.notificationId, readAt)
         markNotificationReadLocally(notification.notificationId, readAt)
       }
       updateReadAt(optimisticReadAt)
@@ -94,26 +91,17 @@ export default function Notifications() {
     if (!canMarkAllRead || markingAll || readingId !== null) return
     setMarkingAll(true)
     const optimisticReadAt = new Date().toISOString()
-    if (chunkPage > 0) {
-      setExtraData((current) => current && ({
-        ...current,
-        items: current.items.map((item) => item.readAt ? item : { ...item, readAt: optimisticReadAt }),
-      }))
-    }
+    if (chunkPage > 0) markAllExtraRead(optimisticReadAt)
     markAllNotificationsReadLocally(optimisticReadAt)
     try {
       const result = await readAllNotifications()
-      await reloadCurrentPage()
-      showToast(`${result.readCount}개의 알림을 읽음 처리했어요.`)
+      const refreshed = await reloadCurrentPage()
+      showToast(refreshed
+        ? `${result.readCount}개의 알림을 읽음 처리했어요.`
+        : `${result.readCount}개의 알림을 읽음 처리했어요. 최신 목록은 다시 확인해 주세요.`,
+      )
     } catch (err) {
-      if (chunkPage > 0) {
-        setExtraData((current) => current && ({
-          ...current,
-          items: current.items.map((item) =>
-            item.readAt === optimisticReadAt ? { ...item, readAt: null } : item,
-          ),
-        }))
-      }
+      if (chunkPage > 0) rollbackAllExtraRead(optimisticReadAt)
       rollbackAllNotificationsReadLocally(optimisticReadAt)
       showToast(describeError(err, '읽음 처리에 실패했습니다.'), { icon: 'error' })
       await reloadCurrentPage()
@@ -144,8 +132,12 @@ export default function Notifications() {
         )}
       </div>
 
-      {loading && <LoadingBlock label="알림을 불러오는 중..." />}
-      {!loading && error && <ErrorBlock message={error} onRetry={reloadCurrentPage} />}
+      {loading && !data && <LoadingBlock label="알림을 불러오는 중..." />}
+      {!loading && error && (data
+        ? <div role="status" className="rounded-xl bg-berry-tint px-3 py-2 text-label-sm text-primary">
+          최신 목록을 확인하지 못했습니다. <button type="button" onClick={reloadCurrentPage} className="font-semibold underline">다시 시도</button>
+        </div>
+        : <ErrorBlock message={error} onRetry={reloadCurrentPage} />)}
       {!loading && !error && items.length === 0 && (
         <div className="flex flex-1 items-center justify-center">
           <EmptyBlock icon="notifications_off" message="아직 도착한 알림이 없어요. 당첨 결과나 계정 안내가 있으면 알려드릴게요!" />

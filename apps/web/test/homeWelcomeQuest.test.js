@@ -56,6 +56,7 @@ async function screen(initialQuest) {
     window.ticketRefreshes = 0
     window.requests = []
     window.scrolled = 0
+    window.failClaims = 0
     Element.prototype.scrollIntoView = () => { window.scrolled += 1 }
     const envelope = (status, code, data, message = null) => new Response(JSON.stringify({ code, data, message }), { status })
     const recommendations = {
@@ -71,6 +72,8 @@ async function screen(initialQuest) {
       const claim = path.match(/^\/api\/me\/welcome-quest\/(\w+)\/claim$/)
       if (claim) {
         const step = claim[1]
+        // failClaims가 남아 있으면 서버 오류로 한 번 실패시킨다.
+        if (window.failClaims > 0) { window.failClaims -= 1; return Promise.resolve(envelope(500, 'INTERNAL_SERVER_ERROR', null, '서버 오류')) }
         if (step === 'QUIZ' && body.answer !== true) return Promise.resolve(envelope(409, 'WELCOME_QUEST_WRONG_ANSWER', null, '오답'))
         if (step === 'FOLLOW' && !window.following) return Promise.resolve(envelope(409, 'WELCOME_QUEST_CONDITION_NOT_MET', null, '팔로우 필요'))
         const target = step === 'BONUS' ? window.quest.bonus : window.quest.items.find((item) => item.step === step)
@@ -259,6 +262,60 @@ test('저장소를 쓸 수 없어도 가이드 닫기는 이번 화면에서 동
     await waitWelcome(page)
     await page.getByRole('button', { name: '가이드 닫기' }).click()
     await page.getByRole('button', { name: /시작 가이드 다시 보기/ }).waitFor()
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('퀴즈 오답 뒤 새 답을 보낼 때 실패해도 이전 오답 안내는 남지 않는다', async () => {
+  const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED', FOLLOW: 'CLAIMED' }))
+  try {
+    await page.evaluate(() => window.renderHome([]))
+    await waitWelcome(page)
+    await page.getByRole('button', { name: /STEP 3/ }).click()
+
+    await page.getByRole('button', { name: 'X 아니다' }).click()
+    await page.getByText('다시 생각해 보세요!', { exact: false }).waitFor()
+
+    await page.evaluate(() => { window.failClaims = 1 })
+    await page.getByRole('button', { name: 'O 맞다' }).click()
+    await page.waitForFunction(() => window.toasts.includes('서버 오류'))
+    assert.equal(await page.getByText('다시 생각해 보세요!', { exact: false }).count(), 0)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('같은 화면에서 회원이 바뀌면 이전 회원의 완료 유지 상태가 다른 회원에게 남지 않는다', async () => {
+  const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED', FOLLOW: 'CLAIMED' }))
+  try {
+    await page.evaluate(() => window.renderHome([], 7))
+    await waitWelcome(page)
+    await page.getByRole('button', { name: /STEP 3/ }).click()
+    await page.getByRole('button', { name: 'O 맞다' }).click()
+    await page.getByText('웰컴 퀘스트 완료!').waitFor()
+
+    // 이미 퀘스트를 끝낸 다른 회원으로 같은 화면에서 전환한다.
+    await page.evaluate(() => {
+      window.quest = { eligible: true, completed: true, bonus: { step: 'BONUS', rewardAmount: 1, status: 'CLAIMED' },
+        items: ['SIGNUP', 'FOLLOW', 'QUIZ'].map((step) => ({ step, rewardAmount: 1, status: 'CLAIMED' })) }
+      window.renderHome([], 8)
+    })
+    await page.getByText('마감 임박순').waitFor()
+    assert.equal((await bodyText(page)).includes('웰컴 퀘스트 완료!'), false)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('같은 화면에서 회원이 바뀌면 추천 크리에이터를 다시 조회한다', async () => {
+  const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
+  try {
+    await page.evaluate(() => window.renderHome([], 7))
+    await waitWelcome(page)
+    await page.getByRole('button', { name: '+ 팔로우' }).first().waitFor()
+    const loads = () => page.evaluate(() => window.requests.filter((request) => request.path === '/api/me/creator-recommendations').length)
+    assert.equal(await loads(), 1)
+
+    await page.evaluate(() => window.renderHome([], 8))
+    await page.waitForFunction(() => window.requests.filter((request) => request.path === '/api/me/creator-recommendations').length === 2)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

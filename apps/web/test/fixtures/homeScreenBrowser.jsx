@@ -12,9 +12,9 @@ const root = createRoot(document.getElementById('root'))
  * 홈을 실제 컴포넌트 그대로 그리되, 로그인 상태(UserContext)·토스트·헤더 응모권만 대신하는 틀.
  * 팔로우는 서버 대신 이 틀이 기록(window.followCalls)하고 팔로우 목록을 바꾼다. 팔로우 뒤 퀘스트 상태는 테스트의 fetch 목이 정한다.
  */
-function Shell({ follows }) {
+function Shell({ follows, memberId }) {
   const [ids, setIds] = useState(follows)
-  const user = { memberId: 7, nickname: '혁준' }
+  const user = { memberId, nickname: '혁준' }
   const value = {
     user,
     isCreator: false,
@@ -42,5 +42,5 @@ function Shell({ follows }) {
   )
 }
 
-/** 지정한 팔로우 목록으로 홈을 그린다. */
-window.renderHome = (follows = []) => root.render(<Shell follows={follows} />)
+/** 지정한 팔로우 목록과 회원 번호로 홈을 그린다. 같은 화면에서 회원 번호만 바꿔 다시 부르면 계정 전환을 흉내 낸다. */
+window.renderHome = (follows = [], memberId = 7) => root.render(<Shell follows={follows} memberId={memberId} />)

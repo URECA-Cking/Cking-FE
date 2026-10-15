@@ -5,7 +5,7 @@ import BottomSheet from '../components/ui/BottomSheet.jsx'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../components/ui/States.jsx'
 import { describeError } from '../api/client.js'
-import { declineMyWinner, getWinnerHistory, loadMyWinners } from '../api/myWinners.js'
+import { declineMyWinner, getWinnerHistory, loadMyWinners, loadWinnerEventCatalog } from '../api/myWinners.js'
 import { useToast } from '../context/useToast.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { formatDateTime, formatNumber } from '../utils/format.js'
@@ -33,9 +33,10 @@ export default function MyWinners() {
   const { data, loading, error, reload } = useAsync(() => loadMyWinners(), [], {
     fallbackMessage: '당첨 내역을 불러오지 못했어요.',
   })
+  const { data: eventCatalog } = useAsync(() => loadWinnerEventCatalog(), [])
 
-  const winners = data?.winners ?? EMPTY_WINNERS
-  const eventById = data?.eventById ?? EMPTY_EVENT_BY_ID
+  const winners = data ?? EMPTY_WINNERS
+  const eventById = eventCatalog ?? EMPTY_EVENT_BY_ID
   const filters = useMemo(() => winnerStatusFilters(winners), [winners])
   const filteredWinners = useMemo(() => filterWinnersByStatus(winners, activeStatus), [winners, activeStatus])
   const selectedHistory = selectedWinner ? historyByWinner[selectedWinner.winnerId] ?? [] : []

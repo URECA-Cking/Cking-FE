@@ -313,9 +313,6 @@ export default function Explore() {
             <MaterialIcon name="confirmation_number" filled className="text-primary text-[20px]" />
             <h2 className="font-title-md text-title-md font-bold text-on-surface">이벤트 둘러보기</h2>
           </div>
-          <span className="font-label-xs text-label-xs text-on-surface-variant">
-            {formatNumber(eventList.data?.totalElements ?? 0)}개
-          </span>
         </div>
         <div className="flex overflow-x-auto gap-2 px-margin no-scrollbar py-1 mb-space-sm">
           {EVENT_FILTERS.map((filter) => (

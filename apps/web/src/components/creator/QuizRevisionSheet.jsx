@@ -18,7 +18,7 @@ import {
   unpublishQuiz,
 } from '../../api/creatorQuizzes.js'
 import { formatDateTime } from '../../utils/format.js'
-import { PUBLICATION_LABELS, REVIEW_LABELS } from './quizLabels.js'
+import { CONTENT_REVIEW_LABELS, PUBLICATION_LABELS, REVIEW_LABELS } from './quizLabels.js'
 import {
   REJECT_REASON_MAX,
   browserStorage,
@@ -362,6 +362,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
   if (editing) return <QuizCompositionPanel creatorId={creatorId} quizId={quizId} revision={data} onClose={() => setEditing(false)} onSaved={onCompositionSaved} />
 
   const review = REVIEW_LABELS[data.reviewStatus] ?? REVIEW_LABELS.PENDING_REVIEW
+  const contentReview = typeof data.contentEdited === 'boolean' ? CONTENT_REVIEW_LABELS[data.contentEdited] : null
   const trimmedReason = reason.trim()
 
   return (
@@ -436,6 +437,16 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
           >
             <MaterialIcon name="smart_display" className="text-[18px]" />원본 영상 보기
           </a>
+        )}
+        {contentReview && (
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill label={contentReview.label} icon={contentReview.icon} tone={contentReview.tone} />
+            {data.contentConfirmedAt && (
+              <span className="font-label-xs text-label-xs text-on-surface-variant">
+                {formatDateTime(data.contentConfirmedAt)} 원문 확정
+              </span>
+            )}
+          </div>
         )}
         {data.contentText && (
           <details className="font-body-sm text-body-sm text-on-surface-variant">

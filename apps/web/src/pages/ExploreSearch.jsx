@@ -115,37 +115,42 @@ export default function ExploreSearch() {
         ))}
       </div>
 
-      <div className="px-margin flex flex-col gap-space-lg">
+      <div className="px-margin flex flex-col gap-space-xl">
         {directory.loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}
         {!directory.loading && directory.error && <ErrorBlock message={directory.error} onRetry={directory.reload} />}
         {!directory.loading && !directory.error && nothing && (
           <EmptyBlock icon="search_off" message={`'${keyword}'에 맞는 결과가 없어요.`} />
         )}
-        {showCreators && scope === 'all' && results.length > 0 && <SectionHeader icon="groups" title="크리에이터" count={results.length} />}
-        {showCreators && shownCreators.map((creator) => (
-          <section key={creator.creatorId} className="flex flex-col gap-space-sm">
-            <Link to={spacePath(creator.handle)} className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
-              </div>
-              <div className="min-w-0 flex flex-col">
-                <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
-                <span className="font-body-sm text-body-sm text-outline line-clamp-1">{creator.bio}</span>
-              </div>
-            </Link>
+        {showCreators && shownCreators.length > 0 && (
+          <section className="flex flex-col">
+            {scope === 'all' && <SectionHeader icon="groups" title="크리에이터" count={results.length} />}
+            <div className="flex flex-col gap-space-md">
+              {shownCreators.map((creator) => (
+                <Link key={creator.creatorId} to={spacePath(creator.handle)} className="flex items-center gap-3 min-w-0">
+                  <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                    <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
+                  </div>
+                  <div className="min-w-0 flex flex-col">
+                    <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
+                    <span className="font-body-sm text-body-sm text-outline line-clamp-1">{creator.bio}</span>
+                  </div>
+                </Link>
+              ))}
+              {paged && results.length > shownCreators.length && (
+                <button
+                  type="button"
+                  onClick={() => showMore('creators')}
+                  className="h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
+                >
+                  크리에이터 더 보기 ({results.length - shownCreators.length}명 남음)
+                </button>
+              )}
+            </div>
           </section>
-        ))}
-        {paged && results.length > shownCreators.length && (
-          <button
-            type="button"
-            onClick={() => showMore('creators')}
-            className="h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
-          >
-            크리에이터 더 보기 ({results.length - shownCreators.length}명 남음)
-          </button>
         )}
         {showEvents && eventResults.length > 0 && (
-          <section className="flex flex-col gap-space-sm">
+          // 전체에서 크리에이터 영역 뒤에 올 때는 옅은 구분선과 넉넉한 여백으로 두 영역을 확실히 가른다.
+          <section className={`flex flex-col gap-space-sm ${paged && shownCreators.length > 0 ? 'border-t border-outline-variant/30 pt-space-xl' : ''}`}>
             {scope === 'all' && <SectionHeader icon="confirmation_number" title="이벤트" count={eventResults.length} />}
             {shownEvents.map((event) => <EventCard key={event.eventId} event={event} variant={paged ? 'compact' : 'list'} showCreatorTag />)}
             {paged && eventResults.length > shownEvents.length && (

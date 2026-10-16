@@ -11,6 +11,8 @@ function toProfile(space) {
     banner: space.bannerImageUrl,
     bio: space.introText,
     verified: true,
+    // 서버가 센 진행 중 이벤트 수(BE #639). 구버전 BE 응답에는 없어 그때는 undefined다.
+    openEventCount: Number.isInteger(space.openEventCount) ? space.openEventCount : undefined,
   };
 }
 
@@ -120,12 +122,17 @@ export async function loadCreatorDirectory({ size = 100 } = {}) {
     return {
       ...profile,
       events: creatorEvents,
-      openEventCount: creatorEvents.filter((event) => event.displayStatus === 'IN_PROGRESS').length,
+      // 서버 값이 있으면 그대로, 없으면(구버전 BE) 받아 온 최근 이벤트에서 센다.
+      openEventCount: profile.openEventCount
+        ?? creatorEvents.filter((event) => event.displayStatus === 'IN_PROGRESS').length,
     };
   });
 
-  // 이벤트는 최근 size건만 받는다. 더 있으면 eventsTruncated로 알려, 이 값으로 센 집계가 일부 기준임을 화면이 밝히게 한다.
-  return { creators, events, eventsTruncated: Boolean(page?.hasNext) };
+  // 이벤트는 최근 size건만 받는다. 더 있으면 eventsComplete가 false라 크리에이터별 전체 개수를 믿을 수 없고,
+  // 서버 값 없이 센 진행 중 집계가 있으면 eventsTruncated로 알려 화면이 일부 기준임을 밝히게 한다.
+  const hasMore = Boolean(page?.hasNext);
+  const countedLocally = profiles.some((profile) => profile.openEventCount === undefined);
+  return { creators, events, eventsComplete: !hasMore, eventsTruncated: hasMore && countedLocally };
 }
 
 /**

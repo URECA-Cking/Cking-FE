@@ -37,12 +37,12 @@ const RECOMMENDATION = { recommendationRequestId: 'rid-1', policyVersion: 'INTER
  * window.requests에 호출한 경로를 쌓고, window.failures[경로]가 양수면 그 횟수만큼 먼저 오류를 돌려준다.
  * 목에 없는 경로(관심 분야·응모권 잔액 등)는 404라 해당 영역은 조용히 비거나 실패로 그려진다.
  */
-async function screen(initial = '/explore', { events = EVENTS, creators = CREATORS } = {}) {
+async function screen(initial = '/explore', { events = EVENTS, creators = CREATORS, counts = null } = {}) {
   const page = await browser.newPage()
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
   await page.goto('http://localhost/explore-test')
-  await page.evaluate(({ creators, events, recommendation }) => {
+  await page.evaluate(({ creators, events, recommendation, counts }) => {
     window.requests = []
     window.failures = {}
     const reply = (status, code, data, message = null) => Promise.resolve(new Response(JSON.stringify({ code, data, message }), { status }))
@@ -61,6 +61,7 @@ async function screen(initial = '/explore', { events = EVENTS, creators = CREATO
         return reply(500, 'SYSTEM_ERROR', null, '일시적인 오류')
       }
       if (path === '/api/creators') return reply(200, 'SUCCESS', pageOf(creators, target.searchParams))
+      if (path === '/api/events/counts' && counts) return reply(200, 'SUCCESS', counts)
       if (path === '/api/events') {
         const status = target.searchParams.get('status')
         return reply(200, 'SUCCESS', pageOf(status ? events.filter((item) => item.displayStatus === status) : events, target.searchParams))
@@ -68,7 +69,7 @@ async function screen(initial = '/explore', { events = EVENTS, creators = CREATO
       if (path === '/api/me/creator-recommendations') return reply(200, 'SUCCESS', recommendation)
       return reply(404, 'RESOURCE_NOT_FOUND', null, '없음')
     }
-  }, { creators, events, recommendation: RECOMMENDATION })
+  }, { creators, events, recommendation: RECOMMENDATION, counts })
   await page.addStyleTag({ content: styles })
   await page.addScriptTag({ content: bundle })
   await page.evaluate((path) => window.renderExplore(path), initial)
@@ -226,6 +227,35 @@ test('이벤트가 한 번에 받는 100건을 넘으면 인기 크리에이터 
   await complete.getByText('진행 중 이벤트가 많은 크리에이터').waitFor()
   assert.equal(await complete.getByText(/건 기준 집계예요/).count(), 0)
   await complete.close()
+})
+
+test('서버 openEventCount가 있으면 이벤트가 100건을 넘어도 진행 중 순위가 그 값을 쓰고 범위 안내를 숨긴다', async () => {
+  // 최근 100건에는 크리에이터 1의 이벤트만 있고, 크리에이터 2의 진행 중 이벤트는 그보다 오래돼 목록에 없다.
+  const recent = Array.from({ length: 120 }, (_, index) => event(1000 + index, 1, `이벤트 ${index}`))
+  const creators = [{ ...creator(1, '다온'), openEventCount: 120 }, { ...creator(2, '나래'), openEventCount: 3 }]
+  const page = await screen('/explore?tab=event', { events: recent, creators })
+  await page.getByText('진행 중 이벤트가 많은 크리에이터').waitFor()
+  await page.getByText('진행 중 3개').waitFor()
+  await page.getByText('진행 중 120개').waitFor()
+  assert.equal(await page.getByText(/건 기준 집계예요/).count(), 0)
+  // 크리에이터별 전체 개수는 최근 100건 기준이라 서버 값을 쓸 때도 일부만 받았다면 보이지 않는다.
+  assert.equal(await page.getByText(/· 전체 \d+개/).count(), 0)
+  await page.close()
+})
+
+test('이벤트 상태별 개수 API가 있으면 한 번의 요청으로 칩 개수를 채우고, 없으면 상태별 호출로 대체한다', async () => {
+  const counts = { total: 46, upcoming: 5, inProgress: 28, closed: 13 }
+  const served = await screen('/explore?tab=event', { counts })
+  await served.getByRole('button', { name: /^진행 중 28$/ }).waitFor()
+  await served.getByRole('button', { name: /^전체 46$/ }).waitFor()
+  assert.equal(await count(served, '/api/events/counts'), 1)
+  await served.close()
+
+  // 목에 counts가 없으면 404라 대체 호출이다. 칩은 목록 길이로 채워진다.
+  const fallback = await screen('/explore?tab=event')
+  await fallback.getByRole('button', { name: /^전체 4$/ }).waitFor()
+  assert.equal(await count(fallback, '/api/events/counts'), 1)
+  await fallback.close()
 })
 
 test('검색 전체는 크리에이터와 이벤트를 각각 7개씩 먼저 보이고 더 보기로 늘리며, 대상을 좁히면 전부 보인다', async () => {

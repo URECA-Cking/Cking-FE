@@ -5,17 +5,35 @@ export async function getEvents({ creatorId, status, page = 0, size = 20 } = {})
   return apiClient.get('/api/events', { creatorId, status, page, size });
 }
 
-/**
- * GET /api/events?status&size=1 - 상태(displayStatus)별 이벤트 총 개수. 개수 전용 API가 없어 상태마다 1건만 받아 totalElements를 읽는다.
- * 한 상태가 실패해도 나머지는 살리도록 실패한 값은 null이다. 키는 상태 값이고 전체는 빈 문자열이다.
- * @param {string[]} statuses 조회할 상태 값들(전체는 빈 문자열)
- * @returns {Promise<Record<string, number|null>>}
- */
-export async function getEventCounts(statuses) {
+const COUNT_KEYS = { '': 'total', UPCOMING: 'upcoming', IN_PROGRESS: 'inProgress', CLOSED: 'closed' };
+
+/** GET /api/events?status&size=1 - 서버 집계가 없을 때의 대체. 상태마다 1건만 받아 totalElements를 읽는다. */
+async function countByStatusCalls(statuses) {
   const totals = await Promise.all(
     statuses.map((status) => getEvents({ status: status || undefined, size: 1 }).then((result) => result?.totalElements ?? null, () => null)),
   );
   return Object.fromEntries(statuses.map((status, index) => [status, totals[index]]));
+}
+
+/**
+ * GET /api/events/counts - 표시 상태별 이벤트 총 개수를 한 번의 요청·한 시점의 값으로 받는다(인증 불필요).
+ * 엔드포인트가 없는 BE(404, 또는 /api/events/{eventId}로 해석돼 400·401)이거나 응답 형식이 다르면
+ * 상태마다 size=1로 받는 대체 호출을 쓴다. 대체에서 한 상태가 실패하면 그 값만 null이다.
+ * 이 요청의 401은 로그인 만료가 아니므로 토큰 갱신·로그아웃을 건드리지 않는다.
+ * @param {string[]} statuses 조회할 상태 값들(전체는 빈 문자열)
+ * @returns {Promise<Record<string, number|null>>} 키는 상태 값이고 전체는 빈 문자열이다
+ */
+export async function getEventCounts(statuses) {
+  try {
+    const counts = await apiClient.get('/api/events/counts', undefined, { skipAuthRefresh: true });
+    const keys = statuses.map((status) => COUNT_KEYS[status]);
+    if (keys.every((key) => Number.isInteger(counts?.[key]))) {
+      return Object.fromEntries(statuses.map((status, index) => [status, counts[keys[index]]]));
+    }
+  } catch {
+    // 아래 대체 호출로 계속한다.
+  }
+  return countByStatusCalls(statuses);
 }
 
 // GET /api/events/{eventId} - 이벤트 상세 (로그인 사용자의 응모권 잔액 포함)

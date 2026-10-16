@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import ConfirmModal from '../../components/ConfirmModal.jsx'
-import SpaceBlockModal from '../../components/SpaceBlockModal.jsx'
+import CommentSanctionModal from '../../components/CommentSanctionModal.jsx'
 import { AdminPageHeader } from '../../components/AdminContent.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
@@ -18,7 +18,8 @@ import {
   reportStatusLabel,
   viewAfterRefresh,
 } from '../../utils/commentReport.js'
-import { blockSuccessMessage, deleteConfirm } from '../../utils/spaceCommentBlock.js'
+import { deleteConfirm } from '../../utils/spaceCommentBlock.js'
+import { sanctionSuccessMessage } from '../../utils/sanction.js'
 
 const PAGE_SIZE = 20
 
@@ -33,7 +34,8 @@ const STATUS_OPTIONS = [
 /**
  * 신고된 게시글 댓글을 댓글별로 모아 확인하고 숨기거나 신고를 반려한다(BE 이슈 #485·#499).
  * 한 댓글의 접수 신고는 한 번에 처리되고, 숨김은 되돌릴 수 없다.
- * 처리 상태와 상관없이 댓글을 삭제하거나 작성자를 그 스페이스에서 차단할 수 있다(BE 이슈 #584).
+ * 처리 상태와 상관없이 댓글을 삭제하거나 작성자를 제재할 수 있다. 제재는 이 스페이스에서만(BE 이슈 #584) 또는
+ * 모든 스페이스에서(플랫폼 제한, 사유 필수) 고른다(Cking-FE 이슈 #231).
  */
 export default function AdminCommentReports() {
   const showToast = useToast()
@@ -42,8 +44,8 @@ export default function AdminCommentReports() {
   const { status, page } = view
   // pending: null | { action: 'hide' | 'reject' | 'delete', item }
   const [pending, setPending] = useState(null)
-  // blocking: 스페이스 차단 모달을 열어 둔 신고된 댓글. 크리에이터·작성 회원 ID는 이 행에서 가져온다.
-  const [blocking, setBlocking] = useState(null)
+  // sanctioning: 작성자 제재 모달을 열어 둔 신고된 댓글. 크리에이터·작성 회원 ID는 이 행에서 가져온다.
+  const [sanctioning, setSanctioning] = useState(null)
   const [busy, setBusy] = useState(false)
   const { data, loading, error, reload } = useAsync(
     () => getCommentReports({ status: status || undefined, page, size: PAGE_SIZE }),
@@ -99,8 +101,8 @@ export default function AdminCommentReports() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <AdminPageHeader
-        title="댓글 신고"
-        description="신고된 게시글 댓글을 댓글별로 확인하고 숨기거나 신고를 반려합니다. 댓글 삭제와 스페이스 차단도 할 수 있습니다."
+        title="신고 관리"
+        description="신고된 게시글 댓글을 확인하고 숨기기·반려·삭제하거나 작성자를 제재합니다."
       />
 
       <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="note">
@@ -131,7 +133,7 @@ export default function AdminCommentReports() {
         {!loading && !error && items.length === 0 && (
           <EmptyBlock icon="flag" message={status === 'PENDING' ? '처리할 신고가 없습니다.' : '조건에 해당하는 신고된 댓글이 없습니다.'} />
         )}
-        {!loading && !error && items.length > 0 && <ReportTable items={items} busy={busy} onAction={(action, item) => setPending({ action, item })} onBlock={setBlocking} />}
+        {!loading && !error && items.length > 0 && <ReportTable items={items} busy={busy} onAction={(action, item) => setPending({ action, item })} onSanction={setSanctioning} />}
         {!loading && !error && (
           <Pagination
             page={data?.page ?? page}
@@ -143,14 +145,14 @@ export default function AdminCommentReports() {
         )}
       </section>
 
-      {blocking && (
-        <SpaceBlockModal
-          creatorId={blocking.creatorId}
-          memberId={blocking.authorMemberId}
-          onClose={() => setBlocking(null)}
-          onBlocked={(block) => {
-            setBlocking(null)
-            showToast(blockSuccessMessage(block))
+      {sanctioning && (
+        <CommentSanctionModal
+          creatorId={sanctioning.creatorId}
+          memberId={sanctioning.authorMemberId}
+          onClose={() => setSanctioning(null)}
+          onSanctioned={({ scope, sanction }) => {
+            setSanctioning(null)
+            showToast(sanctionSuccessMessage(scope, sanction))
           }}
         />
       )}
@@ -177,7 +179,7 @@ function actionErrorMessage(error) {
   return describeError(error, '조치를 처리하지 못했습니다.')
 }
 
-function ReportTable({ items, busy, onAction, onBlock }) {
+function ReportTable({ items, busy, onAction, onSanction }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[960px] text-left text-sm">
@@ -224,8 +226,8 @@ function ReportTable({ items, busy, onAction, onBlock }) {
                   ) : (
                     <span className="self-center text-xs text-slate-400">처리 완료</span>
                   )}
-                  {/* 처리 상태와 상관없이 쓸 수 있다. 차단은 이 댓글 작성자를 그 스페이스에서만 막고, 삭제는 되돌릴 수 없다. */}
-                  <button type="button" disabled={busy} onClick={() => onBlock(item)} className="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">스페이스 차단</button>
+                  {/* 처리 상태와 상관없이 쓸 수 있다. 제재는 이 댓글 작성자의 댓글 작성·수정을 범위(이 스페이스만·모든 스페이스)를 골라 막고, 삭제는 되돌릴 수 없다. */}
+                  <button type="button" disabled={busy} onClick={() => onSanction(item)} className="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">작성자 제재</button>
                   <button type="button" disabled={busy} onClick={() => onAction('delete', item)} className="h-8 rounded-md border border-red-300 px-3 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50">삭제</button>
                 </div>
               </td>

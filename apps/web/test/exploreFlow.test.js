@@ -92,6 +92,9 @@ test('크리에이터 탭에서 검색하면 크리에이터 결과가 열리고
   await page.getByText('나래').first().waitFor()
   assert.equal(await page.getByText('다온').count(), 0)
   assert.equal(await page.getByRole('tab', { name: /^크리에이터/ }).getAttribute('aria-selected'), 'true')
+  // 크리에이터만 볼 때는 이벤트를 함께 보여주지 않는다.
+  assert.equal(await page.getByText('나래 팬미팅').count(), 0)
+  assert.equal(await page.getByText('나래 굿즈 증정').count(), 0)
 
   await page.getByRole('tab', { name: /^전체/ }).click()
   await waitWhere(page, `/explore/search?q=${encodeURIComponent('나')}&type=all`)

@@ -4,6 +4,7 @@
 //
 // 생성·평가는 요청 후 약 1.5초 PENDING, 4.5초까지 RUNNING, 그 뒤 결과가 정해진다. Quiz 제목에 아래 표시를 넣으면 상황을 만든다.
 //   생성: [실패] FAILED · [모름] UNKNOWN · [꺼짐] 503 · [진행중] 409 · [응답유실] 첫 요청 응답 유실(작업은 생성) · [서버오류] 첫 요청 500(작업은 생성)
+//   원문 검토: 제목에 [원문검토] 추가. [확정꺼짐]은 원문 확정만 503으로 거절하며 취소는 허용한다.
 //   평가: [불통과] HAS_FAIL · [보류] UNCERTAIN_ONLY · [평가실패] 1회차 FAILED · [평가모름] 1회차 UNKNOWN · [평가꺼짐] 503 · [평가유실] 첫 요청 응답 유실
 
 import { compositionBody } from '../utils/quizComposition.js'
@@ -105,14 +106,21 @@ function readBody(init) {
 /** 같은 Creator의 생성 작업을 시간에 따라 진행시킨다. 성공하면 Quiz와 revision을 만든다. */
 function advanceGeneration(state, job, now) {
   if (!['PENDING', 'RUNNING'].includes(job.status)) return
-  const elapsed = now - job.requestedAt
+  if (job.reviewStage === 'AWAITING_REVIEW') return
+  if (job.reviewStage === 'GROUNDING' && now - job.requestedAt >= RUNNING_MS) {
+    job.status = 'RUNNING'; job.reviewStage = 'AWAITING_REVIEW'
+    job.aiContentText = `${job.title} 영상의 AI 분석 원문입니다. 물은 증발해 구름이 됩니다.`
+    job.facts = [{fact:'물은 증발한다.',evidenceType:'SPEECH',evidence:'물이 증발합니다.',timestampStart:'00:01',timestampEnd:'00:03'}]
+    return
+  }
+  const elapsed = now - (job.contentConfirmedAt ?? job.requestedAt)
   if (elapsed < PENDING_MS) return
   job.startedAt = job.startedAt ?? job.requestedAt + PENDING_MS
   if (elapsed < RUNNING_MS) {
     job.status = 'RUNNING'
     return
   }
-  job.completedAt = job.requestedAt + RUNNING_MS
+  job.completedAt = (job.contentConfirmedAt ?? job.requestedAt) + RUNNING_MS
   if (has(job.title, '[실패]')) {
     job.status = 'FAILED'
     job.failureCode = 'GENERATION_INVALID'
@@ -126,7 +134,9 @@ function advanceGeneration(state, job, now) {
       quizId,
       creatorId: job.creatorId,
       videoId: job.videoId,
-      contentText: `${job.title} 영상을 분석한 대본입니다. (더미)`,
+      contentText: job.reviewedContentText ?? `${job.title} 영상을 분석한 대본입니다. (더미)`,
+      contentEdited: job.reviewedContentText == null ? null : job.reviewedContentText !== job.aiContentText,
+      contentConfirmedAt: iso(job.contentConfirmedAt),
       createdAt: job.completedAt,
       updatedAt: job.completedAt,
       publicationStatus: 'NOT_PUBLISHED',
@@ -184,6 +194,7 @@ function advanceJudge(state, job, now) {
 const generationView = (job) => ({
   generationId: job.generationId, status: job.status, videoId: job.videoId, title: job.title,
   questionCount: job.questionCount, optionCount: 4, quizId: job.quizId ?? null, revisionId: job.revisionId ?? null,
+  reviewStage: job.reviewStage ?? null, contentEdited: job.reviewedContentText == null ? null : job.reviewedContentText !== job.aiContentText, contentConfirmedAt: iso(job.contentConfirmedAt),
   failureCode: job.failureCode ?? null, requestedAt: iso(job.requestedAt), startedAt: iso(job.startedAt), completedAt: iso(job.completedAt),
 })
 
@@ -253,6 +264,20 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
 
   return [
     // ---- Creator ----
+    ['GET', /^\/api\/creator\/quizzes\/generations\/current$/, creatorOnly(state => {
+      const job = state.generations.find(item => item.creatorId === myCreatorId && ['PENDING','RUNNING'].includes(item.status))
+      if (!job) return { status:200, code:'SUCCESS' }
+      return { ...generationView(job), content: job.reviewStage === 'AWAITING_REVIEW' ? {
+        aiContentText:job.aiContentText, facts:job.facts, groundingModel:'gemini-mock', groundingPromptVersion:'quiz-grounding-v1', maxLength:50000,
+      } : null }
+    })],
+    ['POST', /^\/api\/creator\/quizzes\/generations\/(\d+)\/(content-confirmation|cancel)$/, creatorOnly((state, now, id, action, url, init) => {
+      const job = state.generations.find(item => item.generationId === Number(id))
+      if (!job) return fail(404,'QUIZ_GENERATION_NOT_FOUND')
+      if (job.creatorId !== myCreatorId) return fail(403,'FORBIDDEN')
+      return reviewMockGeneration(job, action, readBody(init), now)
+    })],
+
     ['POST', /^\/api\/creator\/quizzes\/(\d+)\/revisions$/, creatorOnly((state, now, quizId, url, init) => composeMockRevision(state, myCreatorId, quizId, readBody(init), now))],
     ['POST', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)\/creator-approval$/, creatorOnly((state, now, quizId, revisionId, url, init) => approveMockComposition(state, myCreatorId, quizId, revisionId, readBody(init), now))],
     ['GET', /^\/api\/creator\/quizzes$/, creatorOnly((state, now, url) => pageOf(
@@ -277,7 +302,7 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
       if (has(title, '[꺼짐]')) return fail(503, 'QUIZ_GENERATION_DISABLED', 'Quiz 생성 기능이 꺼져 있습니다.')
       const active = state.generations.some((job) => job.creatorId === myCreatorId && ['PENDING', 'RUNNING'].includes(job.status))
       if (active || has(title, '[진행중]')) return fail(409, 'QUIZ_GENERATION_IN_PROGRESS', '진행 중인 생성 작업이 있습니다.')
-      const job = { generationId: ++state.seq, creatorId: myCreatorId, requestId: body.requestId, videoId, title, questionCount, status: 'PENDING', requestedAt: now }
+      const job = { generationId: ++state.seq, creatorId: myCreatorId, requestId: body.requestId, videoId, title, questionCount, status: 'PENDING', requestedAt: now, reviewStage: has(title, '[원문검토]') ? 'GROUNDING' : null }
       state.generations.push(job)
       if (has(title, '[응답유실]') && !state.lost.includes(body.requestId)) {
         state.lost.push(body.requestId)
@@ -542,6 +567,7 @@ export function compositionRevisionView(state, quiz, revision) {
   return { quizId: quiz.quizId, revisionId: revision.revisionId, revisionNo: revision.revisionNo, latest,
     published: quiz.publicationStatus === 'PUBLISHED' && quiz.publishedRevisionId === revision.revisionId,
     title: revision.title, videoId: quiz.videoId, promptVersion: revision.promptVersion ?? 'quiz-mcq-v1', contentText: quiz.contentText,
+    contentEdited: quiz.contentEdited ?? null, contentConfirmedAt: quiz.contentConfirmedAt ?? null,
     reviewStatus: revision.reviewStatus, decisionReason: revision.decisionReason ?? null, decidedAt: iso(revision.decidedAt), createdAt: iso(revision.createdAt),
     origin: revision.origin, parentRevisionId: revision.parentRevisionId, hashVersion: revision.hashVersion, revisionSha256: revision.revisionSha256,
     approvalPolicyVersion: revision.approvalPolicyVersion ?? null, contentLocked: quiz.contentLocked, canEdit: latest && !quiz.contentLocked,
@@ -620,4 +646,21 @@ export function approveMockComposition(state, creatorId, quizId, revisionId, bod
     r.reviewStatus = 'APPROVED'; r.approvalPolicyVersion = 'CREATOR_REVIEW_V1'; r.decidedAt = now; quiz.updatedAt = now
   }
   return { status: 200, code: 'SUCCESS', data: { quizId: quiz.quizId, revisionId: r.revisionId, reviewStatus: r.reviewStatus, reason: null, decidedAt: iso(r.decidedAt) } }
+}
+
+/** #615의 확정·취소 계약. 테스트에서도 같은 라우팅 함수를 사용한다. */
+export function reviewMockGeneration(job, action, body, now) {
+  if (action === 'cancel') {
+    if (job.failureCode === 'CANCELLED') return generationView(job)
+    if (job.status !== 'RUNNING' || job.reviewStage !== 'AWAITING_REVIEW') return fail(409, 'QUIZ_GENERATION_NOT_AWAITING_REVIEW')
+    job.status='FAILED'; job.failureCode='CANCELLED'; job.completedAt=now
+    return generationView(job)
+  }
+  const text=body.contentText
+  if(typeof text !== 'string' || !text.trim() || text.length > 50000) return fail(400,'VALIDATION_FAILED')
+  if(job.reviewedContentText != null) return text === job.reviewedContentText ? accepted(generationView(job)) : fail(409,'QUIZ_GENERATION_CONTENT_CONFLICT')
+  if(has(job.title,'[확정꺼짐]')) return fail(503,'QUIZ_GENERATION_DISABLED')
+  if(job.status !== 'RUNNING' || job.reviewStage !== 'AWAITING_REVIEW') return fail(409,'QUIZ_GENERATION_NOT_AWAITING_REVIEW')
+  job.reviewedContentText=text; job.contentConfirmedAt=now; job.reviewStage='GENERATING'
+  return accepted(generationView(job))
 }

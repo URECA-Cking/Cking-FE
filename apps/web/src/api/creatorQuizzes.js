@@ -74,3 +74,14 @@ export async function approveQuizByCreator(quizId, revisionId, revisionSha256) {
     revisionSha256, acknowledgeResponsibility: true,
   });
 }
+
+/** 진행 중 작업이 없으면 null 또는 undefined가 반환될 수 있다. */
+export async function getCurrentQuizGeneration() {
+  return apiClient.get('/api/creator/quizzes/generations/current');
+}
+export async function confirmQuizContent(generationId, contentText) {
+  return apiClient.post(`/api/creator/quizzes/generations/${generationId}/content-confirmation`, { contentText });
+}
+export async function cancelQuizGeneration(generationId) {
+  return apiClient.post(`/api/creator/quizzes/generations/${generationId}/cancel`);
+}

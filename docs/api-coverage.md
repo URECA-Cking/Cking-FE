@@ -70,6 +70,9 @@
 | POST/PATCH/DELETE | `/api/creator/posts`, `/api/creator/posts/{postId}` | 게시물 작성·수정·삭제 | 연동 | [Post](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/api.md) |
 | GET/POST | `/api/creator/quizzes`, `/api/creator/quizzes/{quizId}`, `.../revisions/{revisionId}`, `.../approve`, `.../reject`, `/api/creator/quizzes/{quizId}/publish`, `.../unpublish` | 내 스페이스 Quiz 탭: 내 Quiz 목록·상세, revision 검토(정답·해설·근거), 승인(Judge ALL_PASS일 때만)·반려, 게시·게시 중지. 개발용 더미 API로만 확인했고 실제 BE에서는 미검증 | 연동 | [AI Quiz](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/api.md) |
 | POST/GET | `/api/creator/quizzes/generations`, `/api/creator/quizzes/generations/{generationId}` | 내 스페이스 Quiz 탭의 AI Quiz 생성 요청·상태 조회. requestId·generationId를 Creator별로 브라우저에 저장해 새로고침 뒤 복구, 응답 불확실 재시도는 같은 requestId. 실제 BE 미검증(dev 생성 기능 기본 OFF) | 연동 | [AI Quiz](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/api.md) |
+| GET | `/api/creator/quizzes/generations/current` | 저장 작업이 없을 때 복구, 원문·facts 검토. 실제 BE 통합 검증 미실시 | 연동 | [원문 검토](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/content-review-api.md) |
+| POST | `/api/creator/quizzes/generations/{generationId}/content-confirmation` | 원문 확정·문항 생성 재개. 실제 BE 통합 검증 미실시 | 연동 | [원문 검토](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/content-review-api.md) |
+| POST | `/api/creator/quizzes/generations/{generationId}/cancel` | 검토 대기 작업 취소. 실제 BE 통합 검증 미실시 | 연동 | [원문 검토](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/content-review-api.md) |
 | POST/GET | `/api/creator/quizzes/{quizId}/revisions/{revisionId}/judge-evaluations`, `.../judge-evaluations/{evaluationId}` | 내 스페이스 Quiz 탭의 GPT Judge 평가 요청·조회(문항별 7개 항목·집계). requestId·evaluationId를 브라우저에 저장해 복구하며, 저장값이 없는 기기에서는 이전 평가를 볼 수 없다(BE에 revision별 최근 평가 조회 없음). 실제 BE 미검증(dev Judge 기능 기본 OFF) | 연동 | [Judge](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/judge-api.md) |
 | POST | `/api/creator/quizzes/{quizId}/revisions` | Creator 문항 선택·편집·추가와 새 Revision 저장. 별도 UUID·본문 기록으로 응답 유실·탭 경쟁 복구. 실제 BE 미검증 | 연동 | [문항 구성·책임 승인](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/composition-api.md) |
 | POST | `/api/creator/quizzes/{quizId}/revisions/{revisionId}/creator-approval` | 서버에 저장한 최종 hash를 명시적으로 책임 승인. 기존 Judge 승인과 분리, 게시 요청은 별도. 실제 BE 미검증 | 연동 | [문항 구성·책임 승인](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/composition-api.md) |
@@ -102,3 +105,5 @@
 ## 미연동 또는 확인이 필요한 BE 기능
 
 현재 UI/API 모듈에서 사용하지 않는 API를 새로 연동할 때는 먼저 API 인덱스에서 역할과 계약 문서를 확인하고, 해당 행을 이 문서에 추가한다. Ticket/Lua 내부 처리 API처럼 화면에서 직접 호출하지 않는 내부 API는 연동 대상으로 보지 않는다.
+
+Issue #200 원문 검토 흐름은 로컬 Mock·브라우저 테스트로 검증한다. Mock 생성 제목에 `[원문검토]`를 넣으면 검토 대기·확정·취소를, `[원문검토][확정꺼짐]`은 확정 503과 취소를 확인할 수 있다. 실제 BE 환경 통합 검증은 아직 수행하지 않았다.

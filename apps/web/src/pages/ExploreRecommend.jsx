@@ -1,15 +1,13 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import MaterialIcon from '../components/ui/MaterialIcon.jsx'
-import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
+import CreatorRow from '../components/creator/CreatorRow.jsx'
 import InterestEditor from '../components/creator/InterestEditor.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
+import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
 import { useRecommendationEvents } from '../hooks/useRecommendationEvents.js'
 import { getMyCreatorRecommendations, getSimilarCreators, loadCreatorDirectory } from '../api/creators.js'
-import { spacePath } from '../api/creatorSpace.js'
 import { describeError } from '../api/client.js'
 
 // 추천은 BE 상한(20)까지 한 번에 받고 화면에서 나눠 보여준다. 더 보기마다 다시 받으면 응답 ID(수집 단위)가 바뀐다.
@@ -26,6 +24,7 @@ const SIMILAR_SIZE = 5
 export default function ExploreRecommend() {
   const showToast = useToast()
   const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds } = useUser()
+  const { ownCreatorId, ownSpacePending } = useOwnCreatorId()
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터를 불러오지 못했습니다.',
   })
@@ -70,38 +69,16 @@ export default function ExploreRecommend() {
   }
 
   function renderRow(creator, { tracked = false } = {}) {
-    const followed = isFollowing(creator.creatorId)
     return (
-      <div
+      <CreatorRow
         key={creator.creatorId}
-        ref={tracked ? impressionRef(creator.creatorId) : undefined}
-        className="w-full p-3 rounded-2xl bg-surface-container-lowest shadow-card flex items-center justify-between gap-3"
-      >
-        <Link
-          to={spacePath(creator.handle)}
-          onClick={tracked ? () => trackClick(creator.creatorId) : undefined}
-          className="flex items-center gap-3 min-w-0"
-        >
-          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-            <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
-          </div>
-          <div className="min-w-0 flex flex-col">
-            <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
-            <span className="font-body-sm text-body-sm text-outline line-clamp-1">{creator.bio}</span>
-          </div>
-        </Link>
-        <button
-          type="button"
-          onClick={() => handleToggleFollow(creator)}
-          disabled={!followsReady || pendingFollowIds.has(creator.creatorId)}
-          className={`flex-shrink-0 px-3 h-8 rounded-full font-label-sm text-label-sm flex items-center gap-1 transition-all active:scale-95 disabled:opacity-60 ${
-            followed ? 'bg-primary text-on-primary' : 'bg-berry-tint text-primary'
-          }`}
-        >
-          <MaterialIcon name={followed ? 'done' : 'add'} className="text-[16px]" />
-          <span>{followed ? '완료' : '관심'}</span>
-        </button>
-      </div>
+        creator={creator}
+        followed={isFollowing(creator.creatorId)}
+        disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
+        onToggle={handleToggleFollow}
+        rowRef={tracked ? impressionRef(creator.creatorId) : undefined}
+        onOpen={tracked ? () => trackClick(creator.creatorId) : undefined}
+      />
     )
   }
 

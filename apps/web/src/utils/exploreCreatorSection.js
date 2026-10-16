@@ -1,3 +1,6 @@
+/** 크리에이터 목록 필터 선택지. */
+export const CREATOR_FILTERS = ['전체', '관심', '진행 중']
+
 /** 정렬 선택지. 진행 중 이벤트 수는 공개 이벤트 목록에서 센 값이다. */
 export const CREATOR_SORTS = [
   { id: 'name-asc', label: '이름 오름차순' },

@@ -9,17 +9,18 @@ import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorDirectory } from '../api/creators.js'
-import { getMySpace } from '../api/creatorSpace.js'
 import { getEvents } from '../api/events.js'
+import { CreatorFilterChips, CreatorSortMenu } from '../components/creator/CreatorListControls.jsx'
+import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
-import { CREATOR_SORTS, filterExploreCreators, resetCreatorCarousel, sortExploreCreators } from '../utils/exploreCreatorSection.js'
+import { filterExploreCreators, resetCreatorCarousel, sortExploreCreators } from '../utils/exploreCreatorSection.js'
 import { describeError } from '../api/client.js'
 import { spacePath } from '../api/creatorSpace.js'
 
-// 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
-const CREATOR_PAGE_SIZE = 30
+// 캐러셀에는 앞 10명만 담고, 그 뒤는 '전체 보기' 카드로 전체 크리에이터 화면에 넘긴다.
+const CREATOR_PREVIEW = 10
 // 이벤트는 10개씩 늘려 가며 다시 받는다. BE 페이지 상한(100)을 넘기면 더 받을 수 없다.
 // 진행 중 이벤트가 많은 크리에이터는 3위까지 먼저 보이고 '더 보기'로 5위까지 펼친다.
 const TRENDING_PREVIEW = 3
@@ -46,24 +47,15 @@ export default function Explore() {
   const showToast = useToast()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds, isCreator } = useUser()
-  const mySpace = useAsync(
-    () => getMySpace().then((space) => ({ ...space, memberId: user.memberId })),
-    [isCreator, user?.memberId],
-    { enabled: isCreator },
-  )
-  const ownSpaceReady = isCreator && !mySpace.loading && mySpace.data?.memberId === user?.memberId
-  const ownCreatorId = ownSpaceReady ? mySpace.data.creatorId : null
-  const ownSpacePending = isCreator && !ownSpaceReady
+  const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds } = useUser()
+  const { ownCreatorId, ownSpacePending } = useOwnCreatorId()
   // 탭과 검색어는 주소에 둔다. 다른 화면의 '이벤트 둘러보기' 링크가 이벤트 탭으로 열 수 있고, 검색 뒤 뒤로 가기에서도 유지된다.
   const tab = params.get('tab') === 'event' ? 'event' : 'creator'
   const [query, setQuery] = useState(params.get('q') ?? '')
   const [creatorFilter, setCreatorFilter] = useState('전체')
   const [creatorSort, setCreatorSort] = useState('name-asc')
-  const [sortOpen, setSortOpen] = useState(false)
   const [trendingExpanded, setTrendingExpanded] = useState(false)
   const [eventFilter, setEventFilter] = useState('IN_PROGRESS')
-  const [creatorLimit, setCreatorLimit] = useState(CREATOR_PAGE_SIZE)
   const [eventSize, setEventSize] = useState(EVENT_PAGE_SIZE)
 
   const directory = useAsync(() => loadCreatorDirectory(), [], {
@@ -95,7 +87,7 @@ export default function Explore() {
   // 필터를 바꿔 처음부터 다시 받는 동안에는 이전 필터의 목록을 보여주지 않는다. '더 보기'로 늘리는 중에는 목록을 유지한다.
   const eventsFirstLoad = eventList.loading && eventSize === EVENT_PAGE_SIZE
   const events = eventsFirstLoad ? [] : (eventList.data?.items ?? [])
-  const shownCreators = useMemo(() => filteredCreators.slice(0, creatorLimit), [filteredCreators, creatorLimit])
+  const shownCreators = useMemo(() => filteredCreators.slice(0, CREATOR_PREVIEW), [filteredCreators])
   const renderedBalanceIds = [
     ...shownCreators.map((creator) => creator.creatorId),
   ]
@@ -127,7 +119,6 @@ export default function Explore() {
 
   function changeCreatorFilter(nextFilter) {
     setCreatorFilter(nextFilter)
-    setCreatorLimit(CREATOR_PAGE_SIZE)
     resetCreatorCarousel(creatorCarouselRef.current)
   }
 
@@ -261,58 +252,9 @@ export default function Explore() {
             <MaterialIcon name="groups" className="text-[20px] text-primary" />
             <h2 className="font-title-md text-title-md font-bold text-on-surface">크리에이터</h2>
           </div>
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              aria-label="정렬"
-              aria-haspopup="menu"
-              aria-expanded={sortOpen}
-              onClick={() => setSortOpen((open) => !open)}
-              className="w-9 h-9 rounded-full flex items-center justify-center bg-surface-container-low text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all"
-            >
-              <MaterialIcon name="swap_vert" className="text-[20px]" />
-            </button>
-            {sortOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setSortOpen(false)} />
-                <div role="menu" className="absolute right-0 top-10 z-20 w-52 py-1 rounded-xl bg-surface-container-lowest shadow-card">
-                  {CREATOR_SORTS.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={creatorSort === option.id}
-                      onClick={() => { setCreatorSort(option.id); setCreatorLimit(CREATOR_PAGE_SIZE); resetCreatorCarousel(creatorCarouselRef.current); setSortOpen(false) }}
-                      className={`w-full h-10 px-3 flex items-center justify-between font-label-md text-label-md ${
-                        creatorSort === option.id ? 'text-primary font-semibold' : 'text-on-surface'
-                      }`}
-                    >
-                      {option.label}
-                      {creatorSort === option.id && <MaterialIcon name="check" className="text-[18px]" />}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          <CreatorSortMenu value={creatorSort} onChange={(next) => { setCreatorSort(next); resetCreatorCarousel(creatorCarouselRef.current) }} />
         </div>
-        <div className="px-margin mb-space-sm flex items-center gap-2" aria-label="크리에이터 목록 필터">
-          {['전체', '관심', '진행 중'].map((item) => (
-            <button
-              key={item}
-              type="button"
-              aria-pressed={creatorFilter === item}
-              onClick={() => changeCreatorFilter(item)}
-              className={`min-h-9 rounded-full px-3 py-1.5 font-label-sm text-label-sm font-semibold whitespace-nowrap transition-all active:scale-95 ${
-                creatorFilter === item
-                  ? 'bg-primary text-on-primary shadow-sm'
-                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-              }`}
-            >
-              {item === '관심' ? `관심 ${followedCreators.length}` : item}
-            </button>
-          ))}
-        </div>
+        <CreatorFilterChips value={creatorFilter} onChange={changeCreatorFilter} followedCount={followedCreators.length} />
         {directory.loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}
         {!directory.loading && directory.error && (
           <ErrorBlock message={directory.error} onRetry={directory.reload} />
@@ -335,17 +277,14 @@ export default function Explore() {
           <div ref={creatorCarouselRef} className="flex overflow-x-auto md:grid md:grid-cols-2 xl:grid-cols-3 md:overflow-visible gap-space-md px-margin no-scrollbar snap-x snap-mandatory pt-1 pb-3">
             {shownCreators.map((creator) => renderCreatorCard(creator))}
             {filteredCreators.length > shownCreators.length && (
-              <button
-                type="button"
-                onClick={() => setCreatorLimit((limit) => limit + CREATOR_PAGE_SIZE)}
-                className="min-w-[120px] snap-center rounded-2xl bg-surface-container-low text-primary font-label-md text-label-md flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"
+              <Link
+                to={`/explore/creators?filter=${encodeURIComponent(creatorFilter)}&sort=${creatorSort}`}
+                aria-label="전체 크리에이터 보기"
+                className="self-center shrink-0 snap-center rounded-2xl bg-surface-container-low px-3 py-2.5 text-primary font-label-sm text-label-sm flex flex-col items-center gap-0.5 active:scale-95 transition-all"
               >
-                <MaterialIcon name="add_circle" className="text-[28px]" />
-                <span>더 보기</span>
-                <span className="font-label-xs text-label-xs text-outline">
-                  {formatNumber(filteredCreators.length - shownCreators.length)}명 남음
-                </span>
-              </button>
+                <MaterialIcon name="grid_view" className="text-[20px]" />
+                <span className="whitespace-nowrap">전체</span>
+              </Link>
             )}
           </div>
         )}

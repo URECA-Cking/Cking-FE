@@ -3,6 +3,7 @@ import MainLayout from './components/layout/MainLayout.jsx'
 import RequireUser from './components/auth/RequireUser.jsx'
 import Home from './pages/Home.jsx'
 import Explore from './pages/Explore.jsx'
+import ExploreCreators from './pages/ExploreCreators.jsx'
 import ExploreRecommend from './pages/ExploreRecommend.jsx'
 import ExploreSearch from './pages/ExploreSearch.jsx'
 import MyEntries from './pages/MyEntries.jsx'
@@ -36,6 +37,7 @@ function App() {
       >
         <Route path="/" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
+        <Route path="/explore/creators" element={<ExploreCreators />} />
         <Route path="/explore/recommend" element={<ExploreRecommend />} />
         <Route path="/explore/search" element={<ExploreSearch />} />
         <Route path="/my-entries" element={<MyEntries />} />

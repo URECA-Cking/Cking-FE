@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ConfirmModal from '../../components/ConfirmModal.jsx'
 import CommentSanctionModal from '../../components/CommentSanctionModal.jsx'
+import Pagination from '../../components/Pagination.jsx'
 import { AdminPageHeader } from '../../components/AdminContent.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
@@ -235,18 +236,6 @@ function ReportTable({ items, busy, onAction, onSanction }) {
           ))}
         </tbody>
       </table>
-    </div>
-  )
-}
-
-function Pagination({ page, hasNext, totalElements, onPrevious, onNext }) {
-  return (
-    <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3">
-      <p className="text-sm text-slate-500">{totalElements == null ? `페이지 ${page + 1}` : `총 ${totalElements}건 · ${page + 1}페이지`}</p>
-      <div className="flex gap-2">
-        <button type="button" disabled={page === 0} onClick={onPrevious} className="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 disabled:opacity-40">이전</button>
-        <button type="button" disabled={!hasNext} onClick={onNext} className="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 disabled:opacity-40">다음</button>
-      </div>
     </div>
   )
 }

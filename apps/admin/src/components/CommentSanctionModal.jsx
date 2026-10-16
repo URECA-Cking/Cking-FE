@@ -9,6 +9,7 @@ import {
 } from '../utils/spaceCommentBlock.js'
 import {
   HIDE_RELATION_NOTICE,
+  PLATFORM_TARGET_NOTICE,
   REASON_MAX,
   SANCTION_SCOPE,
   SANCTION_SCOPE_OPTIONS,
@@ -155,6 +156,7 @@ export default function CommentSanctionModal({ creatorId, memberId, onClose, onS
               </span>
             </label>
             <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900" role="note">{HIDE_RELATION_NOTICE}</p>
+            <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-xs leading-5 text-red-900" role="note">{PLATFORM_TARGET_NOTICE}</p>
           </>
         )}
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import ConfirmModal from '../ConfirmModal.jsx'
-import Pagination from './Pagination.jsx'
+import Pagination from '../Pagination.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAdminSession } from '../../context/useAdminSession.js'

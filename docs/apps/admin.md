@@ -18,7 +18,7 @@
 | `/admin/subscription-verifications/image-reuse` | Verification ID 기준 구독 인증 이미지 재사용 탐지 결과 조회 |
 | `/admin/tickets` | 회원별 Creator 전용·공용 응모권 잔액 비교, 변동 이력 조회, DB 기준 수동 재동기화 |
 | `/admin/comment-reports` | 신고 관리: 신고된 게시글 댓글 목록(처리 상태 필터)과 댓글 숨김·신고 반려, 처리 상태와 무관한 댓글 삭제·작성자 제재(이 스페이스에서만 / 모든 스페이스) |
-| `/admin/space-comment-blocks` | 제재 관리: 걸려 있는 댓글 작성 제재를 `스페이스 차단`(모든 스페이스의 차단, 크리에이터·회원 ID 필터)과 `플랫폼 제한`(자동 경고·관리자 수동 제한, 회원 ID 필터) 탭으로 나눠 보고 해제. 둘 다 "차단·제한 중만 보기" 지원 |
+| `/admin/space-comment-blocks` | 제재 관리: 걸려 있는 댓글 작성 제재를 `스페이스 차단`(모든 스페이스의 차단, 크리에이터·회원 ID 필터)과 `플랫폼 제한`(자동 경고·관리자 수동 제한, 회원 ID 필터) 탭으로 나눠 보고 해제. 둘 다 "차단·제한 중만 보기" 지원. 선택한 탭은 `?scope=platform`으로 주소에 남고, 한 번 연 탭은 숨기기만 해서 필터가 유지되며 좌우 방향키로 탭을 옮긴다. 경로는 스페이스 차단만 다루던 때 주소를 지키려고 그대로 둔다 |
 | `/admin/space-templates` | Creator Space 템플릿 목록·추가·수정·활성화 (활성 템플릿은 항상 하나, Creator 승인 시 복사해 스페이스 생성) |
 
 `/admin/reviews/events`는 `PENDING_APPROVAL` 상태만 처리하는 심사 큐다. `/admin/events`는 기존 `/api/admin/events`의 상태별 조회를 합쳐 승인 완료 뒤 `SCHEDULED`부터 `PUBLISHED`까지의 이벤트를 추적한다. 보관함은 `archiveStatus=ARCHIVED`로 결과 공개(`PUBLISHED`) Event만 별도 조회하며, 상세에서 보관·복원한다. 보관은 추첨·당첨 기록을 삭제하지 않고 사용자·Creator 화면, 응모, 내 당첨, 알림에서 Event를 제외한다. `SCHEDULED`는 오픈 예정 상태로 표시하되, `OPEN`부터 시작하는 실제 운영 흐름과는 구분하고 별도 관리자 작업을 노출하지 않는다. 단건 이벤트 조회 계약이 없으므로 상세도 같은 목록 범위에서 현재 서버 응답을 다시 찾아 구성한다. 심사 이력 필드의 제공 범위는 해당 API 계약을 확인한 뒤 결정한다.

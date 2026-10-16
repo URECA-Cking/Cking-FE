@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   HIDE_RELATION_NOTICE,
   PLATFORM_STATUS_META,
+  PLATFORM_TARGET_NOTICE,
   REASON_MAX,
   SANCTION_SCOPE,
   SANCTION_SCOPE_OPTIONS,
@@ -100,4 +101,9 @@ test('플랫폼 제한 해제 확인은 대상 회원을 알리고 자동 경고
   assert.match(automatic.message, /자동 경고는 해제해도 경고 횟수에는 남아요/)
   assert.doesNotMatch(manual.message, /경고 횟수/)
   assert.match(manual.message, /다른 제한이 남아 있으면 알림은 가지 않아요/)
+})
+
+test('모든 스페이스 제재는 BE가 대상을 막지 않는 동안 크리에이터·관리자도 걸린다고 임시로 알린다', () => {
+  assert.match(PLATFORM_TARGET_NOTICE, /크리에이터나 관리자여도 제한이 걸려요/)
+  assert.match(PLATFORM_TARGET_NOTICE, /자기 스페이스에서도 댓글을 쓸 수 없게/)
 })

@@ -30,6 +30,8 @@ export default function AdminSpaceCommentBlocks() {
   // 열어 본 탭. 아직 열지 않은 탭은 목록을 불러오지 않는다.
   const [opened, setOpened] = useState(() => new Set([scope]))
   const tabRefs = useRef({})
+  /** 패널을 화면에 그리고 있는 탭인지. 열어 본 탭이거나 지금 선택된 탭이다. */
+  const isRendered = (id) => opened.has(id) || scope === id
 
   function selectTab(id, { focus = false } = {}) {
     setOpened((current) => (current.has(id) ? current : new Set(current).add(id)))
@@ -67,7 +69,7 @@ export default function AdminSpaceCommentBlocks() {
             type="button"
             role="tab"
             aria-selected={scope === tab.id}
-            aria-controls={`sanction-panel-${tab.id}`}
+            aria-controls={isRendered(tab.id) ? `sanction-panel-${tab.id}` : undefined}
             tabIndex={scope === tab.id ? 0 : -1}
             onClick={() => selectTab(tab.id)}
             onKeyDown={(event) => onTabKeyDown(event, index)}
@@ -80,14 +82,14 @@ export default function AdminSpaceCommentBlocks() {
 
       {SCOPE_TABS.map((tab) => (
         // 열어 본 탭만 그리고, 선택되지 않은 패널은 hidden으로 숨겨 입력해 둔 필터를 지킨다.
-        opened.has(tab.id) || scope === tab.id ? (
+        // hidden은 display:none이라 같은 요소에 flex 같은 display 클래스를 붙이면 덮어써져 숨겨지지 않는다. 패널에는 display 클래스를 쓰지 않는다.
+        isRendered(tab.id) ? (
           <div
             key={tab.id}
             id={`sanction-panel-${tab.id}`}
             role="tabpanel"
             aria-labelledby={`sanction-tab-${tab.id}`}
             hidden={scope !== tab.id}
-            className="flex flex-col gap-6"
           >
             {tab.id === 'space' ? <SpaceBlocksPanel /> : <PlatformSanctionsPanel />}
           </div>

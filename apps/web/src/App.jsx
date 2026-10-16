@@ -1,29 +1,35 @@
+import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import MainLayout from './components/layout/MainLayout.jsx'
 import RequireUser from './components/auth/RequireUser.jsx'
 import Home from './pages/Home.jsx'
-import Explore from './pages/Explore.jsx'
-import ExploreCreators from './pages/ExploreCreators.jsx'
-import ExploreRecommend from './pages/ExploreRecommend.jsx'
-import ExploreSearch from './pages/ExploreSearch.jsx'
-import MyEntries from './pages/MyEntries.jsx'
-import MyWinners from './pages/MyWinners.jsx'
-import Notifications from './pages/Notifications.jsx'
-import MyPage from './pages/MyPage.jsx'
-import MyTickets from './pages/MyTickets.jsx'
 import Login from './pages/Login.jsx'
-import OAuthCallback from './pages/OAuthCallback.jsx'
-import Onboarding from './pages/Onboarding.jsx'
-import ProfileEdit from './pages/ProfileEdit.jsx'
-import CreatorSpace from './pages/CreatorSpace.jsx'
-import EventDetail from './pages/EventDetail.jsx'
 import RequireRole from './components/auth/RequireRole.jsx'
-import CreatorEventForm from './pages/CreatorEventForm.jsx'
 import StudioRedirect from './components/creator/StudioRedirect.jsx'
-import MyCalendar from './pages/MyCalendar.jsx'
+import { LoadingBlock } from './components/ui/States.jsx'
 
+// 첫 화면(홈·로그인)만 처음부터 불러오고, 나머지 화면은 처음 열 때 내려받아 첫 진입의 JS 크기를 줄인다.
+const Explore = lazy(() => import('./pages/Explore.jsx'))
+const ExploreCreators = lazy(() => import('./pages/ExploreCreators.jsx'))
+const ExploreRecommend = lazy(() => import('./pages/ExploreRecommend.jsx'))
+const ExploreSearch = lazy(() => import('./pages/ExploreSearch.jsx'))
+const MyEntries = lazy(() => import('./pages/MyEntries.jsx'))
+const MyWinners = lazy(() => import('./pages/MyWinners.jsx'))
+const Notifications = lazy(() => import('./pages/Notifications.jsx'))
+const MyPage = lazy(() => import('./pages/MyPage.jsx'))
+const MyTickets = lazy(() => import('./pages/MyTickets.jsx'))
+const OAuthCallback = lazy(() => import('./pages/OAuthCallback.jsx'))
+const Onboarding = lazy(() => import('./pages/Onboarding.jsx'))
+const ProfileEdit = lazy(() => import('./pages/ProfileEdit.jsx'))
+const CreatorSpace = lazy(() => import('./pages/CreatorSpace.jsx'))
+const EventDetail = lazy(() => import('./pages/EventDetail.jsx'))
+const CreatorEventForm = lazy(() => import('./pages/CreatorEventForm.jsx'))
+const MyCalendar = lazy(() => import('./pages/MyCalendar.jsx'))
+
+/** 화면 경로를 정의한다. 지연 로딩 화면은 Suspense 안에서 불러오는 동안 로딩 표시를 보여준다. */
 function App() {
   return (
+    <Suspense fallback={<LoadingBlock />}>
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/oauth/callback" element={<OAuthCallback />} />
@@ -137,6 +143,7 @@ function App() {
       <Route path="/:slug" element={<CreatorSpace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   )
 }
 

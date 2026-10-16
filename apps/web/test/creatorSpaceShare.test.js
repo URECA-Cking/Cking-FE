@@ -90,7 +90,9 @@ const useShareMode = (page, mode) => page.evaluate((shareMode) => {
 
 const shareCalls = (page) => page.evaluate(() => window.shareCalls)
 const shareCard = (page) => page.locator(SHARE_BUTTON, { hasText: /공유하기|완료|다시 확인|처리 중/ })
-const headerShare = (page) => page.locator('button[aria-label="공유하기"]')
+// 같은 버튼 묶음을 데스크톱용·모바일용으로 두 번 그리고 테스트 틀에는 CSS가 없어 둘 다 보이므로 첫 번째를 쓴다.
+const headerShare = (page) => page.locator('button[aria-label="공유하기"]').first()
+const editSpaceButton = (page) => page.getByRole('button', { name: '스페이스 편집' }).first()
 
 test('공유 시트를 끝내면 보상 API를 한 번 호출하고 카드가 완료로 바뀌며 응모권이 갱신된다', async () => {
   const { page, errors } = await screen()
@@ -169,7 +171,7 @@ test('본인 스페이스에서는 SHARE 카드가 보이지 않고 공유해도
   try {
     await page.evaluate(() => window.renderSpace({ memberId: 1, isCreator: true }))
     await useShareMode(page, 'sheet')
-    await page.getByRole('button', { name: '스페이스 편집' }).waitFor()
+    await editSpaceButton(page).waitFor()
     assert.equal(await page.getByText('공유 미션').count(), 0)
     await headerShare(page).click()
     await page.waitForTimeout(300)
@@ -195,7 +197,7 @@ test('크리에이터 계정이 바뀌면 새 계정의 본인 여부가 확인�
     assert.equal((await shareCalls(page)).length, 0)
 
     await page.evaluate(() => window.releaseMySpace())
-    await page.getByRole('button', { name: '스페이스 편집' }).waitFor()
+    await editSpaceButton(page).waitFor()
     assert.equal(await page.getByText('공유 미션').count(), 0)
     assert.equal((await shareCalls(page)).length, 0)
     assert.deepEqual(errors, [])

@@ -19,7 +19,7 @@ const PAGE_SIZE = 30
  * 전체 크리에이터 화면.
  *
  * 탐색 캐러셀 끝의 '전체 보기'에서 들어온다. 필터·정렬은 주소(?filter=&sort=)에 둬서 탐색에서 고른 값을 이어받고
- * 뒤로 돌아와도 유지된다. 분야별 보기는 공개 크리에이터 목록에 분야 정보가 없어 아직 넣지 않았다.
+ * 뒤로 돌아와도 유지된다. 분야(태그)별 분류는 두지 않는다.
  */
 export default function ExploreCreators() {
   const showToast = useToast()

@@ -124,7 +124,8 @@ export async function loadCreatorDirectory({ size = 100 } = {}) {
     };
   });
 
-  return { creators, events };
+  // 이벤트는 최근 size건만 받는다. 더 있으면 eventsTruncated로 알려, 이 값으로 센 집계가 일부 기준임을 화면이 밝히게 한다.
+  return { creators, events, eventsTruncated: Boolean(page?.hasNext) };
 }
 
 /**

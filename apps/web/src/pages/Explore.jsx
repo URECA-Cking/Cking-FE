@@ -267,10 +267,16 @@ export default function Explore() {
       <section className="mt-space-sm flex flex-col">
         {trending.length > 0 && (
           <div className="px-margin mb-space-lg flex flex-col">
-            <div className="flex items-center gap-1.5 mb-space-sm">
+            <div className="flex items-center gap-1.5 mb-1">
               <MaterialIcon name="trending_up" className="text-tertiary text-[20px]" />
               <h2 className="font-title-md text-title-md font-bold text-on-surface">진행 중 이벤트가 많은 크리에이터</h2>
             </div>
+            {directory.data?.eventsTruncated && (
+              <p className="mb-space-sm font-label-xs text-label-xs text-outline">
+                최근 이벤트 {formatNumber(directory.data.events.length)}건 기준 집계예요.
+              </p>
+            )}
+            {!directory.data?.eventsTruncated && <div className="mb-1" />}
             <div className="flex flex-col gap-2.5">
               {trending.slice(0, trendingExpanded ? TRENDING_MAX : TRENDING_PREVIEW).map((creator, index) => (
                 <Link

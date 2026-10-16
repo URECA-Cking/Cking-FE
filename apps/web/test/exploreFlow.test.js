@@ -254,3 +254,15 @@ test('검색 전체는 크리에이터와 이벤트를 각각 7개씩 먼저 보
   assert.equal(await page.getByRole('button', { name: /더 보기/ }).count(), 0)
   await page.close()
 })
+
+test('이벤트 필터 칩에 상태별 이벤트 개수가 붙는다', async () => {
+  const page = await screen('/explore?tab=event')
+  await page.getByText('다온 팬미팅').waitFor()
+  // 진행 중 3건, 종료 1건, 오픈 예정 0건 → 전체 4건
+  const chip = (name) => page.getByRole('button', { name })
+  await chip('전체 4').waitFor()
+  await chip('진행 중 3').waitFor()
+  await chip('오픈 예정 0').waitFor()
+  await chip('종료 1').waitFor()
+  await page.close()
+})

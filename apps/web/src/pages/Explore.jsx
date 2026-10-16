@@ -9,7 +9,7 @@ import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorDirectory } from '../api/creators.js'
-import { getEvents } from '../api/events.js'
+import { getEventCounts, getEvents } from '../api/events.js'
 import { CreatorFilterChips, CreatorSortMenu } from '../components/creator/CreatorListControls.jsx'
 import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
@@ -60,6 +60,8 @@ export default function Explore() {
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터를 불러오지 못했습니다.',
   })
+  // 필터 칩의 개수. 선택한 필터와 상관없이 한 번만 받고, 못 받으면 개수 없이 칩만 보인다.
+  const eventCounts = useAsync(() => getEventCounts(EVENT_FILTERS.map((filter) => filter.id)), [], { enabled: tab === 'event' })
   const eventList = useAsync(
     () => getEvents({ status: eventFilter || undefined, size: eventSize }),
     [eventFilter, eventSize],
@@ -327,6 +329,7 @@ export default function Explore() {
               }`}
             >
               {filter.label}
+              {eventCounts.data?.[filter.id] != null && ` ${formatNumber(eventCounts.data[filter.id])}`}
             </button>
           ))}
         </div>

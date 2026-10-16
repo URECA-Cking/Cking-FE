@@ -37,7 +37,7 @@ const RECOMMENDATION = { recommendationRequestId: 'rid-1', policyVersion: 'INTER
  * window.requests에 호출한 경로를 쌓고, window.failures[경로]가 양수면 그 횟수만큼 먼저 오류를 돌려준다.
  * 목에 없는 경로(관심 분야·응모권 잔액 등)는 404라 해당 영역은 조용히 비거나 실패로 그려진다.
  */
-async function screen(initial = '/explore', { events = EVENTS } = {}) {
+async function screen(initial = '/explore', { events = EVENTS, creators = CREATORS } = {}) {
   const page = await browser.newPage()
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
@@ -68,7 +68,7 @@ async function screen(initial = '/explore', { events = EVENTS } = {}) {
       if (path === '/api/me/creator-recommendations') return reply(200, 'SUCCESS', recommendation)
       return reply(404, 'RESOURCE_NOT_FOUND', null, '없음')
     }
-  }, { creators: CREATORS, events, recommendation: RECOMMENDATION })
+  }, { creators, events, recommendation: RECOMMENDATION })
   await page.addStyleTag({ content: styles })
   await page.addScriptTag({ content: bundle })
   await page.evaluate((path) => window.renderExplore(path), initial)
@@ -223,4 +223,31 @@ test('이벤트가 한 번에 받는 100건을 넘으면 인기 크리에이터 
   await complete.getByText('진행 중 이벤트가 많은 크리에이터').waitFor()
   assert.equal(await complete.getByText(/건 기준 집계예요/).count(), 0)
   await complete.close()
+})
+
+test('검색 전체는 크리에이터와 이벤트를 각각 7개씩 먼저 보이고 더 보기로 늘리며, 대상을 좁히면 전부 보인다', async () => {
+  const creators = Array.from({ length: 10 }, (_, index) => creator(index + 1, `검색${index + 1}`))
+  const events = Array.from({ length: 10 }, (_, index) => event(2000 + index, (index % 10) + 1, `검색 이벤트 ${index + 1}`))
+  const page = await screen(`/explore/search?q=${encodeURIComponent('검색')}&type=all`, { creators, events })
+  // 이벤트 카드에도 크리에이터 이름이 보여서, 크리에이터 행(링크) 안의 이름만 센다.
+  const names = () => page.locator('a').getByText(/^검색\d+$/).count()
+  const titles = () => page.getByText(/^검색 이벤트 \d+$/).count()
+  await page.getByRole('button', { name: /크리에이터 더 보기/ }).waitFor()
+  assert.equal(await names(), 7)
+  assert.equal(await titles(), 7)
+
+  await page.getByRole('button', { name: /크리에이터 더 보기/ }).click()
+  assert.equal(await names(), 10)
+  assert.equal(await titles(), 7)
+  assert.equal(await page.getByRole('button', { name: /크리에이터 더 보기/ }).count(), 0)
+
+  await page.getByRole('button', { name: /이벤트 더 보기/ }).click()
+  assert.equal(await titles(), 10)
+
+  // 대상을 이벤트로 좁히면 나눠 보여주지 않고 전부 보인다.
+  await page.getByRole('tab', { name: /^이벤트/ }).click()
+  await waitWhere(page, `/explore/search?q=${encodeURIComponent('검색')}&type=event`)
+  assert.equal(await titles(), 10)
+  assert.equal(await page.getByRole('button', { name: /더 보기/ }).count(), 0)
+  await page.close()
 })

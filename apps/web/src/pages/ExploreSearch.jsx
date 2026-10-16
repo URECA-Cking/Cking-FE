@@ -10,6 +10,9 @@ import { loadCreatorDirectory } from '../api/creators.js'
 import { spacePath } from '../api/creatorSpace.js'
 import { filterExploreCreators } from '../utils/exploreCreatorSection.js'
 
+// '전체'에서는 크리에이터와 이벤트를 각각 이만큼만 먼저 보여주고 '더 보기'로 같은 수씩 늘린다.
+const ALL_PAGE_SIZE = 7
+
 const SCOPES = [
   { id: 'all', label: '전체' },
   { id: 'creator', label: '크리에이터' },
@@ -29,6 +32,11 @@ export default function ExploreSearch() {
   const keyword = params.get('q')?.trim() ?? ''
   const scope = SCOPES.some((item) => item.id === params.get('type')) ? params.get('type') : 'all'
   const [query, setQuery] = useState(keyword)
+  // 더 보기로 늘린 개수. 검색어나 대상이 바뀌면 처음 개수로 돌아가도록 키를 함께 보관한다(효과로 되돌리지 않는다).
+  const limitKey = `${keyword}|${scope}`
+  const [expanded, setExpanded] = useState({ key: '', creators: ALL_PAGE_SIZE, events: ALL_PAGE_SIZE })
+  const limits = expanded.key === limitKey ? expanded : { creators: ALL_PAGE_SIZE, events: ALL_PAGE_SIZE }
+  const showMore = (section) => setExpanded({ ...limits, key: limitKey, [section]: limits[section] + ALL_PAGE_SIZE })
   const { followedCreators } = useUser()
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터를 불러오지 못했습니다.',
@@ -49,6 +57,10 @@ export default function ExploreSearch() {
   const counts = { all: results.length + eventResults.length, creator: results.length, event: eventResults.length }
   const showCreators = scope !== 'event'
   const showEvents = scope !== 'creator'
+  // 전체에서만 개수를 나눠 보여준다. 크리에이터·이벤트만 볼 때는 전부 보여준다.
+  const paged = scope === 'all'
+  const shownCreators = paged ? results.slice(0, limits.creators) : results
+  const shownEvents = paged ? eventResults.slice(0, limits.events) : eventResults
   const nothing = (!showCreators || results.length === 0) && (!showEvents || eventResults.length === 0)
 
   function submit(event) {
@@ -110,7 +122,7 @@ export default function ExploreSearch() {
           <EmptyBlock icon="search_off" message={`'${keyword}'에 맞는 결과가 없어요.`} />
         )}
         {showCreators && scope === 'all' && results.length > 0 && <SectionHeader icon="groups" title="크리에이터" count={results.length} />}
-        {showCreators && results.map((creator) => (
+        {showCreators && shownCreators.map((creator) => (
           <section key={creator.creatorId} className="flex flex-col gap-space-sm">
             <Link to={spacePath(creator.handle)} className="flex items-center gap-3 min-w-0">
               <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
@@ -127,10 +139,28 @@ export default function ExploreSearch() {
               : creator.events.map((event) => <EventCard key={event.eventId} event={event} variant="list" />))}
           </section>
         ))}
+        {paged && results.length > shownCreators.length && (
+          <button
+            type="button"
+            onClick={() => showMore('creators')}
+            className="h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
+          >
+            크리에이터 더 보기 ({results.length - shownCreators.length}명 남음)
+          </button>
+        )}
         {showEvents && eventResults.length > 0 && (
           <section className="flex flex-col gap-space-sm">
             {scope === 'all' && <SectionHeader icon="confirmation_number" title="이벤트" count={eventResults.length} />}
-            {eventResults.map((event) => <EventCard key={event.eventId} event={event} variant="list" showCreatorTag />)}
+            {shownEvents.map((event) => <EventCard key={event.eventId} event={event} variant={paged ? 'compact' : 'list'} showCreatorTag />)}
+            {paged && eventResults.length > shownEvents.length && (
+              <button
+                type="button"
+                onClick={() => showMore('events')}
+                className="h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
+              >
+                이벤트 더 보기 ({eventResults.length - shownEvents.length}개 남음)
+              </button>
+            )}
           </section>
         )}
       </div>

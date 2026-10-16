@@ -15,6 +15,7 @@
 | `/admin/redraws`, `/admin/redraws/:redrawRequestId` | 재추첨 요청 생성·Table 목록(심사/실행 상태 분리)·상세 심사·실행·실패 Drawing 재시도 |
 | `/admin/abuse-detections`, `/admin/abuse-detections/:detectionId` | 이상행위 탐지 목록·Evidence 상세·`CONFIRMED`/`FALSE_POSITIVE` 검토 |
 | `/admin/dead-streams` | Dead Stream 조회·replay |
+| `/admin/subscription-verifications/image-reuse` | Verification ID 기준 구독 인증 이미지 재사용 탐지 결과 조회 |
 | `/admin/tickets` | 회원별 Creator 전용·공용 응모권 잔액 비교, 변동 이력 조회, DB 기준 수동 재동기화 |
 | `/admin/comment-reports` | 신고된 게시글 댓글 목록(처리 상태 필터)과 댓글 숨김·신고 반려, 처리 상태와 무관한 댓글 삭제·작성자의 스페이스 차단 |
 | `/admin/space-comment-blocks` | 모든 스페이스의 댓글 차단 목록(크리에이터·회원 ID 필터, 차단 중만 보기)과 해제 |

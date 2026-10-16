@@ -349,6 +349,11 @@ export async function reviewAbuseDetection(detectionId, status) {
   return patch(`/api/admin/abuse-detections/${detectionId}/review`, { status })
 }
 
+/** Verification의 정규화 이미지 exact-match 재사용 탐지 결과를 조회한다. */
+export function getSubscriptionVerificationImageReuse(verificationId) {
+  return get(`/api/admin/subscription-verifications/${verificationId}/image-reuse`)
+}
+
 /** 신고 여부와 상관없이 댓글을 삭제한다. 물리 삭제라 되돌릴 수 없고, 그 댓글의 신고도 함께 지워지며, 작성자 경고·알림·이력은 남지 않는다(204). */
 export async function deleteComment(commentId) {
   return del(`/api/admin/comments/${commentId}`)

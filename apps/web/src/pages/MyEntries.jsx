@@ -65,7 +65,7 @@ export default function MyEntries() {
             messageClassName="text-[12px]"
             action={
               <Link
-                to="/explore"
+                to="/explore?tab=event"
                 className="mt-1 px-4 py-2 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-bold active:scale-95 transition-all"
               >
                 이벤트 둘러보기

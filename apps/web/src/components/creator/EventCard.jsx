@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { getEventBanner } from '../../data/eventBanners.js'
 import { useCreatorProfile } from '../../hooks/useCreatorProfile.js'
-import { formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '../../utils/format.js'
+import { formatDday, formatEventDate, formatNumber, formatShortDate, totalPrizeQuantity } from '../../utils/format.js'
 import { displayStatusMeta, eventStatusMeta } from '../../utils/eventStatus.js'
 
 /**
@@ -24,6 +24,8 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
   const closed = event.displayStatus === 'CLOSED'
   const dday = formatDday(event.endAt, { closed })
   const urgent = published && !closed && (dday === 'D-DAY' || dday === 'D-1')
+  // D-day 숫자를 보여줄 때는 상태 아이콘(번개) 없이 글자만 쓴다. 임박(D-DAY·D-1)일 때만 알람 아이콘을 붙인다.
+  const badgeIcon = urgent ? 'alarm' : published && !closed && dday ? null : status.icon
   const prizeCount = totalPrizeQuantity(event.prizes)
 
   const cta = closed
@@ -35,6 +37,40 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
       : { label: '응모하기', icon: 'touch_app' }
 
   const open = () => navigate(`/events/${event.eventId}`)
+
+  // 탐색 목록처럼 많이 훑어볼 때 쓰는 납작한 한 줄 카드. 카드 전체가 상세로 가는 버튼이라 따로 CTA 버튼을 두지 않는다.
+  if (variant === 'compact') {
+    return (
+      <button
+        type="button"
+        onClick={open}
+        disabled={!published}
+        className="w-full text-left bg-surface-container-lowest rounded-xl shadow-card p-2.5 flex items-center gap-3 active:scale-[0.98] transition-all"
+      >
+        <div className="w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-surface-container-high">
+          <img className="w-full h-full object-cover" src={getEventBanner(event.eventId)} alt="" loading="lazy" decoding="async" />
+        </div>
+        <div className="min-w-0 flex flex-col gap-0.5">
+          {showCreatorTag && <span className="font-label-xs text-label-xs text-outline truncate">{creator.name}</span>}
+          <h4 className="font-label-md text-label-md font-semibold text-on-surface line-clamp-1">{event.title}</h4>
+          <div className="flex items-center gap-2 font-label-xs text-label-xs text-outline">
+            <span
+              className={`px-2 py-0.5 rounded-full flex items-center gap-1 ${urgent ? 'bg-error text-on-error' : status.tone}`}
+            >
+              {badgeIcon && <MaterialIcon name={badgeIcon} className="text-[12px]" />}
+              <span className="font-bold">{!published || closed ? status.label : dday || status.label}</span>
+            </span>
+            <span className="truncate">{formatShortDate(event.endAt, { withTime: true })} 마감</span>
+          </div>
+        </div>
+        {/* 뽑는 인원(winnerCount)이지 지원자 수가 아니다. 지원자 수는 공개 API가 주지 않아 '당첨 인원'으로 분명히 적는다. */}
+        <div className="ml-auto shrink-0 pl-2 flex flex-col items-center">
+          <span className="font-label-xs text-label-xs text-outline whitespace-nowrap">당첨 인원</span>
+          <span className="font-label-md text-label-md font-semibold text-on-surface">{formatNumber(event.winnerCount)}명</span>
+        </div>
+      </button>
+    )
+  }
 
   return (
     <div
@@ -65,7 +101,7 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
               urgent ? 'bg-error text-on-error animate-pulse' : status.tone
             }`}
           >
-            <MaterialIcon name={urgent ? 'alarm' : status.icon} className="text-[12px]" />
+            {badgeIcon && <MaterialIcon name={badgeIcon} className="text-[12px]" />}
             <span className="font-bold">{!published || closed ? status.label : dday || status.label}</span>
           </div>
 

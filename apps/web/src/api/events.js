@@ -5,6 +5,19 @@ export async function getEvents({ creatorId, status, page = 0, size = 20 } = {})
   return apiClient.get('/api/events', { creatorId, status, page, size });
 }
 
+/**
+ * GET /api/events?status&size=1 - 상태(displayStatus)별 이벤트 총 개수. 개수 전용 API가 없어 상태마다 1건만 받아 totalElements를 읽는다.
+ * 한 상태가 실패해도 나머지는 살리도록 실패한 값은 null이다. 키는 상태 값이고 전체는 빈 문자열이다.
+ * @param {string[]} statuses 조회할 상태 값들(전체는 빈 문자열)
+ * @returns {Promise<Record<string, number|null>>}
+ */
+export async function getEventCounts(statuses) {
+  const totals = await Promise.all(
+    statuses.map((status) => getEvents({ status: status || undefined, size: 1 }).then((result) => result?.totalElements ?? null, () => null)),
+  );
+  return Object.fromEntries(statuses.map((status, index) => [status, totals[index]]));
+}
+
 // GET /api/events/{eventId} - 이벤트 상세 (로그인 사용자의 응모권 잔액 포함)
 export async function getEvent(eventId) {
   return apiClient.get(`/api/events/${eventId}`);

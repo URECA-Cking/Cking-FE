@@ -158,7 +158,7 @@ export default function MyCalendar() {
               <span className="flex-1 font-label-xs text-label-xs text-on-surface-variant">
                 일정은 크리에이터 스페이스의 캘린더 탭에서 담을 수 있어요.
               </span>
-              <Link to="/explore" className="shrink-0 font-label-xs text-label-xs font-semibold text-primary">
+              <Link to="/explore?tab=event" className="shrink-0 font-label-xs text-label-xs font-semibold text-primary">
                 둘러보기
               </Link>
             </div>

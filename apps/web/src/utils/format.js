@@ -3,7 +3,15 @@ export { formatDateTime, formatNumber, totalPrizeQuantity } from '@cking/shared/
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
-/** "2025.04.18 (금) 19:00" 형태 - 이벤트 상세 헤더용. */
+/** "오후 07:00" 형태의 12시간제 시각. */
+function formatTime12(date) {
+  const hour = date.getHours()
+  const hh = String(hour % 12 || 12).padStart(2, '0')
+  const mi = String(date.getMinutes()).padStart(2, '0')
+  return `${hour < 12 ? '오전' : '오후'} ${hh}:${mi}`
+}
+
+/** "2025.04.18 (금) 오후 07:00" 형태 - 이벤트 상세 헤더용. 시각은 공용 formatDateTime처럼 12시간제(오전/오후)로 맞춘다. */
 export function formatEventDate(iso) {
   if (!iso) return '-'
   const date = new Date(iso)
@@ -11,9 +19,19 @@ export function formatEventDate(iso) {
   const yyyy = date.getFullYear()
   const mm = String(date.getMonth() + 1).padStart(2, '0')
   const dd = String(date.getDate()).padStart(2, '0')
-  const hh = String(date.getHours()).padStart(2, '0')
-  const mi = String(date.getMinutes()).padStart(2, '0')
-  return `${yyyy}.${mm}.${dd} (${WEEKDAYS[date.getDay()]}) ${hh}:${mi}`
+  return `${yyyy}.${mm}.${dd} (${WEEKDAYS[date.getDay()]}) ${formatTime12(date)}`
+}
+
+/** "26.10.21 (수)" 형태 - 목록 카드처럼 좁은 곳에서 쓴다. withTime이면 "26.10.21 (수) 오후 03:05"처럼 12시간제 시각을 붙인다. */
+export function formatShortDate(iso, { withTime = false } = {}) {
+  if (!iso) return '-'
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return String(iso)
+  const yy = String(date.getFullYear()).slice(-2)
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const day = `${yy}.${mm}.${dd} (${WEEKDAYS[date.getDay()]})`
+  return withTime ? `${day} ${formatTime12(date)}` : day
 }
 
 /** 상대 시각("18분 전", "2시간 전", "어제"). */

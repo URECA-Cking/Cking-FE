@@ -9,7 +9,7 @@ import { InlineRetry } from '../ui/States.jsx'
 export default function EntrySection({ events, balanceByCreator, appliedIds, knownIds, appliedCheckFailed = false, onRetryApplied }) {
   return (
     <section className="mt-6 px-margin">
-      <SectionTitle title="응모" subtitle="마감 임박순" to="/explore" />
+      <SectionTitle title="응모" subtitle="마감 임박순" to="/explore?tab=event" />
       {appliedCheckFailed && (
         <div className="mb-2.5">
           <InlineRetry message="응모 여부를 확인하지 못한 이벤트가 있어요." onRetry={onRetryApplied} />

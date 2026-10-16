@@ -20,6 +20,9 @@ import {
 const APP_BAR_TITLES = {
   '/': { title: 'Cking' },
   '/explore': { title: '탐색', centered: true },
+  '/explore/creators': { title: '전체 크리에이터', back: true },
+  '/explore/recommend': { title: '맞춤 추천', back: true },
+  '/explore/search': { title: '검색 결과', back: true },
   // back: 홈·스페이스 등 다른 화면에서 들어오므로 뒤로 가기 버튼을 보여준다. hideBell: 이미 알림 화면이라 알림 종 아이콘은 숨긴다.
   // hideTickets: 알림은 당첨·제재 안내만 다루고 응모권 잔액과 무관하므로 응모권 개수 버튼도 숨긴다.
   '/notifications': { title: '알림', back: true, hideBell: true, hideTickets: true },

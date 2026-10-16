@@ -82,7 +82,7 @@ function QuestHero({ nickname, quest }) {
 
           {allDone && (
             <Link
-              to="/explore"
+              to="/explore?tab=event"
               className="mt-4 flex items-center justify-center gap-1.5 rounded-full bg-white py-2.5 font-label-md text-label-md font-semibold text-primary active:opacity-80 transition-opacity"
             >
               응모하러 가기

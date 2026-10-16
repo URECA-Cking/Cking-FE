@@ -113,7 +113,7 @@ export default function MyWinners() {
               message="아직 당첨된 이벤트가 없어요."
               action={(
                 <Link
-                  to="/explore"
+                  to="/explore?tab=event"
                   className="mt-1 px-4 py-2 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-bold active:scale-95 transition-all"
                 >
                   이벤트 둘러보기

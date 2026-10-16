@@ -26,6 +26,7 @@ const MISSION = { missionId: 5, type: 'SHARE', rewardAmount: 1, completedToday: 
  * 외부 요청을 막은 빈 화면에 크리에이터 스페이스(크리에이터 11, slug test) 번들을 올리고 서버를 흉내 낸다.
  * - window.missions: 미션 목록 응답. window.shareReplies: 공유 보상 응답을 순서대로 쓰고, 비면 신규 적립(202)으로 답한다.
  * - window.mySpaces: 내 Space 조회 응답을 순서대로 쓴다. 항목에 hold가 있으면 window.releaseMySpace()를 부를 때까지 응답을 늦춘다.
+ * - window.shareReplies 항목에 hold가 있으면 window.releaseShare()를 부를 때까지 응답을 늦춘다(요청이 진행 중인 상태를 만들기 위해).
  * - window.shareCalls: 보상 API 호출 본문 기록.
  */
 async function screen({ missions = [{ ...MISSION }], mySpaces = [] } = {}) {
@@ -57,7 +58,8 @@ async function screen({ missions = [{ ...MISSION }], mySpaces = [] } = {}) {
       if (path === '/api/creators/11/missions/share/complete') {
         window.shareCalls.push(JSON.parse(options.body))
         const reply = window.shareReplies.shift() ?? { status: 202, code: 'EARN_ACCEPTED', data: { rewardAmount: 1 } }
-        return Promise.resolve(envelope(reply.status, reply.code, reply.data ?? null, '응답'))
+        const respond = () => envelope(reply.status, reply.code, reply.data ?? null, '응답')
+        return reply.hold ? new Promise((resolve) => { window.releaseShare = () => resolve(respond()) }) : Promise.resolve(respond())
       }
       if (path === '/api/creator/space') {
         const next = window.mySpaces.shift()
@@ -226,6 +228,56 @@ test('DUPLICATE_MISSION을 받아도 서버가 완료로 기록하기 전에는 
     await page.getByText('완료', { exact: true }).waitFor()
     assert.equal(await page.evaluate(() => window.ticketRefreshes), 1)
     assert.equal((await shareCalls(page)).length, 1)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('같은 스페이스에서 회원이 바뀌면 이전 회원의 완료 표시가 남지 않고 새 회원도 정상 지급받는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderSpace({ memberId: 1 }))
+    await useShareMode(page, 'sheet')
+    await page.getByText('공유 미션').waitFor()
+    await headerShare(page).click()
+    await page.getByText('완료', { exact: true }).waitFor()
+    assert.equal((await shareCalls(page)).length, 1)
+
+    // 서버에서 회원 2의 SHARE 미션은 아직 받지 않은 상태다.
+    await page.evaluate(() => window.renderSpace({ memberId: 2 }))
+    await page.waitForFunction(() => document.body.innerText.includes('공유하기'))
+    assert.equal(await shareCard(page).innerText(), '공유하기')
+    assert.equal(await page.getByText('완료', { exact: true }).count(), 0)
+
+    await headerShare(page).click()
+    await page.getByText('완료', { exact: true }).waitFor()
+    assert.equal((await shareCalls(page)).length, 2)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('이전 회원의 늦은 지급 응답이 새 회원의 미션 상태와 응모권 표시를 바꾸지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => {
+      window.shareReplies.push({ status: 202, code: 'EARN_ACCEPTED', data: { rewardAmount: 1 }, hold: true })
+      window.renderSpace({ memberId: 1 })
+    })
+    await useShareMode(page, 'sheet')
+    await page.getByText('공유 미션').waitFor()
+    await headerShare(page).click()
+    await page.waitForFunction(() => typeof window.releaseShare === 'function')
+
+    // 회원 1의 요청이 진행 중일 때 같은 스페이스에서 회원 2로 바뀌고, 그 뒤에 회원 1의 성공 응답이 도착한다.
+    await page.evaluate(() => window.renderSpace({ memberId: 2 }))
+    await page.waitForFunction(() => document.body.innerText.includes('공유 미션'))
+    await page.evaluate(() => window.releaseShare())
+    await page.waitForFunction(() => document.body.innerText.includes('공유하기'))
+    await page.waitForTimeout(300)
+
+    assert.equal(await shareCard(page).innerText(), '공유하기')
+    assert.equal(await page.getByText('완료', { exact: true }).count(), 0)
+    assert.equal(await page.evaluate(() => window.ticketRefreshes), 0)
+    assert.equal((await page.evaluate(() => window.toasts)).some((message) => message.includes('공유 미션 완료')), false)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

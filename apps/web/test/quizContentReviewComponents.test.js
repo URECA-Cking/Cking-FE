@@ -81,7 +81,7 @@ test('다시 진입하면 같은 작업 수정본을 복구하고 다른 작업�
  }finally{await page.close()}
 })
 test('403 확정은 수정본과 작업 UI를 지우며 원문을 더 노출하지 않는다',async()=>{
- const {page}=await screen();try{await open(page);await page.getByRole('textbox',{name:'검토 원문'}).fill('비공개 원문');await page.evaluate(()=>window.failure={status:403,code:'FORBIDDEN'});await confirm(page);await page.getByRole('alert').waitFor();assert.equal(await page.getByRole('textbox',{name:'검토 원문'}).count(),0);assert.equal(await page.evaluate(()=>localStorage.getItem('cking.creatorQuizReviewDraft.v1.10.42')),null)}finally{await page.close()}
+ const {page}=await screen();try{await open(page);await page.getByRole('textbox',{name:'검토 원문'}).fill('비공개 원문');await page.evaluate(()=>window.failure={status:403,code:'FORBIDDEN'});await confirm(page);await page.getByRole('textbox',{name:'검토 원문'}).waitFor({state:'detached'});await page.getByRole('alert').waitFor();assert.equal(await page.getByRole('textbox',{name:'검토 원문'}).count(),0);assert.equal(await page.evaluate(()=>localStorage.getItem('cking.creatorQuizReviewDraft.v1.10.42')),null)}finally{await page.close()}
 })
 test('생성 요청 409는 current의 기존 작업을 복구하고 추가 생성 POST를 보내지 않는다',async()=>{
  const {page}=await screen({active:null});try{

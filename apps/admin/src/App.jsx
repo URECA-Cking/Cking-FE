@@ -14,6 +14,7 @@ import AdminSpaceTemplates from './pages/admin/AdminSpaceTemplates.jsx'
 import AdminCommentReports from './pages/admin/AdminCommentReports.jsx'
 import AdminSpaceCommentBlocks from './pages/admin/AdminSpaceCommentBlocks.jsx'
 import AdminTickets from './pages/admin/AdminTickets.jsx'
+import AdminSubscriptionImageReuse from './pages/admin/AdminSubscriptionImageReuse.jsx'
 
 /** 관리자 도메인의 고정 URL과 로그인 보호 라우트를 등록한다. */
 export default function App() {
@@ -44,6 +45,7 @@ export default function App() {
       <Route path="/admin/comment-reports" element={protectedRoute(<AdminCommentReports />)} />
       <Route path="/admin/space-comment-blocks" element={protectedRoute(<AdminSpaceCommentBlocks />)} />
       <Route path="/admin/tickets" element={protectedRoute(<AdminTickets />)} />
+      <Route path="/admin/subscription-verifications/image-reuse" element={protectedRoute(<AdminSubscriptionImageReuse />)} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )

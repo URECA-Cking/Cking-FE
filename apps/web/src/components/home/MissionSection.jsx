@@ -46,13 +46,13 @@ function WelcomeBonusSlot({ received, claiming, onClaim }) {
 
 /**
  * 출석 도장 칸 하나의 배경·글자 스타일을 정한다. 채움 배경이 기본이다.
- * 찍힌 칸은 핑크로 채우고, 오늘 찍을 칸은 연한 핑크 + 링으로 강조하며, 마지막 칸은 보상 색(앰버)으로 구분한다.
+ * 찍힌 칸은 핑크로 채우고, 오늘 찍을 칸은 연한 핑크 + 링으로 강조하며, 마지막 칸은 모드별 대비를 맞춘 보상 색(warm-accent)으로 구분한다.
  */
 function stampTileClass(slot, isLast) {
   const base = 'flex flex-col items-center rounded-2xl py-2.5'
   if (slot.stamped) return `${base} bg-primary text-on-primary shadow-sm shadow-primary/30`
   if (slot.next) return `${base} scale-105 bg-primary/15 text-primary shadow-md shadow-primary/20 ring-2 ring-primary`
-  if (isLast) return `${base} bg-tertiary-container/20 text-tertiary-container`
+  if (isLast) return `${base} bg-warm-accent/20 text-warm-accent`
   return `${base} bg-on-surface/10 text-outline`
 }
 

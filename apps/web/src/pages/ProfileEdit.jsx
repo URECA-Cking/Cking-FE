@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
@@ -17,6 +17,7 @@ import {
 import { formatDateTime } from '../utils/format.js'
 import { toSafeHttpUrl } from '../utils/safeUrl.js'
 import { parseServerTime } from '../utils/serverTime.js'
+import { OPEN_SPACE_EDIT_STATE, isCreatorAccount } from '../utils/publicProfile.js'
 
 /**
  * 프로필 편집(Cking-BE #518·#519). 닉네임과 프로필 사진을 한 화면에서 고치고 한 번에 저장한다(`PUT /api/me/profile`, 전체 교체).
@@ -26,6 +27,42 @@ import { parseServerTime } from '../utils/serverTime.js'
  * - 사진은 고르는 즉시 올려 key를 받고, 저장할 때 key를 보낸다. 바꾸지 않으면 key를 보내지 않아 서버가 현재 사진을 유지하고, 지우면 null을 보낸다.
  */
 export default function ProfileEdit() {
+  const { user } = useUser()
+  // 승인된 크리에이터의 공개 이름·사진은 활동명·스페이스 사진이라 이 화면에서 바꿀 수 없다(BE가 CREATOR_PROFILE_MANAGED_IN_SPACE로 막는다).
+  // 주소를 직접 열어도 저장 오류를 겪지 않도록 스페이스 편집으로 안내한다.
+  if (isCreatorAccount(user)) return <CreatorProfileNotice />
+  return <FanProfileEdit />
+}
+
+function CreatorProfileNotice() {
+  const navigate = useNavigate()
+  return (
+    <div className="flex min-h-screen w-full flex-col pb-32 pt-safe">
+      <BackHeader
+        title="프로필 편집"
+        onBack={() => navigate('/my-page', { replace: true })}
+        right={<span className="h-11 w-11 shrink-0" aria-hidden="true" />}
+      />
+      <div className="mx-auto flex w-full max-w-[480px] flex-col items-center gap-space-md px-margin pt-[6rem] text-center md:max-w-xl">
+        <MaterialIcon name="storefront" className="text-[40px] text-primary" />
+        <p className="font-title-md text-title-md font-bold text-on-surface">크리에이터 프로필은 스페이스 편집에서 바꿀 수 있어요</p>
+        <p className="font-body-sm text-body-sm text-on-surface-variant">
+          크리에이터의 공개 이름과 사진은 활동명과 스페이스 프로필 사진이에요.
+        </p>
+        <Link
+          to="/studio"
+          state={OPEN_SPACE_EDIT_STATE}
+          replace
+          className="mt-space-xs rounded-xl bg-primary px-5 py-3 font-label-md text-label-md font-semibold text-on-primary active:scale-95 transition-all"
+        >
+          스페이스 편집 열기
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function FanProfileEdit() {
   const { user, applyUser } = useUser()
   const navigate = useNavigate()
   const location = useLocation()

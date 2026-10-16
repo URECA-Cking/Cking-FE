@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import BottomSheet from '../ui/BottomSheet.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useToast } from '../../context/useToast.js'
-import { ApiError, describeError } from '../../api/client.js'
+import { ApiError } from '../../api/client.js'
+import { describeCreatorWriteError } from '../../api/creatorProfile.js'
 import { POST_ERROR_MESSAGES, POST_LIMITS, createPost, updatePost, uploadPostImage } from '../../api/posts.js'
 import { isSupportedJpegOrPng } from '../../utils/imageMime.js'
 
@@ -47,7 +48,8 @@ async function validateImage(file) {
 
 function describePostError(error, fallback) {
   if (error instanceof ApiError && POST_ERROR_MESSAGES[error.code]) return POST_ERROR_MESSAGES[error.code]
-  return describeError(error, fallback)
+  // 활동명을 정하기 전에는 게시글을 쓸 수 없다(ACTIVITY_NAME_SETUP_REQUIRED). 그 밖의 오류는 기존대로 보여 준다.
+  return describeCreatorWriteError(error, fallback)
 }
 
 /**

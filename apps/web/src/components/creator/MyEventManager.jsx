@@ -10,6 +10,7 @@ import { useAsync } from '../../hooks/useAsync.js'
 import { deleteCreatorEvent, getMyCreatorEvents, requestEventApproval } from '../../api/creatorEvents.js'
 import { closeEvent } from '../../api/events.js'
 import { describeError } from '../../api/client.js'
+import { describeCreatorWriteError } from '../../api/creatorProfile.js'
 import { toDisplayStatus } from '../../utils/eventStatus.js'
 
 const PAGE_SIZE = 50
@@ -63,7 +64,8 @@ export default function MyEventManager() {
       showToast(successMessage)
       await reload()
     } catch (err) {
-      showToast(describeError(err, '요청을 처리하지 못했습니다.'), { icon: 'error' })
+      // 활동명을 정하기 전에는 승인 요청을 보낼 수 없다(ACTIVITY_NAME_SETUP_REQUIRED). 그 밖의 오류는 기존대로 보여 준다.
+      showToast(describeCreatorWriteError(err, '요청을 처리하지 못했습니다.'), { icon: 'error' })
     } finally {
       setBusyId(null)
     }

@@ -9,7 +9,7 @@ Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서
 | 영역 | 현재 라우트 | 책임 |
 | --- | --- | --- |
 | 인증 | `/login`, `/oauth/callback` | Google/Kakao OAuth 시작과 Login Code 교환 |
-| 프로필 | `/profile/edit` | 닉네임·프로필 사진 편집, 닉네임 미설정 회원의 최초 설정 |
+| 프로필 | `/profile/edit` | 팬의 닉네임·프로필 사진 편집, 닉네임 미설정 팬의 최초 설정. 크리에이터는 공개 프로필이 활동명·스페이스 사진이라 스페이스 편집으로 안내한다 |
 | 사용자 | `/`, `/explore`, `/my-entries`, `/my-winners`, `/notifications`, `/my-page`, `/my-calendar`, `/my-tickets` | 탐색, 응모, 알림, 개인 정보·캘린더·당첨·응모권 관리 |
 | 온보딩·공개 Space | `/onboarding`, `/onboarding/creators`, `/creators/:creatorId`, `/space/:slug`, `/events/:eventId` | 관심 분야·추천, 팔로우, Creator Space, 이벤트·응모 |
 | Creator 운영 | `/creator/events/new`, `/creator/events/:eventId/edit` | 이벤트 작성·수정. 이벤트 목록·일정 관리는 내 스페이스의 이벤트·캘린더 탭에서 한다 |

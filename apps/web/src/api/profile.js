@@ -40,6 +40,9 @@ export function isProfileSetupRequired(error) {
   return error?.code === PROFILE_SETUP_REQUIRED
 }
 
+/** 승인된 크리에이터의 공개 이름·사진은 스페이스 편집에서만 바꾼다. 프로필 저장·사진 업로드가 이 코드(409)로 막힌다. */
+export const CREATOR_PROFILE_MANAGED_IN_SPACE = 'CREATOR_PROFILE_MANAGED_IN_SPACE'
+
 /** 프로필 저장·사진 업로드 오류 코드별 문구. 모르는 코드는 서버 메시지나 상태 코드로 대신한다. */
 export const PROFILE_ERROR_MESSAGES = {
   NICKNAME_ALREADY_TAKEN: '이미 사용 중인 닉네임이에요. 다른 닉네임을 입력해주세요.',
@@ -50,6 +53,7 @@ export const PROFILE_ERROR_MESSAGES = {
   UPLOAD_TOO_LARGE: '이미지가 너무 커요. 5MB 이하 이미지를 올려주세요.',
   IMAGE_PROCESSING_BUSY: '지금 사진을 처리하는 요청이 많아요. 잠시 뒤에 다시 시도해주세요.',
   [PROFILE_SETUP_REQUIRED]: '먼저 닉네임을 설정해주세요.',
+  [CREATOR_PROFILE_MANAGED_IN_SPACE]: '크리에이터 프로필은 스페이스 편집에서 바꿀 수 있어요.',
 }
 
 export function describeProfileError(error, fallback = '프로필을 저장하지 못했어요.') {

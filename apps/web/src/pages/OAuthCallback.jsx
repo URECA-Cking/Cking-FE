@@ -7,6 +7,7 @@ import { exchangeLoginCode } from '../api/auth.js'
 import { describeError } from '../api/client.js'
 import { consumeLoginIntent } from '../utils/loginIntent.js'
 import { displayNickname } from '../utils/nickname.js'
+import { isCreatorAccount, needsNicknameSetup } from '../utils/publicProfile.js'
 
 // 백엔드가 redirect로 넘기는 error 값(Cking-BE docs/domains/auth/api.md "OAuth 로그인 시작")
 const ERROR_MESSAGES = {
@@ -51,11 +52,14 @@ export default function OAuthCallback() {
         const me = await loadUser()
         if (!me) throw new Error('사용자 정보를 불러오지 못했어요.')
 
-        showToast(displayNickname(me) ? `${displayNickname(me)}님, 환영해요.` : '환영해요.')
+        // 크리에이터의 공개 이름은 활동명이라 로그인 응답의 Member 닉네임으로 부르지 않는다.
+        const welcomeName = isCreatorAccount(me) ? null : displayNickname(me)
+        showToast(welcomeName ? `${welcomeName}님, 환영해요.` : '환영해요.')
         const destination = intent.redirectTo || '/'
-        // 닉네임이 없으면(profileConfigured=false) 프로필 설정 화면이 먼저다. 설정을 마치면 온보딩이 남았을 때 온보딩으로, 아니면 destination으로 간다.
+        // 닉네임이 없는 팬(profileConfigured=false)은 프로필 설정 화면이 먼저다. 설정을 마치면 온보딩이 남았을 때 온보딩으로, 아니면 destination으로 간다.
+        // 크리에이터는 Member 닉네임을 설정할 수 없고(BE가 막는다) 활동명이 공개 이름이라 이 화면으로 보내지 않는다.
         // 필드가 없으면(구버전 BE) 이동하지 않는다.
-        if (me.profileConfigured === false) {
+        if (needsNicknameSetup(me)) {
           navigate('/profile/edit', { replace: true, state: { from: destination } })
           return
         }

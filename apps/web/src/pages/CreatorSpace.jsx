@@ -184,6 +184,15 @@ export default function CreatorSpace() {
   // 크리에이터인 경우에만 내 Space를 조회해 지금 보는 Space가 내 것인지 판별한다.
   const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator })
   const isMine = creatorId !== null && mySpace.data?.creatorId === creatorId
+  // 마이페이지·오류 안내가 "스페이스 편집을 열어 달라"고 보낸 경우(OPEN_SPACE_EDIT_STATE) 내 스페이스에서 시트를 연다.
+  // 닫을 때 이동 상태의 요청을 지워 새로고침이나 뒤로 가기에서 다시 열리지 않게 한다.
+  const editVisible = editOpen || (isMine && Boolean(location.state?.openSpaceEdit))
+  function closeSpaceEdit() {
+    setEditOpen(false)
+    if (location.state?.openSpaceEdit) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: { ...location.state, openSpaceEdit: false } })
+    }
+  }
   // 내 게시글의 좋아요는 보상 대상이 아니므로(BE가 자기 Space의 좋아요 미션 보상을 주지 않는다) 내 Space에서는 좋아요 미션을 숨긴다.
   const shownLikeMissions = isMine ? [] : likeMissions
 
@@ -724,8 +733,8 @@ export default function CreatorSpace() {
       )}
       {isMine && (
         <SpaceEditSheet
-          open={editOpen}
-          onClose={() => setEditOpen(false)}
+          open={editVisible}
+          onClose={closeSpaceEdit}
           space={mySpace.data}
           onSaved={handleSpaceSaved}
         />

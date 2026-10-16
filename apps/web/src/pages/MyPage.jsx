@@ -14,15 +14,35 @@ import { loadCreatorDirectory } from '../api/creators.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { applyCreator, getMyCreatorApplications } from '../api/creatorApplications.js'
 import { describeError } from '../api/client.js'
-import { spacePath } from '../api/creatorSpace.js'
+import { getMySpace, spacePath } from '../api/creatorSpace.js'
+import { getMyCreatorProfile } from '../api/creatorProfile.js'
 import { formatDateTime, formatNumber } from '../utils/format.js'
-import { displayNickname } from '../utils/nickname.js'
+import { OPEN_SPACE_EDIT_STATE, activityNameMissing, needsNicknameSetup, ownPublicProfile } from '../utils/publicProfile.js'
 import { CREATOR_APPLICATION_STATUS_META } from '../utils/eventStatus.js'
 
 // 팔로우한 크리에이터가 많을 수 있어 처음엔 3명만 그리고 '더 보기'를 누르면 나머지를 모두 보여준다.
 const CREATOR_PAGE_SIZE = 3
 
 const ADMIN_BASE_URL = import.meta.env.VITE_ADMIN_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5174' : null)
+
+const primaryActionClass = 'px-3 py-2 rounded-xl bg-primary text-on-primary text-center font-label-sm text-label-sm font-semibold active:scale-95 transition-all'
+
+/** 프로필·활동명을 먼저 정해야 한다는 안내 배너. bg-berry-tint는 테마와 무관한 연한 분홍이라 글자색도 고정색(berry-deep)을 써야 다크 모드에서 읽힌다. */
+function SetupBanner({ to, state, title, description }) {
+  return (
+    <Link
+      to={to}
+      state={state}
+      className="flex items-center justify-between gap-3 rounded-2xl bg-berry-tint border border-border-rose p-space-md active:scale-[0.99] transition-all"
+    >
+      <span className="flex flex-col gap-0.5">
+        <span className="font-label-md text-label-md font-bold text-berry-deep">{title}</span>
+        <span className="font-body-sm text-body-sm text-berry-deep/80">{description}</span>
+      </span>
+      <MaterialIcon name="chevron_right" className="shrink-0 text-primary" />
+    </Link>
+  )
+}
 
 /**
  * 마이페이지.
@@ -67,6 +87,12 @@ export default function MyPage() {
     })),
     [shownProfiles, balances, failedIds],
   )
+  // 크리에이터의 공개 이름·사진은 Member 닉네임·사진이 아니라 스페이스의 활동명·스페이스 사진이다(Cking-BE #624).
+  // 프로필 카드, 스페이스 편집 진입점, 내 스페이스 메뉴가 같은 응답을 쓴다.
+  const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator, fallbackMessage: '내 스페이스를 불러오지 못했어요.' })
+  const myCreatorProfile = useAsync(() => getMyCreatorProfile(), [isCreator], { enabled: isCreator })
+  const profile = ownPublicProfile(user, mySpace.data, myCreatorProfile.data)
+  const spaceEditTarget = mySpace.data ? spacePath(mySpace.data.slug) : null
   const latestApplication = applications.data?.items?.[0] ?? null
   const hasPending = latestApplication?.status === 'PENDING'
 
@@ -97,11 +123,15 @@ export default function MyPage() {
   return (
     <div className="flex flex-col w-full px-margin pt-space-md pb-8 gap-space-lg md:mx-auto md:max-w-5xl md:px-8">
       <section className="flex items-center gap-space-md p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
-        <ProfilePhoto src={user?.profileImageUrl} className="h-16 w-16 shrink-0" iconClassName="text-[28px]" />
+        <ProfilePhoto src={profile.photo} className="h-16 w-16 shrink-0" iconClassName="text-[28px]" />
         <div className="min-w-0 flex-1">
-          {/* 공개 이름은 닉네임이다. 설정 전에는 OAuth 이름으로 대신하지 않고 안내만 보여준다. */}
+          {/* 공개 이름은 팬은 닉네임, 크리에이터는 활동명이다. 설정 전에는 OAuth 이름으로 대신하지 않고 안내만 보여준다. */}
           <p className="font-title-lg text-title-lg text-on-surface font-bold truncate">
-            {displayNickname(user) ? `${displayNickname(user)} 님` : '닉네임 미설정'}
+            {profile.name
+              ? `${profile.name} 님`
+              : profile.creator
+                ? (mySpace.error && myCreatorProfile.error ? '크리에이터 프로필을 불러오지 못했어요' : '활동명을 불러오는 중...')
+                : '닉네임 미설정'}
           </p>
           {/* 역할마다 뱃지 하나: 크리에이터는 크리에이터, 관리자는 관리자, 그 외 일반 회원은 팬. 권한 확인 전에는 팬으로 단정하지 않는다. */}
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap empty:hidden">
@@ -116,13 +146,20 @@ export default function MyPage() {
           </div>
         </div>
         <div className="flex shrink-0 flex-col gap-1.5">
-          <Link
-            to="/profile/edit"
-            state={{ from: '/my-page' }}
-            className="px-3 py-2 rounded-xl bg-primary text-on-primary text-center font-label-sm text-label-sm font-semibold active:scale-95 transition-all"
-          >
-            프로필 편집
-          </Link>
+          {/* 크리에이터는 Member 프로필을 바꿀 수 없다(BE가 막는다). 공개 프로필은 스페이스 편집에서 바꾼다. */}
+          {isCreator ? (
+            spaceEditTarget ? (
+              <Link to={spaceEditTarget} state={OPEN_SPACE_EDIT_STATE} className={primaryActionClass}>
+                스페이스 편집
+              </Link>
+            ) : (
+              <span aria-disabled="true" className={`${primaryActionClass} opacity-60`}>스페이스 편집</span>
+            )
+          ) : (
+            <Link to="/profile/edit" state={{ from: '/my-page' }} className={primaryActionClass}>
+              프로필 편집
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => navigate('/login')}
@@ -138,19 +175,23 @@ export default function MyPage() {
         <p className="-mt-space-xs truncate px-1 font-label-xs text-label-xs text-outline">로그인 계정 {user.email}</p>
       )}
 
-      {user?.profileConfigured === false && (
-        <Link
+      {needsNicknameSetup(user) && (
+        <SetupBanner
           to="/profile/edit"
           state={{ from: '/my-page' }}
-          className="flex items-center justify-between gap-3 rounded-2xl bg-berry-tint border border-border-rose p-space-md active:scale-[0.99] transition-all"
-        >
-          {/* bg-berry-tint는 테마와 무관한 연한 분홍이라 글자색도 고정색(berry-deep)을 써야 다크 모드에서 읽힌다. */}
-          <span className="flex flex-col gap-0.5">
-            <span className="font-label-md text-label-md font-bold text-berry-deep">닉네임을 설정해주세요</span>
-            <span className="font-body-sm text-body-sm text-berry-deep/80">댓글·응모·크리에이터 신청은 닉네임을 정한 뒤에 할 수 있어요.</span>
-          </span>
-          <MaterialIcon name="chevron_right" className="shrink-0 text-primary" />
-        </Link>
+          title="닉네임을 설정해주세요"
+          description="댓글·응모·크리에이터 신청은 닉네임을 정한 뒤에 할 수 있어요."
+        />
+      )}
+
+      {/* 크리에이터는 닉네임 대신 활동명이 공개 이름이라, 정하기 전에는 댓글·응모·게시글·이벤트를 BE가 막는다. */}
+      {activityNameMissing(myCreatorProfile.data) && spaceEditTarget && (
+        <SetupBanner
+          to={spaceEditTarget}
+          state={OPEN_SPACE_EDIT_STATE}
+          title="활동명을 설정해주세요"
+          description="댓글·응모·게시글·이벤트는 활동명을 정한 뒤에 할 수 있어요."
+        />
       )}
 
       <section className="flex flex-col gap-space-sm">
@@ -280,7 +321,7 @@ export default function MyPage() {
           <span className="font-label-md text-label-md text-on-surface flex-1">내 응모권</span>
           <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
         </Link>
-        {isCreator && <MySpaceLink />}
+        {isCreator && <MySpaceLink space={mySpace.data} loading={mySpace.loading} error={mySpace.error} />}
         {isAdmin && ADMIN_BASE_URL && (
           <a
             href={ADMIN_BASE_URL}

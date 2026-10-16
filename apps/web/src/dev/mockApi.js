@@ -5,6 +5,7 @@
 // ?mock=restricted(플랫폼 댓글 작성 제한)·?mock=blocked(스페이스 차단)는 팬 시나리오에 더해, 댓글 작성·수정이
 // 403(COMMENT_RESTRICTED·SPACE_COMMENT_BLOCKED)으로 막히고 제재 알림이 도착한 상태를 보여준다.
 // ?mock=creator는 내 스페이스(하늘)에서 댓글의 "…" 메뉴로 차단을 걸고 "차단 관리" 탭에서 해제하는 것까지 보여준다.
+// ?mock=creator-nameless는 활동명을 아직 정하지 않은 기존 크리에이터(Member 닉네임도 없음)다. 마이페이지의 활동명 안내와 스페이스 편집으로 이어지는 흐름을 보여준다.
 // 선택은 sessionStorage에 남아 이동해도 유지되고, ?mock=0으로 끈다.
 // AI Quiz(생성·검토·Judge·게시, 팬 응시)는 quizMock.js가 맡는다.
 
@@ -78,7 +79,11 @@ export function installMockApiIfRequested() {
 
   const now = Date.now()
   const empty = scenario === 'empty'
-  const creatorMode = scenario === 'creator'
+  const nameless = scenario === 'creator-nameless'
+  const creatorMode = scenario === 'creator' || nameless
+  // 크리에이터의 공개 이름은 활동명이다. 활동명을 정하기 전에는 BE가 임시 이름(creator-{id})을 내려준다(V59 이관).
+  let activityConfigured = !nameless
+  if (nameless) CREATORS[0].creatorName = 'creator-1'
   const sanctionMode = scenario === 'restricted' || scenario === 'blocked'
   // BE 오류 메시지와 같은 형식: java.time.Instant 문자열이 "해제 시각(UTC): " 뒤에 붙는다.
   const sanctionEnd = new Date(now + 3 * DAY + 1500).toISOString()
@@ -203,6 +208,10 @@ export function installMockApiIfRequested() {
   const me = {
     memberId: 900,
     name: '테스트 팬',
+    // 크리에이터에게도 BE는 Member 닉네임·사진을 계속 내려준다. 공개 표시에는 쓰지 않는다(Cking-BE #624).
+    nickname: nameless ? null : creatorMode ? '옛 팬 닉네임' : '테스트 팬',
+    profileImageUrl: null,
+    profileConfigured: !nameless,
     role: 'USER',
     onboardingCompleted: true,
     creator: creatorMode ? { creatorId: 1 } : null,
@@ -290,6 +299,8 @@ export function installMockApiIfRequested() {
         ]
       : []),
     ['GET', /^\/api\/creators$/, () => page(CREATORS)],
+    // 공유 링크(/{slug})로 스페이스를 연다. 마이페이지의 "스페이스 편집"도 이 주소로 이동한다.
+    ['GET', /^\/api\/creator-spaces\/([^/]+)$/, (slug) => CREATORS.find((creator) => creator.slug === decodeURIComponent(slug)) ?? { status: 404, code: 'RESOURCE_NOT_FOUND', data: null }],
     ['GET', /^\/api\/events$/, () => page(events)],
     ['GET', /^\/api\/creators\/(\d+)\/tickets$/, (id) => ({ creatorId: Number(id), balance: BALANCES[id] ?? 0 })],
     // 내 응모권 요약(GET /api/me/tickets). 공용 잔액은 이벤트 목업의 myCommonTicketBalance와 같은 값이고, 팔로우·이벤트가 없는 시나리오(empty)는 0이다.
@@ -355,6 +366,16 @@ export function installMockApiIfRequested() {
     }],
     // 크리에이터 모드의 내 Space(크리에이터 1). 내 Space 화면(Quiz 관리 등)을 확인할 때 쓴다.
     ['GET', /^\/api\/creator\/space$/, () => (creatorMode ? CREATORS[0] : { status: 403, code: 'FORBIDDEN', data: null })],
+    // 활동명 조회·설정(BE creator/space-api.md). 설정하면 스페이스 응답의 크리에이터 이름도 함께 바뀐다.
+    ['GET', /^\/api\/creator\/profile$/, () => (creatorMode
+      ? { activityName: CREATORS[0].creatorName, activityNameConfigured: activityConfigured, activityNameChangeableAt: null, restorableActivityName: null }
+      : { status: 403, code: 'FORBIDDEN', data: null })],
+    ['PUT', /^\/api\/creator\/profile$/, (url, init) => {
+      if (!creatorMode) return { status: 403, code: 'FORBIDDEN', data: null }
+      CREATORS[0].creatorName = JSON.parse(init.body ?? '{}').activityName ?? CREATORS[0].creatorName
+      activityConfigured = true
+      return { activityName: CREATORS[0].creatorName, activityNameConfigured: true, activityNameChangeableAt: null, restorableActivityName: null }
+    }],
     ...quizMockRoutes({ myCreatorId: creatorMode ? 1 : null, memberId: me.memberId }),
   ]
 

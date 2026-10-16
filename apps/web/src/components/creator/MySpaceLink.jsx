@@ -1,17 +1,14 @@
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
-import { useAsync } from '../../hooks/useAsync.js'
-import { getMySpace, spacePath } from '../../api/creatorSpace.js'
+import { spacePath } from '../../api/creatorSpace.js'
 
 /**
- * Creator 본인의 Space로 가는 링크. GET /api/creator/space로 내 creatorId를 알아낸다.
+ * Creator 본인의 Space로 가는 링크. 내 Space(GET /api/creator/space)는 마이페이지가 한 번 받아서 넘긴다.
  * Space가 아직 없으면(RESOURCE_NOT_FOUND 등) 이동할 수 없다는 안내만 보여준다. 마이페이지 메뉴 행으로 쓴다.
+ *
+ * @param {{ space: { slug: string } | null | undefined, loading: boolean, error: unknown }} props
  */
-export default function MySpaceLink() {
-  const { data: space, loading, error } = useAsync(() => getMySpace(), [], {
-    fallbackMessage: '내 스페이스를 불러오지 못했어요.',
-  })
-
+export default function MySpaceLink({ space, loading, error }) {
   const rowClass = 'flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high'
   if (loading || error || !space) {
     return (

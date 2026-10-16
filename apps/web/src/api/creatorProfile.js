@@ -16,7 +16,10 @@ export function updateMyActivityName(activityName) {
   return apiClient.put('/api/creator/profile', { activityName })
 }
 
-/** 활동명을 설정하지 않은 Creator가 게시글·이벤트를 만들면 BE가 이 코드(409)로 막는다. */
+/**
+ * 활동명을 설정하지 않은 Creator가 공개 활동(댓글 작성·수정, 게시글·이벤트 생성·수정, 이벤트 승인 요청, 이벤트 응모)을 하면 BE가 이 코드(409)로 막는다.
+ * 기존 게시글·이벤트의 조회와 삭제는 막지 않는다.
+ */
 export const ACTIVITY_NAME_SETUP_REQUIRED = 'ACTIVITY_NAME_SETUP_REQUIRED'
 
 /** ApiError(throw된 오류)와 envelope({ code })를 모두 받는다. */
@@ -29,7 +32,16 @@ export const ACTIVITY_NAME_ERROR_MESSAGES = {
   ACTIVITY_NAME_ALREADY_TAKEN: '이미 다른 크리에이터가 쓰고 있는 활동명이에요. 다른 이름을 입력해주세요.',
   ACTIVITY_NAME_CHANGE_TOO_SOON: '활동명은 마지막으로 바꾼 뒤 14일이 지나야 다시 바꿀 수 있어요.',
   VALIDATION_FAILED: '활동명은 1~20자이고 한글·영문·숫자·_·-만 쓸 수 있어요.',
-  [ACTIVITY_NAME_SETUP_REQUIRED]: '먼저 활동명을 설정해주세요.',
+  [ACTIVITY_NAME_SETUP_REQUIRED]: '먼저 활동명을 설정해주세요. 스페이스 편집에서 정할 수 있어요.',
+}
+
+/**
+ * 크리에이터의 공개 활동(게시글·이벤트 작성·승인 요청)이 활동명 미설정으로 막혔을 때만 안내 문구로 바꾸고, 다른 오류는 그대로 보여 준다.
+ * describeActivityNameError는 활동명 저장 화면용이라 VALIDATION_FAILED 같은 코드를 활동명 규칙 문구로 바꾸므로 여기서 쓰면 안 된다.
+ */
+export function describeCreatorWriteError(error, fallback) {
+  if (isActivityNameSetupRequired(error)) return ACTIVITY_NAME_ERROR_MESSAGES[ACTIVITY_NAME_SETUP_REQUIRED]
+  return describeError(error, fallback)
 }
 
 export function describeActivityNameError(error, fallback = '활동명을 저장하지 못했어요.') {

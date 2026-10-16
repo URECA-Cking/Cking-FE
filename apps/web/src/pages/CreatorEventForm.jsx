@@ -8,7 +8,8 @@ import { useAsync } from '../hooks/useAsync.js'
 import { useAppBack } from '../hooks/useAppBack.js'
 import { createCreatorEvent, getAllMyCreatorEvents, updateCreatorEvent } from '../api/creatorEvents.js'
 import { getMySpace, spacePath } from '../api/creatorSpace.js'
-import { describeError, newRequestId } from '../api/client.js'
+import { newRequestId } from '../api/client.js'
+import { describeCreatorWriteError } from '../api/creatorProfile.js'
 import { formatNumber } from '../utils/format.js'
 
 // 추첨 방식은 고를 수 없고 새로 만들 때는 WEIGHTED, 수정할 때는 기존 값을 보여준다.
@@ -209,7 +210,8 @@ function EventFormBody({ eventId, isEdit, target }) {
       }
       navigate(mySpace.data ? spacePath(mySpace.data.slug) : '/my-page', { replace: true, state: { tab: 'events' } })
     } catch (err) {
-      setFormError(describeError(err, '저장에 실패했습니다. 입력값을 확인해주세요.'))
+      // 활동명을 정하기 전에는 이벤트를 만들거나 고칠 수 없다(ACTIVITY_NAME_SETUP_REQUIRED). 그 밖의 오류는 기존대로 보여 준다.
+      setFormError(describeCreatorWriteError(err, '저장에 실패했습니다. 입력값을 확인해주세요.'))
     } finally {
       setSubmitting(false)
     }

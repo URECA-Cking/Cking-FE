@@ -8,7 +8,7 @@
 
 | Method | Endpoint | 사용 앱 | 화면/기능 | FE 상태 | BE 계약 |
 | --- | --- | --- | --- | --- | --- |
-| GET | `/api/me` | Web | 세션 복원·역할 판정, 신규 가입자 판별(`onboardingCompleted`), 프로필(`nickname`·`profileImageUrl`·`profileConfigured`·`nicknameChangeableAt`·`restorableNickname`) | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
+| GET | `/api/me` | Web | 세션 복원·역할 판정, 신규 가입자 판별(`onboardingCompleted`), 프로필(`nickname`·`profileImageUrl`·`profileConfigured`·`nicknameChangeableAt`·`restorableNickname`). 크리에이터에게도 내려오지만 공개 이름·사진은 아니라서 마이페이지는 크리에이터를 스페이스의 활동명·사진으로 표시한다 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
 | POST | `/api/auth/token`, `/api/auth/refresh`, `/api/auth/logout` | Web | OAuth Login Code 교환·갱신·로그아웃 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
 | GET | `/oauth2/authorization/{provider}` | Web | OAuth 로그인 시작 페이지 이동 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
 | - | 공통 HTTP·오류 규약 | Web | `apps/web/src/api/client.js`: Bearer JWT, `credentials: include`, 401 1회 갱신 | 연동 | [API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md) |
@@ -48,8 +48,8 @@
 | GET | `/api/me/creator-recommendations` | 온보딩·탐색 "나를 위한 추천"(AI 개인화, 20명을 받아 10명씩 노출), 응답의 `recommendationRequestId`를 노출·클릭 수집에 사용 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
 | POST | `/api/me/creator-recommendation-events` | 탐색 추천 카드의 노출(`IMPRESSION`, 화면에 절반 이상 보일 때)·클릭(`CLICK`) 수집. 행동마다 UUID `eventId`, 최대 50건 묶음, 5xx·네트워크 오류만 같은 `eventId`로 재시도 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/recommendation-events.md) |
 | GET | `/api/creators/{creatorId}/similar` | 탐색 "○○와 비슷한 크리에이터"(가장 최근 관심 등록한 크리에이터 기준, 후보가 없으면 숨김) | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
-| POST | `/api/me/profile-images` | 프로필 편집의 사진 업로드(`imageKey` 반환) | 연동 | [Member](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/member/api.md) |
-| PUT | `/api/me/profile` | 프로필 편집(닉네임 저장, 사진은 key를 보낼 때만 교체), `PROFILE_SETUP_REQUIRED`(409) 처리 | 연동 | [Member](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/member/api.md) |
+| POST | `/api/me/profile-images` | 프로필 편집의 사진 업로드(`imageKey` 반환). 크리에이터는 `CREATOR_PROFILE_MANAGED_IN_SPACE`(409)로 막혀 이 화면에서 호출하지 않는다 | 연동 | [Member](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/member/api.md) |
+| PUT | `/api/me/profile` | 프로필 편집(닉네임 저장, 사진은 key를 보낼 때만 교체), `PROFILE_SETUP_REQUIRED`(409) 처리. 크리에이터는 `CREATOR_PROFILE_MANAGED_IN_SPACE`(409)로 막혀 프로필 편집 대신 스페이스 편집으로 안내한다 | 연동 | [Member](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/member/api.md) |
 | PUT | `/api/me/onboarding/complete` | 온보딩 완료·건너뛰기 기록 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md) |
 
 ## Web — CREATOR
@@ -60,7 +60,7 @@
 | GET/PATCH | `/api/creator/space`, `/api/creator/space/slug` | 내 Space 편집·slug 변경. 프로필 사진은 `profileImageKey`, 배너는 `bannerImageKey`로 교체·유지(생략)·기본 이미지·기본 배너 복귀(`null`) | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
 | POST | `/api/creator/space/profile-images` | 스페이스 프로필 사진 업로드(`imageKey` 반환, 스페이스 편집) | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
 | POST | `/api/creator/space/banner-images` | 스페이스 배너 이미지 업로드(`imageKey` 반환, 스페이스 편집). 연결은 PATCH의 `bannerImageKey`로 하므로 `PUT /api/creator/space/banner-image`는 쓰지 않음 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
-| GET/PUT | `/api/creator/profile` | Creator 활동명 조회·설정·변경(스페이스 편집). 14일 변경 제한·이전 활동명 복귀, `ACTIVITY_NAME_SETUP_REQUIRED`(409) 상수 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| GET/PUT | `/api/creator/profile` | Creator 활동명 조회·설정·변경(스페이스 편집). 14일 변경 제한·이전 활동명 복귀, `ACTIVITY_NAME_SETUP_REQUIRED`(409): 활동명을 정하기 전에는 댓글·응모·게시글·이벤트를 막으므로 이 코드를 받으면 스페이스 편집(활동명)으로 안내하고, 마이페이지는 "활동명을 설정해주세요" 배너를 보여 준다 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
 | GET/PUT | `/api/creator/youtube-channel` | Space의 YouTube 구독 인증 대상 채널 최초 설정·수정 | 연동 | [Subscription Verification](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/subscription-verification/api.md) |
 | GET/POST/PATCH/DELETE | `/api/creator/events`, `/api/creator/events/{eventId}` | Creator 이벤트 CRUD(스페이스 이벤트 탭) | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | POST | `/api/creator/events/{eventId}/approval-request` | 이벤트 승인 요청 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |

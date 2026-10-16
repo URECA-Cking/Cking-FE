@@ -17,8 +17,9 @@
 
 | Method | Endpoint | 화면/기능 | FE 상태 | BE 계약 |
 | --- | --- | --- | --- | --- |
-| GET | `/api/creators` | 홈·탐색·온보딩·마이페이지의 Creator 목록/프로필 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
+| GET | `/api/creators` | 홈·탐색·온보딩·마이페이지의 Creator 목록/프로필. 항목의 `openEventCount`(진행 중 이벤트 수)를 탐색의 "진행 중" 필터·칩·태그·정렬·순위에 쓰고, 없는 구버전 BE에서는 받아 온 이벤트 목록에서 센다 | 연동 | [Creator](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/api.md) |
 | GET | `/api/creators/{id}/space`, `/api/creator-spaces/{slug}` | Creator Space·공유 링크. 응답의 `followerCount`를 프로필 팔로워 통계로 표시(0 포함, 값이 없으면 칸 숨김) | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
+| GET | `/api/events/counts` | 탐색 이벤트 필터 칩 개수(`total`·`upcoming`·`inProgress`·`closed`). 엔드포인트가 없거나 응답이 다르면 상태별 `GET /api/events?size=1`로 대체 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | GET | `/api/events`, `/api/events/{eventId}` | 홈·탐색·이벤트 상세 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | POST | `/api/events/{eventId}/entries` | 이벤트 응모(멱등 키, `couponType`으로 크리에이터·공용 응모권 선택) | 연동 | [Entry](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/entry-api.md) |
 | GET | `/api/events/{eventId}/entries/me` | 내 응모 조회 | 연동 | [Entry](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/entry-api.md) |

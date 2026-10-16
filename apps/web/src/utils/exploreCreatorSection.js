@@ -3,7 +3,7 @@ export const CREATOR_FILTERS = ['전체', '관심', '진행 중']
 
 /**
  * 필터 칩별 개수. 관심은 서버 팔로우 목록 수, 전체·진행 중은 받은 크리에이터 목록에서 센다.
- * 진행 중은 한 번에 받은 최근 이벤트 기준이라 이벤트가 아주 많으면 실제보다 적을 수 있다.
+ * 진행 중은 서버가 센 openEventCount를 쓰고, 없는 구버전 BE에서는 받아 온 최근 이벤트 기준이라 실제보다 적을 수 있다.
  */
 export function creatorFilterCounts(creators, followedCreatorIds) {
   return {

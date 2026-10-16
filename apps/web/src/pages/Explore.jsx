@@ -60,7 +60,7 @@ export default function Explore() {
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터를 불러오지 못했습니다.',
   })
-  // 필터 칩의 개수. 선택한 필터와 상관없이 한 번만 받고, 못 받으면 개수 없이 칩만 보인다.
+  // 필터 칩의 개수. 선택한 필터와 상관없이 한 번만 받고(서버 집계 한 번, 없으면 상태별 호출), 못 받으면 개수 없이 칩만 보인다.
   const eventCounts = useAsync(() => getEventCounts(EVENT_FILTERS.map((filter) => filter.id)), [], { enabled: tab === 'event' })
   const eventList = useAsync(
     () => getEvents({ status: eventFilter || undefined, size: eventSize }),
@@ -293,7 +293,7 @@ export default function Explore() {
                   <div className="min-w-0 flex flex-col">
                     <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
                     <span className="font-label-sm text-label-sm text-secondary font-semibold">
-                      진행 중 {creator.openEventCount}개 · 전체 {creator.events.length}개
+                      진행 중 {creator.openEventCount}개{directory.data?.eventsComplete && ` · 전체 ${creator.events.length}개`}
                     </span>
                   </div>
                 </Link>

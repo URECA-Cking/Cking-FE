@@ -105,5 +105,47 @@ test('저장된 generationId로 복구한 작업도 확정·완료 뒤 검토하
  const {page}=await screen({stored:true});try{await open(page);await confirm(page);await page.getByText('문항 생성 중',{exact:false}).waitFor();await page.evaluate(()=>window.active={...window.active,status:'SUCCEEDED',quizId:1,revisionId:100});await page.getByRole('button',{name:'검토하기',exact:true}).waitFor({timeout:16000});assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('cking.creatorQuizJobs.v1.10')).generation),null)}finally{await page.close()}
 })
 test('409 뒤 상태 조회가 404여도 작업과 수정본을 지운다',async()=>{
- const {page}=await screen();try{await open(page);await page.getByRole('textbox',{name:'검토 원문'}).fill('남기지 않을 원문');await page.evaluate(()=>{const original=window.fetch;window.failure={status:409,code:'QUIZ_GENERATION_NOT_AWAITING_REVIEW'};window.fetch=(url,options)=>new URL(url).pathname.endsWith('/42')?Promise.resolve(new Response(JSON.stringify({code:'QUIZ_GENERATION_NOT_FOUND'}),{status:404})):original(url,options)});await confirm(page);await page.getByRole('alert').waitFor();assert.equal(await page.getByRole('textbox',{name:'검토 원문'}).count(),0);assert.equal(await page.evaluate(()=>localStorage.getItem('cking.creatorQuizReviewDraft.v1.10.42')),null)}finally{await page.close()}
+ const {page}=await screen();try{await open(page);await page.getByRole('textbox',{name:'검토 원문'}).fill('남기지 않을 원문');await page.evaluate(()=>{const original=window.fetch;window.failure={status:409,code:'QUIZ_GENERATION_NOT_AWAITING_REVIEW'};window.fetch=(url,options)=>new URL(url).pathname.endsWith('/42')?Promise.resolve(new Response(JSON.stringify({code:'QUIZ_GENERATION_NOT_FOUND'}),{status:404})):original(url,options)});await confirm(page);await page.getByRole('textbox',{name:'검토 원문'}).waitFor({state:'hidden'});await page.getByRole('alert').waitFor();assert.equal(await page.getByRole('textbox',{name:'검토 원문'}).count(),0);assert.equal(await page.evaluate(()=>localStorage.getItem('cking.creatorQuizReviewDraft.v1.10.42')),null)}finally{await page.close()}
+})
+
+async function createNew(page){
+ await page.getByRole('button',{name:'AI Quiz 만들기',exact:false}).click()
+ await page.locator('input[type="url"]').fill('https://youtu.be/dQw4w9WgXcQ')
+ await page.locator('input[type="text"]').fill('새 요청')
+ await page.getByRole('button',{name:'만들기',exact:true}).click()
+}
+test('복구 작업 취소 후 실제 새 생성 POST를 한 번 보낸다',async()=>{
+ const {page}=await screen();try{
+ await page.getByRole('button',{name:'생성 취소',exact:true}).click()
+ await page.getByText('Quiz 생성을 취소했어요.',{exact:false}).waitFor()
+ await createNew(page)
+ await page.waitForFunction(()=>window.calls.filter(c=>c.path.endsWith('/generations')&&c.method==='POST').length===1,{},{timeout:2000})
+ }finally{await page.close()}
+})
+test('확정 응답 유실 후 SUCCEEDED replay는 완료 UI와 기록 정리를 수행한다',async()=>{
+ const {page}=await screen({stored:true});try{
+ await open(page);await page.evaluate(()=>window.failure='network');await confirm(page)
+ await page.getByRole('button',{name:'같은 원문으로 다시 확인'}).waitFor()
+ await page.evaluate(()=>{window.failure=null;window.active={...window.active,status:'SUCCEEDED',quizId:1,revisionId:100}})
+ await page.getByRole('button',{name:'같은 원문으로 다시 확인'}).click()
+ await page.getByRole('button',{name:'검토하기',exact:true}).waitFor({timeout:2000})
+ assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('cking.creatorQuizJobs.v1.10')).generation),null)
+ assert.equal(await page.evaluate(()=>window.completed.length),1)
+ }finally{await page.close()}
+})
+test('종료된 로컬 작업이 있어도 생성 409 후 다른 서버 작업을 복구한다',async()=>{
+ const {page}=await screen({stored:true,active:{...initial,status:'FAILED',failureCode:'PROVIDER_ERROR'}});try{
+ await page.getByText('생성 실패',{exact:false}).waitFor()
+ await page.evaluate(initial=>{const original=window.fetch;window.fetch=async(url,options={})=>{
+ if(new URL(url).pathname.endsWith('/generations')&&options.method==='POST'){
+ window.calls.push({path:'/api/creator/quizzes/generations',method:'POST'});window.active={...initial,generationId:43,title:'다른 기기의 작업',content:{...initial.content,aiContentText:'작업 B의 원문'}}
+ return new Response(JSON.stringify({code:'QUIZ_GENERATION_IN_PROGRESS'}),{status:409})
+ }return original(url,options)
+ }},initial)
+ await createNew(page);await page.getByRole('button',{name:'원문 검토하기',exact:true}).waitFor({timeout:2000})
+ await open(page)
+ assert.equal(await page.getByRole('textbox',{name:'검토 원문'}).inputValue(),'작업 B의 원문')
+ assert.ok(await page.evaluate(()=>window.calls.some(c=>c.path.endsWith('/current'))))
+ assert.equal(await page.evaluate(()=>window.active.generationId),43)
+ }finally{await page.close()}
 })

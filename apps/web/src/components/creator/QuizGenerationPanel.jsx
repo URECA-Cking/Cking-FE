@@ -123,21 +123,38 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
     return changed
   }, [storage, creatorId])
 
-  const recoverCurrent = useCallback(async () => {
+  const completeGeneration = useCallback(async (latest, requestId) => {
+    if (!alive.current || generationRef.current !== latest.generationId) return
+    if (requestId !== null && !(await update(withGenerationIf(requestId, null), true)).applied) return
+    if (!alive.current || (generationRef.current !== null && generationRef.current !== latest.generationId)) return
+    clearDraft(latest.generationId)
+    setReviewJob(null)
+    setRecovered(null)
+    setSucceeded(latest)
+    showToast('Quiz를 만들었어요. 문항을 검토해 주세요.')
+    onSucceededRef.current?.(latest)
+  }, [update, clearDraft, showToast])
+
+  const recoverCurrent = useCallback(async (terminalRequest = null) => {
+    const before = storedRef.current
     setRecovering(true)
     try {
       const active = await getCurrentQuizGeneration()
       if (!alive.current) return
       setRecoveryError(null)
       // 저장된 요청이 생겼다면 응답으로 다른 작업을 덮어쓰지 않는다.
-      if (storedRef.current?.generationId != null) return
+      const latestStored = storedRef.current
+      if (latestStored?.generationId != null) {
+        if (!terminalRequest || latestStored.requestId !== terminalRequest.requestId || latestStored.generationId !== terminalRequest.generationId) return
+        if (!(await update(withGenerationIf(terminalRequest.requestId, null), true)).applied || storedRef.current !== null) return
+      } else if (latestStored?.requestId !== before?.requestId) return
       if (Number.isSafeInteger(active?.generationId) && isActiveJob(active)) {
         setRecovered(active); setJob(active); setPolls(0); setPollFailures(0)
       }
     } catch (error) {
       if (alive.current) setRecoveryError(creatorQuizErrorMessage(error, '진행 중인 작업을 확인하지 못했어요.'))
     } finally { if (alive.current) setRecovering(false) }
-  }, [])
+  }, [update])
   useEffect(() => {
     if (storedRef.current === null) recoverCurrent()
   }, [recoverCurrent])
@@ -172,13 +189,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
         setJob(latest)
         if (!isActiveJob(latest)) clearDraft(generationId)
         if (latest.status === 'SUCCEEDED') {
-          // 완료된 작업은 저장값에서 지우고, 만든 Quiz는 목록과 검토 화면에서 이어서 본다.
-          if (storedRequestId !== null && !(await update(withGenerationIf(storedRequestId, null), true)).applied) return
-          if (!alive.current || (generationRef.current !== null && generationRef.current !== generationId)) return
-          setRecovered(null)
-          setSucceeded(latest)
-          showToast('Quiz를 만들었어요. 문항을 검토해 주세요.')
-          onSucceededRef.current?.(latest)
+          await completeGeneration(latest, storedRequestId)
         }
       } catch (error) {
         if (cancelled) return
@@ -199,7 +210,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [tracking, pollStopped, generationId, storedRequestId, currentJob, polls, storage, creatorId, showToast, update, clearDraft])
+  }, [tracking, pollStopped, generationId, storedRequestId, currentJob, polls, storage, creatorId, showToast, update, clearDraft, completeGeneration])
 
   function openForm(input) {
     setForm(input ?? stored?.input ?? EMPTY_FORM)
@@ -208,7 +219,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
   }
 
   async function submit(source) {
-    if (submitInFlight.current || (recovered && isActiveJob(recovered))) return
+    if (submitInFlight.current || (recovered && (currentJob === null || isActiveJob(currentJob)))) return
     const input = generationInput(source)
     const invalid = validateGenerationInput(input)
     if (invalid) {
@@ -267,7 +278,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
     } catch (error) {
       if (error?.code === 'QUIZ_GENERATION_IN_PROGRESS') {
         await update(withGenerationPostFailure(request.requestId, postId, error, replaying ? null : previous), true)
-        await recoverCurrent()
+        await recoverCurrent(previous?.generationId === job?.generationId && job && !isActiveJob(job) ? previous : null)
         setFormOpen(false)
         return
       }
@@ -313,9 +324,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
     if (!isAwaitingContentReview(latest)) {
       clearDraft(id); setReviewJob(null)
       if (latest.status === 'SUCCEEDED') {
-        if (storedRequestId !== null) await update(withGenerationIf(storedRequestId, null), true)
-        if (!alive.current || (generationRef.current !== null && generationRef.current !== id)) return
-        setRecovered(null); setSucceeded(latest); onSucceededRef.current?.(latest)
+        await completeGeneration(latest, storedRequestId)
       }
     }
   }
@@ -336,16 +345,17 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
       if (alive.current) setRecoveryError(creatorQuizErrorMessage(error, '원문을 불러오지 못했어요.'))
     } finally { reviewInFlight.current = false; if (alive.current) setReviewBusy(false) }
   }
-  function acceptReviewResult(result, expectedId) {
+  async function acceptReviewResult(result, expectedId) {
     if (!alive.current || generationRef.current !== expectedId || result?.generationId !== expectedId) return
     clearDraft(expectedId)
     setReviewJob(null); setJob(result); setPolls(0); setPollFailures(0)
+    if (result.status === 'SUCCEEDED') await completeGeneration(result, storedRequestId)
   }
   async function cancelReviewCard() {
     if (reviewInFlight.current) return
     const id = generationId
     reviewInFlight.current = true; setReviewBusy(true)
-    try { acceptReviewResult(await cancelQuizGeneration(id), id) }
+    try { await acceptReviewResult(await cancelQuizGeneration(id), id) }
     catch (error) {
       if (!alive.current || generationRef.current !== id) return
       if ([403,404].includes(error?.status)) { clearDraft(id); setRecovered(null); setReviewJob(null); if(storedRequestId) await update(withGenerationIf(storedRequestId,null),true) }

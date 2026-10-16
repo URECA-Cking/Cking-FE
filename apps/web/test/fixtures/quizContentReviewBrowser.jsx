@@ -4,4 +4,5 @@ import QuizGenerationPanel from '../../src/components/creator/QuizGenerationPane
 import ToastContext from '../../src/context/toastContext.js'
 const root = createRoot(document.getElementById('root'))
 let session = 0
-window.renderQuiz = () => root.render(<ToastContext.Provider value={() => {}}><QuizGenerationPanel key={++session} creatorId={10} /></ToastContext.Provider>)
+window.completed = []
+window.renderQuiz = () => root.render(<ToastContext.Provider value={() => {}}><QuizGenerationPanel key={++session} creatorId={10} onSucceeded={job => window.completed.push(job)} /></ToastContext.Provider>)

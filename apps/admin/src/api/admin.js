@@ -373,3 +373,18 @@ export async function getSpaceCommentBlocks({ creatorId, memberId, activeOnly = 
 export async function releaseSpaceCommentBlock(sanctionId) {
   return post(`/api/admin/comment-blocks/${sanctionId}/release`)
 }
+
+/** 회원에게 모든 스페이스에서 댓글 작성·수정을 지금부터 days일(1~365) 막는다. 사유(1~200자)는 필수이고 경고 횟수에는 세지 않는다. 이미 제한 중이어도 새 제한을 따로 기록하며 201과 제재를 돌려준다. */
+export async function createPlatformSanction({ memberId, days, reason }) {
+  return post('/api/admin/sanctions', { memberId, days, reason })
+}
+
+/** 플랫폼 제재(자동 경고·관리자 수동 제한)를 시작 최신순으로 조회한다. 스페이스 차단은 포함하지 않는다. memberId로 좁히고, activeOnly면 지금 유효한 제한만 본다. */
+export async function getPlatformSanctions({ memberId, activeOnly = false, page = 0, size = 20 } = {}) {
+  return get('/api/admin/sanctions', { memberId, active: activeOnly, page, size })
+}
+
+/** 플랫폼 제한을 지금 해제한다. 이미 끝났거나 해제된 제한도 성공(멱등)하고, 스페이스 차단은 404다. 자동 경고는 해제해도 경고 횟수에 남는다. */
+export async function releasePlatformSanction(sanctionId) {
+  return post(`/api/admin/sanctions/${sanctionId}/release`)
+}

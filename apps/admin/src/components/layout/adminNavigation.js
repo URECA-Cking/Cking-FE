@@ -25,8 +25,8 @@ export const ADMIN_NAVIGATION = [
     items: [
       { label: '이상행위 탐지', icon: 'policy', to: '/admin/abuse-detections', matches: (location) => /^\/admin\/abuse-detections(?:\/|$)/.test(location.pathname) },
       { label: '구독 인증 재사용', icon: 'image_search', to: '/admin/subscription-verifications/image-reuse', matches: (location) => location.pathname === '/admin/subscription-verifications/image-reuse' },
-      { label: '댓글 신고', icon: 'flag', to: '/admin/comment-reports', matches: (location) => location.pathname === '/admin/comment-reports' },
-      { label: '스페이스 차단 관리', icon: 'block', to: '/admin/space-comment-blocks', matches: (location) => location.pathname === '/admin/space-comment-blocks' },
+      { label: '신고 관리', icon: 'flag', to: '/admin/comment-reports', matches: (location) => location.pathname === '/admin/comment-reports' },
+      { label: '제재 관리', icon: 'block', to: '/admin/space-comment-blocks', matches: (location) => location.pathname === '/admin/space-comment-blocks' },
       { label: 'Dead Stream', icon: 'warning', to: '/admin/dead-streams', matches: (location) => location.pathname === '/admin/dead-streams' },
       { label: '응모권 관리', icon: 'confirmation_number', to: '/admin/tickets', matches: (location) => location.pathname === '/admin/tickets' },
     ],

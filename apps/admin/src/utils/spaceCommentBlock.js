@@ -1,7 +1,6 @@
 // 관리자의 댓글 삭제·스페이스 댓글 차단 화면의 표시·입력 규칙(Cking-BE docs/domains/sanction/api.md '관리자 스페이스 댓글 차단 API',
 // docs/domains/post/comment-api.md 'DELETE /api/admin/comments/{commentId}', 이슈 #584).
 // 허용 여부는 BE가 최종 판단하고, 이 파일은 화면에서 먼저 안내하는 용도다.
-import { formatDateTime } from './format.js'
 
 export const BLOCK_DAYS_MIN = 1
 export const BLOCK_DAYS_MAX = 365
@@ -97,10 +96,4 @@ export function releaseConfirm(block) {
     confirmLabel: '해제하기',
     confirmTone: 'bg-slate-700 hover:bg-slate-800',
   }
-}
-
-/** 차단 완료 안내. 이미 유효한 차단이 있으면 기존 차단이 돌아오므로 돌려받은 종료 시각 기준으로 알린다. */
-export function blockSuccessMessage(block) {
-  const target = block?.memberName ?? `회원 #${block?.memberId}`
-  return `${target}을(를) ${formatDateTime(ceilToMinute(new Date(block.endsAt)).toISOString())}까지 차단했어요.`
 }

@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import ConfirmModal from '../../components/ConfirmModal.jsx'
+import Pagination from '../../components/Pagination.jsx'
 import { AdminPageHeader, DetailInfoRows } from '../../components/AdminContent.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
@@ -204,8 +205,4 @@ function TypeBadge({ type }) {
 function StatusBadge({ status }) {
   const meta = ABUSE_STATUS_META[status] ?? { label: abuseStatusLabel(status), tone: 'bg-slate-100 text-slate-700' }
   return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${meta.tone}`}>{meta.label}</span>
-}
-
-function Pagination({ page, hasNext, totalElements, onPrevious, onNext }) {
-  return <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3"><p className="text-sm text-slate-500">{totalElements == null ? `페이지 ${page + 1}` : `총 ${totalElements}건 · ${page + 1}페이지`}</p><div className="flex gap-2"><button type="button" disabled={page === 0} onClick={onPrevious} className="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 disabled:opacity-40">이전</button><button type="button" disabled={!hasNext} onClick={onNext} className="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 disabled:opacity-40">다음</button></div></div>
 }

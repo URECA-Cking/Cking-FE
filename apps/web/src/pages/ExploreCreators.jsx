@@ -63,7 +63,7 @@ export default function ExploreCreators() {
       </div>
       <CreatorFilterChips value={filter} onChange={(next) => change({ filter: next })} followedCount={followedCreators.length} />
 
-      <div className="px-margin flex flex-col gap-2.5">
+      <div className="px-margin flex flex-col">
         {directory.loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}
         {!directory.loading && directory.error && <ErrorBlock message={directory.error} onRetry={directory.reload} />}
         {!directory.loading && !directory.error && creators.length === 0 && (
@@ -76,6 +76,11 @@ export default function ExploreCreators() {
           <CreatorRow
             key={creator.creatorId}
             creator={creator}
+            variant="flat"
+            highlight={creator.openEventCount > 0}
+            meta={creator.openEventCount > 0 && (
+              <span className="self-start px-2 py-0.5 rounded border border-primary text-primary font-label-xs text-label-xs">진행 중 {creator.openEventCount}</span>
+            )}
             followed={isFollowing(creator.creatorId)}
             disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
             onToggle={handleToggleFollow}

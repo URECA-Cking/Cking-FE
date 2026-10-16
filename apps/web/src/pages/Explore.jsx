@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
-import CreatorBanner from '../components/creator/CreatorBanner.jsx'
+import CreatorRow from '../components/creator/CreatorRow.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
@@ -15,12 +15,12 @@ import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
-import { filterExploreCreators, resetCreatorCarousel, sortExploreCreators } from '../utils/exploreCreatorSection.js'
+import { filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
 import { describeError } from '../api/client.js'
 import { spacePath } from '../api/creatorSpace.js'
 
-// 캐러셀에는 앞 10명만 담고, 그 뒤는 '전체 보기' 카드로 전체 크리에이터 화면에 넘긴다.
-const CREATOR_PREVIEW = 10
+// 목록에는 앞 7명만 보여주고, 그 뒤는 '전체' 버튼으로 전체 크리에이터 화면에 넘긴다.
+const CREATOR_PREVIEW = 7
 // 이벤트는 5개씩 늘려 가며 다시 받는다. BE 페이지 상한(100)을 넘기면 더 받을 수 없다.
 // 진행 중 이벤트가 많은 크리에이터는 3위까지 먼저 보이고 '더 보기'로 5위까지 펼친다.
 const TRENDING_PREVIEW = 3
@@ -43,7 +43,6 @@ const EVENT_FILTERS = [
  */
 export default function Explore() {
   const pageRef = useRef(null)
-  const creatorCarouselRef = useRef(null)
   const showToast = useToast()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
@@ -119,56 +118,17 @@ export default function Explore() {
 
   function changeCreatorFilter(nextFilter) {
     setCreatorFilter(nextFilter)
-    resetCreatorCarousel(creatorCarouselRef.current)
   }
 
-  // 추천 섹션과 전체 목록이 같은 카드를 쓴다. 추천 카드만 노출·클릭 수집용 ref/onClick을 받는다.
-  function renderCreatorCard(creator, { impressionRef, onOpen } = {}) {
-    const followed = isFollowing(creator.creatorId)
+  // 진행 중 뱃지와 응모권 잔액은 이름 아래에 작게 보여 준다. 잔액은 화면에 보이는 행만 조회한다.
+  function renderCreatorMeta(creator) {
+    const balance = balances.get(creator.creatorId)
     return (
-      <div
-        key={creator.creatorId}
-        data-balance-creator-id={creator.creatorId}
-        ref={impressionRef?.(creator.creatorId)}
-        className="min-w-[260px] max-w-[260px] md:min-w-0 md:max-w-none snap-center rounded-2xl bg-surface-container-lowest p-3 shadow-card flex flex-col"
-      >
-        <Link to={spacePath(creator.handle)} onClick={onOpen ? () => onOpen(creator.creatorId) : undefined} className="block">
-          <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
-            <CreatorBanner src={creator.banner} profileSrc={creator.avatar} />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
-            {creator.openEventCount > 0 && (
-              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-xs text-label-xs font-semibold flex items-center gap-1">
-                <MaterialIcon name="stars" filled className="text-[12px]" />
-                진행 중 {creator.openEventCount}
-              </span>
-            )}
-            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white">
-              <span className="font-label-xs text-label-xs bg-black/40 px-2 py-0.5 rounded-md backdrop-blur-sm">
-                🎟 {balances.has(creator.creatorId)
-                  ? `${formatNumber(balances.get(creator.creatorId).balance)}장`
-                  : failedIds.has(creator.creatorId) ? '조회 실패' : '조회 중'}
-              </span>
-            </div>
-          </div>
-          <div className="mb-1.5">
-            <div className="flex items-center gap-1">
-              <h3 className="font-title-md text-title-md text-on-surface truncate">{creator.name}</h3>
-              <MaterialIcon name="verified" filled className="text-[16px] text-primary" />
-            </div>
-          </div>
-          <p className="font-body-sm text-body-sm text-outline line-clamp-1 mb-3">{creator.bio}</p>
-        </Link>
-        <button
-          type="button"
-          onClick={() => handleToggleFollow(creator)}
-          disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
-          className={`mt-auto w-full h-9 rounded-xl font-label-md text-label-md flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-60 ${
-            followed ? 'bg-primary text-on-primary' : 'bg-berry-tint text-primary'
-          }`}
-        >
-          <MaterialIcon name="favorite" filled={followed} className="text-[18px]" />
-          <span>{followed ? '관심 중' : '관심 추가'}</span>
-        </button>
+      <div className="flex items-center gap-2 font-label-xs text-label-xs text-outline">
+        {creator.openEventCount > 0 && (
+          <span className="px-2 py-0.5 rounded border border-primary text-primary">진행 중 {creator.openEventCount}</span>
+        )}
+        <span>🎟 {balance ? `${formatNumber(balance.balance)}장` : failedIds.has(creator.creatorId) ? '조회 실패' : '조회 중'}</span>
       </div>
     )
   }
@@ -252,7 +212,7 @@ export default function Explore() {
             <MaterialIcon name="groups" className="text-[20px] text-primary" />
             <h2 className="font-title-md text-title-md font-bold text-on-surface">크리에이터</h2>
           </div>
-          <CreatorSortMenu value={creatorSort} onChange={(next) => { setCreatorSort(next); resetCreatorCarousel(creatorCarouselRef.current) }} />
+          <CreatorSortMenu value={creatorSort} onChange={setCreatorSort} />
         </div>
         <CreatorFilterChips value={creatorFilter} onChange={changeCreatorFilter} followedCount={followedCreators.length} />
         {directory.loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}
@@ -274,16 +234,27 @@ export default function Explore() {
             : <EmptyBlock icon="person_search" message={creatorFilter === '진행 중' ? '지금 진행 중인 이벤트가 있는 크리에이터가 없어요.' : '조건에 맞는 크리에이터가 없어요.'} />
         )}
         {!directory.loading && !directory.error && filteredCreators.length > 0 && (
-          <div ref={creatorCarouselRef} className="flex overflow-x-auto md:grid md:grid-cols-2 xl:grid-cols-3 md:overflow-visible gap-space-md px-margin no-scrollbar snap-x snap-mandatory pt-1 pb-3">
-            {shownCreators.map((creator) => renderCreatorCard(creator))}
+          <div className="px-margin flex flex-col">
+            {shownCreators.map((creator) => (
+              <CreatorRow
+                key={creator.creatorId}
+                creator={creator}
+                variant="flat"
+                highlight={creator.openEventCount > 0}
+                meta={renderCreatorMeta(creator)}
+                trackBalance
+                followed={isFollowing(creator.creatorId)}
+                disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
+                onToggle={handleToggleFollow}
+              />
+            ))}
             {filteredCreators.length > shownCreators.length && (
               <Link
                 to={`/explore/creators?filter=${encodeURIComponent(creatorFilter)}&sort=${creatorSort}`}
                 aria-label="전체 크리에이터 보기"
-                className="self-center shrink-0 snap-center rounded-2xl bg-surface-container-low px-3 py-2.5 text-primary font-label-sm text-label-sm flex flex-col items-center gap-0.5 active:scale-95 transition-all"
+                className="self-center mt-2 h-[34px] px-5 rounded-full bg-surface-container-low text-primary font-label-md text-label-md flex items-center active:scale-95 transition-all"
               >
-                <MaterialIcon name="grid_view" className="text-[20px]" />
-                <span className="whitespace-nowrap">전체</span>
+                전체
               </Link>
             )}
           </div>

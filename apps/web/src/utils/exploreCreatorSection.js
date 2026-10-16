@@ -33,8 +33,3 @@ export function filterExploreCreators(creators, followedCreatorIds, filter, quer
     return matchesFilter && matchesQuery
   })
 }
-
-/** CSS 가로 스크롤 캐러셀을 새 필터 목록의 첫 카드로 되돌린다. */
-export function resetCreatorCarousel(container) {
-  container?.scrollTo?.({ left: 0, behavior: 'auto' })
-}

@@ -21,11 +21,11 @@ import { spacePath } from '../api/creatorSpace.js'
 
 // 캐러셀에는 앞 10명만 담고, 그 뒤는 '전체 보기' 카드로 전체 크리에이터 화면에 넘긴다.
 const CREATOR_PREVIEW = 10
-// 이벤트는 10개씩 늘려 가며 다시 받는다. BE 페이지 상한(100)을 넘기면 더 받을 수 없다.
+// 이벤트는 5개씩 늘려 가며 다시 받는다. BE 페이지 상한(100)을 넘기면 더 받을 수 없다.
 // 진행 중 이벤트가 많은 크리에이터는 3위까지 먼저 보이고 '더 보기'로 5위까지 펼친다.
 const TRENDING_PREVIEW = 3
 const TRENDING_MAX = 5
-const EVENT_PAGE_SIZE = 10
+const EVENT_PAGE_SIZE = 5
 const EVENT_MAX_SIZE = 100
 
 const EVENT_FILTERS = [
@@ -365,12 +365,12 @@ export default function Explore() {
           <EmptyBlock icon="event_busy" message="이 조건에 해당하는 이벤트가 없어요." />
         )}
         {!eventList.error && events.length > 0 && (
-          <div className="px-margin grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
+          <div className="px-margin grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
             {events.map((event) => (
               <EventCard
                 key={event.eventId}
                 event={event}
-                variant="list"
+                variant="compact"
                 showCreatorTag
               />
             ))}

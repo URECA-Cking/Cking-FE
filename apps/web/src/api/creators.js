@@ -22,9 +22,10 @@ const CREATOR_CATALOG_TTL_MS = 60_000;
 /**
  * 공개 Creator 목록의 모든 페이지를 읽는다. 첫 페이지의 totalPages로 나머지를 한 번에 병렬 요청하고,
  * 진행 중인 요청은 공유하며 성공한 결과는 CREATOR_CATALOG_TTL_MS 동안 재사용한다.
+ * force이면 재사용하지 않고 새로 받는다(방금 생긴 크리에이터가 목록에 없어 다시 받아야 할 때).
  */
-export function getCreatorCatalog() {
-  if (creatorCatalogPromise && Date.now() - creatorCatalogLoadedAt < CREATOR_CATALOG_TTL_MS) {
+export function getCreatorCatalog({ force = false } = {}) {
+  if (!force && creatorCatalogPromise && Date.now() - creatorCatalogLoadedAt < CREATOR_CATALOG_TTL_MS) {
     return creatorCatalogPromise;
   }
   const request = (async () => {

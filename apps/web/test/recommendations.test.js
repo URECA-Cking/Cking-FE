@@ -108,3 +108,30 @@ test('추천은 성공했어도 프로필 목록이 실패하면 빈 추천이 �
   assert.equal(await read(page, 'error'), '')
   await page.close()
 })
+
+test('추천은 있는데 프로필 목록에서 하나도 찾지 못하면 빈 추천이 아니라 오류로 보이고, 다시 시도하면 목록을 새로 받아 추천이 나온다', async () => {
+  const page = await screen()
+  // 캐시된 목록에는 새로 생긴 크리에이터(7, 8)가 없다. 다시 시도에서 받은 목록에는 있다.
+  const fresh = { ...catalog, data: { ...catalog.data, items: [...CATALOG, ...[7, 8].map((id) => ({ creatorId: id, creatorName: `신규${id}`, slug: `n${id}`, introText: '', profileImageUrl: null, bannerImageUrl: null }))] } }
+  await enqueue(page, 'recommendation', recommendation('rid-A', 7, 8))
+  await enqueue(page, 'catalog', catalog, fresh)
+  await page.evaluate(() => window.renderRecommendations(1))
+  await page.waitForFunction(() => document.querySelector('[data-testid="error"]')?.textContent !== '')
+  assert.equal(await read(page, 'items'), '')
+  assert.equal(await read(page, 'loading'), 'false')
+
+  await page.evaluate(() => window.reloadRecommendations())
+  await waitText(page, 'items', '신규7,신규8')
+  assert.equal(await read(page, 'error'), '')
+  await page.close()
+})
+
+test('추천 일부만 프로필 목록에 없으면 찾은 항목만 보여 주고 오류로 보지 않는다', async () => {
+  const page = await screen()
+  await enqueue(page, 'recommendation', recommendation('rid-A', 1, 7))
+  await enqueue(page, 'catalog', catalog)
+  await page.evaluate(() => window.renderRecommendations(1))
+  await waitText(page, 'items', '크리가')
+  assert.equal(await read(page, 'error'), '')
+  await page.close()
+})

@@ -21,15 +21,16 @@ import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorSpace } from '../api/creators.js'
 import { getCreatorSpace, getMySpace, spacePath, spaceShareUrl } from '../api/creatorSpace.js'
 import { getCreatorPosts } from '../api/posts.js'
-import { getCreatorMissions } from '../api/missions.js'
+import { completeShareMission, getCreatorMissions } from '../api/missions.js'
 import { getCreatorYoutubeChannel } from '../api/subscriptionVerification.js'
 import { getTicketBalance } from '../api/tickets.js'
-import { ApiError, describeError } from '../api/client.js'
+import { ApiError, describeError, newRequestId } from '../api/client.js'
 import { formatNumber } from '../utils/format.js'
 import FollowStatus from '../components/creator/FollowStatus.jsx'
 import YoutubeChannelSheet from '../components/creator/YoutubeChannelSheet.jsx'
 import YoutubeSubscriptionMissionCard from '../components/creator/YoutubeSubscriptionMissionCard.jsx'
 import { isYoutubeChannelForCreator } from '../utils/subscriptionVerificationState.js'
+import { canRequestShareReward, requestShareReward } from '../utils/shareMission.js'
 
 // 탭은 항상 노출하고, 내용이 없으면 EMPTY_TAB_MESSAGE를 보여준다(Cking-BE #290).
 // 순서: 응모권을 모으는 미션과 응모하는 이벤트를 앞에, 캘린더 일정(추첨 이벤트와 별개)과 게시물을 뒤에 둔다.
@@ -83,7 +84,7 @@ function ProfileIntro({ text }) {
  *
  * 경로: /:slug(인스타식 주소, 로그인 없이 열람 가능), 예전 경로 /space/:slug·/creators/:creatorId도 유지
  * 공개 데이터: 프로필(GET /api/creators/{id}/space, GET /api/creator-spaces/{slug}), 이벤트(GET /api/events?creatorId=), 캘린더.
- * 로그인 사용자만: 응모권 잔액(GET /api/creators/{id}/tickets)·내역, LIKE·YouTube 구독 인증 미션 참여(SHARE는 공유 UI 연동 전까지 숨긴다),
+ * 로그인 사용자만: 응모권 잔액(GET /api/creators/{id}/tickets)·내역, LIKE·SHARE(공유 완료, 본인 Space 제외)·YouTube 구독 인증 미션 참여,
  * 관심 등록, 본인 편집. 비로그인이면 이 영역에 로그인 안내를 보여준다.
  * 캘린더 탭·홈의 다가오는 일정은 GET /api/creators/{id}/calendar/schedules(추첨 이벤트와 별개인 크리에이터 일정)를 쓴다.
  * 게시물 탭은 공개 Post API로 조회하며 팔로워 공개 게시글은 권한에 따라 잠금 상태로 표시한다.
@@ -123,6 +124,9 @@ export default function CreatorSpace() {
   const [balanceRechecking, setBalanceRechecking] = useState(false)
   const followerRefreshSeq = useRef(0)
   const balanceSyncSeq = useRef(0)
+  // 공유 보상 요청: 승인 여부를 모르는 실패 뒤 재시도가 같은 requestId를 쓰도록 보관하고, 진행 중에는 다시 보내지 않는다.
+  const sharePending = useRef(null)
+  const shareRewarding = useRef(false)
   const [editOpen, setEditOpen] = useState(false)
   const [youtubeChannelSettingsOpen, setYoutubeChannelSettingsOpen] = useState(false)
 
@@ -145,6 +149,7 @@ export default function CreatorSpace() {
     [creatorId, authenticated],
     { enabled: authenticated && creatorId !== null, fallbackMessage: '오늘의 미션을 불러오지 못했어요.' },
   )
+  const [shareRewardBusy, setShareRewardBusy] = useState(false)
   // 채널이 없는 Creator는 구독 인증 미션을 팬 화면에 노출하지 않는다. 공개 Space에서도 같은 API를 쓸 수 있다.
   const youtubeChannel = useAsync(
     async () => {
@@ -166,6 +171,7 @@ export default function CreatorSpace() {
   )
   const ticketBalance = balance.data?.balance ?? 0
   const likeMissions = useMemo(() => (missions ?? []).filter((mission) => mission.type === 'LIKE'), [missions])
+  const shareMission = useMemo(() => (missions ?? []).find((mission) => mission.type === 'SHARE') ?? null, [missions])
   const youtubeSubscriptionMission = useMemo(
     () => (missions ?? []).find((mission) => mission.type === 'YOUTUBE_SUBSCRIPTION') ?? null,
     [missions],
@@ -186,6 +192,9 @@ export default function CreatorSpace() {
   const isMine = creatorId !== null && mySpace.data?.creatorId === creatorId
   // 내 게시글의 좋아요는 보상 대상이 아니므로(BE가 자기 Space의 좋아요 미션 보상을 주지 않는다) 내 Space에서는 좋아요 미션을 숨긴다.
   const shownLikeMissions = isMine ? [] : likeMissions
+  // BE는 본인 Space 공유도 막지 않으므로 FE가 구분한다. 크리에이터는 내 Space 조회가 끝나야 본인 여부를 알 수 있다.
+  const ownershipKnown = !isCreator || Boolean(mySpace.data)
+  const shownShareMission = isMine || !ownershipKnown ? null : shareMission
 
   const events = useMemo(() => creator?.events ?? [], [creator])
   const liveEvents = useMemo(
@@ -198,6 +207,12 @@ export default function CreatorSpace() {
   // 다른 Creator로 이동하거나 화면을 떠나면 진행 중인 잔액 확인을 멈춘다.
   useEffect(() => () => {
     balanceSyncSeq.current += 1
+  }, [creatorId])
+
+  // 공유 보상 응답이 늦게 도착했을 때 지금 보는 Creator와 같은지 확인하기 위한 값이다.
+  const viewedCreatorId = useRef(null)
+  useEffect(() => {
+    viewedCreatorId.current = creatorId
   }, [creatorId])
 
   // 탭 제목을 인스타처럼 "이름 (@slug) • Cking"으로 보여주고, 떠날 때 원래 제목으로 되돌린다.
@@ -281,19 +296,68 @@ export default function CreatorSpace() {
     }
   }
 
+  /**
+   * 공유가 끝났을 때(공유 시트 완료 또는 링크 복사) SHARE 미션 보상을 요청한다. 서버는 실제 공유 여부를 검증하지 않는다.
+   * 이미 받았거나 본인 Space이거나 비로그인이면 요청하지 않는다. 승인 여부를 모르는 실패는 다음 공유에서 같은 requestId로 재시도한다.
+   */
+  async function rewardShare(copied) {
+    if (shareRewarding.current) return
+    if (!canRequestShareReward({ authenticated, isMine, ownershipKnown, mission: shareMission })) {
+      if (copied) showToast('공유 링크를 복사했어요.')
+      return
+    }
+    const targetId = creator.creatorId
+    shareRewarding.current = true
+    setShareRewardBusy(true)
+    try {
+      const result = await requestShareReward({
+        pending: sharePending,
+        creatorId: targetId,
+        complete: completeShareMission,
+        newId: newRequestId,
+      })
+      // 요청 중에 다른 Creator로 이동했으면 이 결과를 화면에 반영하지 않는다.
+      if (viewedCreatorId.current !== targetId) return
+      if (result.status === 'failed') {
+        if (copied) showToast('공유 링크를 복사했어요.')
+        showToast(describeError(result.error, '공유 미션 보상을 받지 못했어요. 다시 공유해 주세요.'), { icon: 'error' })
+        return
+      }
+      setMissions((current) => (current ?? []).map((item) => (item.type === 'SHARE' ? { ...item, completedToday: true } : item)))
+      if (result.status === 'done') {
+        // 재전송(ALREADY_PROCESSED)이나 이미 받은 경우(DUPLICATE_MISSION)는 이번 호출로 늘어난 잔액이 없을 수 있어
+        // "보상액만큼 늘어날 때까지"를 기다리지 않고 현재 잔액만 한 번 다시 읽는다.
+        if (copied) showToast('공유 링크를 복사했어요.')
+        balance.reload()
+        refreshMyTickets()
+        return
+      }
+      const reward = result.rewardAmount ?? shareMission?.rewardAmount
+      showToast(reward ? `공유 미션 완료! 응모권 ${reward}장을 적립하고 있어요.` : '공유 미션 완료! 응모권을 적립하고 있어요.')
+      const before = balance.data?.creatorId === targetId ? balance.data.balance : undefined
+      syncBalanceAfterEarn(targetId, before, reward)
+      refreshMyTickets()
+    } finally {
+      shareRewarding.current = false
+      setShareRewardBusy(false)
+    }
+  }
+
   async function handleShare() {
     const url = spaceShareUrl(creator.slug)
     try {
       if (navigator.share) {
         await navigator.share({ title: `${creator.creatorName} | Cking`, url })
+        await rewardShare(false)
         return
       }
       await navigator.clipboard.writeText(url)
-      showToast('공유 링크를 복사했어요.')
     } catch (shareError) {
-      // 사용자가 공유 시트를 닫은 경우(AbortError)는 알림을 띄우지 않는다.
+      // 사용자가 공유 시트를 닫은 경우(AbortError)는 알림도 보상도 없다.
       if (shareError?.name !== 'AbortError') showToast('공유할 수 없는 환경이에요.', { icon: 'error' })
+      return
     }
+    await rewardShare(true)
   }
 
   /**
@@ -440,7 +504,7 @@ export default function CreatorSpace() {
     </div>
   )
 
-  // SHARE는 공유 행동 검증 UI가 연결되기 전까지 숨긴다. YouTube 구독 인증은 채널이 설정된 경우에만 별도로 노출한다.
+  // SHARE는 본인 Space에서는 숨기고(BE가 막지 않아 FE가 구분), YouTube 구독 인증은 채널이 설정된 경우에만 별도로 노출한다.
   const missionList = sessionLoading ? <LoadingBlock label="로그인 상태를 확인하는 중..." /> : anonymous ? loginPrompt('로그인하면 미션에 참여하고 응모권을 모을 수 있어요.') : (
     <>
       {missionsLoading && <LoadingBlock label="오늘의 미션을 불러오는 중..." />}
@@ -469,6 +533,27 @@ export default function CreatorSpace() {
           </div>
         )
       })}
+      {!missionsLoading && !missionsError && shownShareMission && (
+        <div className="flex items-center justify-between gap-3 p-space-md rounded-xl bg-surface-container-lowest shadow-card">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface-container-high text-primary">
+              <MaterialIcon name="share" filled className="text-[22px]" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="font-label-md text-label-md text-on-surface font-semibold">공유 미션</span>
+              <span className="text-secondary font-label-xs text-label-xs">🎟 응모권 +{shownShareMission.rewardAmount} · 한 번만 받을 수 있어요</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={shownShareMission.completedToday || shareRewardBusy}
+            onClick={handleShare}
+            className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 ${shownShareMission.completedToday ? 'bg-surface-container-high text-outline' : 'bg-berry-tint text-primary'}`}
+          >
+            {shownShareMission.completedToday ? '완료' : shareRewardBusy ? '처리 중...' : '공유하기'}
+          </button>
+        </div>
+      )}
       {!missionsLoading && !missionsError && youtubeSubscriptionMission && youtubeChannel.loading && (
         <LoadingBlock label="YouTube 인증 채널을 확인하는 중..." />
       )}
@@ -484,7 +569,7 @@ export default function CreatorSpace() {
           onRewarded={balance.reload}
         />
       )}
-      {!missionsLoading && !missionsError && shownLikeMissions.length === 0 && !youtubeSubscriptionMission && (
+      {!missionsLoading && !missionsError && shownLikeMissions.length === 0 && !shownShareMission && !youtubeSubscriptionMission && (
         <EmptyBlock icon="bolt" message={EMPTY_TAB_MESSAGE} />
       )}
     </>

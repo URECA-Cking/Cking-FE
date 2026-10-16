@@ -90,7 +90,7 @@ export default function AdminSpaceCommentBlocks() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <AdminPageHeader
-        title="스페이스 차단"
+        title="스페이스 차단 관리"
         description="크리에이터와 관리자가 건 스페이스 댓글 차단을 확인하고 해제합니다. 차단은 신고된 댓글 화면에서 걸 수 있습니다."
       />
 

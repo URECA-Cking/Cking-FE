@@ -21,7 +21,8 @@ const APP_BAR_TITLES = {
   '/': { title: 'Cking' },
   '/explore': { title: '탐색', centered: true },
   // back: 홈·스페이스 등 다른 화면에서 들어오므로 뒤로 가기 버튼을 보여준다. hideBell: 이미 알림 화면이라 알림 종 아이콘은 숨긴다.
-  '/notifications': { title: '알림', back: true, hideBell: true },
+  // hideTickets: 알림은 당첨·제재 안내만 다루고 응모권 잔액과 무관하므로 응모권 개수 버튼도 숨긴다.
+  '/notifications': { title: '알림', back: true, hideBell: true, hideTickets: true },
   '/my-entries': { title: '내 응모', centered: true },
   '/my-page': { title: '마이', centered: true },
   // 마이페이지 메뉴와 헤더 응모권 버튼에서 들어온다. 이미 그 화면이라 헤더의 응모권 버튼은 숨긴다.

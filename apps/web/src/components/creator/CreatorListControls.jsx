@@ -52,11 +52,11 @@ export function CreatorSortMenu({ value, onChange }) {
                 aria-checked={value === option.id}
                 onClick={() => { onChange(option.id); setOpen(false) }}
                 className={`w-full h-10 px-3 flex items-center justify-between font-label-md text-label-md ${
-                  value === option.id ? 'text-primary font-semibold' : 'text-on-surface'
+                  value === option.id ? 'font-bold text-on-surface' : 'text-on-surface'
                 }`}
               >
                 {option.label}
-                {value === option.id && <MaterialIcon name="check" className="text-[18px]" />}
+                {value === option.id && <MaterialIcon name="check" className="text-[18px] text-primary" />}
               </button>
             ))}
           </div>

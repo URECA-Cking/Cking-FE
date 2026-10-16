@@ -15,7 +15,7 @@ import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
-import { filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
+import { creatorFilterCounts, filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
 import { describeError } from '../api/client.js'
 import { spacePath } from '../api/creatorSpace.js'
 
@@ -216,7 +216,7 @@ export default function Explore() {
           </div>
           <CreatorSortMenu value={creatorSort} onChange={setCreatorSort} />
         </div>
-        <CreatorFilterChips value={creatorFilter} onChange={changeCreatorFilter} followedCount={followedCreators.length} />
+        <CreatorFilterChips value={creatorFilter} onChange={changeCreatorFilter} counts={directory.data ? creatorFilterCounts(creators, followedCreators) : undefined} />
         {directory.loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}
         {!directory.loading && directory.error && (
           <ErrorBlock message={directory.error} onRetry={directory.reload} />

@@ -10,7 +10,7 @@ import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
 import { loadCreatorDirectory } from '../api/creators.js'
 import { describeError } from '../api/client.js'
 import { formatNumber } from '../utils/format.js'
-import { CREATOR_FILTERS, CREATOR_SORTS, filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
+import { CREATOR_FILTERS, CREATOR_SORTS, creatorFilterCounts, filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
 
 // 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
 const PAGE_SIZE = 30
@@ -61,7 +61,7 @@ export default function ExploreCreators() {
         </h2>
         <CreatorSortMenu value={sort} onChange={(next) => change({ sort: next })} />
       </div>
-      <CreatorFilterChips value={filter} onChange={(next) => change({ filter: next })} followedCount={followedCreators.length} />
+      <CreatorFilterChips value={filter} onChange={(next) => change({ filter: next })} counts={directory.data ? creatorFilterCounts(directory.data.creators, followedCreators) : undefined} />
 
       <div className="px-margin flex flex-col">
         {directory.loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}

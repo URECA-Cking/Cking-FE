@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { CREATOR_FILTERS, CREATOR_SORTS } from '../../utils/exploreCreatorSection.js'
+import { formatNumber } from '../../utils/format.js'
 
-/** 크리에이터 목록 필터 칩(전체·관심·진행 중). 탐색 크리에이터 목록과 전체 크리에이터 화면이 같이 쓴다. */
-export function CreatorFilterChips({ value, onChange, followedCount }) {
+/** 크리에이터 목록 필터 칩(전체·관심·진행 중). 탐색 크리에이터 목록과 전체 크리에이터 화면이 같이 쓴다. counts는 칩별 개수이고 아직 모르면 비운다. */
+export function CreatorFilterChips({ value, onChange, counts = {} }) {
   return (
     <div className="px-margin mb-space-sm flex items-center gap-2" aria-label="크리에이터 목록 필터">
       {CREATOR_FILTERS.map((item) => (
@@ -18,7 +19,7 @@ export function CreatorFilterChips({ value, onChange, followedCount }) {
               : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
           }`}
         >
-          {item === '관심' ? `관심 ${followedCount}` : item}
+          {counts[item] == null ? item : `${item} ${formatNumber(counts[item])}`}
         </button>
       ))}
     </div>

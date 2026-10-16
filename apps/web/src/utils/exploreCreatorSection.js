@@ -1,6 +1,18 @@
 /** 크리에이터 목록 필터 선택지. */
 export const CREATOR_FILTERS = ['전체', '관심', '진행 중']
 
+/**
+ * 필터 칩별 개수. 관심은 서버 팔로우 목록 수, 전체·진행 중은 받은 크리에이터 목록에서 센다.
+ * 진행 중은 한 번에 받은 최근 이벤트 기준이라 이벤트가 아주 많으면 실제보다 적을 수 있다.
+ */
+export function creatorFilterCounts(creators, followedCreatorIds) {
+  return {
+    전체: creators.length,
+    관심: followedCreatorIds.length,
+    '진행 중': creators.filter((creator) => creator.openEventCount > 0).length,
+  }
+}
+
 /** 정렬 선택지. 진행 중 이벤트 수는 공개 이벤트 목록에서 센 값이다. */
 export const CREATOR_SORTS = [
   { id: 'name-asc', label: '이름 오름차순' },

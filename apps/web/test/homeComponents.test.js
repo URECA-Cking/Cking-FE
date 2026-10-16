@@ -128,6 +128,9 @@ test('출석 카드는 뱃지와 7칸을 보이고, 다음 칸에도 DAY 번호�
     const labels = await page.locator('ol[aria-label="최근 7일 출석 도장"] > li > span:first-child').allTextContents()
     assert.deepEqual(labels, ['DAY 1', 'DAY 2', 'DAY 3', 'DAY 4', 'DAY 5', 'DAY 6', 'DAY 7'])
     assert.equal(await page.getByRole('button', { name: '도장 찍기' }).count(), 1)
+    // 오늘 찍을 칸(3번째)만 강조 표시(aria-current)가 붙는다.
+    const todayLabels = await page.locator('ol[aria-label="최근 7일 출석 도장"] > li[aria-current="step"]').evaluateAll((items) => items.map((item) => item.getAttribute('aria-label')))
+    assert.deepEqual(todayLabels, ['3번째 도장 비어 있음'])
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

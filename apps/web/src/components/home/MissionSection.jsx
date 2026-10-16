@@ -20,7 +20,7 @@ const STAMP_WINDOW_MS = 8 * 24 * 60 * 60 * 1000
 function WelcomeBonusSlot({ received, claiming, onClaim }) {
   if (received) {
     return (
-      <li aria-label="웰컴 보너스 받음" className="flex flex-col items-center rounded-xl bg-primary py-2 text-on-primary shadow-sm shadow-primary/30">
+      <li aria-label="웰컴 보너스 받음" className="flex flex-col items-center rounded-2xl bg-primary py-2.5 text-on-primary shadow-sm shadow-primary/30">
         <span className="whitespace-nowrap text-[10px] font-bold opacity-80">선물</span>
         <span className="my-0.5 flex h-[22px] items-center"><FilledCheck size={18} tone="onPrimary" /></span>
         <span className="text-[10px] font-extrabold">+1장</span>
@@ -34,7 +34,7 @@ function WelcomeBonusSlot({ received, claiming, onClaim }) {
         aria-label="웰컴 보너스 상자 열기"
         disabled={claiming}
         onClick={onClaim}
-        className="flex w-full animate-pulse flex-col items-center rounded-xl border-2 border-dashed border-warm-accent bg-warm-accent/10 py-2 text-warm-accent disabled:opacity-60"
+        className="flex w-full animate-pulse flex-col items-center rounded-2xl border-2 border-dashed border-warm-accent bg-warm-accent/10 py-2.5 text-warm-accent disabled:opacity-60"
       >
         <span className="whitespace-nowrap text-[10px] font-bold">선물</span>
         <span aria-hidden="true" className="material-symbols-rounded my-0.5 text-[18px]">redeem</span>
@@ -42,6 +42,18 @@ function WelcomeBonusSlot({ received, claiming, onClaim }) {
       </button>
     </li>
   )
+}
+
+/**
+ * 출석 도장 칸 하나의 배경·글자 스타일을 정한다. 채움 배경이 기본이다.
+ * 찍힌 칸은 핑크로 채우고, 오늘 찍을 칸은 연한 핑크 + 링으로 강조하며, 마지막 칸은 보상 색(앰버)으로 구분한다.
+ */
+function stampTileClass(slot, isLast) {
+  const base = 'flex flex-col items-center rounded-2xl py-2.5'
+  if (slot.stamped) return `${base} bg-primary text-on-primary shadow-sm shadow-primary/30`
+  if (slot.next) return `${base} scale-105 bg-primary/15 text-primary shadow-md shadow-primary/20 ring-2 ring-primary`
+  if (isLast) return `${base} bg-tertiary-container/20 text-tertiary-container`
+  return `${base} bg-on-surface/10 text-outline`
 }
 
 // 웰컴 보너스 상자를 놓는 도장 칸(DAY 2). 이미 도장이 찍힌 칸이면 도장 칸 아래 줄로 옮긴다.
@@ -166,13 +178,8 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
                       <li
                         key={index}
                         aria-label={`${index + 1}번째 도장 ${slot.stamped ? '찍힘' : '비어 있음'}`}
-                        className={`flex flex-col items-center rounded-xl py-2 ${
-                          slot.stamped
-                            ? 'bg-primary text-on-primary shadow-sm shadow-primary/30'
-                            : slot.next
-                              ? 'animate-pulse border-2 border-dashed border-tertiary-container bg-tertiary-container/10 text-tertiary-container'
-                              : 'bg-on-surface/5 text-outline'
-                        }`}
+                        aria-current={slot.next ? 'step' : undefined}
+                        className={stampTileClass(slot, index === stamps.length - 1)}
                       >
                         <span className="text-[10px] font-bold opacity-80">DAY {index + 1}</span>
                         <span

@@ -8,11 +8,10 @@ import {
   parseBlockDays,
 } from '../utils/spaceCommentBlock.js'
 import {
-  HIDE_RELATION_NOTICE,
-  PLATFORM_TARGET_NOTICE,
   REASON_MAX,
   SANCTION_SCOPE,
   SANCTION_SCOPE_OPTIONS,
+  hideRelationNotice,
   parseSanctionReason,
   sanctionDescription,
   sanctionErrorMessage,
@@ -155,10 +154,9 @@ export default function CommentSanctionModal({ creatorId, memberId, onClose, onS
                 {reasonText.trim().length}/{REASON_MAX}자 · 관리자 기록으로 남아요
               </span>
             </label>
-            <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900" role="note">{HIDE_RELATION_NOTICE}</p>
-            <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-xs leading-5 text-red-900" role="note">{PLATFORM_TARGET_NOTICE}</p>
           </>
         )}
+        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900" role="note">{hideRelationNotice(scope)}</p>
 
         {error && <p className="mt-3 text-sm text-red-700" role="alert">{error}</p>}
 

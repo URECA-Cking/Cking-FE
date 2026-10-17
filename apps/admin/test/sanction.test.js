@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  HIDE_RELATION_NOTICE,
+  LEGACY_AUTOMATIC_NOTICE,
+  hideRelationNotice,
   PLATFORM_STATUS_META,
-  PLATFORM_TARGET_NOTICE,
   REASON_MAX,
   SANCTION_SCOPE,
   SANCTION_SCOPE_OPTIONS,
@@ -44,9 +44,13 @@ test('범위별 설명은 어느 쪽이든 이미 쓴 댓글이 남는다고 알
   for (const text of [space, platform]) assert.match(text, /이미 쓴 댓글은 그대로 남고/)
 })
 
-test('숨기기와의 관계 안내는 자동 경고 단계와 제한이 겹칠 때의 적용 기준을 알린다', () => {
-  assert.match(HIDE_RELATION_NOTICE, /경고가 쌓여 1일·3일·7일/)
-  assert.match(HIDE_RELATION_NOTICE, /종료 시각이 가장 늦은 쪽/)
+test('숨기기와의 관계 안내는 숨기기가 그 스페이스만 제한한다는 점과 제한이 겹칠 때의 적용 기준을 알린다', () => {
+  for (const scope of [SANCTION_SCOPE.SPACE, SANCTION_SCOPE.PLATFORM]) {
+    const notice = hideRelationNotice(scope)
+    assert.match(notice, /경고가 쌓여 그 스페이스에서만 1일·3일·7일/)
+    assert.match(notice, /종료 시각이 가장 늦은 쪽/)
+  }
+  assert.match(hideRelationNotice(SANCTION_SCOPE.PLATFORM), /모든 스페이스에서 막는 제한은 여기서 직접 거는 제재뿐/)
 })
 
 test('스페이스 범위는 스페이스 차단 오류 문구를, 플랫폼 범위는 기간·사유 범위를 알리는 문구를 쓴다', () => {
@@ -103,7 +107,14 @@ test('플랫폼 제한 해제 확인은 대상 회원을 알리고 자동 경고
   assert.match(manual.message, /다른 제한이 남아 있으면 알림은 가지 않아요/)
 })
 
-test('모든 스페이스 제재는 BE가 대상을 막지 않는 동안 크리에이터·관리자도 걸린다고 임시로 알린다', () => {
-  assert.match(PLATFORM_TARGET_NOTICE, /크리에이터나 관리자여도 제한이 걸려요/)
-  assert.match(PLATFORM_TARGET_NOTICE, /자기 스페이스에서도 댓글을 쓸 수 없게/)
+test('모든 스페이스 제재는 관리자와 크리에이터 대상 거절 코드를 안내하고 스페이스 범위에는 쓰지 않는다', () => {
+  assert.match(sanctionErrorMessage(SANCTION_SCOPE.PLATFORM, 'CANNOT_BLOCK_ADMIN'), /관리자는 제재할 수 없어요/)
+  assert.match(sanctionErrorMessage(SANCTION_SCOPE.PLATFORM, 'CANNOT_SANCTION_CREATOR'), /'이 스페이스에서만'을 선택/)
+  assert.equal(sanctionErrorMessage(SANCTION_SCOPE.SPACE, 'CANNOT_SANCTION_CREATOR'), null)
+})
+
+test('플랫폼 제한 탭 안내는 자동 경고가 이전 정책의 기존 행이고 지금의 숨기기는 스페이스 차단에 나온다고 알린다', () => {
+  assert.match(LEGACY_AUTOMATIC_NOTICE, /이전 정책으로 쌓인 기존 제한/)
+  assert.match(LEGACY_AUTOMATIC_NOTICE, /만료되거나 해제될 때까지 남고/)
+  assert.match(LEGACY_AUTOMATIC_NOTICE, /스페이스 차단 탭/)
 })

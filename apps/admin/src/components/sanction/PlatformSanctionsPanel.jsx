@@ -9,6 +9,7 @@ import { getPlatformSanctions, releasePlatformSanction } from '../../api/admin.j
 import { ApiError, describeError } from '../../api/client.js'
 import { formatDateTime } from '../../utils/format.js'
 import {
+  LEGACY_AUTOMATIC_NOTICE,
   PLATFORM_STATUS_META,
   platformReleaseConfirm,
   sanctionBasis,
@@ -26,8 +27,9 @@ import {
 const PAGE_SIZE = 20
 
 /**
- * 플랫폼 제한(모든 스페이스에서 댓글 작성·수정을 막는 제재)을 보고 해제한다. 관리자가 댓글을 숨겨 쌓인 자동 경고와 관리자가 직접
- * 건 수동 제한이 함께 나오며, 스페이스 차단은 나오지 않는다. 자동 경고는 해제해도 경고 횟수에 남는다.
+ * 플랫폼 제한(모든 스페이스에서 댓글 작성·수정을 막는 제재)을 보고 해제한다. 관리자가 직접 건 수동 제한과, BE 이슈 #643 이전에
+ * 댓글 숨김으로 쌓인 자동 경고가 나오며, 스페이스 차단은 나오지 않는다. 지금의 숨기기는 스페이스 차단 쪽에 자동 제한을 만든다.
+ * 자동 경고는 해제해도 경고 횟수에 남는다.
  * 서버 페이지가 offset 방식이라 "제한 중만 보기"에서 해제하면 뒤 항목이 앞으로 당겨지므로, 해제한 뒤에는 현재 페이지를 서버에서 다시 읽는다.
  */
 export default function PlatformSanctionsPanel() {
@@ -116,6 +118,9 @@ export default function PlatformSanctionsPanel() {
           {formError && <p className="w-full text-sm text-red-700" role="alert">{formError}</p>}
         </form>
 
+        {!loading && !error && items.some((item) => item.source === 'AUTOMATIC') && (
+          <p className="border-b border-slate-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900" role="note">{LEGACY_AUTOMATIC_NOTICE}</p>
+        )}
         {loading && <LoadingBlock label="플랫폼 제한 목록을 불러오는 중..." />}
         {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
         {!loading && !error && items.length === 0 && (

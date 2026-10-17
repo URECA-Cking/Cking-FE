@@ -55,7 +55,7 @@ const inputClass =
  * - 수정: 댓글 작성자 본인만. 삭제: 댓글 작성자 본인과 게시글 작성 크리에이터.
  * - 서버 페이지가 offset 방식이라 삭제 뒤에는 서버 목록과 다시 맞춘 뒤에만 '더 보기'를 연다.
  */
-export default function PostComments({ creatorId, postId, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostRestricted }) {
+export default function PostComments({ creatorId, postId, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostRestricted, onCommentCountChange, onCommentCountSync }) {
   const showToast = useToast()
   const { isAdmin } = useUser()
   const redirectToProfileSetup = useProfileSetupRedirect()
@@ -127,6 +127,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
       }
       first.setData(fetched[0])
       setExtra({ pages: fetched.slice(1), loading: false, error: '' })
+      if (typeof fetched[0].totalElements === 'number') onCommentCountSync?.(fetched[0].totalElements)
       // 방금 쓴 댓글이 아직 불러온 페이지에 없으면(예: 첫 페이지만 본 상태에서 21번째 댓글 작성) 목록에 계속 보인다.
       // 서버 순서대로 가져오면 이후 페이지에 들어오고, 그때는 중복 제거로 한 번만 보인다.
       const fetchedIds = new Set(fetched.flatMap((item) => (item.items ?? []).map((comment) => comment.commentId)))
@@ -172,6 +173,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
       const created = await createComment(creatorId, postId, content)
       setDraft('')
       setLocal((state) => ({ ...state, created: [...state.created, created] }))
+      onCommentCountChange?.(1)
       refreshQuietly()
     } catch (error) {
       // 닉네임을 설정하지 않았으면 프로필 설정 화면으로 보낸다. 작성하던 내용은 돌아왔을 때 다시 쓴다.
@@ -233,6 +235,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
       if (route === 'admin') await deleteCommentAsAdmin(comment.commentId)
       else await deleteComment(creatorId, postId, comment.commentId)
       showToast('댓글을 삭제했어요.')
+      onCommentCountChange?.(-1)
     } catch (error) {
       const gone = error instanceof ApiError && error.code === 'RESOURCE_NOT_FOUND'
       // 삭제는 작성 제한의 대상이 아니라서 제한 오류(COMMENT_RESTRICTED 등)는 오지 않는다. 공통 문구 매핑만 쓴다.

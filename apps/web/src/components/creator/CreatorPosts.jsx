@@ -9,6 +9,7 @@ import { ApiError, describeError } from '../../api/client.js'
 import { POST_ERROR_MESSAGES, POST_LIKE_ERROR_MESSAGES, deletePost, getCreatorPost, getCreatorPosts, likePost, unlikePost } from '../../api/posts.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
+import { adjustCommentCount, applyCommentCount, reconcileCommentCounts } from '../../utils/postCommentCount.js'
 
 // 웹 상세 모달의 사진 칸은 첫 사진의 비율(인스타처럼 4:5~1.91:1로 제한)에 맞추고, 오른쪽 정보 칸은 400px로 고정한다.
 const MEDIA_RATIO_RANGE = [0.8, 1.91]
@@ -37,6 +38,17 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   // 좋아요·취소 응답으로 받은 liked·likeCount. 목록과 상세에 같은 값을 보이려고 postId별로 덮어쓴다.
   const [likeOverrides, setLikeOverrides] = useState({})
   const [likingId, setLikingId] = useState(null)
+  // 댓글을 등록·삭제한 직후 보여 줄 postId별 댓글 수. 서버 재조회 전에 목록 카드와 상세에 같은 값을 보인다.
+  const [commentCountOverrides, setCommentCountOverridesState] = useState({})
+  // 목록 재조회 응답 처리 시점의 최신 보정값을 읽으려고 상태와 같은 값을 ref에도 둔다.
+  const commentCountOverridesRef = useRef({})
+  const commentCountRevision = useRef(0)
+  const setCommentCountOverrides = (next) => {
+    const value = typeof next === 'function' ? next(commentCountOverridesRef.current) : next
+    commentCountOverridesRef.current = value
+    commentCountRevision.current += 1
+    setCommentCountOverridesState(value)
+  }
   // 열려 있는 상세의 postId. 목록을 새로 받아도 상세가 들고 있는 값과 어긋나지 않게 그 게시글의 덮어쓰기 값은 남긴다.
   const detailPostId = useRef(null)
   // 저장·삭제 뒤 서버 목록과 맞추는 상태: 'synced' | 'refreshing' | 'failed'.
@@ -64,7 +76,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }) : []
   const deletedIds = new Set(local.deleted)
   /** 서버 응답 위에 최신 좋아요 처리 결과를 적용한다. */
-  const applyLike = (post) => (likeOverrides[post.postId] ? { ...post, ...likeOverrides[post.postId] } : post)
+  const applyLike = (post) => applyCommentCount(likeOverrides[post.postId] ? { ...post, ...likeOverrides[post.postId] } : post, commentCountOverrides)
   const posts = [...local.created.filter((post) => !seenPostIds.has(post.postId)), ...loadedPosts]
     .filter((post) => !deletedIds.has(post.postId))
     .map((post) => applyLike(local.updated[post.postId] ?? post))
@@ -72,21 +84,30 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   // 로컬 변경분과 이어 붙인 페이지는 새 조회가 성공한 뒤에만 지운다. 실패하면 방금 저장·삭제한 결과를 그대로 둔다.
   // 새 목록 응답에는 서버의 최신 좋아요 값이 들어 있으므로 이전 덮어쓰기 값을 정리한다(열린 상세의 값은 유지).
   /** 목록 재조회 후 열린 상세 게시물의 좋아요 상태만 남긴다. */
-  function clearListLikeOverrides() {
+  function clearListLikeOverrides(freshItems, requestedRevision) {
     const keep = detailPostId.current
     setLikeOverrides((current) => (keep != null && keep in current ? { [keep]: current[keep] } : {}))
+    // 조회를 시작한 뒤 댓글을 변경하거나 댓글 목록에서 최신 수를 받았다면 오래된 목록 응답으로 덮지 않는다.
+    if (commentCountRevision.current !== requestedRevision) return
+    // 댓글 수는 새 목록에 그 게시글이 있으면 서버 값이 최신이라 보정값을 버리고, 열린 상세가 들고 있는 옛 수도 서버 값으로 맞춘다.
+    const { overrides, detailCount } = reconcileCommentCounts(commentCountOverridesRef.current, keep, freshItems)
+    setCommentCountOverrides(overrides)
+    if (detailCount !== undefined) {
+      setDetail((current) => (current?.post?.postId === keep ? { ...current, post: { ...current.post, commentCount: detailCount } } : current))
+    }
   }
 
   /** 첫 페이지를 다시 읽고 목록·로컬 변경분을 서버 응답에 맞춘다. */
   async function reloadFirst() {
     const generation = ++listGeneration.current
+    const requestedRevision = commentCountRevision.current
     loadingMore.current = false
     setExtraState((current) => ({ ...current, loading: false }))
     const fresh = await first.reload()
     if (fresh && listGeneration.current === generation) {
       setExtraState({ pages: [], loading: false, error: '' })
       setLocal(NO_LOCAL_CHANGES)
-      clearListLikeOverrides()
+      clearListLikeOverrides(fresh.items, requestedRevision)
       setSync('synced')
     }
   }
@@ -95,6 +116,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   /** 저장·삭제 후 화면을 유지하면서 게시물 목록을 동기화한다. */
   async function refreshQuietly() {
     const generation = ++listGeneration.current
+    const requestedRevision = commentCountRevision.current
     loadingMore.current = false
     setExtraState((current) => ({ ...current, loading: false }))
     setSync('refreshing')
@@ -104,7 +126,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
       first.setData(fresh)
       setExtraState({ pages: [], loading: false, error: '' })
       setLocal(NO_LOCAL_CHANGES)
-      clearListLikeOverrides()
+      clearListLikeOverrides(fresh.items, requestedRevision)
       setSync('synced')
     } catch {
       if (listGeneration.current === generation) {
@@ -112,6 +134,17 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
         showToast('목록을 새로 고치지 못했어요. 방금 변경한 내용은 반영되어 있어요.', { icon: 'error' })
       }
     }
+  }
+
+  /** 댓글을 등록(+1)하거나 삭제(-1)한 직후 그 게시글의 댓글 수를 목록과 상세에 먼저 반영한다. */
+  function handleCommentCountChange(postId, delta) {
+    const serverCount = [...posts, detail?.post].find((post) => post?.postId === postId)?.commentCount
+    setCommentCountOverrides((current) => adjustCommentCount(current, postId, serverCount, delta))
+  }
+
+  /** 댓글 목록 재조회가 끝나면 서버의 전체 댓글 수를 목록 카드와 상세에 반영한다. */
+  function handleCommentCountSync(postId, count) {
+    setCommentCountOverrides((current) => ({ ...current, [postId]: count }))
   }
 
   /** 저장 결과를 목록에 먼저 반영하고 서버 목록을 재조회한다. */
@@ -170,6 +203,10 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
         // 방금 받은 상세가 서버의 최신 값이므로 목록에도 같은 값을 보이도록 덮어쓰기 값으로 맞춘다.
         if (typeof post.likeCount === 'number') {
           setLikeOverrides((current) => ({ ...current, [postId]: { liked: Boolean(post.liked), likeCount: post.likeCount } }))
+        }
+        // 상세 응답의 댓글 수도 서버 최신 값이다. 이전에 보정해 둔 값이 있어도 이 값으로 갈아끼운다.
+        if (typeof post.commentCount === 'number') {
+          setCommentCountOverrides((current) => ({ ...current, [postId]: post.commentCount }))
         }
         setDetail({ postId, loading: false, post, error: '' })
       }
@@ -367,6 +404,8 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
                       onFollow={onFollow}
                       onLogin={onLogin}
                       onPostRestricted={handlePostRestricted}
+                      onCommentCountChange={(delta) => handleCommentCountChange(detail.post.postId, delta)}
+                      onCommentCountSync={(count) => handleCommentCountSync(detail.post.postId, count)}
                     />
                   )}
                 </PostDetail>

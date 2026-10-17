@@ -109,7 +109,7 @@ test('플랫폼 제한 해제 확인은 대상 회원을 알리고 자동 경고
 
 test('모든 스페이스 제재는 관리자와 크리에이터 대상 거절 코드를 안내하고 스페이스 범위에는 쓰지 않는다', () => {
   assert.match(sanctionErrorMessage(SANCTION_SCOPE.PLATFORM, 'CANNOT_BLOCK_ADMIN'), /관리자는 제재할 수 없어요/)
-  assert.match(sanctionErrorMessage(SANCTION_SCOPE.PLATFORM, 'CANNOT_SANCTION_CREATOR'), /해당 스페이스에서만 제재/)
+  assert.match(sanctionErrorMessage(SANCTION_SCOPE.PLATFORM, 'CANNOT_SANCTION_CREATOR'), /'이 스페이스에서만'을 선택/)
   assert.equal(sanctionErrorMessage(SANCTION_SCOPE.SPACE, 'CANNOT_SANCTION_CREATOR'), null)
 })
 

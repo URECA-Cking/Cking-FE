@@ -42,10 +42,10 @@ export function hideRelationNotice(scope) {
   if (scope === SANCTION_SCOPE.PLATFORM) {
     return '댓글을 숨기면 작성자에게 경고가 쌓여 그 스페이스에서만 1일·3일·7일 단계로 자동 제한이 걸려요. 모든 스페이스에서 막는 제한은 여기서 직접 거는 제재뿐이에요. 제한이 겹치면 종료 시각이 가장 늦은 쪽이 적용돼요.'
   }
-  return '댓글을 숨기면 작성자에게 경고가 쌓여 그 스페이스에서만 1일·3일·7일 단계로 자동 제한이 걸려요. 자동 제한 중에도 여기서 직접 건 제재는 따로 기록되고, 제한이 겹치면 종료 시각이 가장 늦은 쪽이 적용돼요.'
+  return '댓글을 숨기면 작성자에게 경고가 쌓여 그 스페이스에서만 1일·3일·7일 단계로 자동 제한이 걸려요. 자동 제한 중에도 직접 거는 제재는 새로 만들어지고(이미 직접 건 제재가 있으면 기존 것이 유지돼요), 제한이 겹치면 종료 시각이 가장 늦은 쪽이 적용돼요.'
 }
 
-/** 플랫폼 제한 탭의 `자동 경고` 행 설명. 이슈 #643 이전 정책으로 쌓인 기존 행이고, 지금의 숨기기는 스페이스 차단 탭에 자동 제한을 만든다. */
+/** 플랫폼 제한 탭에 자동 경고 행이 있을 때 보여 주는 설명. 이전 정책이 정리돼 그 행이 모두 사라지면 이 안내도 지운다. 이슈 #643 이전 정책으로 쌓인 기존 행이고, 지금의 숨기기는 스페이스 차단 탭에 자동 제한을 만든다. */
 export const LEGACY_AUTOMATIC_NOTICE = '자동 경고 행은 숨기기가 모든 스페이스를 제한하던 이전 정책으로 쌓인 기존 제한이에요. 만료되거나 해제될 때까지 남고, 지금의 숨기기는 그 스페이스에서만 걸리는 자동 제한을 만들어 스페이스 차단 탭에 나와요.'
 
 /**
@@ -59,7 +59,7 @@ export function sanctionErrorMessage(scope, code) {
     }
     if (code === 'RESOURCE_NOT_FOUND') return '대상 회원을 찾을 수 없어요.'
     if (code === 'CANNOT_BLOCK_ADMIN') return '관리자는 제재할 수 없어요.'
-    if (code === 'CANNOT_SANCTION_CREATOR') return '크리에이터는 모든 스페이스 제재 대상이 아니에요. 해당 스페이스에서만 제재해주세요.'
+    if (code === 'CANNOT_SANCTION_CREATOR') return "크리에이터는 모든 스페이스 제재 대상이 아니에요. 위에서 '이 스페이스에서만'을 선택해주세요."
     return null
   }
   return Object.hasOwn(SPACE_BLOCK_ERROR_MESSAGES, code) ? SPACE_BLOCK_ERROR_MESSAGES[code] : null

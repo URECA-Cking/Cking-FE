@@ -93,7 +93,6 @@ export default function PlatformSanctionsPanel() {
   return (
     <>
       <section className="rounded-lg border border-slate-200 bg-white">
-        <p className="border-b border-slate-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900" role="note">{LEGACY_AUTOMATIC_NOTICE}</p>
         <form onSubmit={applyFilters} className="flex flex-wrap items-end gap-3 border-b border-slate-200 p-4">
           <label className="text-sm text-slate-700">
             <span className="block text-xs font-medium text-slate-500">회원 ID</span>
@@ -119,6 +118,9 @@ export default function PlatformSanctionsPanel() {
           {formError && <p className="w-full text-sm text-red-700" role="alert">{formError}</p>}
         </form>
 
+        {!loading && !error && items.some((item) => item.source === 'AUTOMATIC') && (
+          <p className="border-b border-slate-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900" role="note">{LEGACY_AUTOMATIC_NOTICE}</p>
+        )}
         {loading && <LoadingBlock label="플랫폼 제한 목록을 불러오는 중..." />}
         {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
         {!loading && !error && items.length === 0 && (

@@ -57,7 +57,7 @@ export default function AdminSpaceCommentBlocks() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <AdminPageHeader
         title="제재 관리"
-        description="걸려 있는 댓글 작성 제재를 확인하고 해제합니다. 스페이스 차단은 한 스페이스에서만, 플랫폼 제한은 모든 스페이스에서 댓글을 쓰지 못하게 합니다. 제재는 신고 관리 화면에서 걸 수 있습니다."
+        description="걸려 있는 댓글 작성 제재를 확인하고 해제합니다. 스페이스 차단은 한 스페이스에서만, 플랫폼 제한은 모든 스페이스에서 댓글을 쓰지 못하게 합니다. 댓글 숨기기로 생긴 자동 제한은 그 스페이스에만 걸려 스페이스 차단에 나옵니다. 제재는 신고 관리 화면에서 걸 수 있습니다."
       />
 
       <div role="tablist" aria-label="제재 범위" className="flex w-fit gap-1 rounded-md bg-slate-100 p-1">

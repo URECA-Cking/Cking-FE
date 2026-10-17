@@ -53,7 +53,7 @@ export function actionConfirm(action, pendingCount) {
   if (action === 'hide') {
     return {
       title: '댓글을 숨길까요?',
-      message: `숨긴 댓글은 다른 사용자에게 가려지고 원문 보기도 막혀요. 접수된 신고 ${pendingCount}건이 처리 완료로 바뀌고, 이 작업은 되돌릴 수 없어요.`,
+      message: `숨긴 댓글은 다른 사용자에게 가려지고 원문 보기도 막혀요. 접수된 신고 ${pendingCount}건이 처리 완료로 바뀌고, 이 작업은 되돌릴 수 없어요. 작성자에게는 경고가 쌓이고 이 댓글이 달린 스페이스에서만 댓글 작성이 제한돼요(스페이스별로 1회 1일·2회 3일·3회 이상 7일). 작성자가 관리자이거나 이 스페이스의 주인이면 경고와 제한이 생기지 않아요.`,
       confirmLabel: '숨기기',
       confirmTone: 'bg-red-700 hover:bg-red-800',
     }

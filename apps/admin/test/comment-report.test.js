@@ -50,6 +50,8 @@ test('확인 문구는 조치별로 다르고 처리될 접수 신고 수를 담
   assert.equal(hide.confirmLabel, '숨기기')
   assert.match(hide.message, /3건/)
   assert.match(hide.message, /되돌릴 수 없어요/)
+  assert.match(hide.message, /이 댓글이 달린 스페이스에서만 댓글 작성이 제한/)
+  assert.match(hide.message, /관리자이거나 이 스페이스의 주인이면 경고와 제한이 생기지 않아요/)
   const reject = actionConfirm('reject', 2)
   assert.equal(reject.confirmLabel, '반려하기')
   assert.match(reject.message, /2건/)

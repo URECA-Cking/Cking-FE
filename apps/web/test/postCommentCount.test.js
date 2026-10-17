@@ -46,19 +46,23 @@ test('새 목록의 댓글 수를 모르면 보정값을 서버 값으로 대신
   assert.deepEqual(reconcileCommentCounts({ 7: 4 }, 7, [{ postId: 7 }]), { overrides: { 7: 4 }, detailCount: undefined })
 })
 
-test('머리글 댓글 수는 지운 댓글을 빼고 서버가 아직 세지 않은 새 댓글만 더한다', () => {
-  const none = { created: [], deleted: [], counted: [] }
+test('머리글 댓글 수는 삭제에 성공한 댓글을 빼고 서버가 아직 세지 않은 새 댓글만 더한다', () => {
+  const none = { created: [], deleted: [], counted: [], removed: [] }
   assert.equal(displayedCommentTotal(5, none), 5)
   assert.equal(displayedCommentTotal(5, { ...none, created: [{ commentId: 1 }] }), 6)
   // 재조회한 서버 전체 수가 이미 센 댓글은 다시 더하지 않는다.
-  assert.equal(displayedCommentTotal(6, { created: [{ commentId: 1 }], deleted: [], counted: [1] }), 6)
-  assert.equal(displayedCommentTotal(5, { ...none, deleted: [9] }), 4)
+  assert.equal(displayedCommentTotal(6, { ...none, created: [{ commentId: 1 }], counted: [1] }), 6)
+  assert.equal(displayedCommentTotal(5, { ...none, deleted: [9], removed: [9] }), 4)
 })
 
-test('삭제에 성공한 댓글과 이미 삭제돼 404를 받은 댓글은 머리글과 부모 보정이 같은 만큼 줄어든다', () => {
-  // PostComments는 두 경우 모두 deleted에 넣고 onCommentCountChange(-1)을 부르므로 상세 안의 두 수가 같다.
-  const deleted = { created: [], deleted: [11], counted: [] }
-  const header = displayedCommentTotal(3, deleted)
-  assert.equal(header, 2)
-  assert.deepEqual(adjustCommentCount({}, 7, 3, -1), { 7: header })
+test('삭제 성공은 머리글과 부모 보정이 같은 만큼 줄고, 이미 삭제돼 404를 받은 댓글은 둘 다 그대로다', () => {
+  const none = { created: [], deleted: [], counted: [], removed: [] }
+  // 성공(204): PostComments가 deleted·removed에 넣고 onCommentCountChange(-1)을 부른다.
+  const success = displayedCommentTotal(3, { ...none, deleted: [11], removed: [11] })
+  assert.equal(success, 2)
+  assert.deepEqual(adjustCommentCount({}, 7, 3, -1), { 7: success })
+  // 404: 행만 숨기고(deleted) removed에는 넣지 않으며 부모에도 알리지 않는다.
+  const gone = displayedCommentTotal(3, { ...none, deleted: [12] })
+  assert.equal(gone, 3)
+  assert.deepEqual(adjustCommentCount({}, 7, 3, 0), { 7: gone })
 })

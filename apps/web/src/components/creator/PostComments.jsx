@@ -29,7 +29,8 @@ import { canBlockAuthor, canDeleteComment, deleteRoute, moderationActor } from '
 
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
 // counted: 재조회한 서버 전체 개수(totalElements)가 이미 포함하고 있는 created 댓글 ID.
-const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [], counted: [] }
+// deleted: 목록에서 숨길 댓글 ID. removed: 그중 내 삭제 요청이 성공(204)해 서버 전체 개수가 줄어야 하는 댓글 ID(404로 이미 삭제돼 있던 댓글은 넣지 않는다).
+const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [], counted: [], removed: [] }
 
 function describeCommentError(error, fallback) {
   // 작성·수정 제한(플랫폼 제한·스페이스 차단)은 BE 메시지의 UTC 해제 시각을 앱 공통 시각 표기(브라우저 시간대)로 바꿔 안내한다.
@@ -231,10 +232,13 @@ export default function PostComments({ creatorId, postId, authenticated, followi
       : '이 댓글을 삭제할까요? 삭제하면 되돌릴 수 없어요.'
     if (!window.confirm(confirmMessage)) return
     setDeletingId(comment.commentId)
+    // 내 삭제 요청이 성공(204)했을 때만 true. 404(이미 삭제됨)는 행만 숨기고 댓글 수는 그대로 둔 채 재조회로 맞춘다.
+    let deletedByMe = false
     try {
       // 관리자는 게시글·소유 관계를 따지지 않는 관리자 API를 쓰고, 본인 댓글과 게시글 주인의 삭제는 기존 API를 쓴다.
       if (route === 'admin') await deleteCommentAsAdmin(comment.commentId)
       else await deleteComment(creatorId, postId, comment.commentId)
+      deletedByMe = true
       showToast('댓글을 삭제했어요.')
     } catch (error) {
       const gone = error instanceof ApiError && error.code === 'RESOURCE_NOT_FOUND'
@@ -245,9 +249,13 @@ export default function PostComments({ creatorId, postId, authenticated, followi
         return
       }
     }
-    setLocal((state) => ({ ...state, deleted: [...state.deleted, comment.commentId] }))
-    // 삭제에 성공했거나 이미 삭제돼 있었던(404) 댓글은 모두 목록에서 빠지고 아래 '댓글 N' 헤더도 줄어든다. 부모(목록 카드·상세)도 같이 줄여 한 화면의 수가 어긋나지 않게 한다.
-    onCommentCountChange?.(-1)
+    setLocal((state) => ({
+      ...state,
+      deleted: [...state.deleted, comment.commentId],
+      removed: deletedByMe ? [...state.removed, comment.commentId] : state.removed,
+    }))
+    // 헤더 '댓글 N'과 부모(목록 카드·상세)는 같은 조건으로만 줄인다: 내 삭제가 성공했을 때.
+    if (deletedByMe) onCommentCountChange?.(-1)
     setDeletingId(null)
     refreshQuietly()
   }

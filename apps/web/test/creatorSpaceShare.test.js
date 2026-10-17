@@ -21,6 +21,13 @@ test.after(async () => { await browser?.close() })
 
 const SHARE_BUTTON = 'button:not([aria-label])'
 const MISSION = { missionId: 5, type: 'SHARE', rewardAmount: 1, completedToday: false }
+const YOUTUBE_SUBSCRIPTION_MISSION = { missionId: 6, type: 'YOUTUBE_SUBSCRIPTION', rewardAmount: 1, completedToday: false }
+const YOUTUBE_CHANNEL = {
+  creatorId: 11,
+  channelName: '테스트 채널',
+  channelHandle: '@test-channel',
+  channelUrl: 'https://www.youtube.com/@test-channel',
+}
 
 /**
  * 외부 요청을 막은 빈 화면에 크리에이터 스페이스(크리에이터 11, slug test) 번들을 올리고 서버를 흉내 낸다.
@@ -29,19 +36,21 @@ const MISSION = { missionId: 5, type: 'SHARE', rewardAmount: 1, completedToday: 
  * - window.shareReplies 항목에 hold가 있으면 window.releaseShare()를 부를 때까지 응답을 늦춘다(요청이 진행 중인 상태를 만들기 위해).
  * - window.shareCalls: 보상 API 호출 본문 기록.
  */
-async function screen({ missions = [{ ...MISSION }], mySpaces = [] } = {}) {
+async function screen({ missions = [{ ...MISSION }], mySpaces = [], youtubeChannel = null } = {}) {
   const page = await browser.newPage()
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
   await page.goto('http://localhost/space-test')
-  await page.evaluate(({ initialMissions, initialMySpaces }) => {
+  await page.evaluate(({ initialMissions, initialMySpaces, initialYoutubeChannel }) => {
     window.missions = initialMissions
     window.mySpaces = initialMySpaces
+    window.youtubeChannel = initialYoutubeChannel
     window.shareReplies = []
     window.shareCalls = []
     window.missionReads = 0
+    window.youtubeChannelReads = 0
     window.toasts = []
     window.ticketRefreshes = 0
     const envelope = (status, code, data, message = null) => new Response(JSON.stringify({ code, data, message }), { status })
@@ -70,11 +79,19 @@ async function screen({ missions = [{ ...MISSION }], mySpaces = [] } = {}) {
           : Promise.resolve(next)
         return space.then((value) => envelope(200, 'SUCCESS', { ...body, ...(value ?? {}) }))
       }
-      if (path === '/api/creators/11/youtube-channel') return Promise.resolve(envelope(404, 'CREATOR_CHANNEL_NOT_CONFIGURED', null, '채널 없음'))
+      if (path === '/api/creators/11/youtube-channel') {
+        window.youtubeChannelReads += 1
+        return window.youtubeChannel
+          ? Promise.resolve(envelope(200, 'SUCCESS', window.youtubeChannel))
+          : Promise.resolve(envelope(409, 'CREATOR_CHANNEL_NOT_CONFIGURED', null, '채널 없음'))
+      }
+      if (path === '/api/creators/11/missions/6/subscription-verifications/me/latest') {
+        return Promise.resolve(envelope(404, 'VERIFICATION_NOT_FOUND', null, '인증 내역 없음'))
+      }
       if (path.includes('/calendar/schedules')) return Promise.resolve(envelope(200, 'SUCCESS', []))
       return Promise.resolve(envelope(200, 'SUCCESS', { items: [], page: 0, hasNext: false, totalElements: 0 }))
     }
-  }, { initialMissions: missions, initialMySpaces: mySpaces })
+  }, { initialMissions: missions, initialMySpaces: mySpaces, initialYoutubeChannel: youtubeChannel })
   await page.addScriptTag({ content: bundle })
   return { page, errors }
 }
@@ -95,6 +112,34 @@ const shareCard = (page) => page.locator(SHARE_BUTTON, { hasText: /공유하기|
 // 같은 버튼 묶음을 데스크톱용·모바일용으로 두 번 그리고 테스트 틀에는 CSS가 없어 둘 다 보이므로 첫 번째를 쓴다.
 const headerShare = (page) => page.locator('button[aria-label="공유하기"]').first()
 const editSpaceButton = (page) => page.getByRole('button', { name: '스페이스 편집' }).first()
+
+test('구독 인증 미션이 없으면 채널 미설정 Creator의 공개 채널을 조회하지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate(() => window.renderSpace({ memberId: 1 }))
+    await page.getByText('공유 미션').waitFor()
+    await page.waitForTimeout(100)
+
+    assert.equal(await page.evaluate(() => window.youtubeChannelReads), 0)
+    assert.equal(await page.getByText('YouTube 구독 인증').count(), 0)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('구독 인증 미션이 있으면 현재 Creator의 채널을 조회해 인증 카드를 표시한다', async () => {
+  const { page, errors } = await screen({
+    missions: [{ ...MISSION }, { ...YOUTUBE_SUBSCRIPTION_MISSION }],
+    youtubeChannel: YOUTUBE_CHANNEL,
+  })
+  try {
+    await page.evaluate(() => window.renderSpace({ memberId: 1 }))
+    await page.getByText('YouTube 구독 인증').waitFor()
+
+    assert.equal(await page.evaluate(() => window.youtubeChannelReads), 1)
+    assert.equal(await page.getByText('테스트 채널 · @test-channel').count(), 1)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
 
 test('공유 시트를 끝내면 보상 API를 한 번 호출하고 카드가 완료로 바뀌며 응모권이 갱신된다', async () => {
   const { page, errors } = await screen()

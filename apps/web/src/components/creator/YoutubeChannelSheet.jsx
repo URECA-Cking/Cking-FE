@@ -83,7 +83,7 @@ function YoutubeChannelForm({ initialChannel, onSaved }) {
   return (
     <form onSubmit={save} className="flex flex-col gap-space-md pb-space-md">
       <p className="font-body-sm text-body-sm leading-relaxed text-on-surface-variant">
-        팬이 이 채널을 구독한 화면을 제출해 인증받을 수 있어요. 처리 중인 인증이 있으면 다른 채널로 변경할 수 없어요.
+        Creator Studio에서 YouTube 채널을 설정하면 구독 인증 미션을 OPEN 할 수 있어요.
       </p>
       <label className="flex flex-col gap-1">
         <span className="font-label-xs text-label-xs text-on-surface-variant">채널명</span>

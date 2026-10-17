@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
@@ -177,19 +177,6 @@ export default function CreatorSpace() {
   const [shareRewardBusy, setShareRewardBusy] = useState(false)
   // DUPLICATE_MISSION을 받아 서버의 완료 기록을 확인하는 중인 { memberId, creatorId }. 서버가 완료로 확인하기 전에는 "완료"로 바꾸지 않는다.
   const [shareChecking, setShareChecking] = useState(null)
-  // 채널이 없는 Creator는 구독 인증 미션을 팬 화면에 노출하지 않는다. 공개 Space에서도 같은 API를 쓸 수 있다.
-  const youtubeChannel = useAsync(
-    async () => {
-      try {
-        return await getCreatorYoutubeChannel(creatorId)
-      } catch (channelError) {
-        if (channelError instanceof ApiError && channelError.code === 'CREATOR_CHANNEL_NOT_CONFIGURED') return null
-        throw channelError
-      }
-    },
-    [creatorId],
-    { enabled: creatorId !== null },
-  )
   // 프로필 통계의 게시물 수는 목록 응답의 totalElements를 쓴다(1건만 요청). 실패하면 그 칸만 숨긴다.
   const postTotal = useAsync(
     () => getCreatorPosts(creatorId, { size: 1 }),
@@ -202,6 +189,21 @@ export default function CreatorSpace() {
   const youtubeSubscriptionMission = useMemo(
     () => (missions ?? []).find((mission) => mission.type === 'YOUTUBE_SUBSCRIPTION') ?? null,
     [missions],
+  )
+  // 채널 설정 시 생성되는 구독 인증 미션이 있는 경우에만 공개 채널을 조회한다.
+  // 채널 미설정 Creator의 Space를 열 때마다 409을 발생시키거나 재시도하지 않는다.
+  const youtubeChannel = useAsync(
+    async () => {
+      try {
+        return await getCreatorYoutubeChannel(creatorId)
+      } catch (channelError) {
+        // 데이터가 불일치해 미션만 남은 경우에는 카드를 숨긴다. 자동 재시도는 하지 않는다.
+        if (channelError instanceof ApiError && channelError.code === 'CREATOR_CHANNEL_NOT_CONFIGURED') return null
+        throw channelError
+      }
+    },
+    [creatorId, youtubeSubscriptionMission?.missionId],
+    { enabled: youtubeSubscriptionMission !== null },
   )
   // useAsync는 재조회 중 이전 data를 유지한다. Creator를 이동했을 때 이전 채널을 새 Space에 보이지 않게 응답의 소유 Creator를 확인한다.
   const currentYoutubeChannel = isYoutubeChannelForCreator(youtubeChannel.data, creatorId) ? youtubeChannel.data : null
@@ -263,7 +265,8 @@ export default function CreatorSpace() {
   // 공유 보상 응답이 늦게 도착했을 때 지금 보는 회원·Creator와 같은지 확인하기 위한 값이다.
   const viewedCreatorId = useRef(null)
   const viewedMemberId = useRef(null)
-  useEffect(() => {
+  // 비동기 보상 응답은 회원 전환 직후에도 도착할 수 있다. paint 전에 현재 대상을 반영해 이전 회원의 응답을 막는다.
+  useLayoutEffect(() => {
     viewedCreatorId.current = creatorId
     viewedMemberId.current = memberId
   }, [creatorId, memberId])

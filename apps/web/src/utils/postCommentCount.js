@@ -29,3 +29,12 @@ export function reconcileCommentCounts(overrides, detailPostId, freshItems) {
   const keepDetail = detailPostId != null && detailPostId in overrides && freshCount === undefined
   return { overrides: keepDetail ? { [detailPostId]: overrides[detailPostId] } : {}, detailCount: freshCount }
 }
+
+/**
+ * 댓글 목록 머리글의 '댓글 N'. 서버 전체 수에서 이 화면에서 지운 댓글(삭제에 성공했거나 이미 삭제돼 404를 받은 댓글)을 빼고,
+ * 방금 쓴 댓글 중 서버 전체 수가 아직 세지 않은 것을 더한다. 부모에 알리는 증감(등록 +1, 삭제·404 -1)과 같은 규칙이다.
+ */
+export function displayedCommentTotal(totalElements, local) {
+  const uncounted = local.created.filter((comment) => !local.counted.includes(comment.commentId)).length
+  return totalElements - local.deleted.length + uncounted
+}

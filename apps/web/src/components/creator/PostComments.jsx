@@ -24,6 +24,7 @@ import { ceilToMinute, describeCommentRestriction } from '../../utils/sanctionNo
 import { createCommentBlockAsAdmin, deleteCommentAsAdmin } from '../../api/adminComments.js'
 import { createCommentBlock } from '../../api/creatorCommentBlocks.js'
 import { useUser } from '../../context/useUser.js'
+import { displayedCommentTotal } from '../../utils/postCommentCount.js'
 import { canBlockAuthor, canDeleteComment, deleteRoute, moderationActor } from '../../utils/commentModeration.js'
 
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
@@ -235,7 +236,6 @@ export default function PostComments({ creatorId, postId, authenticated, followi
       if (route === 'admin') await deleteCommentAsAdmin(comment.commentId)
       else await deleteComment(creatorId, postId, comment.commentId)
       showToast('댓글을 삭제했어요.')
-      onCommentCountChange?.(-1)
     } catch (error) {
       const gone = error instanceof ApiError && error.code === 'RESOURCE_NOT_FOUND'
       // 삭제는 작성 제한의 대상이 아니라서 제한 오류(COMMENT_RESTRICTED 등)는 오지 않는다. 공통 문구 매핑만 쓴다.
@@ -246,6 +246,8 @@ export default function PostComments({ creatorId, postId, authenticated, followi
       }
     }
     setLocal((state) => ({ ...state, deleted: [...state.deleted, comment.commentId] }))
+    // 삭제에 성공했거나 이미 삭제돼 있었던(404) 댓글은 모두 목록에서 빠지고 아래 '댓글 N' 헤더도 줄어든다. 부모(목록 카드·상세)도 같이 줄여 한 화면의 수가 어긋나지 않게 한다.
+    onCommentCountChange?.(-1)
     setDeletingId(null)
     refreshQuietly()
   }
@@ -253,7 +255,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
   return (
     <section className="mt-space-md border-t border-surface-container pt-space-md" aria-label="댓글">
       <h4 className="mb-3 font-title-md text-title-md font-semibold text-on-surface">
-        댓글 {page ? page.totalElements - local.deleted.length + local.created.filter((comment) => !local.counted.includes(comment.commentId)).length : ''}
+        댓글 {page ? displayedCommentTotal(page.totalElements, local) : ''}
       </h4>
 
       {first.loading && <LoadingBlock label="댓글을 불러오는 중..." />}

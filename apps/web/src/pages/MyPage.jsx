@@ -196,9 +196,9 @@ export default function MyPage() {
 
       <section className="flex flex-col gap-space-sm">
         <div className="flex items-center justify-between">
-          <h3 className="font-title-md text-title-md text-on-surface font-bold">관심 크리에이터별 응모권</h3>
+          <h3 className="font-title-md text-title-md text-on-surface font-bold">도킹한 크리에이터별 응모권</h3>
           <Link to="/onboarding/creators" className="font-label-sm text-label-sm text-primary font-semibold">
-            관심 관리
+            도킹 관리
           </Link>
         </div>
         {directory.loading && <LoadingBlock label="응모권을 불러오는 중..." />}

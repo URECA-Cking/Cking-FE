@@ -1,5 +1,5 @@
 /** 크리에이터 목록 필터 선택지. */
-export const CREATOR_FILTERS = ['전체', '관심', '진행 중']
+export const CREATOR_FILTERS = ['전체', '도킹', '진행 중']
 
 /**
  * 필터 칩별 개수. 관심은 서버 팔로우 목록 수, 전체·진행 중은 받은 크리에이터 목록에서 센다.
@@ -8,7 +8,7 @@ export const CREATOR_FILTERS = ['전체', '관심', '진행 중']
 export function creatorFilterCounts(creators, followedCreatorIds) {
   return {
     전체: creators.length,
-    관심: followedCreatorIds.length,
+    도킹: followedCreatorIds.length,
     '진행 중': creators.filter((creator) => creator.openEventCount > 0).length,
   }
 }
@@ -38,7 +38,7 @@ export function filterExploreCreators(creators, followedCreatorIds, filter, quer
   const keyword = query.trim().toLowerCase()
   return creators.filter((creator) => {
     const matchesFilter =
-      filter === '관심' ? followedCreatorIds.includes(creator.creatorId)
+      filter === '도킹' ? followedCreatorIds.includes(creator.creatorId)
         : filter === '진행 중' ? creator.openEventCount > 0
           : true
     const matchesQuery = !keyword || creator.name.toLowerCase().includes(keyword)

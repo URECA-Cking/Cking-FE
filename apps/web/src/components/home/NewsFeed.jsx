@@ -26,7 +26,7 @@ export default function NewsFeed({ creators, posts }) {
   return (
     <section className="mt-6">
       <div className="px-margin">
-        <SectionTitle title="새 게시물" subtitle="팔로우한 크리에이터" />
+        <SectionTitle title="새 게시물" subtitle="도킹한 크리에이터" />
       </div>
       <div className="flex gap-2.5 overflow-x-auto overscroll-x-contain px-margin no-scrollbar">
         {cards.map((post) => {

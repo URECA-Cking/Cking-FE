@@ -23,6 +23,7 @@ import {
 
 const UPCOMING_DAYS = 60
 const EMPTY_MESSAGE = '현재 열려있는 게 없습니다.'
+const EMPTY_UPCOMING_MESSAGE = '예정된 일정이 없어요.'
 
 /**
  * calendar: 로그인 사용자의 "내 캘린더 담기" 상태({ ready, added, busy, onToggle }), 비로그인이면 null.
@@ -372,7 +373,7 @@ export function UpcomingSchedules({ creatorId, onShowAll }) {
       </div>
       {loading && <LoadingBlock label="다가오는 일정을 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
-      {!loading && !error && upcoming.length === 0 && <EmptyBlock icon="calendar_month" message={EMPTY_MESSAGE} />}
+      {!loading && !error && upcoming.length === 0 && <EmptyBlock icon="calendar_month" message={EMPTY_UPCOMING_MESSAGE} />}
       {!loading && !error && upcoming.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
           {upcoming.map((schedule) => {

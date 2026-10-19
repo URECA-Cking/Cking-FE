@@ -195,7 +195,7 @@ test('STEP 2는 팔로우 전에는 인기 크리에이터로 이동시키고, �
 
     // 서버는 팔로우가 되면 FOLLOW를 받을 수 있는 상태로 알려 준다. 틀이 팔로우를 기록한 뒤 퀘스트 상태를 다시 불러온다.
     await page.evaluate(() => { window.quest.items[1].status = 'CLAIMABLE'; window.following = true })
-    await page.getByRole('button', { name: '+ 팔로우' }).first().click()
+    await page.getByRole('button', { name: '+ 도킹' }).first().click()
     await page.waitForFunction(() => window.followCalls.length === 1)
     await page.waitForFunction(() => window.requests.filter((request) => request.path === '/api/me/welcome-quest').length >= 2)
     await page.getByRole('button', { name: /STEP 2.*받기/ }).click()
@@ -346,7 +346,7 @@ test('같은 화면에서 회원이 바뀌면 추천 크리에이터를 다시 �
   try {
     await page.evaluate(() => window.renderHome([], 7))
     await waitWelcome(page)
-    await page.getByRole('button', { name: '+ 팔로우' }).first().waitFor()
+    await page.getByRole('button', { name: '+ 도킹' }).first().waitFor()
     const loads = () => page.evaluate(() => window.requests.filter((request) => request.path === '/api/me/creator-recommendations').length)
     assert.equal(await loads(), 1)
 

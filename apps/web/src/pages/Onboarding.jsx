@@ -73,7 +73,7 @@ export default function Onboarding({ manage = false }) {
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-36">
       <BackHeader
-        title={manage ? '관심 크리에이터 관리' : ''}
+        title={manage ? '도킹 관리' : ''}
         badge={manage ? undefined : `Cking 단계 ${step === 'interests' ? 1 : 2}/2`}
         // 공유 버튼은 공유할 수 없는 화면이라 숨긴다. badge가 없을 때만 right가 쓰인다.
         right={<span />}

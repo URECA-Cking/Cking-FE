@@ -48,11 +48,11 @@ export default function CreatorRow({ creator, followed, disabled, onToggle, rowR
           }`}
       >
         {flat
-          ? <span>{followed ? '관심 중' : '관심 추가'}</span>
+          ? <span>{followed ? '도킹 중' : '도킹'}</span>
           : (
             <>
               <MaterialIcon name={followed ? 'done' : 'add'} className="text-[16px]" />
-              <span>{followed ? '완료' : '관심'}</span>
+              <span>{followed ? '완료' : '도킹'}</span>
             </>
           )}
       </button>

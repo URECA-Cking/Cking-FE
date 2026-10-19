@@ -98,9 +98,9 @@ export default function Explore() {
   async function handleToggleFollow(creator) {
     try {
       const result = await toggleFollow(creator.creatorId)
-      if (result) showToast(result.following ? `${creator.name} 관심 크리에이터로 등록되었어요! 💖` : '관심 크리에이터에서 해제되었습니다.')
+      if (result) showToast(result.following ? `${creator.name} 도킹 완료! 💖` : '도킹이 해제되었습니다.')
     } catch (error) {
-      showToast(describeError(error, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
+      showToast(describeError(error, '도킹 상태를 변경하지 못했어요.'), { icon: 'error' })
     }
   }
 
@@ -227,10 +227,10 @@ export default function Explore() {
           </button>
         )}
         {!directory.loading && !directory.error && filteredCreators.length === 0 && (
-          creatorFilter === '관심' && followedCreators.length === 0
+          creatorFilter === '도킹' && followedCreators.length === 0
             ? <EmptyBlock
               icon="favorite_border"
-              message="아직 관심 등록한 크리에이터가 없어요. 마음에 드는 크리에이터를 찾아보세요."
+              message="아직 도킹한 크리에이터가 없어요. 마음에 드는 크리에이터를 찾아보세요."
               action={<button type="button" onClick={() => changeCreatorFilter('전체')} className="mt-2 min-h-10 rounded-xl bg-primary px-4 font-label-sm text-label-sm font-semibold text-on-primary active:scale-95">전체 크리에이터 보기</button>}
             />
             : <EmptyBlock icon="person_search" message={creatorFilter === '진행 중' ? '지금 진행 중인 이벤트가 있는 크리에이터가 없어요.' : '조건에 맞는 크리에이터가 없어요.'} />

@@ -95,9 +95,9 @@ export default function MyTickets() {
 
         {summary.creators.length === 0 ? (
           <div className={`${cardClass} items-start`}>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">아직 팔로우한 크리에이터가 없어요.</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">아직 도킹한 크리에이터가 없어요.</p>
             <Link to="/onboarding/creators" className="font-label-md text-label-md text-primary font-semibold">
-              관심 크리에이터 고르기
+              도킹할 크리에이터 고르기
             </Link>
           </div>
         ) : (

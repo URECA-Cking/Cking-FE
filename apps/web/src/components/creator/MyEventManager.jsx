@@ -85,13 +85,13 @@ export default function MyEventManager() {
         to="/creator/events/new"
         className="flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-primary font-label-md text-label-md font-bold text-on-primary shadow-md transition-all active:scale-[0.98]"
       >
-        <MaterialIcon name="add" className="text-[20px]" />새 이벤트 만들기
+        <MaterialIcon name="add" className="text-[20px]" />새 이벤트 작성
       </Link>
 
       {loading && <LoadingBlock label="내 이벤트를 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
       {!loading && !error && events.length === 0 && (
-        <EmptyBlock icon="post_add" message="아직 만든 이벤트가 없어요. 첫 이벤트를 만들어보세요!" />
+        <EmptyBlock icon="post_add" message="아직 작성한 이벤트가 없어요. 첫 이벤트를 작성해 보세요!" />
       )}
 
       <div className="grid grid-cols-1 gap-space-md md:grid-cols-2 xl:grid-cols-3">

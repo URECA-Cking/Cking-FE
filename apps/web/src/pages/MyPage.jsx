@@ -298,7 +298,7 @@ export default function MyPage() {
               </div>
             ) : (
               <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                크리에이터가 되면 직접 이벤트를 만들고 응모를 운영할 수 있어요.
+                크리에이터가 되면 직접 이벤트를 작성하고 응모를 운영할 수 있어요.
               </p>
             )}
 

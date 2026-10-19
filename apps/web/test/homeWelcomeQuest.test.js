@@ -68,6 +68,10 @@ async function boot(page, initialQuest) {
     window.failClaims = 0
     window.failComplete = false
     window.missionDone = false
+    window.winners = []
+    window.winnersFail = false
+    window.winnersGate = null
+    window.failEvents = false
     window.questFailures = 0
     Element.prototype.scrollIntoView = () => { window.scrolled += 1 }
     const envelope = (status, code, data, message = null) => new Response(JSON.stringify({ code, data, message }), { status })
@@ -97,7 +101,16 @@ async function boot(page, initialQuest) {
         window.quest.completed = window.quest.items.every((item) => item.status === 'CLAIMED')
         return Promise.resolve(envelope(202, 'EARN_ACCEPTED', { step, rewardAmount: 1, status: 'CLAIMED' }))
       }
-      if (path === '/api/me/winners') return Promise.resolve(envelope(200, 'SUCCESS', []))
+      if (path === '/api/me/winners') {
+        // winnersGate가 있으면 테스트가 풀어 줄 때까지 응답을 미룬다. 진행 중인 요청이 나중에 끝나는 상황을 만든다.
+        if (window.winnersGate) {
+          const gate = window.winnersGate
+          return gate.then(() => envelope(200, 'SUCCESS', window.winners))
+        }
+        if (window.winnersFail) return Promise.resolve(envelope(500, 'INTERNAL_SERVER_ERROR', null, '조회 실패'))
+        return Promise.resolve(envelope(200, 'SUCCESS', window.winners))
+      }
+      if (path === '/api/events' && window.failEvents) return Promise.resolve(envelope(500, 'INTERNAL_SERVER_ERROR', null, '조회 실패'))
       if (/^\/api\/missions\/\d+\/complete$/.test(path)) {
         if (window.failComplete) return Promise.resolve(envelope(500, 'INTERNAL_SERVER_ERROR', null, '서버 오류'))
         return Promise.resolve(envelope(202, 'EARN_ACCEPTED', { status: 'PENDING' }))
@@ -497,4 +510,168 @@ test('도장을 찍으면 고리·반짝이 장식이 그려지고, 모션을 �
   const css = readFileSync(fileURLToPath(new URL('../src/index.css', import.meta.url)), 'utf8')
   const reduced = css.match(/@media \(prefers-reduced-motion: reduce\) \{[^}]*\.stamp-burst\s*\{\s*display:\s*none;?\s*\}/)
   assert.ok(reduced, 'prefers-reduced-motion: reduce 안에서 .stamp-burst를 숨겨야 한다')
+})
+
+test('일반 홈은 진행 중 이벤트를 병렬로 받고, 잔액은 응모에 보이는 크리에이터 것만 조회한다', async () => {
+  const { page, errors } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => {
+      const base = window.fetch
+      window.urls = []
+      const day = 86400000
+      const event = (eventId, creatorId, days) => ({ eventId, creatorId, title: `이벤트${eventId}`, displayStatus: 'IN_PROGRESS', endAt: new Date(Date.now() + days * day).toISOString() })
+      // 진행 중 이벤트 3페이지. 마감이 가장 빠른 3건은 크리에이터 1·2·3의 이벤트이고, 4번 크리에이터 이벤트는 밀려난다.
+      const pages = [[event(1, 1, 3)], [event(2, 2, 1)], [event(3, 3, 2), event(4, 4, 30)]]
+      window.fetch = (url, options) => {
+        const parsed = new URL(String(url), location.href)
+        window.urls.push(parsed.pathname + parsed.search)
+        if (parsed.pathname === '/api/events' && parsed.searchParams.get('status') === 'IN_PROGRESS') {
+          const index = Number(parsed.searchParams.get('page'))
+          const data = { items: pages[index], page: index, totalPages: pages.length, hasNext: index < pages.length - 1 }
+          return Promise.resolve(new Response(JSON.stringify({ code: 'SUCCESS', data, message: null }), { status: 200 }))
+        }
+        return base(url, options)
+      }
+      window.renderHome([1, 2, 3, 4, 5])
+    })
+    await page.getByText('이벤트1').first().waitFor()
+    const urls = await page.evaluate(() => window.urls)
+    const inProgressPages = urls.filter((url) => url.includes('status=IN_PROGRESS')).map((url) => new URL(url, 'http://x').searchParams.get('page')).sort()
+    assert.deepEqual(inProgressPages, ['0', '1', '2'])
+    // 이벤트 100건을 함께 받던 예전 목록 조회(상태 필터 없음)는 홈에서 나가지 않는다.
+    assert.equal(urls.some((url) => url.startsWith('/api/events?') && !url.includes('status=')), false)
+    const balanceCreators = urls.map((url) => url.match(/^\/api\/creators\/(\d+)\/tickets$/)?.[1]).filter(Boolean).sort()
+    assert.deepEqual(balanceCreators, ['1', '2', '3'])
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('회원이 바뀌어 새 회원의 당첨 조회가 실패해도 이전 회원의 당첨 배너는 남지 않는다', async () => {
+  const { page, errors } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => {
+      window.winners = [{ winnerId: 1, winnerManagementStatus: 'SELECTED' }]
+      window.renderHome([], 7)
+    })
+    await page.getByText('수령 대기 1건').waitFor()
+
+    // 회원 B로 전환한다. B의 당첨 조회는 실패하므로, 이전 회원 A의 결과가 남아 있으면 배너가 그대로 보인다.
+    await page.evaluate(() => {
+      window.winnersFail = true
+      window.renderHome([], 8)
+    })
+    await page.waitForFunction(() => window.requests.filter((request) => request.path === '/api/me/winners').length >= 2)
+    await page.waitForTimeout(100)
+    assert.equal(await page.getByText('수령 대기 1건').count(), 0)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('캐시로 그린 홈은 뒤에서 하는 이벤트 갱신이 실패해도 지워지지 않는다', async () => {
+  const { page, errors } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => window.renderHome([]))
+    await page.getByText('마감 임박순').waitFor()
+    const before = await page.evaluate(() => window.requests.filter((request) => request.path === '/api/events').length)
+
+    // 홈을 내렸다가 이벤트 조회가 실패하는 상태로 다시 연다. 캐시된 목록이 먼저 보이고 뒤의 갱신만 실패한다.
+    await page.evaluate(() => {
+      window.unmountHome()
+      window.failEvents = true
+    })
+    await page.evaluate(() => window.renderHome([]))
+    await page.waitForFunction((count) => window.requests.filter((request) => request.path === '/api/events').length > count, before)
+    await page.waitForTimeout(100)
+    assert.equal(await page.getByText('마감 임박순').count(), 1)
+    assert.equal((await bodyText(page)).includes('진행 중인 이벤트를 불러오지 못했습니다.'), false)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('로그아웃으로 캐시를 비운 뒤 이전 요청이 끝나도 이전 회원의 결과는 캐시에 다시 저장되지 않는다', async () => {
+  const { page, errors } = await screen(quest({ eligible: false }))
+  try {
+    // 회원 A의 당첨 조회를 미뤄 둔 채 로그아웃(캐시 비우기)하고 화면을 내린다.
+    await page.evaluate(() => {
+      window.winners = [{ winnerId: 1, winnerManagementStatus: 'SELECTED' }]
+      window.winnersGate = new Promise((resolve) => { window.releaseWinners = resolve })
+      window.renderHome([], 7)
+    })
+    await page.waitForFunction(() => window.requests.some((request) => request.path === '/api/me/winners'))
+    await page.evaluate(() => { window.clearAsyncCache(); window.unmountHome() })
+
+    // 이전 요청이 이제 끝난다.
+    await page.evaluate(() => window.releaseWinners())
+    await page.waitForTimeout(100)
+
+    // 같은 키로 다시 열면, 캐시에 남은 이전 결과가 있다면 응답 전에 배너가 바로 보인다. 이번 조회는 끝나지 않게 둔다.
+    await page.evaluate(() => {
+      window.winnersGate = new Promise(() => {})
+      window.renderHome([], 7)
+    })
+    await page.getByText('DAILY CHECK-IN').waitFor()
+    await page.waitForTimeout(100)
+    assert.equal(await page.getByText('수령 대기 1건').count(), 0)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('조회가 비활성화되면 진행 중이던 이전 요청의 결과는 현재 화면에 반영되지 않는다', async () => {
+  const { page } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => window.renderProbe({ tag: 'A', enabled: true }))
+    await page.waitForFunction(() => typeof window.probeGates.A === 'function')
+    await page.evaluate(() => window.renderProbe({ tag: 'A', enabled: false }))
+    // 비활성화가 화면에 반영되고 효과까지 정리된 뒤에 이전 요청을 끝낸다.
+    await page.locator('#probe[data-enabled="false"]').waitFor()
+    await page.waitForTimeout(50)
+    await page.evaluate(() => window.probeGates.A())
+    await page.waitForTimeout(100)
+    assert.equal(await page.locator('#probe').innerText(), 'none')
+  } finally { await page.close() }
+})
+
+test('캐시키가 바뀌면 이전 키의 요청이 늦게 끝나도 새 키의 결과를 덮어쓰지 않는다', async () => {
+  const { page } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => window.renderProbe({ tag: 'A', cacheKey: 'probe:A' }))
+    await page.waitForFunction(() => typeof window.probeGates.A === 'function')
+    await page.evaluate(() => window.renderProbe({ tag: 'B', cacheKey: 'probe:B' }))
+    await page.waitForFunction(() => typeof window.probeGates.B === 'function')
+    await page.evaluate(() => window.probeGates.B())
+    await page.waitForFunction(() => document.querySelector('#probe').innerText === 'B')
+    await page.evaluate(() => window.probeGates.A())
+    await page.waitForTimeout(100)
+    assert.equal(await page.locator('#probe').innerText(), 'B')
+  } finally { await page.close() }
+})
+
+test('같은 캐시키의 두 요청이 역순으로 끝나도 더 늦게 시작한 요청의 결과가 캐시에 남는다', async () => {
+  const { page } = await screen(quest({ eligible: false }))
+  try {
+    // 같은 키로 먼저 A, 이어서 B를 요청한 뒤 B가 먼저 끝나고 오래된 A가 나중에 끝난다.
+    await page.evaluate(() => window.renderProbe({ tag: 'A', cacheKey: 'probe:same' }))
+    await page.waitForFunction(() => typeof window.probeGates.A === 'function')
+    await page.evaluate(() => window.renderProbe({ tag: 'B', cacheKey: 'probe:same' }))
+    await page.waitForFunction(() => typeof window.probeGates.B === 'function')
+    await page.evaluate(() => window.probeGates.B())
+    await page.waitForFunction(() => document.querySelector('#probe').innerText === 'B')
+    await page.evaluate(() => window.probeGates.A())
+    await page.waitForTimeout(100)
+
+    // 화면을 내렸다가 같은 키로 다시 열면 캐시된 값이 먼저 보인다. 이번 조회(C)는 끝나지 않게 둔다.
+    await page.evaluate(() => window.unmountHome())
+    await page.evaluate(() => window.renderProbe({ tag: 'C', cacheKey: 'probe:same' }))
+    await page.waitForFunction(() => typeof window.probeGates.C === 'function')
+    assert.equal(await page.locator('#probe').innerText(), 'B')
+  } finally { await page.close() }
+})
+
+test('지연 로딩한 화면을 받지 못하면 빈 화면 대신 안내와 다시 시도를 보여준다', async () => {
+  const { page } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => window.renderBrokenLazy())
+    await page.getByText('화면을 불러오지 못했어요. 네트워크를 확인한 뒤 새로고침해 주세요.').waitFor()
+    await page.getByRole('button', { name: '다시 시도' }).waitFor()
+  } finally { await page.close() }
 })

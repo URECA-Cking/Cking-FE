@@ -1,8 +1,10 @@
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import BottomNav from './BottomNav.jsx'
 import { TopHeader } from './TopHeader.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import { LoadingBlock } from '../ui/States.jsx'
+import ChunkErrorBoundary from '../ui/ChunkErrorBoundary.jsx'
 import { useOnline } from '../../hooks/useOnline.js'
 import { useNotificationPage } from '../../hooks/useNotificationPage.js'
 import { getMyNotifications } from '../../api/notifications.js'
@@ -157,6 +159,8 @@ export default function MainLayout() {
             </span>
           </div>
         )}
+        <ChunkErrorBoundary resetKey={pathname}>
+        <Suspense fallback={<LoadingBlock />}>
         <Outlet context={{
           notifications,
           unreadCount,
@@ -170,6 +174,8 @@ export default function MainLayout() {
           hideNotificationLocally,
           unhideNotificationLocally,
         }} />
+        </Suspense>
+        </ChunkErrorBoundary>
       </main>
       <BottomNav embedded compact={bottomCompact} onNavigate={handleNavigationScrollReset} />
     </div>

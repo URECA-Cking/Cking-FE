@@ -8,7 +8,7 @@ import { getMyWinners } from '../../api/myWinners.js'
  * 보조 안내라 실패를 오류 블록으로 알리지 않고, 당첨 확인은 내 당첨 화면에서 항상 할 수 있다.
  */
 export default function WinnerBanner({ memberId }) {
-  const { data } = useAsync(() => getMyWinners(), [memberId], { enabled: memberId != null })
+  const { data } = useAsync(() => getMyWinners(), [memberId], { enabled: memberId != null, cacheKey: memberId != null ? `winners:${memberId}` : null })
   const pending = (data ?? []).filter((winner) => winner.winnerManagementStatus === 'SELECTED').length
   if (pending === 0) return null
 

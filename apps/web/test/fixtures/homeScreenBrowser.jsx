@@ -1,10 +1,13 @@
-import React, { useState } from 'react'
+import React, { Suspense, lazy, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import Home from '../../src/pages/Home.jsx'
 import UserContext from '../../src/context/userContext.js'
 import ToastContext from '../../src/context/toastContext.js'
 import MyTicketsContext from '../../src/context/myTicketsContext.js'
+import { useAsync } from '../../src/hooks/useAsync.js'
+import { clearAsyncCache } from '@cking/shared/useAsync'
+import ChunkErrorBoundary from '../../src/components/ui/ChunkErrorBoundary.jsx'
 
 const root = createRoot(document.getElementById('root'))
 
@@ -45,5 +48,24 @@ function Shell({ follows, memberId }) {
 /** 지정한 팔로우 목록과 회원 번호로 홈을 그린다. 같은 화면에서 회원 번호만 바꿔 다시 부르면 계정 전환을 흉내 낸다. */
 window.renderHome = (follows = [], memberId = 7) => root.render(<Shell follows={follows} memberId={memberId} />)
 
-/** 홈을 화면에서 내린다. 로그아웃이나 화면 이동으로 홈이 사라지는 상황을 흉내 낸다. */
+/** 홈을 화면에서 내린다. 다시 renderHome을 부르면 처음 여는 것처럼 새로 마운트돼 캐시된 결과가 먼저 보인다. */
 window.unmountHome = () => root.render(null)
+
+window.clearAsyncCache = clearAsyncCache
+
+/**
+ * useAsync만 따로 확인하는 틀. 조회는 window.probeLoader(tag)가 정하고, 결과는 화면에 그대로 나온다.
+ * 테스트가 window.probeGates[tag]()를 불러야 해당 조회가 끝난다.
+ */
+function Probe({ tag, enabled = true, cacheKey = null }) {
+  const { data } = useAsync(() => new Promise((resolve) => { window.probeGates[tag] = () => resolve(tag) }), [tag], { enabled, cacheKey })
+  return <p id="probe" data-enabled={String(enabled)}>{data ?? 'none'}</p>
+}
+window.probeGates = {}
+window.renderProbe = (props) => root.render(<Probe {...props} />)
+
+/** 지연 로딩한 화면의 JS 조각을 받지 못한 경우를 흉내 낸다. */
+const BrokenPage = lazy(() => Promise.reject(new Error('chunk load failed')))
+window.renderBrokenLazy = () => root.render(
+  <ChunkErrorBoundary resetKey="a"><Suspense fallback={<p>loading</p>}><BrokenPage /></Suspense></ChunkErrorBoundary>,
+)

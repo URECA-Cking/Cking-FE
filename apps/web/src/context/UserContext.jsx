@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { clearAsyncCache } from '@cking/shared/useAsync'
 import { onUnauthorized } from '../api/client.js'
 import { logout, restoreSession } from '../api/auth.js'
 import { getMyProfile } from '../api/profile.js'
@@ -25,6 +26,8 @@ export function UserProvider({ children }) {
 
   const markSignedOut = useCallback(() => {
     sessionSeq.current += 1
+    // 이전 사용자의 조회 결과가 다음 사용자의 화면에 먼저 보이지 않게 캐시를 비운다.
+    clearAsyncCache()
     pendingFollowRef.current.clear()
     setPendingFollowIds(new Set())
     setFollowState(emptyFollows)

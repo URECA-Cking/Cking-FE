@@ -59,7 +59,7 @@ window.clearAsyncCache = clearAsyncCache
  */
 function Probe({ tag, enabled = true, cacheKey = null }) {
   const { data } = useAsync(() => new Promise((resolve) => { window.probeGates[tag] = () => resolve(tag) }), [tag], { enabled, cacheKey })
-  return <p id="probe">{data ?? 'none'}</p>
+  return <p id="probe" data-enabled={String(enabled)}>{data ?? 'none'}</p>
 }
 window.probeGates = {}
 window.renderProbe = (props) => root.render(<Probe {...props} />)

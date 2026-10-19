@@ -241,7 +241,7 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
                 )}
                 {stampsReady ? (
                   <p className="mt-2 text-center font-label-xs text-label-xs text-on-surface-variant font-normal">
-                    최근 7일 중 {stampedCount}일 출석 · 매일 오전 9시에 초기화돼요
+                    최근 7일 중 {stampedCount}일 출석 · 매일 09시 00분에 초기화돼요
                   </p>
                 ) : ledgerError && !ledgerLoading ? (
                   <p className="mt-2 flex items-center justify-between gap-2 font-label-xs text-label-xs text-on-surface-variant font-normal">

@@ -1,15 +1,10 @@
-/** ISO 시각을 한국어 날짜와 시각으로 표시한다. */
+/** 브라우저 시간대 기준 yy.mm.dd. HH시 mm분 (24시간제). */
 export function formatDateTime(value) {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const pad = (number) => String(number).padStart(2, '0')
+  return `${pad(date.getFullYear() % 100)}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}. ${pad(date.getHours())}시 ${pad(date.getMinutes())}분`
 }
 
 export function formatNumber(value) {

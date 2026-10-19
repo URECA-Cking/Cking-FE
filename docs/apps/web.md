@@ -63,3 +63,7 @@ API 사용 범위와 정본 링크는 [api-coverage.md](../api-coverage.md)를 �
 ### Quiz 수동 마감 (#245)
 
 내 Quiz 목록과 검토 시트에서 마감 상태·시각을 표시한다. 기존 ConfirmSheet로 영구 마감을 확인하고 성공·상태 충돌 뒤 상세를 재조회한다. 마감 후 변경 명령과 팬 신규 제출은 차단하며 기존 정보·응시 결과 조회는 유지한다. 실제 dev 마감·제출 E2E는 테스트 계정과 폐기 가능한 Quiz로 별도 검증한다. API 계약 정본은 [BE Quiz API](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/quiz/api.md)다.
+
+### 이벤트 상품 키 자동 생성 (#247)
+
+이벤트 생성·수정 폼의 상품 키 입력은 숨기고 신규 상품 행에만 자동 발급한다. 기존 상품 키와 현재 폼에서 삭제한 키는 재사용하지 않는다. 상품명·순위·가중치·수량 입력과 기존 priority 초기값 계산 및 API 계약은 유지한다. 실제 BE 변경 API 검증은 별도 테스트 이벤트로 진행한다.

@@ -3,6 +3,7 @@
 export const PUBLICATION_LABELS = {
   NOT_PUBLISHED: { label: '미게시', icon: 'visibility_off', tone: 'bg-surface-container text-on-surface-variant' },
   PUBLISHED: { label: '게시 중', icon: 'public', tone: 'bg-primary text-on-primary' },
+  CLOSED: { label: '마감', icon: 'event_busy', tone: 'bg-surface-container-high text-on-surface-variant' },
   UNPUBLISHED: { label: '게시 중지', icon: 'pause_circle', tone: 'bg-surface-container-high text-on-surface' },
 }
 

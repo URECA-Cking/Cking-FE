@@ -138,7 +138,7 @@ export function canApprove(revision, evaluation) {
 
 /** 게시 가능 여부. 승인된 최신 revision이고 그 revision을 이미 게시 중이 아니어야 한다. */
 export function canPublish(quiz, revision) {
-  if (!quiz || !revision || !revision.latest || revision.reviewStatus !== 'APPROVED') return false
+  if (!quiz || quiz.publicationStatus === 'CLOSED' || !revision || !revision.latest || revision.reviewStatus !== 'APPROVED') return false
   if (revision.origin === 'CREATOR_COMPOSED' && revision.approvalPolicyVersion !== 'CREATOR_REVIEW_V1') return false
   return !(quiz.publicationStatus === 'PUBLISHED' && quiz.publishedRevisionId === revision.revisionId)
 }
@@ -159,6 +159,8 @@ export function isUncertainError(error) {
 }
 
 const ERROR_MESSAGES = {
+  QUIZ_CLOSED: '마감된 Quiz예요. 재게시하거나 내용을 변경할 수 없어요.',
+  QUIZ_CLOSE_NOT_ALLOWED: '게시 중이거나 게시 중지한 Quiz만 마감할 수 있어요.',
   QUIZ_REVISION_CONFLICT: '편집 기준이 바뀌었거나 hash가 달라요. 최신 Revision을 확인해 주세요.',
   QUIZ_EDIT_REQUEST_CONFLICT: '같은 저장 UUID의 요청 내용이 달라요. 기존 저장 기록을 확인해 주세요.',
   QUIZ_CONTENT_LOCKED: '최초 게시한 Quiz는 게시 취소 후에도 편집할 수 없어요.',

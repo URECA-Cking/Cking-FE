@@ -27,7 +27,7 @@ function modalSize(ratio, hasMedia) {
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 /** 크리에이터 게시물 목록과 상세, 작성·수정·삭제 및 좋아요 상태를 관리한다. */
-export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostCountChange, onMissionAwarded }) {
+export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
@@ -153,15 +153,12 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     setLocal((current) => edited
       ? { ...current, updated: { ...current.updated, [saved.postId]: saved } }
       : { ...current, created: [saved, ...current.created] })
-    // 새 글은 프로필의 게시물 수도 바뀐다(수정은 개수가 그대로).
-    if (!edited) onPostCountChange?.()
     refreshQuietly()
   }
 
   /** 삭제된 게시물을 목록에서 제외하고 서버 목록을 재조회한다. */
   function markDeleted(postId) {
     setLocal((current) => ({ ...current, deleted: [...current.deleted, postId] }))
-    onPostCountChange?.()
     refreshQuietly()
   }
 

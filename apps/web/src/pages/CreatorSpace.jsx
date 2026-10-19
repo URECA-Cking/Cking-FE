@@ -21,7 +21,6 @@ import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorSpace } from '../api/creators.js'
 import { getCreatorSpace, getMySpace, spacePath, spaceShareUrl } from '../api/creatorSpace.js'
-import { getCreatorPosts } from '../api/posts.js'
 import { completeShareMission, getCreatorMissions } from '../api/missions.js'
 import { getCreatorYoutubeChannel } from '../api/subscriptionVerification.js'
 import { getTicketBalance } from '../api/tickets.js'
@@ -179,12 +178,6 @@ export default function CreatorSpace() {
   const [shareRewardBusy, setShareRewardBusy] = useState(false)
   // DUPLICATE_MISSION을 받아 서버의 완료 기록을 확인하는 중인 { memberId, creatorId }. 서버가 완료로 확인하기 전에는 "완료"로 바꾸지 않는다.
   const [shareChecking, setShareChecking] = useState(null)
-  // 프로필 통계의 게시물 수는 목록 응답의 totalElements를 쓴다(1건만 요청). 실패하면 그 칸만 숨긴다.
-  const postTotal = useAsync(
-    () => getCreatorPosts(creatorId, { size: 1 }),
-    [creatorId, authenticated],
-    { enabled: creatorId !== null },
-  )
   const ticketBalance = balance.data?.balance ?? 0
   const likeMissions = useMemo(() => (missions ?? []).filter((mission) => mission.type === 'LIKE'), [missions])
   const shareMission = useMemo(() => (missions ?? []).find((mission) => mission.type === 'SHARE') ?? null, [missions])
@@ -561,7 +554,7 @@ export default function CreatorSpace() {
           type="button"
           onClick={handleFollow}
           disabled={authenticated && (!followsReady || pendingFollowIds.has(creator.creatorId) || (isCreator && !mySpace.data))}
-          className={`flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 md:flex-none md:px-5 ${
+          className={`flex h-11 w-[calc((100%-3.25rem)/2)] shrink-0 items-center justify-center gap-1.5 rounded-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto md:flex-none md:px-5 ${
             following ? 'bg-surface-container-highest text-on-surface' : 'bg-primary text-on-primary'
           }`}
         >
@@ -869,7 +862,6 @@ export default function CreatorSpace() {
         {tab === 'posts' && !sessionLoading && (
           <CreatorPosts
             key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}:${authenticated}:${following}:${isMine}`}
-            onPostCountChange={postTotal.reload}
             onMissionAwarded={handleLikeMissionAwarded}
             creatorId={creator.creatorId}
             creatorName={creator.creatorName}

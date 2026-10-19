@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import CreateFab from '../ui/CreateFab.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../ui/States.jsx'
 import PostComments from './PostComments.jsx'
@@ -26,7 +27,7 @@ function modalSize(ratio, hasMedia) {
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 /** 크리에이터 게시물 목록과 상세, 작성·수정·삭제 및 좋아요 상태를 관리한다. */
-export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostCountChange, onMissionAwarded }) {
+export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
@@ -152,15 +153,12 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     setLocal((current) => edited
       ? { ...current, updated: { ...current.updated, [saved.postId]: saved } }
       : { ...current, created: [saved, ...current.created] })
-    // 새 글은 프로필의 게시물 수도 바뀐다(수정은 개수가 그대로).
-    if (!edited) onPostCountChange?.()
     refreshQuietly()
   }
 
   /** 삭제된 게시물을 목록에서 제외하고 서버 목록을 재조회한다. */
   function markDeleted(postId) {
     setLocal((current) => ({ ...current, deleted: [...current.deleted, postId] }))
-    onPostCountChange?.()
     refreshQuietly()
   }
 
@@ -293,17 +291,10 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }
 
   return (
-    <div className="flex flex-col pb-space-md">
+    <div className="flex flex-col pb-space-md pt-space-sm">
       {/* 목록이 보일 때만 쓰기를 열어, 저장한 글이 화면에 반영되지 못하는 상태를 만들지 않는다. */}
       {isMine && !first.loading && !first.error && page && (
-        <button
-          type="button"
-          onClick={() => setEditor({ post: null })}
-          className="mx-margin my-space-sm flex items-center justify-center gap-1.5 rounded-lg bg-surface-container py-2.5 font-label-md text-label-md font-semibold text-on-surface active:scale-[0.98]"
-        >
-          <MaterialIcon name="add" className="text-[18px]" />
-          새 게시글
-        </button>
+        <CreateFab label="새 게시글" onClick={() => setEditor({ post: null })} />
       )}
       {(first.loading || (!page && !first.error)) && <LoadingBlock label="게시글을 불러오는 중..." />}
       {!first.loading && first.error && <ErrorBlock message={first.error} onRetry={reloadFirst} />}
@@ -311,7 +302,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
         <EmptyBlock icon="grid_view" message="아직 게시글이 없어요." />
       )}
       {!first.loading && !first.error && page && posts.length > 0 && (
-        <div className="grid grid-cols-3 gap-0.5 md:gap-1">
+        <div className="grid grid-cols-3 gap-0.5 px-margin md:gap-1">
           {posts.map((post) => (
             <PostGridTile key={post.postId} post={post} onOpen={() => openDetail(post.postId)} onImageError={handleThumbError} />
           ))}

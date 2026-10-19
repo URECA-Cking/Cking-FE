@@ -42,7 +42,6 @@ export default function MyCalendar() {
     selectedSchedules,
     nextSchedules,
     moveMonth,
-    goToToday,
     selectSchedule,
     loading,
     error,
@@ -71,10 +70,10 @@ export default function MyCalendar() {
 
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-28">
-      <BackHeader title="내 캘린더" onBack={() => navigate('/my-page')} />
+      <BackHeader showShare={false} title="내 캘린더" onBack={() => navigate('/my-page')} />
 
       <div className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-3xl">
-        <MonthNav month={month} onMove={moveMonth} onToday={goToToday} />
+        <MonthNav month={month} onMove={moveMonth} />
 
         {loading && <LoadingBlock label="내 캘린더를 불러오는 중..." />}
         {!loading && error && <ErrorBlock message={error} onRetry={reload} />}

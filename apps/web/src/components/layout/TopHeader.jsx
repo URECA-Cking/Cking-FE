@@ -122,7 +122,7 @@ export function TopHeader({
 }
 
 /** Header with a back button, used on detail / sub screens. */
-export function BackHeader({ title, badge, onBack, right }) {
+export function BackHeader({ title, badge, onBack, right, showShare = true }) {
   const share = useShare()
 
   return (
@@ -140,14 +140,14 @@ export function BackHeader({ title, badge, onBack, right }) {
         ) : (
           (right ?? (
             <div className="flex items-center gap-space-xs shrink-0">
-              <button
+              {showShare && <button
                 aria-label="공유하기"
                 onClick={() => share(title)}
                 className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
                 type="button"
               >
                 <MaterialIcon name="share" className="text-[20px]" />
-              </button>
+              </button>}
               <Link
                 to="/my-page"
                 className="w-8 h-8 rounded-full bg-primary flex items-center justify-center"

@@ -183,6 +183,7 @@ function QuizSheet({ creatorId, memberId, quizId, authenticated, sessionLoading,
   const progressKey = memberId !== null && memberId !== undefined ? quizProgressKey(memberId, creatorId, quizId) : null
   const [restoredRevision, setRestoredRevision] = useState(null)
   const [openedAt] = useState(Date.now)
+  const headingRef = useRef(null)
   // 응답을 받지 못해 다시 보낼 때는 같은 답안이면 같은 requestId를 쓴다. 답안이 바뀌면 새 요청이다.
   const pending = useRef(null)
   // 연타로 같은 요청이 겹쳐 나가지 않게 한다(상태 값은 다음 렌더 전까지 바뀌지 않는다).
@@ -203,6 +204,11 @@ function QuizSheet({ creatorId, memberId, quizId, authenticated, sessionLoading,
   const question = questions[view.index]
 
   useEffect(() => () => clearTimeout(advanceTimer.current), [])
+  // 문항이 바뀌면 눌렀던 보기가 사라지므로 초점을 새 질문으로 옮긴다(키보드·스크린리더 사용자가 모달 밖으로 밀려나지 않게).
+  const questionNo = question?.questionNo
+  useEffect(() => {
+    if (questionNo !== undefined) headingRef.current?.focus()
+  }, [questionNo])
 
   function handleSelect(selectedQuestion, optionNo) {
     if (isMine || submitting || advanceTimer.current) return
@@ -319,7 +325,9 @@ function QuizSheet({ creatorId, memberId, quizId, authenticated, sessionLoading,
             <div role="group" aria-labelledby="quiz-question" key={question.questionNo} className="flex flex-1 flex-col gap-space-sm">
               <h2
                 id="quiz-question"
-                className="pb-space-md pt-space-sm font-headline-xl-mobile text-headline-xl-mobile font-extrabold leading-snug text-on-surface"
+                ref={headingRef}
+                tabIndex={-1}
+                className="pb-space-md pt-space-sm font-headline-xl-mobile outline-none text-headline-xl-mobile font-extrabold leading-snug text-on-surface"
               >
                 {question.question}
               </h2>
@@ -393,10 +401,62 @@ function QuizSheet({ creatorId, memberId, quizId, authenticated, sessionLoading,
   )
 }
 
-/** Quiz를 푸는 동안 화면 전체를 쓴다. 한 문항씩 크게 보여주고 마지막에 점수 화면으로 이어진다. */
+const FOCUSABLE = 'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+/**
+ * Quiz를 푸는 동안 화면 전체를 쓴다. 한 문항씩 크게 보여주고 마지막에 점수 화면으로 이어진다.
+ * 모달이므로 열 때 초점을 안으로 옮기고, Tab이 밖으로 나가지 않게 하며, Escape로 닫고 닫은 뒤 이전 초점으로 돌려준다.
+ */
 function QuizScreen({ onClose, title, children }) {
+  const dialogRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  useEffect(() => {
+    const opener = document.activeElement
+    dialogRef.current?.focus()
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus()
+    }
+  }, [])
+
+  function handleKeyDown(event) {
+    if (event.key === 'Escape') {
+      event.stopPropagation()
+      onCloseRef.current()
+      return
+    }
+    if (event.key !== 'Tab') return
+    const items = [...dialogRef.current.querySelectorAll(FOCUSABLE)]
+    if (items.length === 0) {
+      event.preventDefault()
+      dialogRef.current.focus()
+      return
+    }
+    const first = items[0]
+    const last = items[items.length - 1]
+    const active = document.activeElement
+    if (event.shiftKey && (active === first || active === dialogRef.current)) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
   return (
-    <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-[60] flex flex-col bg-surface">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
+      className="fixed inset-0 z-[60] flex flex-col bg-surface outline-none"
+    >
       <div className="mx-auto flex w-full max-w-[480px] items-center justify-between gap-2 px-margin pt-space-md md:max-w-2xl">
         <button
           type="button"

@@ -16,8 +16,8 @@ const ENTRY_FILTERS = [
   { id: 'CLOSED', label: '종료' },
 ]
 
-// 이력이 많아도 화면이 길어지지 않게 처음에는 이만큼만 보여 주고 "더보기"로 펼치고 "접기"로 되돌린다.
-const INITIAL_ENTRY_COUNT = 5
+// 이력이 많아도 화면이 길어지지 않게 이만큼씩 보여 준다. "더보기"로 늘리고, 끝까지 펼치면 같은 자리의 "접기"로 되돌린다.
+const ENTRY_PAGE_SIZE = 5
 
 /**
  * 내 응모 현황.
@@ -33,11 +33,11 @@ export default function MyEntries() {
   })
 
   const [filter, setFilter] = useState('')
-  const [showAll, setShowAll] = useState(false)
+  const [shownCount, setShownCount] = useState(ENTRY_PAGE_SIZE)
   const entries = data?.entries ?? []
   const countOf = (id) => (id ? entries.filter((entry) => entry.event?.displayStatus === id).length : entries.length)
   const filteredEntries = filter ? entries.filter((entry) => entry.event?.displayStatus === filter) : entries
-  const visibleEntries = showAll ? filteredEntries : filteredEntries.slice(0, INITIAL_ENTRY_COUNT)
+  const visibleEntries = filteredEntries.slice(0, shownCount)
   const hiddenCount = filteredEntries.length - visibleEntries.length
 
   return (
@@ -87,7 +87,7 @@ export default function MyEntries() {
               type="button"
               onClick={() => {
                 setFilter(item.id)
-                setShowAll(false)
+                setShownCount(ENTRY_PAGE_SIZE)
               }}
               aria-pressed={filter === item.id}
               className={`px-4 py-1.5 rounded-full font-label-sm text-label-sm font-semibold whitespace-nowrap transition-all active:scale-95 ${
@@ -176,15 +176,15 @@ export default function MyEntries() {
             </Link>
           )
         })}
-        {filteredEntries.length > INITIAL_ENTRY_COUNT && (
+        {filteredEntries.length > ENTRY_PAGE_SIZE && (
           <button
             type="button"
-            onClick={() => setShowAll((shown) => !shown)}
-            aria-expanded={showAll}
+            onClick={() => setShownCount((count) => (hiddenCount > 0 ? count + ENTRY_PAGE_SIZE : ENTRY_PAGE_SIZE))}
+            aria-expanded={hiddenCount === 0}
             className="flex items-center justify-center gap-1 py-space-sm rounded-xl bg-surface-container-lowest shadow-card font-label-md text-label-md text-primary font-semibold md:col-span-2"
           >
-            {showAll ? '접기' : `더보기 (${formatNumber(hiddenCount)}개)`}
-            <MaterialIcon name={showAll ? 'expand_less' : 'expand_more'} className="text-[18px]" />
+            {hiddenCount > 0 ? `더보기 (${formatNumber(hiddenCount)}개)` : '접기'}
+            <MaterialIcon name={hiddenCount > 0 ? 'expand_more' : 'expand_less'} className="text-[18px]" />
           </button>
         )}
       </div>

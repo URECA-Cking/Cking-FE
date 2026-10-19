@@ -96,6 +96,7 @@ async function boot(page, initialQuest) {
         return Promise.resolve(envelope(202, 'EARN_ACCEPTED', { step, rewardAmount: 1, status: 'CLAIMED' }))
       }
       if (path === '/api/me/winners') return Promise.resolve(envelope(200, 'SUCCESS', []))
+      if (/^\/api\/missions\/\d+\/complete$/.test(path)) return Promise.resolve(envelope(202, 'EARN_ACCEPTED', { status: 'PENDING' }))
       if (path === '/api/missions') return Promise.resolve(envelope(200, 'SUCCESS', [{ missionId: 1, type: 'ATTENDANCE', rewardAmount: 1, completedToday: false }]))
       if (path === '/api/tickets/common/history') return Promise.resolve(envelope(200, 'SUCCESS', { items: [], hasNext: false }))
       if (path === '/api/me/creator-recommendations') return Promise.resolve(envelope(200, 'SUCCESS', recommendations))
@@ -142,7 +143,7 @@ test('대상이 아닌 회원은 지금과 같은 홈을 본다', async () => {
     const text = await bodyText(page)
     assert.equal(text.includes('1분 만에 끝내는 시작 가이드'), false)
     assert.equal(text.includes('지금 팬들이 가장 많이 모이는 곳'), false)
-    assert.equal(await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).count(), 0)
+    assert.equal(await page.getByText('도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!').count(), 0)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
@@ -211,18 +212,20 @@ test('STEP 3은 펼쳐서 답을 서버에 보내고, 오답은 안내하고 정
   } finally { await page.close() }
 })
 
-test('웰컴 보너스 상자는 DAY 2 자리에서 열고, 받으면 지급 문구가 보인다', async () => {
+test('출석 도장을 누르면 다음 칸에 웰컴 보너스 도장이 이어서 찍히고, 받으면 지급 문구가 보인다', async () => {
   const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
   try {
     await page.evaluate(() => window.renderHome([]))
     await waitWelcome(page)
-    await page.getByText('깜짝 웰컴 보너스 상자를 터치해서 추가 응모권을 받아보세요!').waitFor()
+    await page.getByText('도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!').waitFor()
 
-    await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).click()
+    await page.getByRole('button', { name: '도장 찍기' }).click()
     await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
     const posted = await claims(page)
     assert.equal(posted.at(-1).path, '/api/me/welcome-quest/BONUS/claim')
-    assert.equal(await page.getByLabel('웰컴 보너스 받음').count(), 1)
+    // 출석 도장 다음 칸(DAY 2)이 보너스로 찍힌다.
+    assert.equal(await page.getByLabel('1번째 도장 찍힘').count(), 1)
+    assert.equal(await page.getByLabel('2번째 도장 찍힘').count(), 1)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
@@ -235,7 +238,7 @@ test('퀘스트를 끝낸 뒤 다시 들어오면 일반 홈이고, 못 받은 �
     const text = await bodyText(page)
     assert.equal(text.includes('1분 만에 끝내는 시작 가이드'), false)
     assert.equal(text.includes('웰컴 퀘스트 완료!'), false)
-    await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).waitFor()
+    await page.getByText('도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!').waitFor()
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
@@ -369,22 +372,22 @@ test('퀘스트 상태 조회가 실패하면 다시 시도를 보여주고, 성
   } finally { await page.close() }
 })
 
-test('같은 화면에서 회원이 바뀌어도 이전 회원이 받은 보너스 표시가 다른 회원의 상자에 남지 않는다', async () => {
+test('같은 화면에서 회원이 바뀌어도 이전 회원이 받은 보너스 표시가 다른 회원의 출석 카드에 남지 않는다', async () => {
   // 세 단계를 모두 끝내 일반 홈을 쓰고 보너스만 남은 회원 A와 B다. 두 회원 모두 출석 카드가 같은 자리에서 쓰인다.
   const done = { SIGNUP: 'CLAIMED', FOLLOW: 'CLAIMED', QUIZ: 'CLAIMED' }
   const { page, errors } = await screen(quest(done))
   try {
     await page.evaluate(() => window.renderHome([], 7))
-    await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).click()
+    await page.getByRole('button', { name: '도장 찍기' }).click()
     await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
 
     // 회원 B로 전환한다. B의 보너스는 아직 받을 수 있는 상태다.
     await page.evaluate((next) => { window.quest = next; window.renderHome([], 8) }, quest(done))
-    await page.getByText('깜짝 웰컴 보너스 상자를 터치해서 추가 응모권을 받아보세요!').waitFor()
-    assert.equal(await page.getByLabel('웰컴 보너스 받음').count(), 0)
+    await page.getByText('도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!').waitFor()
+    assert.equal(await page.getByLabel('2번째 도장 찍힘').count(), 0)
 
     // B도 정상적으로 지급받을 수 있다.
-    await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).click()
+    await page.getByRole('button', { name: '도장 찍기' }).click()
     await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
     const bonusClaims = (await claims(page)).filter((request) => request.path === '/api/me/welcome-quest/BONUS/claim')
     assert.equal(bonusClaims.length, 2)

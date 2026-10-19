@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
@@ -11,6 +11,7 @@ import { getMySpace, spacePath } from '../api/creatorSpace.js'
 import { newRequestId } from '../api/client.js'
 import { describeCreatorWriteError } from '../api/creatorProfile.js'
 import { formatNumber } from '../utils/format.js'
+import { allocatePrizeKey } from '../utils/eventPrizeKeys.js'
 
 // 추첨 방식은 고를 수 없고 새로 만들 때는 WEIGHTED, 수정할 때는 기존 값을 보여준다.
 const DRAW_METHOD_LABELS = {
@@ -55,6 +56,10 @@ function defaultRange() {
  */
 export default function CreatorEventForm() {
   const { eventId } = useParams()
+  return <EventFormLoader key={eventId ? `edit:${eventId}` : 'create'} eventId={eventId} />
+}
+
+function EventFormLoader({ eventId }) {
   const isEdit = Boolean(eventId)
   const goBack = useAppBack('/my-page')
 
@@ -99,6 +104,16 @@ function EventFormBody({ eventId, isEdit, target }) {
   const [requestId] = useState(() => newRequestId())
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
+  const [initialPrizes] = useState(() => {
+    const prizes = (target?.prizes ?? []).map(prize => ({ ...prize }))
+    const reservedKeys = new Set(prizes.map(prize => prize.prizeKey.toLowerCase()))
+    if (prizes.length === 0) {
+      prizes.push({ ...EMPTY_PRIZE, prizeKey: allocatePrizeKey(reservedKeys, newRequestId), displayName: '1등 상품' })
+    }
+    return { prizes, reservedKeys: [...reservedKeys] }
+  })
+  // 삭제한 상품도 예약에서 빼지 않는다. 키는 렌더나 저장이 아닌 신규 행 추가 시에만 발급한다.
+  const reservedPrizeKeys = useRef(new Set(initialPrizes.reservedKeys))
   const [form, setForm] = useState(() =>
     target
       ? {
@@ -109,16 +124,14 @@ function EventFormBody({ eventId, isEdit, target }) {
           winnerCount: target.winnerCount ?? 1,
           startAt: toLocalInput(target.startAt),
           endAt: toLocalInput(target.endAt),
-          prizes: (target.prizes ?? []).length
-            ? target.prizes.map((prize) => ({ ...prize }))
-            : [{ ...EMPTY_PRIZE, prizeKey: 'GRAND', displayName: '1등 상품' }],
+          prizes: initialPrizes.prizes,
         }
       : {
           title: '',
           description: '',
           drawMethod: 'WEIGHTED',
           winnerCount: 1,
-          prizes: [{ ...EMPTY_PRIZE, prizeKey: 'GRAND', displayName: '1등 상품' }],
+          prizes: initialPrizes.prizes,
           ...defaultRange(),
         },
   )
@@ -135,10 +148,15 @@ function EventFormBody({ eventId, isEdit, target }) {
   }
 
   function addPrize() {
-    setForm((prev) => ({
-      ...prev,
-      prizes: [...prev.prizes, { ...EMPTY_PRIZE, priority: prev.prizes.length + 1 }],
-    }))
+    try {
+      const prizeKey = allocatePrizeKey(reservedPrizeKeys.current, newRequestId)
+      setForm((prev) => ({
+        ...prev,
+        prizes: [...prev.prizes, { ...EMPTY_PRIZE, prizeKey, priority: prev.prizes.length + 1 }],
+      }))
+    } catch (error) {
+      setFormError(error.message)
+    }
   }
 
   function removePrize(index) {
@@ -158,10 +176,10 @@ function EventFormBody({ eventId, isEdit, target }) {
 
     const keys = new Set()
     for (const prize of form.prizes) {
-      if (!prize.prizeKey?.trim() || !prize.displayName?.trim()) return '상품 등급의 키와 이름을 입력해주세요.'
-      if (!/^[A-Za-z0-9_-]+$/.test(prize.prizeKey)) return '상품 키는 영문, 숫자, _, - 만 사용할 수 있어요.'
-      if (keys.has(prize.prizeKey)) return `상품 키 "${prize.prizeKey}"가 중복됐어요.`
-      keys.add(prize.prizeKey)
+      if (!prize.displayName?.trim()) return '상품 이름을 입력해주세요.'
+      if (!/^[A-Za-z0-9_-]{1,100}$/.test(prize.prizeKey ?? '')) return '상품 정보를 확인하지 못했어요. 화면을 다시 열어 주세요.'
+      if (keys.has(prize.prizeKey.toLowerCase())) return '상품 식별자가 중복됐어요. 화면을 다시 열어 주세요.'
+      keys.add(prize.prizeKey.toLowerCase())
       if (Number(prize.priority) < 1 || Number(prize.weight) < 1 || Number(prize.quantity) < 1) {
         return '상품의 순위·가중치·수량은 1 이상이어야 해요.'
       }
@@ -192,7 +210,7 @@ function EventFormBody({ eventId, isEdit, target }) {
       // PATCH는 전체 교체라 생략하면 BE가 PRIZE_WEIGHTED_V1로 되돌린다. 수정 때는 기존 값을 그대로 보낸다.
       ...(form.prizeAlgorithmVersion ? { prizeAlgorithmVersion: form.prizeAlgorithmVersion } : {}),
       prizes: form.prizes.map((prize) => ({
-        prizeKey: prize.prizeKey.trim(),
+        prizeKey: prize.prizeKey,
         displayName: prize.displayName.trim(),
         priority: Number(prize.priority),
         weight: Number(prize.weight),
@@ -321,7 +339,7 @@ function EventFormBody({ eventId, isEdit, target }) {
           </div>
 
           {form.prizes.map((prize, index) => (
-            <div key={index} className="p-space-sm rounded-xl bg-surface-container-lowest flex flex-col gap-2 shadow-sm">
+            <div key={prize.prizeKey} className="p-space-sm rounded-xl bg-surface-container-lowest flex flex-col gap-2 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="font-label-sm text-label-sm text-primary font-bold">등급 {index + 1}</span>
                 {form.prizes.length > 1 && (
@@ -335,14 +353,7 @@ function EventFormBody({ eventId, isEdit, target }) {
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  className={inputClass}
-                  value={prize.prizeKey}
-                  onChange={(e) => updatePrize(index, 'prizeKey', e.target.value)}
-                  placeholder="키 (예: GRAND)"
-                  aria-label={`상품 ${index + 1} 키`}
-                />
+              <div>
                 <input
                   className={inputClass}
                   value={prize.displayName}

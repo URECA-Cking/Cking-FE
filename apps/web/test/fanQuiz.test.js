@@ -5,8 +5,12 @@ import {
   QUIZ_PAGE_SIZE,
   appendQuizPage,
   classifySubmitError,
+  QUIZ_PROGRESS_TTL_MS,
   quizListView,
+  quizProgressKey,
   quizStep,
+  restoreQuizAnswers,
+  resumeStep,
   submitRequestFor,
 } from '../src/utils/fanQuiz.js'
 
@@ -107,4 +111,28 @@ test('quizStep은 범위를 벗어난 위치를 가까운 끝으로 맞추고 �
   assert.equal(quizStep(9, 3).index, 2)
   assert.equal(quizStep(undefined, 3).index, 0)
   assert.deepEqual(quizStep(0, 0), { index: 0, number: 0, total: 0, isFirst: true, isLast: true })
+})
+
+const progressQuestions = [0, 1, 2].map((questionNo) => ({
+  questionNo,
+  options: [0, 1, 2, 3].map((optionNo) => ({ optionNo, text: `보기 ${optionNo}` })),
+}))
+const NOW = 1_000_000_000_000
+
+test('풀던 답안은 같은 revision일 때만 되살리고 이어 풀 문항으로 이동한다', () => {
+  const saved = { revisionId: 7, answers: { 0: 2, 1: 0 }, savedAt: NOW - 1000 }
+  const answers = restoreQuizAnswers(saved, 7, progressQuestions, NOW)
+  assert.deepEqual(answers, { 0: 2, 1: 0 })
+  assert.equal(resumeStep(progressQuestions, answers), 2)
+  assert.equal(resumeStep(progressQuestions, { 0: 1, 1: 1, 2: 3 }), 2)
+  assert.equal(restoreQuizAnswers(saved, 8, progressQuestions, NOW), null)
+})
+
+test('저장된 답안은 오래됐거나 현재 보기에 없으면 버리고 키에는 회원이 들어간다', () => {
+  const old = { revisionId: 7, answers: { 0: 1 }, savedAt: NOW - QUIZ_PROGRESS_TTL_MS - 1 }
+  assert.equal(restoreQuizAnswers(old, 7, progressQuestions, NOW), null)
+  assert.equal(restoreQuizAnswers({ revisionId: 7, answers: { 0: 9 }, savedAt: NOW }, 7, progressQuestions, NOW), null)
+  assert.equal(restoreQuizAnswers({ revisionId: 7, answers: { 0: 1, 5: 1 }, savedAt: NOW }, 7, progressQuestions, NOW)[5], undefined)
+  assert.equal(restoreQuizAnswers(null, 7, progressQuestions, NOW), null)
+  assert.notEqual(quizProgressKey(1, 2, 3), quizProgressKey(9, 2, 3))
 })

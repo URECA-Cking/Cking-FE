@@ -10,10 +10,17 @@ import {
   QUIZ_PAGE_SIZE,
   appendQuizPage,
   classifySubmitError,
+  clearQuizProgress,
   quizListView,
+  quizProgressKey,
   quizStep,
+  readQuizProgress,
+  restoreQuizAnswers,
+  resumeStep,
+  saveQuizProgress,
   submitRequestFor,
 } from '../../utils/fanQuiz.js'
+import { browserStorage } from '../../utils/quizJobs.js'
 
 // 지급 처리 중(PENDING)이면 이 간격으로 이 횟수만큼만 다시 조회한다. 그 뒤에는 사용자가 직접 다시 확인한다.
 const PAYMENT_POLL_INTERVAL_MS = 3000
@@ -49,7 +56,7 @@ function paymentMessage(reward) {
  * Creator Space의 Quiz 탭(Fan 응시). 게시 Quiz 목록·상세는 공개 조회, 제출·내 결과는 로그인이 필요하다.
  * 회원당 Quiz 응시는 한 번이며, 이미 푼 Quiz는 저장된 결과를 보여준다. 정답 1개당 이 크리에이터 응모권 1장이 지급된다.
  */
-export default function CreatorQuizzes({ creatorId, authenticated, sessionLoading, isMine, onLogin, onRewardPaid }) {
+export default function CreatorQuizzes({ creatorId, memberId = null, authenticated, sessionLoading, isMine, onLogin, onRewardPaid }) {
   const [openQuizId, setOpenQuizId] = useState(null)
   // 지급 완료를 확인한 응시는 잔액을 한 번만 다시 불러온다(시트를 다시 열 때마다 반복하지 않는다).
   const refreshedAttempts = useRef(new Set())
@@ -136,6 +143,7 @@ export default function CreatorQuizzes({ creatorId, authenticated, sessionLoadin
         <QuizSheet
           key={openQuizId}
           creatorId={creatorId}
+          memberId={memberId}
           quizId={openQuizId}
           authenticated={authenticated}
           sessionLoading={sessionLoading}
@@ -153,7 +161,7 @@ export default function CreatorQuizzes({ creatorId, authenticated, sessionLoadin
   )
 }
 
-function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, onLogin, onRewardPaid, onClose, onUnavailable }) {
+function QuizSheet({ creatorId, memberId, quizId, authenticated, sessionLoading, isMine, onLogin, onRewardPaid, onClose, onUnavailable }) {
   const showToast = useToast()
   const detail = useAsync(() => getCreatorQuiz(creatorId, quizId), [creatorId, quizId], {
     fallbackMessage: 'Quiz를 불러오지 못했어요.',
@@ -170,6 +178,11 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
   // 한 문항씩 푼다. 보기를 고르면 선택 표시를 잠깐 보여준 뒤 다음 문항으로 넘어간다.
   const [step, setStep] = useState(0)
   const advanceTimer = useRef(null)
+  // 풀던 답안은 이 브라우저에 임시 저장해 두고, 다시 열면 아직 답하지 않은 문항부터 이어 푼다.
+  const storage = browserStorage()
+  const progressKey = memberId !== null && memberId !== undefined ? quizProgressKey(memberId, creatorId, quizId) : null
+  const [restoredRevision, setRestoredRevision] = useState(null)
+  const [openedAt] = useState(Date.now)
   // 응답을 받지 못해 다시 보낼 때는 같은 답안이면 같은 requestId를 쓴다. 답안이 바뀌면 새 요청이다.
   const pending = useRef(null)
   // 연타로 같은 요청이 겹쳐 나가지 않게 한다(상태 값은 다음 렌더 전까지 바뀌지 않는다).
@@ -177,6 +190,15 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
 
   const attempt = result ?? mine.data ?? null
   const questions = detail.data?.questions ?? []
+  // 응시 기록 확인이 끝난 뒤 문항을 불러왔으면 한 번만 되살린다(이미 푼 Quiz면 결과 화면이 우선이다).
+  if (progressKey && detail.data && !mine.loading && !attempt && restoredRevision !== detail.data.revisionId) {
+    setRestoredRevision(detail.data.revisionId)
+    const restored = restoreQuizAnswers(readQuizProgress(storage, progressKey), detail.data.revisionId, questions, openedAt)
+    if (restored) {
+      setAnswers(restored)
+      setStep(resumeStep(questions, restored))
+    }
+  }
   const view = quizStep(step, questions.length)
   const question = questions[view.index]
 
@@ -186,6 +208,7 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
     if (isMine || submitting || advanceTimer.current) return
     const next = { ...answers, [selectedQuestion.questionNo]: optionNo }
     setAnswers(next)
+    if (progressKey) saveQuizProgress(storage, progressKey, detail.data.revisionId, next)
     if (!view.isLast) {
       advanceTimer.current = setTimeout(() => {
         advanceTimer.current = null
@@ -223,6 +246,7 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
         answers: body,
       })
       pending.current = null
+      if (progressKey) clearQuizProgress(storage, progressKey)
       setResult(saved)
     } catch (error) {
       await handleSubmitError(error)
@@ -241,6 +265,7 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
         return
       case 'ALREADY_ATTEMPTED':
         pending.current = null
+        if (progressKey) clearQuizProgress(storage, progressKey)
         showToast('이미 응시한 Quiz예요. 저장된 결과를 보여드릴게요.')
         mine.reload()
         return
@@ -248,6 +273,7 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
         pending.current = null
         setAnswers({})
         setStep(0)
+        if (progressKey) clearQuizProgress(storage, progressKey)
         showToast('Quiz 내용이 바뀌었어요. 새 문항으로 다시 풀어 주세요.', { icon: 'error' })
         detail.reload()
         return

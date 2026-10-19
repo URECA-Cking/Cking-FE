@@ -322,7 +322,7 @@ function SpaceEditForm({ space, onSaved }) {
             ) : banner.previewUrl ? (
               <img className="h-full w-full object-cover" src={banner.previewUrl} alt="" />
             ) : (
-              <CreatorBanner src={space.bannerImageUrl} profileSrc={space.profileImageUrl} />
+              <CreatorBanner src={space.bannerImageUrl} />
             )}
             {banner.busy && (
               <span className="absolute inset-0 flex items-center justify-center bg-black/40">

@@ -2,17 +2,16 @@ import { useState } from 'react'
 import PersonIcon from '../ui/PersonIcon.jsx'
 import { toSafeImageUrl } from '../../utils/safeUrl.js'
 
-/** 배너가 없거나 실패하면 프로필 사진, 둘 다 실패하면 사람 아이콘을 표시한다. */
-export default function CreatorBanner({ src, profileSrc }) {
+/** 배너가 없거나 로드에 실패하면 다른 이미지로 대체하지 않고 사람 아이콘을 표시한다. */
+export default function CreatorBanner({ src }) {
   const bannerSrc = toSafeImageUrl(src)
-  const avatarSrc = toSafeImageUrl(profileSrc)
 
-  return <CreatorBannerImages key={JSON.stringify([bannerSrc, avatarSrc])} bannerSrc={bannerSrc} avatarSrc={avatarSrc} />
+  return <CreatorBannerImages key={bannerSrc} bannerSrc={bannerSrc} />
 }
 
-function CreatorBannerImages({ bannerSrc, avatarSrc }) {
+function CreatorBannerImages({ bannerSrc }) {
   const [failedSrcs, setFailedSrcs] = useState(() => new Set())
-  const imageSrc = [bannerSrc, avatarSrc].find((candidate) => candidate && !failedSrcs.has(candidate))
+  const imageSrc = bannerSrc && !failedSrcs.has(bannerSrc) ? bannerSrc : null
 
   return (
     <div className="relative flex h-full w-full items-center justify-center bg-surface-container text-on-surface-variant">

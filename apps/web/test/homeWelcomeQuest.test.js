@@ -646,6 +646,27 @@ test('캐시키가 바뀌면 이전 키의 요청이 늦게 끝나도 새 키의
   } finally { await page.close() }
 })
 
+test('같은 캐시키의 두 요청이 역순으로 끝나도 더 늦게 시작한 요청의 결과가 캐시에 남는다', async () => {
+  const { page } = await screen(quest({ eligible: false }))
+  try {
+    // 같은 키로 먼저 A, 이어서 B를 요청한 뒤 B가 먼저 끝나고 오래된 A가 나중에 끝난다.
+    await page.evaluate(() => window.renderProbe({ tag: 'A', cacheKey: 'probe:same' }))
+    await page.waitForFunction(() => typeof window.probeGates.A === 'function')
+    await page.evaluate(() => window.renderProbe({ tag: 'B', cacheKey: 'probe:same' }))
+    await page.waitForFunction(() => typeof window.probeGates.B === 'function')
+    await page.evaluate(() => window.probeGates.B())
+    await page.waitForFunction(() => document.querySelector('#probe').innerText === 'B')
+    await page.evaluate(() => window.probeGates.A())
+    await page.waitForTimeout(100)
+
+    // 화면을 내렸다가 같은 키로 다시 열면 캐시된 값이 먼저 보인다. 이번 조회(C)는 끝나지 않게 둔다.
+    await page.evaluate(() => window.unmountHome())
+    await page.evaluate(() => window.renderProbe({ tag: 'C', cacheKey: 'probe:same' }))
+    await page.waitForFunction(() => typeof window.probeGates.C === 'function')
+    assert.equal(await page.locator('#probe').innerText(), 'B')
+  } finally { await page.close() }
+})
+
 test('지연 로딩한 화면을 받지 못하면 빈 화면 대신 안내와 다시 시도를 보여준다', async () => {
   const { page } = await screen(quest({ eligible: false }))
   try {

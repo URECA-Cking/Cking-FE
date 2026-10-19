@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-// cacheKey를 준 조회의 마지막 성공 결과. 화면을 다시 열 때 먼저 보여 주고 뒤에서 새로 불러온다.
+// cacheKey를 준 조회의 마지막 성공 결과({ value, order }). 화면을 다시 열 때 먼저 보여 주고 뒤에서 새로 불러온다.
+// order는 요청을 시작한 순서다. 같은 키의 요청이 시작 순서와 다르게 끝나도 더 늦게 시작한 요청의 결과가 남도록 비교하는 데 쓴다.
 const responseCache = new Map()
+let requestOrder = 0
+
+const readCache = (key) => (key != null ? responseCache.get(key)?.value : undefined)
+
+/** 같은 키에 더 늦게 시작한 요청의 결과가 이미 있으면 덮어쓰지 않는다. */
+function writeCache(key, value, order) {
+  const current = responseCache.get(key)
+  if (current !== undefined && current.order > order) return
+  responseCache.set(key, { value, order })
+}
 
 // 캐시를 비운 횟수. 요청이 시작된 뒤 캐시가 비워졌다면 그 요청의 결과는 이전 세션의 것이라 저장하지도 화면에 쓰지도 않는다.
 let cacheEpoch = 0
@@ -23,7 +34,7 @@ export function clearAsyncCache() {
  */
 export function createUseAsync(describeError) {
   return function useAsync(loader, deps = [], { enabled = true, fallbackMessage, cacheKey = null } = {}) {
-    const cachedAtMount = cacheKey != null ? responseCache.get(cacheKey) : undefined
+    const cachedAtMount = readCache(cacheKey)
     const [data, setData] = useState(cachedAtMount ?? null)
     const [loading, setLoading] = useState(Boolean(enabled) && cachedAtMount === undefined)
     const [error, setError] = useState(null)
@@ -34,7 +45,7 @@ export function createUseAsync(describeError) {
     // 키가 바뀐 렌더에서 바로 이전 키의 결과를 걷어낸다. 효과를 기다리면 다른 회원의 결과가 한 번 그려질 수 있다.
     const [renderedKey, setRenderedKey] = useState(cacheKey)
     if (renderedKey !== cacheKey) {
-      const nextCached = cacheKey != null ? responseCache.get(cacheKey) : undefined
+      const nextCached = readCache(cacheKey)
       setRenderedKey(cacheKey)
       setData(nextCached ?? null)
       setLoading(Boolean(enabled) && nextCached === undefined)
@@ -59,9 +70,10 @@ export function createUseAsync(describeError) {
       const seq = requestSeq.current + 1
       requestSeq.current = seq
       const epoch = cacheEpoch
+      const order = (requestOrder += 1)
       const isStale = () => !alive.current || requestSeq.current !== seq || epoch !== cacheEpoch
       // 캐시된 결과가 있으면 그것을 보여 주고 로딩 표시 없이 새로 불러온다.
-      const cached = cacheKey != null ? responseCache.get(cacheKey) : undefined
+      const cached = readCache(cacheKey)
       if (cached !== undefined) setData(cached)
       else if (cacheKey != null) setData(null)
       setLoading(cached === undefined)
@@ -69,8 +81,8 @@ export function createUseAsync(describeError) {
       setErrorObject(null)
       try {
         const result = await loader()
-        // 캐시가 비워진 뒤에 끝난 이전 세션의 요청은 저장하지 않는다.
-        if (cacheKey != null && epoch === cacheEpoch) responseCache.set(cacheKey, result)
+        // 캐시가 비워진 뒤에 끝난 이전 세션의 요청은 저장하지 않고, 더 늦게 시작한 같은 키의 결과를 오래된 요청이 덮어쓰지 못하게 한다.
+        if (cacheKey != null && epoch === cacheEpoch) writeCache(cacheKey, result, order)
         if (!isStale()) setData(result)
         return result
       } catch (err) {

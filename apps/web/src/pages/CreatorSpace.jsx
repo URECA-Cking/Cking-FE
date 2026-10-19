@@ -860,6 +860,7 @@ export default function CreatorSpace() {
           <CreatorQuizzes
             key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}`}
             creatorId={creator.creatorId}
+            memberId={user?.memberId ?? null}
             authenticated={authenticated}
             sessionLoading={sessionLoading}
             isMine={isMine}

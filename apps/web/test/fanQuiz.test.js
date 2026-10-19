@@ -5,7 +5,12 @@ import {
   QUIZ_PAGE_SIZE,
   appendQuizPage,
   classifySubmitError,
+  QUIZ_PROGRESS_TTL_MS,
   quizListView,
+  quizProgressKey,
+  quizStep,
+  restoreQuizAnswers,
+  resumeStep,
   submitRequestFor,
 } from '../src/utils/fanQuiz.js'
 
@@ -92,4 +97,42 @@ test('409 응시 중복과 요청 충돌은 저장된 결과를 조회하고, �
   assert.equal(classifySubmitError(new ApiError('QUIZ_ATTEMPT_REQUEST_CONFLICT', '요청 충돌', 409)), 'ALREADY_ATTEMPTED')
   assert.equal(classifySubmitError(new ApiError('QUIZ_PUBLISHED_REVISION_CHANGED', '변경', 409)), 'REVISION_CHANGED')
   assert.equal(classifySubmitError(new ApiError('QUIZ_NOT_FOUND', '없음', 404)), 'NOT_FOUND')
+})
+
+test('quizStep은 현재 문항 번호와 처음·마지막 여부를 알려준다', () => {
+  assert.deepEqual(quizStep(0, 5), { index: 0, number: 1, total: 5, isFirst: true, isLast: false })
+  assert.deepEqual(quizStep(2, 5), { index: 2, number: 3, total: 5, isFirst: false, isLast: false })
+  assert.deepEqual(quizStep(4, 5), { index: 4, number: 5, total: 5, isFirst: false, isLast: true })
+  assert.equal(quizStep(0, 1).isFirst && quizStep(0, 1).isLast, true)
+})
+
+test('quizStep은 범위를 벗어난 위치를 가까운 끝으로 맞추고 문항이 없으면 0으로 둔다', () => {
+  assert.equal(quizStep(-1, 3).index, 0)
+  assert.equal(quizStep(9, 3).index, 2)
+  assert.equal(quizStep(undefined, 3).index, 0)
+  assert.deepEqual(quizStep(0, 0), { index: 0, number: 0, total: 0, isFirst: true, isLast: true })
+})
+
+const progressQuestions = [0, 1, 2].map((questionNo) => ({
+  questionNo,
+  options: [0, 1, 2, 3].map((optionNo) => ({ optionNo, text: `보기 ${optionNo}` })),
+}))
+const NOW = 1_000_000_000_000
+
+test('풀던 답안은 같은 revision일 때만 되살리고 이어 풀 문항으로 이동한다', () => {
+  const saved = { revisionId: 7, answers: { 0: 2, 1: 0 }, savedAt: NOW - 1000 }
+  const answers = restoreQuizAnswers(saved, 7, progressQuestions, NOW)
+  assert.deepEqual(answers, { 0: 2, 1: 0 })
+  assert.equal(resumeStep(progressQuestions, answers), 2)
+  assert.equal(resumeStep(progressQuestions, { 0: 1, 1: 1, 2: 3 }), 2)
+  assert.equal(restoreQuizAnswers(saved, 8, progressQuestions, NOW), null)
+})
+
+test('저장된 답안은 오래됐거나 현재 보기에 없으면 버리고 키에는 회원이 들어간다', () => {
+  const old = { revisionId: 7, answers: { 0: 1 }, savedAt: NOW - QUIZ_PROGRESS_TTL_MS - 1 }
+  assert.equal(restoreQuizAnswers(old, 7, progressQuestions, NOW), null)
+  assert.equal(restoreQuizAnswers({ revisionId: 7, answers: { 0: 9 }, savedAt: NOW }, 7, progressQuestions, NOW), null)
+  assert.equal(restoreQuizAnswers({ revisionId: 7, answers: { 0: 1, 5: 1 }, savedAt: NOW }, 7, progressQuestions, NOW)[5], undefined)
+  assert.equal(restoreQuizAnswers(null, 7, progressQuestions, NOW), null)
+  assert.notEqual(quizProgressKey(1, 2, 3), quizProgressKey(9, 2, 3))
 })

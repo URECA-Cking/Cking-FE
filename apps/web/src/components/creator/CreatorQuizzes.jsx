@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import BottomSheet from '../ui/BottomSheet.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../ui/States.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
@@ -11,13 +10,23 @@ import {
   QUIZ_PAGE_SIZE,
   appendQuizPage,
   classifySubmitError,
+  clearQuizProgress,
   quizListView,
+  quizProgressKey,
+  quizStep,
+  readQuizProgress,
+  restoreQuizAnswers,
+  resumeStep,
+  saveQuizProgress,
   submitRequestFor,
 } from '../../utils/fanQuiz.js'
+import { browserStorage } from '../../utils/quizJobs.js'
 
 // 지급 처리 중(PENDING)이면 이 간격으로 이 횟수만큼만 다시 조회한다. 그 뒤에는 사용자가 직접 다시 확인한다.
 const PAYMENT_POLL_INTERVAL_MS = 3000
 const PAYMENT_POLL_MAX = 5
+// 보기를 고른 뒤 다음 문항으로 넘어가기 전에 선택 표시를 보여주는 시간.
+const ADVANCE_DELAY_MS = 250
 
 // reward.paymentStatus 표시. PAID만 지급 완료다. reward.status(저장 당시 값)는 지급 판단에 쓰지 않는다.
 const PAYMENT_LABELS = {
@@ -47,7 +56,7 @@ function paymentMessage(reward) {
  * Creator Space의 Quiz 탭(Fan 응시). 게시 Quiz 목록·상세는 공개 조회, 제출·내 결과는 로그인이 필요하다.
  * 회원당 Quiz 응시는 한 번이며, 이미 푼 Quiz는 저장된 결과를 보여준다. 정답 1개당 이 크리에이터 응모권 1장이 지급된다.
  */
-export default function CreatorQuizzes({ creatorId, authenticated, sessionLoading, isMine, onLogin, onRewardPaid }) {
+export default function CreatorQuizzes({ creatorId, memberId = null, authenticated, sessionLoading, isMine, onLogin, onRewardPaid }) {
   const [openQuizId, setOpenQuizId] = useState(null)
   // 지급 완료를 확인한 응시는 잔액을 한 번만 다시 불러온다(시트를 다시 열 때마다 반복하지 않는다).
   const refreshedAttempts = useRef(new Set())
@@ -134,6 +143,7 @@ export default function CreatorQuizzes({ creatorId, authenticated, sessionLoadin
         <QuizSheet
           key={openQuizId}
           creatorId={creatorId}
+          memberId={memberId}
           quizId={openQuizId}
           authenticated={authenticated}
           sessionLoading={sessionLoading}
@@ -151,7 +161,7 @@ export default function CreatorQuizzes({ creatorId, authenticated, sessionLoadin
   )
 }
 
-function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, onLogin, onRewardPaid, onClose, onUnavailable }) {
+function QuizSheet({ creatorId, memberId, quizId, authenticated, sessionLoading, isMine, onLogin, onRewardPaid, onClose, onUnavailable }) {
   const showToast = useToast()
   const detail = useAsync(() => getCreatorQuiz(creatorId, quizId), [creatorId, quizId], {
     fallbackMessage: 'Quiz를 불러오지 못했어요.',
@@ -165,6 +175,15 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
   const [answers, setAnswers] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [closed, setClosed] = useState(false)
+  // 한 문항씩 푼다. 보기를 고르면 선택 표시를 잠깐 보여준 뒤 다음 문항으로 넘어간다.
+  const [step, setStep] = useState(0)
+  const advanceTimer = useRef(null)
+  // 풀던 답안은 이 브라우저에 임시 저장해 두고, 다시 열면 아직 답하지 않은 문항부터 이어 푼다.
+  const storage = browserStorage()
+  const progressKey = memberId !== null && memberId !== undefined ? quizProgressKey(memberId, creatorId, quizId) : null
+  const [restoredRevision, setRestoredRevision] = useState(null)
+  const [openedAt] = useState(Date.now)
+  const headingRef = useRef(null)
   // 응답을 받지 못해 다시 보낼 때는 같은 답안이면 같은 requestId를 쓴다. 답안이 바뀌면 새 요청이다.
   const pending = useRef(null)
   // 연타로 같은 요청이 겹쳐 나가지 않게 한다(상태 값은 다음 렌더 전까지 바뀌지 않는다).
@@ -172,17 +191,56 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
 
   const attempt = result ?? mine.data ?? null
   const questions = detail.data?.questions ?? []
-  const allAnswered = questions.length > 0 && questions.every((question) => answers[question.questionNo] !== undefined)
+  // 응시 기록 확인이 끝난 뒤 문항을 불러왔으면 한 번만 되살린다(이미 푼 Quiz면 결과 화면이 우선이다).
+  if (progressKey && detail.data && !mine.loading && !attempt && restoredRevision !== detail.data.revisionId) {
+    setRestoredRevision(detail.data.revisionId)
+    const restored = restoreQuizAnswers(readQuizProgress(storage, progressKey), detail.data.revisionId, questions, openedAt)
+    if (restored) {
+      setAnswers(restored)
+      setStep(resumeStep(questions, restored))
+    }
+  }
+  const view = quizStep(step, questions.length)
+  const question = questions[view.index]
 
-  async function handleSubmit() {
+  useEffect(() => () => clearTimeout(advanceTimer.current), [])
+  // 문항이 바뀌면 눌렀던 보기가 사라지므로 초점을 새 질문으로 옮긴다(키보드·스크린리더 사용자가 모달 밖으로 밀려나지 않게).
+  const questionNo = question?.questionNo
+  useEffect(() => {
+    if (questionNo !== undefined) headingRef.current?.focus()
+  }, [questionNo])
+
+  function handleSelect(selectedQuestion, optionNo) {
+    if (isMine || submitting || advanceTimer.current) return
+    const next = { ...answers, [selectedQuestion.questionNo]: optionNo }
+    setAnswers(next)
+    if (progressKey) saveQuizProgress(storage, progressKey, detail.data.revisionId, next)
+    if (!view.isLast) {
+      advanceTimer.current = setTimeout(() => {
+        advanceTimer.current = null
+        setStep((current) => current + 1)
+      }, ADVANCE_DELAY_MS)
+    } else if (authenticated) {
+      handleSubmit(next)
+    }
+  }
+
+  function goBack() {
+    clearTimeout(advanceTimer.current)
+    advanceTimer.current = null
+    setStep((current) => Math.max(current - 1, 0))
+  }
+
+  async function handleSubmit(given = answers) {
     if (!authenticated) {
       onLogin()
       return
     }
+    const allAnswered = questions.length > 0 && questions.every((item) => given[item.questionNo] !== undefined)
     if (closed || !allAnswered || submitInFlight.current) return
-    const body = questions.map((question) => ({
-      questionNo: question.questionNo,
-      selectedOptionIndex: answers[question.questionNo],
+    const body = questions.map((item) => ({
+      questionNo: item.questionNo,
+      selectedOptionIndex: given[item.questionNo],
     }))
     pending.current = submitRequestFor(pending.current, body, newRequestId)
     submitInFlight.current = true
@@ -194,6 +252,7 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
         answers: body,
       })
       pending.current = null
+      if (progressKey) clearQuizProgress(storage, progressKey)
       setResult(saved)
     } catch (error) {
       await handleSubmitError(error)
@@ -212,12 +271,15 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
         return
       case 'ALREADY_ATTEMPTED':
         pending.current = null
+        if (progressKey) clearQuizProgress(storage, progressKey)
         showToast('이미 응시한 Quiz예요. 저장된 결과를 보여드릴게요.')
         mine.reload()
         return
       case 'REVISION_CHANGED':
         pending.current = null
         setAnswers({})
+        setStep(0)
+        if (progressKey) clearQuizProgress(storage, progressKey)
         showToast('Quiz 내용이 바뀌었어요. 새 문항으로 다시 풀어 주세요.', { icon: 'error' })
         detail.reload()
         return
@@ -241,7 +303,7 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
   const loading = detail.loading || (authenticated && mine.loading) || sessionLoading
 
   return (
-    <BottomSheet open onClose={onClose} title={title} eyebrow="Quiz">
+    <QuizScreen onClose={onClose} title={title}>
       {loading && <LoadingBlock label="Quiz를 불러오는 중..." />}
       {!loading && attempt && (
         <QuizResult
@@ -258,50 +320,159 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
       )}
       {!loading && !attempt && closed && <p role="status" className="rounded-xl bg-surface-container p-space-md">마감된 Quiz예요. 신규 응시는 할 수 없어요.</p>}
       {!loading && !attempt && !closed && !mine.error && !detail.error && detail.data && (
-        <div className="flex flex-col gap-space-md">
-          {questions.map((question) => (
-            <fieldset key={question.questionNo} className="flex flex-col gap-space-xs">
-              <legend className="mb-space-xs font-label-md text-label-md font-semibold text-on-surface">
-                {question.questionNo + 1}. {question.question}
-              </legend>
-              {question.options.map((option) => {
-                const selected = answers[question.questionNo] === option.optionNo
-                return (
+        <div className="flex flex-1 flex-col gap-space-md">
+          {question && (
+            <div role="group" aria-labelledby="quiz-question" key={question.questionNo} className="flex flex-1 flex-col gap-space-sm">
+              <h2
+                id="quiz-question"
+                ref={headingRef}
+                tabIndex={-1}
+                className="pb-space-md pt-space-sm font-headline-xl-mobile outline-none text-headline-xl-mobile font-extrabold leading-snug text-on-surface"
+              >
+                {question.question}
+              </h2>
+              <div className="mt-space-sm flex items-center justify-between gap-2">
+                <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  {view.number} / {view.total}
+                </span>
+                {!view.isFirst && (
                   <button
-                    key={option.optionNo}
                     type="button"
-                    aria-pressed={selected}
-                    disabled={isMine || submitting}
-                    onClick={() => setAnswers((current) => ({ ...current, [question.questionNo]: option.optionNo }))}
-                    className={`flex items-center gap-space-sm rounded-xl px-space-md py-3 text-left transition-all active:scale-[0.99] disabled:cursor-not-allowed ${
-                      selected ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface'
-                    }`}
+                    onClick={goBack}
+                    disabled={submitting}
+                    className="flex items-center gap-0.5 rounded-xl bg-surface-container px-3 py-1.5 font-label-xs text-label-xs font-semibold text-on-surface active:scale-95 transition-all disabled:opacity-60"
                   >
-                    <MaterialIcon name={selected ? 'radio_button_checked' : 'radio_button_unchecked'} className="text-[20px]" />
-                    <span className="font-body-sm text-body-sm">{option.text}</span>
+                    <MaterialIcon name="chevron_left" className="text-[16px]" />
+                    이전
                   </button>
-                )
-              })}
-            </fieldset>
-          ))}
+                )}
+              </div>
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={view.total}
+                aria-valuenow={view.number}
+                className="h-1 w-full overflow-hidden rounded-full bg-surface-container-high"
+              >
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${(view.number / view.total) * 100}%` }} />
+              </div>
+              <div className="flex flex-1 flex-col justify-center gap-space-sm py-space-md">
+                {question.options.map((option) => {
+                  const selected = answers[question.questionNo] === option.optionNo
+                  return (
+                    <button
+                      key={option.optionNo}
+                      type="button"
+                      aria-pressed={selected}
+                      disabled={isMine || submitting}
+                      onClick={() => handleSelect(question, option.optionNo)}
+                      className={`flex items-center gap-space-sm rounded-xl px-space-md py-5 text-left transition-all active:scale-[0.98] disabled:cursor-not-allowed ${
+                        selected ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface'
+                      }`}
+                    >
+                      <MaterialIcon name={selected ? 'radio_button_checked' : 'radio_button_unchecked'} className="text-[20px]" />
+                      <span className="font-body-md text-body-md font-semibold">{option.text}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
-          {isMine ? (
+          {isMine && (
             <p className="rounded-xl bg-surface-container-low p-space-md font-body-sm text-body-sm text-on-surface-variant">
               내 스페이스의 Quiz는 응시할 수 없어요.
             </p>
-          ) : (
+          )}
+          {/* 로그인한 사용자는 마지막 보기를 고르면 바로 제출된다. 이 버튼은 로그인이 필요하거나 제출에 실패해 다시 보낼 때 쓴다. */}
+          {!isMine && view.isLast && question && answers[question.questionNo] !== undefined && (
             <button
               type="button"
-              onClick={handleSubmit}
-              disabled={authenticated && (!allAnswered || submitting)}
+              onClick={() => handleSubmit()}
+              disabled={authenticated && submitting}
               className="w-full rounded-xl bg-primary py-3 text-on-primary font-label-md text-label-md font-semibold active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {!authenticated ? '로그인하고 제출하기' : submitting ? '채점하는 중...' : allAnswered ? '제출하기' : '모든 문항에 답해 주세요'}
+              {!authenticated ? '로그인하고 제출하기' : submitting ? '채점하는 중...' : '제출하기'}
             </button>
           )}
         </div>
       )}
-    </BottomSheet>
+    </QuizScreen>
+  )
+}
+
+const FOCUSABLE = 'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+/**
+ * Quiz를 푸는 동안 화면 전체를 쓴다. 한 문항씩 크게 보여주고 마지막에 점수 화면으로 이어진다.
+ * 모달이므로 열 때 초점을 안으로 옮기고, Tab이 밖으로 나가지 않게 하며, Escape로 닫고 닫은 뒤 이전 초점으로 돌려준다.
+ */
+function QuizScreen({ onClose, title, children }) {
+  const dialogRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  useEffect(() => {
+    const opener = document.activeElement
+    dialogRef.current?.focus()
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus()
+    }
+  }, [])
+
+  function handleKeyDown(event) {
+    if (event.key === 'Escape') {
+      event.stopPropagation()
+      onCloseRef.current()
+      return
+    }
+    if (event.key !== 'Tab') return
+    const items = [...dialogRef.current.querySelectorAll(FOCUSABLE)]
+    if (items.length === 0) {
+      event.preventDefault()
+      dialogRef.current.focus()
+      return
+    }
+    const first = items[0]
+    const last = items[items.length - 1]
+    const active = document.activeElement
+    if (event.shiftKey && (active === first || active === dialogRef.current)) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
+  return (
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
+      className="fixed inset-0 z-[60] flex flex-col bg-surface outline-none"
+    >
+      <div className="mx-auto flex w-full max-w-[480px] items-center justify-between gap-2 px-margin pt-space-md md:max-w-2xl">
+        <button
+          type="button"
+          aria-label="닫기"
+          onClick={onClose}
+          className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface active:scale-95 transition-all"
+        >
+          <MaterialIcon name="close" className="text-[26px]" />
+        </button>
+        <span className="min-w-0 truncate font-label-sm text-label-sm font-semibold text-on-surface-variant">{title}</span>
+        <span className="h-10 w-10" />
+      </div>
+      <div className="mx-auto flex w-full max-w-[480px] flex-1 flex-col overflow-y-auto px-margin pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-space-md md:max-w-2xl">
+        {children}
+      </div>
+    </div>
   )
 }
 

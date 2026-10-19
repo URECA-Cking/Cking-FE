@@ -58,3 +58,67 @@ export function classifySubmitError(error) {
   if (typeof status === 'number' && status >= 400 && status < 500) return 'REJECTED'
   return 'UNCERTAIN'
 }
+
+/**
+ * 한 문항씩 푸는 화면의 위치. index는 문항 배열 위치이고 범위를 벗어나면 가까운 끝으로 맞춘다.
+ * 문항이 없으면 number·total이 0이다.
+ */
+export function quizStep(index, total) {
+  if (total <= 0) return { index: 0, number: 0, total: 0, isFirst: true, isLast: true }
+  const clamped = Math.min(Math.max(Number.isInteger(index) ? index : 0, 0), total - 1)
+  return { index: clamped, number: clamped + 1, total, isFirst: clamped === 0, isLast: clamped === total - 1 }
+}
+
+// ---- 풀던 답안 임시 저장(이 브라우저에만 남는다) ----
+
+export const QUIZ_PROGRESS_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+/** 회원·Creator·Quiz별 키. 계정을 바꿔도 다른 회원의 답이 보이지 않게 회원 ID를 포함한다. */
+export function quizProgressKey(memberId, creatorId, quizId) {
+  return `cking.quizProgress.v1.${memberId}.${creatorId}.${quizId}`
+}
+
+/**
+ * 저장된 값에서 지금 문항에 맞는 답안만 되살린다. 문항이 바뀌었거나(revisionId 불일치) 너무 오래됐거나
+ * 현재 보기에 없는 값이면 버린다. 되살릴 답이 하나도 없으면 null이다.
+ */
+export function restoreQuizAnswers(saved, revisionId, questions, now) {
+  if (!saved || saved.revisionId !== revisionId || !saved.answers || typeof saved.answers !== 'object') return null
+  if (!Number.isFinite(saved.savedAt) || saved.savedAt > now + 60 * 1000 || now - saved.savedAt > QUIZ_PROGRESS_TTL_MS) return null
+  const answers = {}
+  for (const question of questions) {
+    const optionNo = saved.answers[question.questionNo]
+    if (question.options.some((option) => option.optionNo === optionNo)) answers[question.questionNo] = optionNo
+  }
+  return Object.keys(answers).length > 0 ? answers : null
+}
+
+/** 이어 풀 때 시작할 문항 위치. 아직 답하지 않은 첫 문항이고, 모두 답했으면 마지막 문항이다. */
+export function resumeStep(questions, answers) {
+  const index = questions.findIndex((question) => answers[question.questionNo] === undefined)
+  return index === -1 ? Math.max(questions.length - 1, 0) : index
+}
+
+export function readQuizProgress(storage, key) {
+  try {
+    return JSON.parse(storage?.getItem(key) ?? 'null')
+  } catch {
+    return null
+  }
+}
+
+export function saveQuizProgress(storage, key, revisionId, answers, now = Date.now()) {
+  try {
+    storage?.setItem(key, JSON.stringify({ revisionId, answers, savedAt: now }))
+  } catch {
+    // 저장하지 못해도 이번 응시는 그대로 이어갈 수 있다.
+  }
+}
+
+export function clearQuizProgress(storage, key) {
+  try {
+    storage?.removeItem(key)
+  } catch {
+    // 지우지 못해도 다음에 열 때 문항·기한 검사에서 걸러진다.
+  }
+}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
+import SpaceHeaderBackdrop from '../components/creator/SpaceHeaderBackdrop.jsx'
 import BackButton from '../components/ui/BackButton.jsx'
 import { useAppBack } from '../hooks/useAppBack.js'
 import EventCard from '../components/creator/EventCard.jsx'
@@ -286,12 +287,6 @@ export default function CreatorSpace() {
     }
   }, [creatorName, creatorSlug])
 
-  // 값이 없는 통계는 칸 자체를 숨긴다. 팔로워 수는 스페이스 조회 응답의 followerCount가 숫자일 때만 나타난다(0 포함).
-  const profileStats = [
-    typeof postTotal.data?.totalElements === 'number' && { label: '게시물', value: postTotal.data.totalElements },
-    typeof creator?.followerCount === 'number' && { label: '팬', value: creator.followerCount },
-    creator && !creator.eventsError && { label: '진행 이벤트', value: liveEvents.length },
-  ].filter(Boolean)
 
   if (loading) {
     return (
@@ -718,20 +713,14 @@ export default function CreatorSpace() {
 
       <div className="pt-14 flex flex-col w-full md:mx-auto md:max-w-[935px]">
         <FollowStatus />
-        {/* 좁은 화면: 아바타·통계 → 이름·소개 → 버튼 행. md 이상: 왼쪽 큰 아바타, 오른쪽에 이름+버튼 / 통계 / 소개를 쌓는다(인스타 웹). */}
-        <section className="flex flex-col gap-space-sm px-margin pt-space-md md:grid md:grid-cols-[auto_minmax(0,1fr)] md:gap-x-16 md:gap-y-4 md:px-8 md:pb-6 md:pt-10">
+        {/* 배너를 배경으로 깔고 그 위에 올린다. 좁은 화면: 아바타 → 이름·소개 → 버튼 행. md 이상: 왼쪽 큰 아바타, 오른쪽에 이름+버튼 / 소개를 쌓는다(인스타 웹). */}
+        <div className="relative">
+        <SpaceHeaderBackdrop src={creator.bannerImageUrl} />
+        <section className="relative flex flex-col gap-space-sm px-margin pb-space-sm pt-space-lg md:grid md:grid-cols-[auto_minmax(0,1fr)] md:gap-x-16 md:gap-y-4 md:px-8 md:pb-6 md:pt-10">
           <div className="flex items-center gap-space-lg md:contents">
-            <div className="h-20 w-20 shrink-0 rounded-full border border-surface-container-high bg-surface-container p-0.5 md:col-start-1 md:row-span-3 md:row-start-1 md:mx-6 md:h-36 md:w-36 md:p-1">
+            <div className="h-20 w-20 shrink-0 rounded-full border border-surface-container-high bg-surface-container p-0.5 md:col-start-1 md:row-span-2 md:row-start-1 md:mx-6 md:h-36 md:w-36 md:p-1">
               <ProfilePhoto src={creator.profileImageUrl} className="h-full w-full" iconClassName="text-[40px] md:text-[72px]" />
             </div>
-            <dl className="flex flex-1 justify-around text-center md:col-start-2 md:row-start-2 md:flex-none md:justify-start md:gap-10 md:text-left">
-              {profileStats.map((stat) => (
-                <div key={stat.label} className="flex flex-col md:flex-row md:items-baseline md:gap-1.5">
-                  <dd className="font-title-md text-title-md font-bold text-on-surface">{formatNumber(stat.value)}</dd>
-                  <dt className="font-label-sm text-label-sm font-normal text-on-surface-variant md:text-body-md">{stat.label}</dt>
-                </div>
-              ))}
-            </dl>
           </div>
           <div className="flex flex-col gap-0.5 md:contents">
             <div className="flex items-center gap-1 md:col-start-2 md:row-start-1 md:gap-5">
@@ -741,13 +730,14 @@ export default function CreatorSpace() {
               </span>
               <div className="hidden md:flex md:items-center md:gap-space-xs">{actions}</div>
             </div>
-            <div className="md:col-start-2 md:row-start-3">
+            <div className="md:col-start-2 md:row-start-2">
               <span className="block font-label-xs text-label-xs text-outline">@{creator.slug}</span>
               <ProfileIntro text={creator.introText} />
             </div>
           </div>
           <div className="md:hidden">{actions}</div>
         </section>
+        </div>
 
         {/* 탭이 늘어나도 좁은 화면에서 가로로 스크롤되는 밑줄 탭(유튜브 채널·위버스 방식). */}
         <div className="mt-space-md sticky top-14 z-40 bg-surface/95 backdrop-blur-xl border-b border-surface-container-high">

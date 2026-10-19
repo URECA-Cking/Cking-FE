@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import CreateFab from '../ui/CreateFab.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../ui/States.jsx'
 import PostComments from './PostComments.jsx'
@@ -293,17 +294,10 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }
 
   return (
-    <div className="flex flex-col pb-space-md">
+    <div className="flex flex-col pb-space-md pt-space-sm">
       {/* 목록이 보일 때만 쓰기를 열어, 저장한 글이 화면에 반영되지 못하는 상태를 만들지 않는다. */}
       {isMine && !first.loading && !first.error && page && (
-        <button
-          type="button"
-          onClick={() => setEditor({ post: null })}
-          className="mx-margin my-space-sm flex items-center justify-center gap-1.5 rounded-lg bg-surface-container py-2.5 font-label-md text-label-md font-semibold text-on-surface active:scale-[0.98]"
-        >
-          <MaterialIcon name="add" className="text-[18px]" />
-          새 게시글
-        </button>
+        <CreateFab label="새 게시글" onClick={() => setEditor({ post: null })} />
       )}
       {(first.loading || (!page && !first.error)) && <LoadingBlock label="게시글을 불러오는 중..." />}
       {!first.loading && first.error && <ErrorBlock message={first.error} onRetry={reloadFirst} />}
@@ -311,7 +305,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
         <EmptyBlock icon="grid_view" message="아직 게시글이 없어요." />
       )}
       {!first.loading && !first.error && page && posts.length > 0 && (
-        <div className="grid grid-cols-3 gap-0.5 md:gap-1">
+        <div className="grid grid-cols-3 gap-0.5 px-margin md:gap-1">
           {posts.map((post) => (
             <PostGridTile key={post.postId} post={post} onOpen={() => openDetail(post.postId)} onImageError={handleThumbError} />
           ))}

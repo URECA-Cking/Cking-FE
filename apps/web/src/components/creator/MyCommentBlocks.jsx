@@ -106,7 +106,7 @@ function BlockList({ activeOnly }) {
     return (
       <EmptyBlock
         icon="block"
-        message={activeOnly ? '지금 차단 중인 회원이 없어요. 댓글의 … 메뉴에서 회원을 차단할 수 있어요.' : '차단한 기록이 없어요.'}
+        message={activeOnly ? '차단 중인 회원이 없어요.' : '차단한 기록이 없어요.'}
       />
     )
   }

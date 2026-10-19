@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { useToast } from '../context/useToast.js'
 import { oauthLoginUrl } from '../api/auth.js'
 import { saveLoginIntent } from '../utils/loginIntent.js'
 import { isSplashDone, prefersReducedMotion } from '../utils/splashState.js'
@@ -20,19 +19,13 @@ const PROVIDERS = [
  */
 export default function Login() {
   const location = useLocation()
-  const showToast = useToast()
 
-  const [agreed, setAgreed] = useState(false)
   // 스플래시가 이미 끝난 뒤에 이 화면이 뜬 경우(로그아웃 등)에만 왕관 연출을 한다. 첫 진입은 스플래시가 이어받는다.
   const [enter] = useState(() => isSplashDone() && !prefersReducedMotion())
 
   const redirectTo = location.state?.from ?? '/'
 
   function handleLogin(provider) {
-    if (!agreed) {
-      showToast('이용약관에 먼저 동의해주세요.', { icon: 'error' })
-      return
-    }
     saveLoginIntent({ redirectTo })
     window.location.assign(oauthLoginUrl(provider))
   }
@@ -51,32 +44,15 @@ export default function Login() {
         </h1>
       </div>
 
-      <div className="flex items-center gap-2 mb-space-md px-1">
-        <input
-          id="terms-agree"
-          type="checkbox"
-          checked={agreed}
-          onChange={(event) => setAgreed(event.target.checked)}
-          className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
-        />
-        <label
-          className="font-body-sm text-body-sm text-on-surface-variant cursor-pointer select-none"
-          htmlFor="terms-agree"
-        >
-          이용약관 및 개인정보 수집·이용에 동의합니다.
-        </label>
-      </div>
-
       <div className="flex flex-col gap-space-sm">
         {PROVIDERS.map((provider) => (
           <button
             key={provider.id}
             type="button"
-            disabled={!agreed}
             onClick={() => handleLogin(provider.id)}
             className={provider.id === 'google'
-              ? 'relative w-full h-12 overflow-hidden rounded-xl bg-[#f2f2f2] text-[#1f1f1f] disabled:cursor-default disabled:bg-[#ffffff61] disabled:[&>.gsi-material-button-content-wrapper]:opacity-[0.38] active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-[218ms] hover:shadow-[0_1px_2px_0_rgba(60,64,67,0.30),0_1px_3px_1px_rgba(60,64,67,0.15)] hover:[&>.gsi-material-button-state]:opacity-[0.08] active:[&>.gsi-material-button-state]:opacity-[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001d35]/30 focus-visible:[&>.gsi-material-button-state]:opacity-[0.12]'
-              : 'relative w-full h-12 overflow-hidden rounded-xl bg-[#FEE500] text-[#191919] disabled:cursor-default disabled:opacity-50 disabled:[&>.kakao-button-content-wrapper]:opacity-[0.76] active:scale-[0.98] transition-all'}
+              ? 'relative w-full h-12 overflow-hidden rounded-xl bg-[#f2f2f2] text-[#1f1f1f] active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-[218ms] hover:shadow-[0_1px_2px_0_rgba(60,64,67,0.30),0_1px_3px_1px_rgba(60,64,67,0.15)] hover:[&>.gsi-material-button-state]:opacity-[0.08] active:[&>.gsi-material-button-state]:opacity-[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#001d35]/30 focus-visible:[&>.gsi-material-button-state]:opacity-[0.12]'
+              : 'relative w-full h-12 overflow-hidden rounded-xl bg-[#FEE500] text-[#191919] active:scale-[0.98] transition-all'}
           >
             {/* Google·Kakao 브랜드 가이드의 색상과 상호작용을 유지한다. */}
             {provider.id === 'google' ? (

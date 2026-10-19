@@ -69,8 +69,8 @@ for (const [edited, label] of [[true, 'Creator가 수정한 원문'], [false, 'A
     try {
       await info(page).getByText(label, { exact: false }).waitFor()
       const time = await info(page).getByText('원문 확정', { exact: false }).textContent()
-      assert.match(time, /2026\. 10\. 15\./)
-      assert.match(time, /10:02/)
+      assert.match(time, /26\.10\.15\./)
+      assert.match(time, /10시 02분/)
       assert.equal(await info(page).getByText(edited ? 'AI 원문 그대로 확정' : 'Creator가 수정한 원문', { exact: false }).count(), 0)
       // 수정 여부는 원문 텍스트(<details>) 바로 위에 온다.
       const order = await info(page).evaluate((section, label) => {

@@ -1,21 +1,21 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatShortDate } from '../src/utils/format.js'
+import { formatShortDate, formatEventDate, formatRelativeTime } from '../src/utils/format.js'
+import { formatScheduleRange, formatScheduleTime } from '../src/utils/calendarGrid.js'
 
-test('짧은 날짜는 연도 두 자리·월·일·요일로 표시하고 값이 없으면 대시를 쓴다', () => {
-  // 시간대와 무관하게 로컬 날짜를 만들어 넘긴다. 2026-10-21은 수요일이다.
-  assert.equal(formatShortDate(new Date(2026, 9, 21, 12, 0).toISOString()), '26.10.21 (수)')
-  assert.equal(formatShortDate(new Date(2027, 0, 3, 0, 5).toISOString()), '27.01.03 (일)')
-  assert.equal(formatShortDate(null), '-')
+test('화면별 날짜 포맷은 공통 24시간제 표기를 사용한다', () => {
+  const date = new Date(2026, 9, 20, 21, 5).toISOString()
+  for (const format of [formatShortDate, formatEventDate, formatRelativeTime, formatScheduleTime]) {
+    assert.equal(format(date), '26.10.20. 21시 05분')
+    assert.equal(format(null), '-')
+    assert.equal(format('invalid'), 'invalid')
+  }
+  assert.equal(formatShortDate(date, { withTime: true }), '26.10.20. 21시 05분')
 })
 
-test('이벤트 날짜의 시각은 12시간제(오전/오후)로 표시한다', async () => {
-  const { formatEventDate } = await import('../src/utils/format.js')
-  assert.equal(formatEventDate(new Date(2026, 9, 21, 15, 5).toISOString()), '2026.10.21 (수) 오후 03:05')
-  assert.equal(formatEventDate(new Date(2026, 9, 21, 0, 5).toISOString()), '2026.10.21 (수) 오전 12:05')
-  assert.equal(formatEventDate(new Date(2026, 9, 21, 12, 0).toISOString()), '2026.10.21 (수) 오후 12:00')
-})
-
-test('짧은 날짜에 withTime을 주면 12시간제 시각이 붙는다', () => {
-  assert.equal(formatShortDate(new Date(2026, 9, 21, 15, 5).toISOString(), { withTime: true }), '26.10.21 (수) 오후 03:05')
+test('일정 범위는 같은 날과 자정·월·연도 경계 모두 양 끝의 날짜와 시각을 표시한다', () => {
+  for (const [start, end, expected] of [
+    [new Date(2026, 9, 20, 9, 5), new Date(2026, 9, 20, 12), '26.10.20. 09시 05분 – 26.10.20. 12시 00분'],
+    [new Date(2026, 11, 31, 23, 59), new Date(2027, 0, 1), '26.12.31. 23시 59분 – 27.01.01. 00시 00분'],
+  ]) assert.equal(formatScheduleRange({ startAt: start.toISOString(), endAt: end.toISOString() }), expected)
 })

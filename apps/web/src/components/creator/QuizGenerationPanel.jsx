@@ -131,7 +131,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
     setReviewJob(null)
     setRecovered(null)
     setSucceeded(latest)
-    showToast('Quiz를 만들었어요. 문항을 검토해 주세요.')
+    showToast('Quiz를 생성했어요. 문항을 검토해 주세요.')
     onSucceededRef.current?.(latest)
   }, [update, clearDraft, showToast])
 
@@ -375,7 +375,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
         disabled={!canStart}
         className="flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-primary font-label-md text-label-md font-bold text-on-primary shadow-md transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <MaterialIcon name="auto_awesome" className="text-[20px]" />AI Quiz 만들기
+        <MaterialIcon name="auto_awesome" className="text-[20px]" />AI Quiz 생성
       </button>
 
       {recoveryError && <div role="alert"><p>{recoveryError}</p><button onClick={() => generationId ? openReview() : recoverCurrent()}>다시 확인</button></div>}
@@ -396,7 +396,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
           </div>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
             생성 요청이 접수됐는지 확인하지 못했어요. 다시 확인하면 같은 요청으로 보내 중복 생성 없이 이어서 처리해요.
-            확인하기 전에는 새 Quiz를 만들 수 없어요.
+            확인하기 전에는 새 Quiz를 생성할 수 없어요.
           </p>
           <button
             type="button"
@@ -434,7 +434,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
             <div className="flex items-center gap-2 text-on-surface-variant">
               <Spinner className="h-4 w-4 text-primary" />
               <p className="font-body-sm text-body-sm">
-                영상을 분석해 {displayInput.questionCount}문항을 만들고 있어요. 화면을 닫아도 이어서 진행돼요.
+                영상을 분석해 {displayInput.questionCount}문항을 생성하고 있어요. 화면을 닫아도 이어서 진행돼요.
               </p>
             </div>
           )}
@@ -448,11 +448,11 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
             <StatusPill label={GENERATION_LABELS[currentJob.status]} icon="error" tone="bg-error-container text-on-error-container" />
           </div>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            {generationFailureMessage(currentJob)} 다시 만들면 새 요청으로 처리돼요.
+            {generationFailureMessage(currentJob)} 다시 생성하면 새 요청으로 처리돼요.
           </p>
           <div className="flex gap-2">
             <button type="button" onClick={() => openForm(displayInput)} className={`${smallButtonClass} bg-primary text-on-primary`}>
-              다시 만들기
+              다시 생성
             </button>
             <button type="button" onClick={dismiss} className={`${smallButtonClass} bg-surface-container text-on-surface`}>
               닫기
@@ -481,7 +481,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
         </div>
       )}
 
-      <BottomSheet open={formOpen} onClose={() => setFormOpen(false)} title="AI Quiz 만들기" eyebrow="Quiz">
+      <BottomSheet open={formOpen} onClose={() => setFormOpen(false)} title="AI Quiz 생성" eyebrow="Quiz">
         <form
           className="flex flex-col gap-space-md"
           onSubmit={(event) => {
@@ -537,9 +537,6 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
               ))}
             </div>
           </fieldset>
-          <p className="rounded-xl bg-surface-container-low p-space-sm font-body-sm text-body-sm text-on-surface-variant">
-            AI가 영상을 분석해 4지선다 문항을 만들어요. 생성은 한 번에 하나만 진행할 수 있고, 만든 뒤에는 검토·평가·승인을 거쳐 게시해요.
-          </p>
           {formError && (
             <p role="alert" className="font-body-sm text-body-sm text-error">
               {formError}
@@ -550,7 +547,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
             disabled={submitting}
             className="w-full rounded-xl bg-primary py-3 text-on-primary font-label-md text-label-md font-semibold active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {submitting ? '요청하는 중...' : '만들기'}
+            {submitting ? '요청하는 중...' : '생성'}
           </button>
         </form>
       </BottomSheet>

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -66,6 +66,8 @@ async function boot(page, initialQuest) {
     window.requests = []
     window.scrolled = 0
     window.failClaims = 0
+    window.failComplete = false
+    window.missionDone = false
     window.questFailures = 0
     Element.prototype.scrollIntoView = () => { window.scrolled += 1 }
     const envelope = (status, code, data, message = null) => new Response(JSON.stringify({ code, data, message }), { status })
@@ -96,7 +98,11 @@ async function boot(page, initialQuest) {
         return Promise.resolve(envelope(202, 'EARN_ACCEPTED', { step, rewardAmount: 1, status: 'CLAIMED' }))
       }
       if (path === '/api/me/winners') return Promise.resolve(envelope(200, 'SUCCESS', []))
-      if (path === '/api/missions') return Promise.resolve(envelope(200, 'SUCCESS', [{ missionId: 1, type: 'ATTENDANCE', rewardAmount: 1, completedToday: false }]))
+      if (/^\/api\/missions\/\d+\/complete$/.test(path)) {
+        if (window.failComplete) return Promise.resolve(envelope(500, 'INTERNAL_SERVER_ERROR', null, '서버 오류'))
+        return Promise.resolve(envelope(202, 'EARN_ACCEPTED', { status: 'PENDING' }))
+      }
+      if (path === '/api/missions') return Promise.resolve(envelope(200, 'SUCCESS', [{ missionId: 1, type: 'ATTENDANCE', rewardAmount: 1, completedToday: window.missionDone }]))
       if (path === '/api/tickets/common/history') return Promise.resolve(envelope(200, 'SUCCESS', { items: [], hasNext: false }))
       if (path === '/api/me/creator-recommendations') return Promise.resolve(envelope(200, 'SUCCESS', recommendations))
       return Promise.resolve(envelope(200, 'SUCCESS', { items: [], page: 0, hasNext: false }))
@@ -142,7 +148,7 @@ test('대상이 아닌 회원은 지금과 같은 홈을 본다', async () => {
     const text = await bodyText(page)
     assert.equal(text.includes('1분 만에 끝내는 시작 가이드'), false)
     assert.equal(text.includes('지금 팬들이 가장 많이 모이는 곳'), false)
-    assert.equal(await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).count(), 0)
+    assert.equal(await page.getByText('도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!').count(), 0)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
@@ -211,18 +217,22 @@ test('STEP 3은 펼쳐서 답을 서버에 보내고, 오답은 안내하고 정
   } finally { await page.close() }
 })
 
-test('웰컴 보너스 상자는 DAY 2 자리에서 열고, 받으면 지급 문구가 보인다', async () => {
+test('출석 도장을 누르면 웰컴 보너스가 이어서 지급되고, 보너스는 출석 도장 칸에 찍히지 않는다', async () => {
   const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
   try {
     await page.evaluate(() => window.renderHome([]))
     await waitWelcome(page)
-    await page.getByText('깜짝 웰컴 보너스 상자를 터치해서 추가 응모권을 받아보세요!').waitFor()
+    await page.getByText('도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!').waitFor()
 
-    await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).click()
+    await page.getByRole('button', { name: '도장 찍기' }).click()
+    // 출석 → 보너스를 잇는 동안에는 처리 중으로 잠겨 다시 누를 수 없다.
+    assert.equal(await page.getByRole('button', { name: '처리 중' }).isDisabled(), true)
     await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
     const posted = await claims(page)
     assert.equal(posted.at(-1).path, '/api/me/welcome-quest/BONUS/claim')
-    assert.equal(await page.getByLabel('웰컴 보너스 받음').count(), 1)
+    // 보너스는 출석 일수가 아니므로 출석 도장(DAY 1)만 찍히고 DAY 2는 비어 있다.
+    assert.equal(await page.getByLabel('1번째 도장 찍힘').count(), 1)
+    assert.equal(await page.getByLabel('2번째 도장 찍힘').count(), 0)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
@@ -235,7 +245,7 @@ test('퀘스트를 끝낸 뒤 다시 들어오면 일반 홈이고, 못 받은 �
     const text = await bodyText(page)
     assert.equal(text.includes('1분 만에 끝내는 시작 가이드'), false)
     assert.equal(text.includes('웰컴 퀘스트 완료!'), false)
-    await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).waitFor()
+    await page.getByText('도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!').waitFor()
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
@@ -369,25 +379,122 @@ test('퀘스트 상태 조회가 실패하면 다시 시도를 보여주고, 성
   } finally { await page.close() }
 })
 
-test('같은 화면에서 회원이 바뀌어도 이전 회원이 받은 보너스 표시가 다른 회원의 상자에 남지 않는다', async () => {
+test('같은 화면에서 회원이 바뀌어도 이전 회원이 받은 보너스 표시가 다른 회원의 출석 카드에 남지 않는다', async () => {
   // 세 단계를 모두 끝내 일반 홈을 쓰고 보너스만 남은 회원 A와 B다. 두 회원 모두 출석 카드가 같은 자리에서 쓰인다.
   const done = { SIGNUP: 'CLAIMED', FOLLOW: 'CLAIMED', QUIZ: 'CLAIMED' }
   const { page, errors } = await screen(quest(done))
   try {
     await page.evaluate(() => window.renderHome([], 7))
-    await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).click()
+    await page.getByRole('button', { name: '도장 찍기' }).click()
     await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
 
     // 회원 B로 전환한다. B의 보너스는 아직 받을 수 있는 상태다.
     await page.evaluate((next) => { window.quest = next; window.renderHome([], 8) }, quest(done))
-    await page.getByText('깜짝 웰컴 보너스 상자를 터치해서 추가 응모권을 받아보세요!').waitFor()
-    assert.equal(await page.getByLabel('웰컴 보너스 받음').count(), 0)
+    await page.getByText('도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!').waitFor()
+    assert.equal(await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').count(), 0)
 
     // B도 정상적으로 지급받을 수 있다.
-    await page.getByRole('button', { name: '웰컴 보너스 상자 열기' }).click()
+    await page.getByRole('button', { name: '도장 찍기' }).click()
     await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
     const bonusClaims = (await claims(page)).filter((request) => request.path === '/api/me/welcome-quest/BONUS/claim')
     assert.equal(bonusClaims.length, 2)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
+})
+
+/** 출석 완료와 보너스 지급(POST) 요청만 순서대로 모아 돌려준다. */
+const attendanceAndBonus = (page) => page.evaluate(() => window.requests
+  .filter((request) => request.method === 'POST' && (request.path.includes('/complete') || request.path.includes('/BONUS/claim')))
+  .map((request) => ({ path: request.path, requestId: request.body?.requestId })))
+
+test('출석 요청이 실패하면 보너스는 요청하지 않고, 다시 눌러 같은 요청으로 재시도하면 둘 다 처리된다', async () => {
+  const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
+  try {
+    await page.evaluate(() => { window.failComplete = true; window.renderHome([]) })
+    await waitWelcome(page)
+    await page.getByRole('button', { name: '도장 찍기' }).click()
+    await page.waitForFunction(() => window.toasts.length > 0)
+    // 보너스를 요청할 시간이 충분히 지나도 출석 요청 한 번만 있고 보너스 요청은 없다.
+    await page.waitForTimeout(900)
+    let posted = await attendanceAndBonus(page)
+    assert.deepEqual(posted.map((request) => request.path), ['/api/missions/1/complete'])
+    assert.equal(await page.getByRole('button', { name: '도장 찍기' }).isEnabled(), true)
+
+    // 서버 처리 여부가 불확실한 실패라서 같은 requestId로 다시 보내고, 이번에는 보너스까지 이어진다.
+    await page.evaluate(() => { window.failComplete = false })
+    await page.getByRole('button', { name: '도장 찍기' }).click()
+    await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
+    posted = await attendanceAndBonus(page)
+    assert.deepEqual(posted.map((request) => request.path), ['/api/missions/1/complete', '/api/missions/1/complete', '/api/me/welcome-quest/BONUS/claim'])
+    assert.equal(posted[0].requestId, posted[1].requestId)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('이미 출석한 회원은 출석 요청 없이 보너스만 받을 수 있다', async () => {
+  const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
+  try {
+    await page.evaluate(() => { window.missionDone = true; window.renderHome([]) })
+    await waitWelcome(page)
+    await page.getByRole('button', { name: '보너스 받기' }).click()
+    await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
+    const posted = await attendanceAndBonus(page)
+    assert.deepEqual(posted.map((request) => request.path), ['/api/me/welcome-quest/BONUS/claim'])
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('보너스 지급이 실패해도 출석은 유지되고, 다시 눌러 같은 요청으로 재시도할 수 있다', async () => {
+  const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
+  try {
+    await page.evaluate(() => { window.failClaims = 1; window.renderHome([]) })
+    await waitWelcome(page)
+    await page.getByRole('button', { name: '도장 찍기' }).click()
+    // 출석은 끝났지만 보너스가 실패해 버튼이 보너스 받기로 남는다.
+    await page.getByRole('button', { name: '보너스 받기' }).waitFor()
+    assert.equal(await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').count(), 0)
+
+    await page.getByRole('button', { name: '보너스 받기' }).click()
+    await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
+    const posted = await attendanceAndBonus(page)
+    // 출석은 한 번만, 보너스는 실패 뒤 같은 requestId로 한 번 더 보낸다.
+    assert.deepEqual(posted.map((request) => request.path), [
+      '/api/missions/1/complete', '/api/me/welcome-quest/BONUS/claim', '/api/me/welcome-quest/BONUS/claim',
+    ])
+    assert.equal(posted[1].requestId, posted[2].requestId)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('출석 뒤 보너스를 기다리는 사이 계정을 바꾸거나 화면을 내리면 보너스를 요청하지 않는다', async () => {
+  for (const leave of [(page) => page.evaluate(() => window.renderHome([], 8)), (page) => page.evaluate(() => window.unmountHome())]) {
+    const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
+    try {
+      await page.evaluate(() => window.renderHome([], 7))
+      await waitWelcome(page)
+      await page.getByRole('button', { name: '도장 찍기' }).click()
+      // 출석이 끝나고 보너스 요청 전의 대기 시간에 떠난다.
+      await page.waitForFunction(() => window.toasts.some((message) => String(message).includes('적립했어요')))
+      await leave(page)
+      await page.waitForTimeout(1200)
+      const posted = await attendanceAndBonus(page)
+      assert.equal(posted.some((request) => request.path.includes('/BONUS/claim')), false)
+      assert.deepEqual(errors, [])
+    } finally { await page.close() }
+  }
+})
+
+test('도장을 찍으면 고리·반짝이 장식이 그려지고, 모션을 줄인 환경에서는 CSS가 그 장식을 숨긴다', async () => {
+  const { page, errors } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => window.renderHome([]))
+    await page.getByRole('button', { name: '도장 찍기' }).click()
+    await page.locator('.stamp-burst').first().waitFor({ state: 'attached' })
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+
+  // 하네스 페이지에는 스타일시트가 없으므로, 모션 감소 규칙이 장식을 숨기는지는 CSS 원문으로 확인한다.
+  const css = readFileSync(fileURLToPath(new URL('../src/index.css', import.meta.url)), 'utf8')
+  const reduced = css.match(/@media \(prefers-reduced-motion: reduce\) \{[^}]*\.stamp-burst\s*\{\s*display:\s*none;?\s*\}/)
+  assert.ok(reduced, 'prefers-reduced-motion: reduce 안에서 .stamp-burst를 숨겨야 한다')
 })

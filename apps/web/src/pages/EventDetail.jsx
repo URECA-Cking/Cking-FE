@@ -588,10 +588,10 @@ export default function EventDetail() {
                           {winner.rankInDrawing}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="font-label-md text-label-md font-semibold text-on-surface truncate">
+                          <p className={`font-label-md text-label-md font-semibold ${mine ? 'text-on-primary-fixed' : 'text-on-surface'} truncate`}>
                             {mine ? '나의 당첨 🎉' : winner.name}
                           </p>
-                          <p className="font-label-xs text-label-xs text-on-surface-variant truncate">
+                          <p className={`font-label-xs text-label-xs ${mine ? 'text-on-primary-fixed-variant' : 'text-on-surface-variant'} truncate`}>
                             {winner.prizeDisplayName ?? '상품 미지정'}
                           </p>
                         </div>

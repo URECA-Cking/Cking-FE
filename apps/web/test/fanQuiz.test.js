@@ -6,6 +6,7 @@ import {
   appendQuizPage,
   classifySubmitError,
   quizListView,
+  quizStep,
   submitRequestFor,
 } from '../src/utils/fanQuiz.js'
 
@@ -92,4 +93,18 @@ test('409 응시 중복과 요청 충돌은 저장된 결과를 조회하고, �
   assert.equal(classifySubmitError(new ApiError('QUIZ_ATTEMPT_REQUEST_CONFLICT', '요청 충돌', 409)), 'ALREADY_ATTEMPTED')
   assert.equal(classifySubmitError(new ApiError('QUIZ_PUBLISHED_REVISION_CHANGED', '변경', 409)), 'REVISION_CHANGED')
   assert.equal(classifySubmitError(new ApiError('QUIZ_NOT_FOUND', '없음', 404)), 'NOT_FOUND')
+})
+
+test('quizStep은 현재 문항 번호와 처음·마지막 여부를 알려준다', () => {
+  assert.deepEqual(quizStep(0, 5), { index: 0, number: 1, total: 5, isFirst: true, isLast: false })
+  assert.deepEqual(quizStep(2, 5), { index: 2, number: 3, total: 5, isFirst: false, isLast: false })
+  assert.deepEqual(quizStep(4, 5), { index: 4, number: 5, total: 5, isFirst: false, isLast: true })
+  assert.equal(quizStep(0, 1).isFirst && quizStep(0, 1).isLast, true)
+})
+
+test('quizStep은 범위를 벗어난 위치를 가까운 끝으로 맞추고 문항이 없으면 0으로 둔다', () => {
+  assert.equal(quizStep(-1, 3).index, 0)
+  assert.equal(quizStep(9, 3).index, 2)
+  assert.equal(quizStep(undefined, 3).index, 0)
+  assert.deepEqual(quizStep(0, 0), { index: 0, number: 0, total: 0, isFirst: true, isLast: true })
 })

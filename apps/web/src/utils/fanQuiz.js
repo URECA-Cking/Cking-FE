@@ -58,3 +58,13 @@ export function classifySubmitError(error) {
   if (typeof status === 'number' && status >= 400 && status < 500) return 'REJECTED'
   return 'UNCERTAIN'
 }
+
+/**
+ * 한 문항씩 푸는 화면의 위치. index는 문항 배열 위치이고 범위를 벗어나면 가까운 끝으로 맞춘다.
+ * 문항이 없으면 number·total이 0이다.
+ */
+export function quizStep(index, total) {
+  if (total <= 0) return { index: 0, number: 0, total: 0, isFirst: true, isLast: true }
+  const clamped = Math.min(Math.max(Number.isInteger(index) ? index : 0, 0), total - 1)
+  return { index: clamped, number: clamped + 1, total, isFirst: clamped === 0, isLast: clamped === total - 1 }
+}

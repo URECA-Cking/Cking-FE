@@ -68,6 +68,7 @@ async function boot(page, initialQuest) {
     window.failClaims = 0
     window.winners = []
     window.winnersFail = false
+    window.winnersGate = null
     window.failEvents = false
     window.questFailures = 0
     Element.prototype.scrollIntoView = () => { window.scrolled += 1 }
@@ -99,6 +100,11 @@ async function boot(page, initialQuest) {
         return Promise.resolve(envelope(202, 'EARN_ACCEPTED', { step, rewardAmount: 1, status: 'CLAIMED' }))
       }
       if (path === '/api/me/winners') {
+        // winnersGate가 있으면 테스트가 풀어 줄 때까지 응답을 미룬다. 진행 중인 요청이 나중에 끝나는 상황을 만든다.
+        if (window.winnersGate) {
+          const gate = window.winnersGate
+          return gate.then(() => envelope(200, 'SUCCESS', window.winners))
+        }
         if (window.winnersFail) return Promise.resolve(envelope(500, 'INTERNAL_SERVER_ERROR', null, '조회 실패'))
         return Promise.resolve(envelope(200, 'SUCCESS', window.winners))
       }
@@ -472,5 +478,69 @@ test('캐시로 그린 홈은 뒤에서 하는 이벤트 갱신이 실패해도 
     assert.equal(await page.getByText('마감 임박순').count(), 1)
     assert.equal((await bodyText(page)).includes('진행 중인 이벤트를 불러오지 못했습니다.'), false)
     assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('로그아웃으로 캐시를 비운 뒤 이전 요청이 끝나도 이전 회원의 결과는 캐시에 다시 저장되지 않는다', async () => {
+  const { page, errors } = await screen(quest({ eligible: false }))
+  try {
+    // 회원 A의 당첨 조회를 미뤄 둔 채 로그아웃(캐시 비우기)하고 화면을 내린다.
+    await page.evaluate(() => {
+      window.winners = [{ winnerId: 1, winnerManagementStatus: 'SELECTED' }]
+      window.winnersGate = new Promise((resolve) => { window.releaseWinners = resolve })
+      window.renderHome([], 7)
+    })
+    await page.waitForFunction(() => window.requests.some((request) => request.path === '/api/me/winners'))
+    await page.evaluate(() => { window.clearAsyncCache(); window.unmountHome() })
+
+    // 이전 요청이 이제 끝난다.
+    await page.evaluate(() => window.releaseWinners())
+    await page.waitForTimeout(100)
+
+    // 같은 키로 다시 열면, 캐시에 남은 이전 결과가 있다면 응답 전에 배너가 바로 보인다. 이번 조회는 끝나지 않게 둔다.
+    await page.evaluate(() => {
+      window.winnersGate = new Promise(() => {})
+      window.renderHome([], 7)
+    })
+    await page.getByText('DAILY CHECK-IN').waitFor()
+    await page.waitForTimeout(100)
+    assert.equal(await page.getByText('수령 대기 1건').count(), 0)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('조회가 비활성화되면 진행 중이던 이전 요청의 결과는 현재 화면에 반영되지 않는다', async () => {
+  const { page } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => window.renderProbe({ tag: 'A', enabled: true }))
+    await page.waitForFunction(() => typeof window.probeGates.A === 'function')
+    await page.evaluate(() => window.renderProbe({ tag: 'A', enabled: false }))
+    await page.evaluate(() => window.probeGates.A())
+    await page.waitForTimeout(100)
+    assert.equal(await page.locator('#probe').innerText(), 'none')
+  } finally { await page.close() }
+})
+
+test('캐시키가 바뀌면 이전 키의 요청이 늦게 끝나도 새 키의 결과를 덮어쓰지 않는다', async () => {
+  const { page } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => window.renderProbe({ tag: 'A', cacheKey: 'probe:A' }))
+    await page.waitForFunction(() => typeof window.probeGates.A === 'function')
+    await page.evaluate(() => window.renderProbe({ tag: 'B', cacheKey: 'probe:B' }))
+    await page.waitForFunction(() => typeof window.probeGates.B === 'function')
+    await page.evaluate(() => window.probeGates.B())
+    await page.waitForFunction(() => document.querySelector('#probe').innerText === 'B')
+    await page.evaluate(() => window.probeGates.A())
+    await page.waitForTimeout(100)
+    assert.equal(await page.locator('#probe').innerText(), 'B')
+  } finally { await page.close() }
+})
+
+test('지연 로딩한 화면을 받지 못하면 빈 화면 대신 안내와 다시 시도를 보여준다', async () => {
+  const { page } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => window.renderBrokenLazy())
+    await page.getByText('화면을 불러오지 못했어요. 네트워크를 확인한 뒤 새로고침해 주세요.').waitFor()
+    await page.getByRole('button', { name: '다시 시도' }).waitFor()
   } finally { await page.close() }
 })

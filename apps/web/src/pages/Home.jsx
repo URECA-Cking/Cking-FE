@@ -11,6 +11,7 @@ import WelcomeCreators from '../components/home/WelcomeCreators.jsx'
 import { LoadingBlock, ErrorBlock, InlineRetry } from '../components/ui/States.jsx'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
+import { useNow } from '../hooks/useNow.js'
 import { getCreatorCatalog } from '../api/creators.js'
 import { getInProgressEvents } from '../api/events.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
@@ -51,9 +52,11 @@ export default function Home() {
     [directory.data, followedCreators],
   )
 
+  // 캐시로 그린 목록은 마감 뒤에도 남을 수 있어 현재 시각으로 한 번 더 걸러 낸다. 시각은 주기적으로 갱신된다.
+  const now = useNow()
   const entryEvents = useMemo(
-    () => selectEntryEvents(openEvents.data ?? [], followedCreators, ENTRY_LIMIT),
-    [openEvents.data, followedCreators],
+    () => selectEntryEvents(openEvents.data ?? [], followedCreators, ENTRY_LIMIT, now),
+    [openEvents.data, followedCreators, now],
   )
   // 잔액은 홈에 보이는 응모 이벤트의 크리에이터 것만 조회한다. 팔로우 전체를 조회하면 팔로우 수만큼 요청이 나간다.
   const entryCreatorIds = useMemo(() => [...new Set(entryEvents.map((event) => event.creatorId))], [entryEvents])

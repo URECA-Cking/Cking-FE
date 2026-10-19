@@ -8,9 +8,9 @@ const creators = [
   { creatorId: 3, name: '코딩' },
 ]
 
-test('탐색 Creator 필터는 받은 목록을 재사용해 전체·관심·검색 결과를 나눈다', () => {
+test('탐색 Creator 필터는 받은 목록을 재사용해 전체·도킹·검색 결과를 나눈다', () => {
   assert.deepEqual(filterExploreCreators(creators, [2], '전체', '').map(({ creatorId }) => creatorId), [1, 2, 3])
-  assert.deepEqual(filterExploreCreators(creators, [2], '관심', '').map(({ creatorId }) => creatorId), [2])
+  assert.deepEqual(filterExploreCreators(creators, [2], '도킹', '').map(({ creatorId }) => creatorId), [2])
   assert.deepEqual(filterExploreCreators(creators, [2], '전체', '코딩').map(({ creatorId }) => creatorId), [3])
 })
 
@@ -30,11 +30,11 @@ test('탐색 Creator는 진행 중 이벤트가 있는 Creator만 걸러 이름�
   assert.deepEqual(ids(sortExploreCreators(list, 'open-asc')), [1, 4, 2, 3])
 })
 
-test('필터 칩 개수는 전체·관심·진행 중을 따로 센다', () => {
+test('필터 칩 개수는 전체·도킹·진행 중을 따로 센다', () => {
   const list = [
     { creatorId: 1, name: '가', openEventCount: 2 },
     { creatorId: 2, name: '나', openEventCount: 0 },
     { creatorId: 3, name: '다', openEventCount: 1 },
   ]
-  assert.deepEqual(creatorFilterCounts(list, [2, 9]), { 전체: 3, 관심: 2, '진행 중': 2 })
+  assert.deepEqual(creatorFilterCounts(list, [2, 9]), { 전체: 3, 도킹: 2, '진행 중': 2 })
 })

@@ -14,7 +14,7 @@ import {
 // 시작 가이드의 단계 정의. 화면 문구와 아이콘만 담고, 지급 조건 판정은 서버가 한다.
 const STEPS = [
   { step: WELCOME_QUEST_STEPS.SIGNUP, no: 1, title: '크킹 가입 및 첫 로그인', icon: 'redeem', tile: 'bg-primary/15 text-primary' },
-  { step: WELCOME_QUEST_STEPS.FOLLOW, no: 2, title: '관심 크리에이터 1명 팔로우', icon: 'person_add', tile: 'bg-primary/15 text-primary' },
+  { step: WELCOME_QUEST_STEPS.FOLLOW, no: 2, title: '크리에이터 1명 도킹', icon: 'person_add', tile: 'bg-primary/15 text-primary' },
   { step: WELCOME_QUEST_STEPS.QUIZ, no: 3, title: '5초 OX 퀴즈 맛보기', icon: 'quiz', tile: 'bg-warm-accent/20 text-warm-accent' },
 ]
 

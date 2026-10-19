@@ -34,10 +34,10 @@ export default function WelcomeCreators({ sectionRef, onFollowed }) {
     try {
       const result = await toggleFollow(creator.creatorId)
       if (!result) return
-      showToast(result.following ? `${creator.name} 팔로우 완료!` : '팔로우를 해제했어요.')
+      showToast(result.following ? `${creator.name} 도킹 완료!` : '도킹을 해제했어요.')
       onFollowed()
     } catch (error) {
-      showToast(describeError(error, '팔로우 상태를 변경하지 못했어요.'), { icon: 'error' })
+      showToast(describeError(error, '도킹 상태를 변경하지 못했어요.'), { icon: 'error' })
     }
   }
 
@@ -48,7 +48,7 @@ export default function WelcomeCreators({ sectionRef, onFollowed }) {
           <span aria-hidden="true">🔥</span>
           지금 팬들이 가장 많이 모이는 곳
         </h3>
-        <p className="font-label-sm text-label-sm text-primary font-normal">팔로우하면 STEP 2 응모권을 받을 수 있어요</p>
+        <p className="font-label-sm text-label-sm text-primary font-normal">도킹하면 STEP 2 응모권을 받을 수 있어요</p>
       </div>
 
       {recommended.loading && <LoadingBlock label="추천 크리에이터를 찾는 중..." />}
@@ -90,10 +90,10 @@ export default function WelcomeCreators({ sectionRef, onFollowed }) {
                   {followed ? (
                     <>
                       <FilledCheck size={14} />
-                      팔로잉
+                      도킹 중
                     </>
                   ) : (
-                    '+ 팔로우'
+                    '+ 도킹'
                   )}
                 </button>
               </div>

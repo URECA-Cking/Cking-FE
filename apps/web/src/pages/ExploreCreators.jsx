@@ -47,9 +47,9 @@ export default function ExploreCreators() {
   async function handleToggleFollow(creator) {
     try {
       const result = await toggleFollow(creator.creatorId)
-      if (result) showToast(result.following ? `${creator.name} 관심 크리에이터로 등록되었어요! 💖` : '관심 크리에이터에서 해제되었습니다.')
+      if (result) showToast(result.following ? `${creator.name} 도킹 완료! 💖` : '도킹이 해제되었습니다.')
     } catch (error) {
-      showToast(describeError(error, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
+      showToast(describeError(error, '도킹 상태를 변경하지 못했어요.'), { icon: 'error' })
     }
   }
 
@@ -69,7 +69,7 @@ export default function ExploreCreators() {
         {!directory.loading && !directory.error && creators.length === 0 && (
           <EmptyBlock
             icon="person_search"
-            message={filter === '관심' ? '아직 관심 등록한 크리에이터가 없어요.' : filter === '진행 중' ? '지금 진행 중인 이벤트가 있는 크리에이터가 없어요.' : '크리에이터가 없어요.'}
+            message={filter === '도킹' ? '아직 도킹한 크리에이터가 없어요.' : filter === '진행 중' ? '지금 진행 중인 이벤트가 있는 크리에이터가 없어요.' : '크리에이터가 없어요.'}
           />
         )}
         {shown.map((creator) => (

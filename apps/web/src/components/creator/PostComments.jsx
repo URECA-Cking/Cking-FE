@@ -48,6 +48,9 @@ function byServerOrder(a, b) {
   return diff !== 0 && !Number.isNaN(diff) ? diff : a.commentId - b.commentId
 }
 
+// 새 댓글 입력창. 한 줄일 때 오른쪽 전송 버튼과 위아래 여백이 같도록 위아래 패딩을 넉넉히 둔다.
+const draftClass =
+  'w-full max-h-40 overflow-y-auto pl-3 pr-14 py-4 rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none shadow-sm transition-all resize-none'
 const inputClass =
   'w-full px-3 py-2.5 rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none shadow-sm transition-all resize-none'
 
@@ -75,6 +78,14 @@ export default function PostComments({ creatorId, postId, authenticated, followi
   const loadedPageCount = useRef(0)
 
   const [draft, setDraft] = useState('')
+  // 한 줄 높이로 시작해 입력한 만큼 늘리고(최대 max-h-40), 비우면 다시 한 줄로 줄인다.
+  const draftRef = useRef(null)
+  useEffect(() => {
+    const box = draftRef.current
+    if (!box) return
+    box.style.height = 'auto'
+    box.style.height = `${box.scrollHeight}px`
+  }, [draft])
   const [posting, setPosting] = useState(false)
   const [postError, setPostError] = useState('')
   const [editing, setEditing] = useState(null) // { commentId, text }
@@ -391,33 +402,36 @@ export default function PostComments({ creatorId, postId, authenticated, followi
         )}
         {authenticated && !canWrite && (
           <div className="flex flex-col items-center gap-2 rounded-xl bg-surface-container-low px-4 py-5 text-center">
-            <p className="font-body-sm text-body-sm text-on-surface-variant">팔로워만 댓글을 쓸 수 있어요.</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">팬만 댓글을 쓸 수 있어요.</p>
             <button type="button" onClick={onFollow} disabled={followDisabled} className="rounded-xl bg-primary px-4 py-2 font-label-sm text-label-sm font-semibold text-on-primary disabled:opacity-60">
-              팔로우하기
+              도킹하기
             </button>
           </div>
         )}
         {canWrite && listReady && (
           <div className="flex flex-col gap-2">
-            <textarea
-              value={draft}
-              maxLength={COMMENT_MAX_LENGTH}
-              rows={3}
-              aria-label="댓글 입력"
-              placeholder="댓글을 남겨보세요."
-              onChange={(event) => setDraft(event.target.value)}
-              className={inputClass}
-            />
-            <div className="flex items-center justify-between">
-              <span className="font-label-xs text-label-xs text-outline">{draft.length}/{COMMENT_MAX_LENGTH}</span>
-              <button
-                type="button"
-                onClick={submitNew}
-                disabled={posting || !draft.trim()}
-                className="rounded-xl bg-primary px-4 py-2 font-label-sm text-label-sm font-semibold text-on-primary disabled:opacity-60"
-              >
-                {posting ? '남기는 중...' : '댓글 남기기'}
-              </button>
+            <div className="relative">
+              <textarea
+                value={draft}
+                maxLength={COMMENT_MAX_LENGTH}
+                ref={draftRef}
+                rows={1}
+                aria-label="댓글 입력"
+                placeholder="댓글을 남겨보세요."
+                onChange={(event) => setDraft(event.target.value)}
+                className={draftClass}
+              />
+              {draft.trim() && (
+                <button
+                  type="button"
+                  onClick={submitNew}
+                  disabled={posting}
+                  aria-label={posting ? '댓글을 남기는 중' : '댓글 남기기'}
+                  className="absolute right-3 top-2.5 flex h-8 w-9 items-center justify-center rounded-xl bg-primary text-on-primary disabled:opacity-60"
+                >
+                  <MaterialIcon name="arrow_upward" className="text-[20px]" />
+                </button>
+              )}
             </div>
             {postError && <p className="font-label-xs text-label-xs text-error" role="alert">{postError}</p>}
           </div>

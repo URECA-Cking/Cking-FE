@@ -107,9 +107,12 @@ export default function MyTickets() {
         </p>
 
         {summary.creators.length === 0 ? (
-          <Link to="/onboarding/creators" className="self-start font-label-sm text-label-sm text-primary font-semibold">
-            관심 크리에이터 고르기
-          </Link>
+          <div className="flex flex-col items-start gap-space-xs">
+            <p className="font-body-sm text-body-sm text-on-surface-variant">아직 도킹한 크리에이터가 없어요.</p>
+            <Link to="/onboarding/creators" className="font-label-sm text-label-sm text-primary font-semibold">
+              도킹할 크리에이터 고르기
+            </Link>
+          </div>
         ) : (
           <div className="flex flex-col md:grid md:grid-cols-2 md:gap-x-space-md">
             {visibleCreators.map((creator) => (

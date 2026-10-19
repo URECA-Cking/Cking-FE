@@ -32,7 +32,7 @@ import YoutubeSubscriptionMissionCard from '../components/creator/YoutubeSubscri
 import { isYoutubeChannelForCreator } from '../utils/subscriptionVerificationState.js'
 import { canRequestShareReward, requestShareReward } from '../utils/shareMission.js'
 
-// 탭은 항상 노출하고, 내용이 없으면 EMPTY_TAB_MESSAGE를 보여준다(Cking-BE #290).
+// 탭은 항상 노출하고, 내용이 없으면 탭별 빈 상태 문구를 보여준다(Cking-BE #290).
 // 순서: 응모권을 모으는 미션과 응모하는 이벤트를 앞에, 캘린더 일정(추첨 이벤트와 별개)과 게시물을 뒤에 둔다.
 const TABS = [
   { id: 'home', label: '홈' },
@@ -44,7 +44,8 @@ const TABS = [
 ]
 // 내 스페이스에서만 보이는 탭. 다른 사람의 스페이스에서는 목록에 넣지 않는다.
 const MY_SPACE_ONLY_TABS = [{ id: 'blocks', label: '차단 관리' }]
-const EMPTY_TAB_MESSAGE = '현재 열려있는 게 없습니다.'
+const EMPTY_EVENTS_MESSAGE = '이벤트 준비 중이에요!'
+const EMPTY_MISSIONS_MESSAGE = '미션 준비 중이에요!'
 
 /** RESOURCE_NOT_FOUND는 오류가 아니라 "찾을 수 없음" 안내로 보여주기 위해 표시 값으로 바꾼다. */
 async function loadSpaceOrNotFound(key) {
@@ -288,7 +289,7 @@ export default function CreatorSpace() {
   // 값이 없는 통계는 칸 자체를 숨긴다. 팔로워 수는 스페이스 조회 응답의 followerCount가 숫자일 때만 나타난다(0 포함).
   const profileStats = [
     typeof postTotal.data?.totalElements === 'number' && { label: '게시물', value: postTotal.data.totalElements },
-    typeof creator?.followerCount === 'number' && { label: '팔로워', value: creator.followerCount },
+    typeof creator?.followerCount === 'number' && { label: '팬', value: creator.followerCount },
     creator && !creator.eventsError && { label: '진행 이벤트', value: liveEvents.length },
   ].filter(Boolean)
 
@@ -346,11 +347,11 @@ export default function CreatorSpace() {
     try {
       const result = await toggleFollow(creator.creatorId)
       if (result) {
-        showToast(result.following ? `${creator.creatorName} 관심 등록 완료! 💖` : '관심 크리에이터에서 해제되었습니다.')
+        showToast(result.following ? `${creator.creatorName} 도킹 완료! 💖` : '도킹이 해제되었습니다.')
         refreshFollowerCount(creator.creatorId)
       }
     } catch (followError) {
-      showToast(describeError(followError, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
+      showToast(describeError(followError, '도킹 상태를 변경하지 못했어요.'), { icon: 'error' })
     }
   }
 
@@ -570,7 +571,7 @@ export default function CreatorSpace() {
           }`}
         >
           <MaterialIcon name={following ? 'check' : 'add'} filled={following} className="text-[18px]" />
-          <span className="font-label-md text-label-md font-semibold">{pendingFollowIds.has(creator.creatorId) ? '처리 중...' : following ? '관심 중' : '관심 등록'}</span>
+          <span className="font-label-md text-label-md font-semibold">{pendingFollowIds.has(creator.creatorId) ? '처리 중...' : following ? '도킹 중' : '도킹'}</span>
         </button>
       )}
       {isMine && (
@@ -683,7 +684,7 @@ export default function CreatorSpace() {
         />
       )}
       {!missionsLoading && !missionsError && shownLikeMissions.length === 0 && !shownShareMission && !youtubeSubscriptionMission && (
-        <EmptyBlock icon="bolt" message={EMPTY_TAB_MESSAGE} />
+        <EmptyBlock icon="bolt" message={EMPTY_MISSIONS_MESSAGE} />
       )}
     </>
   )
@@ -842,7 +843,7 @@ export default function CreatorSpace() {
                   ))}
                 </div>
               ) : (
-                <EmptyBlock icon="event_busy" message={EMPTY_TAB_MESSAGE} />
+                <EmptyBlock icon="event_busy" message={EMPTY_EVENTS_MESSAGE} />
               )}
             </div>
           </div>
@@ -906,7 +907,7 @@ export default function CreatorSpace() {
                 ))}
               </div>
             ) : (
-              <EmptyBlock icon="event_busy" message={EMPTY_TAB_MESSAGE} />
+              <EmptyBlock icon="event_busy" message={EMPTY_EVENTS_MESSAGE} />
             )}
           </div>
         )}

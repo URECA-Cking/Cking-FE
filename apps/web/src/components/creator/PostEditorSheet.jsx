@@ -12,7 +12,7 @@ const inputClass =
 
 const VISIBILITY_OPTIONS = [
   { value: 'PUBLIC', label: '전체 공개', hint: '누구나 볼 수 있어요.' },
-  { value: 'FOLLOWERS', label: '팔로워 공개', hint: '팔로워와 나만 볼 수 있어요. 그 외에는 잠금 카드로 보여요.' },
+  { value: 'FOLLOWERS', label: '팬 공개', hint: '팬과 나만 볼 수 있어요. 그 외에는 잠금 카드로 보여요.' },
 ]
 
 let itemSeq = 0

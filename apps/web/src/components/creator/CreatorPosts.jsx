@@ -217,7 +217,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
           postId,
           loading: false,
           post: null,
-          error: restricted ? '팔로워에게만 공개된 게시글이에요.' : describeError(error, '게시글을 불러오지 못했어요.'),
+          error: restricted ? '팬에게만 공개된 게시글이에요.' : describeError(error, '게시글을 불러오지 못했어요.'),
           restricted,
         })
       }
@@ -283,7 +283,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     else if (!following && !isMine) onFollow()
     else reloadFirst()
   }
-  const lockedLabel = !authenticated ? '로그인하고 팔로우하기' : following || isMine ? '다시 확인' : '팔로우하기'
+  const lockedLabel = !authenticated ? '로그인하고 도킹하기' : following || isMine ? '다시 확인' : '도킹하기'
 
   // 수정은 바텀시트(z-40)로 열리므로 전체 화면 상세(z-60)를 먼저 닫는다.
   /** 상세를 닫고 선택한 게시물을 수정 화면에 전달한다. */
@@ -428,7 +428,7 @@ function PostGridTile({ post, onOpen, onImageError }) {
     <button
       type="button"
       onClick={onOpen}
-      aria-label={post.locked ? '팔로워 전용 게시글' : `게시글 ${post.content?.slice(0, 20) ?? ''}`.trim()}
+      aria-label={post.locked ? '팬 전용 게시글' : `게시글 ${post.content?.slice(0, 20) ?? ''}`.trim()}
       className="group relative block aspect-square w-full overflow-hidden bg-surface-container active:opacity-80"
     >
       {showImage ? (
@@ -514,7 +514,7 @@ function AuthorRow({ creatorName, profileImageUrl, createdAt, visibility, isMine
             <>
               <span aria-hidden="true" className="md:hidden">·</span>
             <MaterialIcon name={visibility === 'FOLLOWERS' ? 'lock' : 'public'} className="text-[14px]" />
-            {visibility === 'FOLLOWERS' ? '팔로워 공개' : '전체 공개'}
+            {visibility === 'FOLLOWERS' ? '팬 공개' : '전체 공개'}
             </>
           )}
         </div>
@@ -587,7 +587,7 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
         {locked ? (
           <div className="mx-margin flex flex-col items-center gap-3 rounded-xl bg-surface-container-low px-4 py-7 text-center">
             <MaterialIcon name="lock" className="text-[28px] text-primary" />
-            <p className="font-body-sm text-body-sm text-on-surface-variant">팔로워에게만 공개된 게시글이에요.</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">팬에게만 공개된 게시글이에요.</p>
             {post.imageCount > 0 && <p className="font-label-xs text-label-xs text-outline">이미지 {post.imageCount}장</p>}
             <button type="button" onClick={onLockedAction} disabled={lockedDisabled} className="rounded-xl bg-primary px-4 py-2 text-on-primary font-label-sm text-label-sm disabled:opacity-60">
               {lockedLabel}

@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
-import TicketLedgerSheet from '../components/ticket/TicketLedgerSheet.jsx'
 import MySpaceLink from '../components/creator/MySpaceLink.jsx'
 import { LoadingBlock, ErrorBlock, StatusPill } from '../components/ui/States.jsx'
 import { useTheme } from '../context/useTheme.js'
@@ -10,18 +9,12 @@ import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { useProfileSetupRedirect } from '../hooks/useProfileSetupRedirect.js'
-import { loadCreatorDirectory } from '../api/creators.js'
-import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { applyCreator, getMyCreatorApplications } from '../api/creatorApplications.js'
 import { describeError } from '../api/client.js'
 import { getMySpace, spacePath } from '../api/creatorSpace.js'
 import { getMyCreatorProfile } from '../api/creatorProfile.js'
-import { formatDateTime, formatNumber } from '../utils/format.js'
+import { formatDateTime } from '../utils/format.js'
 import { OPEN_SPACE_EDIT_STATE, activityNameMissing, needsNicknameSetup, ownPublicProfile } from '../utils/publicProfile.js'
-import { CREATOR_APPLICATION_STATUS_META } from '../utils/eventStatus.js'
-
-// 팔로우한 크리에이터가 많을 수 있어 처음엔 3명만 그리고 '더 보기'를 누르면 나머지를 모두 보여준다.
-const CREATOR_PAGE_SIZE = 3
 
 const ADMIN_BASE_URL = import.meta.env.VITE_ADMIN_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5174' : null)
 
@@ -47,46 +40,24 @@ function SetupBanner({ to, state, title, description }) {
 /**
  * 마이페이지.
  *
- * 로그인한 계정, 크리에이터별 실제 응모권 잔액, 크리에이터 전환 신청 상태를 보여주고
+ * 로그인한 계정과 심사 대기 중인 크리에이터 전환 신청을 보여주고
  * 권한(크리에이터/관리자)에 따라 운영 화면 진입점을 노출한다.
  */
 export default function MyPage() {
   const navigate = useNavigate()
   const showToast = useToast()
   const redirectToProfileSetup = useProfileSetupRedirect()
-  const { user, isCreator, isAdmin, capabilities, clearUser, refreshCapabilities, followedCreators } = useUser()
+  const { user, isCreator, isAdmin, capabilities, clearUser, refreshCapabilities } = useUser()
   const { isDark, toggleTheme } = useTheme()
 
   const [applying, setApplying] = useState(false)
-  const [ledgerTarget, setLedgerTarget] = useState(null)
-  const [creatorLimit, setCreatorLimit] = useState(CREATOR_PAGE_SIZE)
 
-  const directory = useAsync(() => loadCreatorDirectory(), [], {
-    fallbackMessage: '응모권 정보를 불러오지 못했습니다.',
-  })
-  // 팔로우가 많을 수 있어 일부만 그린다. 잔액도 화면에 그린 크리에이터만 조회한다.
-  const followedProfiles = useMemo(
-    () => (directory.data?.creators ?? []).filter((creator) => followedCreators.includes(creator.creatorId)),
-    [directory.data, followedCreators],
-  )
-  const shownProfiles = useMemo(() => followedProfiles.slice(0, creatorLimit), [followedProfiles, creatorLimit])
-  const shownIds = useMemo(() => shownProfiles.map((creator) => creator.creatorId), [shownProfiles])
-  const { balances, failedIds, retry: retryBalances, loading: balancesLoading } = useCreatorBalances(shownIds, user?.memberId)
   const applications = useAsync(
     () => getMyCreatorApplications({ size: 5 }),
     [],
     { fallbackMessage: '크리에이터 신청 내역을 불러오지 못했습니다.' },
   )
 
-  const creators = useMemo(
-    () => shownProfiles.map((creator) => ({
-      ...creator,
-      balance: balances.get(creator.creatorId)?.balance,
-      balanceUpdatedAt: balances.get(creator.creatorId)?.updatedAt,
-      balanceError: failedIds.has(creator.creatorId),
-    })),
-    [shownProfiles, balances, failedIds],
-  )
   // 크리에이터의 공개 이름·사진은 Member 닉네임·사진이 아니라 스페이스의 활동명·스페이스 사진이다(Cking-BE #624).
   // 프로필 카드, 스페이스 편집 진입점, 내 스페이스 메뉴가 같은 응답을 쓴다.
   const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator, fallbackMessage: '내 스페이스를 불러오지 못했어요.' })
@@ -128,7 +99,7 @@ export default function MyPage() {
           {/* 공개 이름은 팬은 닉네임, 크리에이터는 활동명이다. 설정 전에는 OAuth 이름으로 대신하지 않고 안내만 보여준다. */}
           <p className="font-title-lg text-title-lg text-on-surface font-bold truncate">
             {profile.name
-              ? `${profile.name} 님`
+              ? profile.name
               : profile.creator
                 ? (mySpace.error && myCreatorProfile.error ? '크리에이터 프로필을 불러오지 못했어요' : '활동명을 불러오는 중...')
                 : '닉네임 미설정'}
@@ -170,9 +141,9 @@ export default function MyPage() {
         </div>
       </section>
 
-      {/* 이메일은 공개 이름이 아니라 로그인 수단이라 프로필 영역 대신 계정 변경 근처에 작게 보여준다. */}
+      {/* 이메일은 공개 이름이 아니라 로그인 수단이라 프로필 카드 바로 아래, 사진 쪽에 작게 보여준다. */}
       {user?.email && (
-        <p className="-mt-space-xs truncate px-1 font-label-xs text-label-xs text-outline">로그인 계정 {user.email}</p>
+        <p className="-mt-space-md truncate px-space-md font-label-xs text-label-xs text-outline">로그인 계정 {user.email}</p>
       )}
 
       {needsNicknameSetup(user) && (
@@ -194,111 +165,31 @@ export default function MyPage() {
         />
       )}
 
-      <section className="flex flex-col gap-space-sm">
-        <div className="flex items-center justify-between">
-          <h3 className="font-title-md text-title-md text-on-surface font-bold">관심 크리에이터별 응모권</h3>
-          <Link to="/onboarding/creators" className="font-label-sm text-label-sm text-primary font-semibold">
-            관심 관리
-          </Link>
-        </div>
-        {directory.loading && <LoadingBlock label="응모권을 불러오는 중..." />}
-        {!directory.loading && directory.error && (
-          <ErrorBlock message={directory.error} onRetry={directory.reload} />
-        )}
-        {failedIds.size > 0 && !directory.error && (
-          <button type="button" onClick={retryBalances} disabled={balancesLoading} className="self-start font-label-sm text-label-sm text-primary disabled:opacity-50">
-            응모권 잔액 다시 조회
-          </button>
-        )}
-        {!directory.loading && !directory.error && (
-          <div className="flex flex-col gap-space-sm md:grid md:grid-cols-2">
-          {creators.map((creator) => (
-            <div
-              key={creator.creatorId}
-              className="flex items-center justify-between p-space-sm rounded-xl bg-surface-container-lowest shadow-card"
-            >
-              <Link to={spacePath(creator.handle)} className="flex items-center gap-space-sm min-w-0 flex-1">
-                <ProfilePhoto src={creator.avatar} className="h-9 w-9 shrink-0" />
-                <div className="min-w-0">
-                  <span className="font-label-md text-label-md text-on-surface font-semibold truncate block">
-                    {creator.name}
-                  </span>
-                  <span className="font-label-xs text-label-xs text-outline">
-                    {typeof creator.balance !== 'number'
-                      ? creator.balanceError ? '잔액 조회 실패' : '잔액 확인 중'
-                      : creator.balanceUpdatedAt
-                        ? `${formatDateTime(creator.balanceUpdatedAt)} 기준`
-                        : '변동 내역 없음'}
-                  </span>
-                </div>
-              </Link>
-              <button
-                type="button"
-                onClick={() => setLedgerTarget(creator)}
-                disabled={typeof creator.balance !== 'number'}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-berry-tint text-primary font-label-xs text-label-xs font-bold active:scale-95 transition-all shrink-0"
-              >
-                🎟 {typeof creator.balance === 'number' ? `${formatNumber(creator.balance)}장` : creator.balanceError ? '조회 실패' : '조회 중'}
-                <MaterialIcon name="chevron_right" className="text-[14px]" />
-              </button>
-            </div>
-          ))}
-          {followedProfiles.length > shownProfiles.length && (
-            <button
-              type="button"
-              onClick={() => setCreatorLimit(Infinity)}
-              className="md:col-span-2 h-10 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md font-semibold active:scale-95 transition-all"
-            >
-              더 보기 ({formatNumber(followedProfiles.length - shownProfiles.length)}명 남음)
-            </button>
-          )}
-          </div>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
-        <div className="flex items-center justify-between">
+      {/* 크리에이터 전환 블록은 아직 크리에이터가 아닌 회원에게만 보인다. 신청 이력은 심사 대기(PENDING) 동안만 보여주고,
+          승인·반려로 처리된 뒤에는 이력 대신 신청 안내로 돌아간다. */}
+      {!isCreator && (
+        <section className="flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
           <div className="flex items-center gap-1.5">
             <MaterialIcon name="workspace_premium" className="text-primary text-[20px]" />
             <h3 className="font-title-md text-title-md text-on-surface font-bold">크리에이터 전환</h3>
           </div>
-          {latestApplication && (
-            <StatusPill
-              label={CREATOR_APPLICATION_STATUS_META[latestApplication.status]?.label ?? latestApplication.status}
-              tone={CREATOR_APPLICATION_STATUS_META[latestApplication.status]?.tone}
-              icon={CREATOR_APPLICATION_STATUS_META[latestApplication.status]?.icon}
-            />
+
+          {applications.loading && <LoadingBlock label="신청 내역을 불러오는 중..." />}
+          {!applications.loading && applications.error && (
+            <ErrorBlock message={applications.error} onRetry={applications.reload} />
           )}
-        </div>
 
-        {applications.loading && <LoadingBlock label="신청 내역을 불러오는 중..." />}
-        {!applications.loading && applications.error && (
-          <ErrorBlock message={applications.error} onRetry={applications.reload} />
-        )}
-
-        {!applications.loading && !applications.error && (
-          <>
-            {latestApplication ? (
-              <div className="flex flex-col gap-1">
+          {!applications.loading && !applications.error && (
+            <>
+              {hasPending ? (
                 <p className="font-label-sm text-label-sm text-on-surface-variant">
                   신청일 {formatDateTime(latestApplication.requestedAt)}
                 </p>
-                {latestApplication.reviewedAt && (
-                  <p className="font-label-sm text-label-sm text-on-surface-variant">
-                    심사일 {formatDateTime(latestApplication.reviewedAt)}
-                  </p>
-                )}
-                {latestApplication.rejectReason && (
-                  <p className="font-body-sm text-body-sm text-error">거절 사유: {latestApplication.rejectReason}</p>
-                )}
-              </div>
-            ) : (
-              <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                크리에이터가 되면 직접 이벤트를 만들고 응모를 운영할 수 있어요.
-              </p>
-            )}
-
-            {!isCreator && (
+              ) : (
+                <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+                  크리에이터가 되면 직접 이벤트를 만들고 응모를 운영할 수 있어요.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={handleApplyCreator}
@@ -307,10 +198,10 @@ export default function MyPage() {
               >
                 {hasPending ? '심사 대기 중' : applying ? '신청 중...' : '크리에이터 전환 신청하기'}
               </button>
-            )}
-          </>
-        )}
-      </section>
+            </>
+          )}
+        </section>
+      )}
 
       <section className="flex flex-col rounded-2xl bg-surface-container-lowest shadow-card overflow-hidden">
         <Link
@@ -337,7 +228,7 @@ export default function MyPage() {
             className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high text-on-surface-variant"
             aria-disabled="true"
           >
-            <MaterialIcon name="admin_panel_settings" className="text-outline text-[20px]" />
+            <MaterialIcon name="admin_panel_settings" className="text-primary text-[20px]" />
             <div className="flex-1">
               <span className="block font-label-md text-label-md">관리자 콘솔</span>
               <span className="font-label-xs text-label-xs">서비스 준비 중</span>
@@ -349,7 +240,7 @@ export default function MyPage() {
           to="/my-entries"
           className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high"
         >
-          <MaterialIcon name="confirmation_number" className="text-on-surface-variant text-[20px]" />
+          <MaterialIcon name="confirmation_number" className="text-primary text-[20px]" />
           <span className="font-label-md text-label-md text-on-surface flex-1">내 응모 내역</span>
           <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
         </Link>
@@ -365,7 +256,7 @@ export default function MyPage() {
           to="/my-calendar"
           className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high"
         >
-          <MaterialIcon name="calendar_month" className="text-on-surface-variant text-[20px]" />
+          <MaterialIcon name="calendar_month" className="text-primary text-[20px]" />
           <span className="font-label-md text-label-md text-on-surface flex-1">내 캘린더</span>
           <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
         </Link>
@@ -373,7 +264,7 @@ export default function MyPage() {
           to="/notifications"
           className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high"
         >
-          <MaterialIcon name="notifications" className="text-on-surface-variant text-[20px]" />
+          <MaterialIcon name="notifications" className="text-primary text-[20px]" />
           <span className="font-label-md text-label-md text-on-surface flex-1">알림</span>
           <MaterialIcon name="chevron_right" className="text-outline text-[18px]" />
         </Link>
@@ -385,7 +276,7 @@ export default function MyPage() {
           onClick={toggleTheme}
           className="flex items-center gap-space-sm px-space-md py-space-md border-b border-surface-container-high text-left"
         >
-          <MaterialIcon name={isDark ? 'dark_mode' : 'light_mode'} className="text-on-surface-variant text-[20px]" />
+          <MaterialIcon name={isDark ? 'dark_mode' : 'light_mode'} className="text-primary text-[20px]" />
           <span className="font-label-md text-label-md text-on-surface flex-1">다크 모드</span>
           <span
             aria-hidden="true"
@@ -406,13 +297,6 @@ export default function MyPage() {
         </button>
       </section>
 
-      <TicketLedgerSheet
-        open={Boolean(ledgerTarget)}
-        onClose={() => setLedgerTarget(null)}
-        creatorId={ledgerTarget?.creatorId}
-        creatorName={ledgerTarget?.name}
-        balance={ledgerTarget?.balance ?? 0}
-      />
     </div>
   )
 }

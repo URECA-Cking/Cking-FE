@@ -30,10 +30,10 @@ function stampTileClass(slot, isLast) {
 
 const SPARK_ANGLES = [0, 60, 120, 180, 240, 300]
 
-/** 도장이 찍히는 순간 칸 둘레에 퍼지는 고리와 반짝이. 장식이라 스크린리더에서는 숨긴다. */
+/** 도장이 찍히는 순간 칸 둘레에 퍼지는 고리와 반짝이. 장식이라 스크린리더에서는 숨기고, 모션을 줄인 환경에서는 CSS로 그리지 않는다. */
 function StampBurst() {
   return (
-    <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center">
+    <span aria-hidden="true" className="stamp-burst pointer-events-none absolute inset-0 flex items-center justify-center">
       <span className="stamp-ring absolute h-9 w-9 rounded-full border-2 border-primary" />
       {SPARK_ANGLES.map((angle) => (
         <span key={angle} className="stamp-spark absolute h-1.5 w-1.5 rounded-full bg-warm-accent" style={{ '--a': `${angle}deg` }} />
@@ -67,6 +67,14 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
   // 출석 → 보너스를 이어서 처리하는 동안 true. 사이의 대기 시간에도 버튼과 도장 칸이 눌리지 않게 한다.
   const [chaining, setChaining] = useState(false)
   const chainingRef = useRef(false)
+  // 회원이 바뀌거나 화면이 내려가면 값이 바뀐다. 기다리는 동안 세션이 달라졌다면 후속 요청(보너스)을 보내지 않는다.
+  const sessionRef = useRef(0)
+  useEffect(() => {
+    sessionRef.current += 1
+    return () => {
+      sessionRef.current += 1
+    }
+  }, [memberId])
   // 이번 화면에서 웰컴 보너스를 받았는지. 서버 상태는 곧 CLAIMED로 바뀌지만, 받은 결과를 바로 보여 주기 위해 따로 둔다.
   const [bonusReceived, setBonusReceived] = useState(false)
   const requestIds = useRef(new Map())
@@ -84,7 +92,7 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
   ))
 
   /** 출석 미션 완료를 요청하고, 결과에 따라 도장·안내를 갱신하며 불확실한 실패는 같은 requestId로 재시도할 수 있게 둔다. */
-  async function complete(mission) {
+  async function complete(mission, session) {
     setBusyId(mission.missionId)
     // 사용자가 다시 누른 새 시도가 아니라 불확실한 실패의 재시도라면 앞선 requestId를 그대로 쓴다.
     const requestId = requestIds.current.get(mission.missionId) ?? newRequestId()
@@ -92,12 +100,15 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
     try {
       await completeCommonMission(mission.missionId, requestId)
       requestIds.current.delete(mission.missionId)
+      // 응답을 기다리는 사이 회원이 바뀌었거나 화면이 내려갔다면 다른 회원의 화면을 건드리지 않는다.
+      if (session !== sessionRef.current) return false
       markCompleted(mission.missionId)
       setJustStamped(true)
       showToast(`응모권 ${mission.rewardAmount}장을 적립했어요.`)
       refreshMyTickets()
       return true
     } catch (completeError) {
+      if (session !== sessionRef.current) return false
       const code = completeError instanceof ApiError ? completeError.code : null
       if (code === 'DUPLICATE_MISSION') {
         requestIds.current.delete(mission.missionId)
@@ -122,12 +133,15 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
     if (chainingRef.current) return
     chainingRef.current = true
     setChaining(true)
+    const session = sessionRef.current
     try {
-      if (!alreadyDone && !(await complete(mission))) return
+      if (!alreadyDone && !(await complete(mission, session))) return
       if (bonusPending) {
         // 출석 도장 효과가 끝난 뒤에 보너스가 지급되도록 잠깐 둔다.
         if (!alreadyDone) await new Promise((resolve) => setTimeout(resolve, 650))
-        await claimBonus()
+        // 기다리는 사이 로그아웃·계정 전환·화면 이동이 있었다면 다른 세션으로 보너스를 요청하지 않는다.
+        if (session !== sessionRef.current) return
+        await claimBonus(session)
       }
     } finally {
       chainingRef.current = false
@@ -136,9 +150,9 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
   }
 
   /** 웰컴 보너스 지급을 요청하고, 지급되면 받은 상태로 표시한다. */
-  async function claimBonus() {
+  async function claimBonus(session) {
     const outcome = await welcomeBonus.onClaim()
-    if (outcome?.status === 'claimed') setBonusReceived(true)
+    if (outcome?.status === 'claimed' && session === sessionRef.current) setBonusReceived(true)
   }
 
   const bonusVisible = (welcomeBonus != null && (welcomeBonus.status === 'CLAIMABLE' || bonusReceived))

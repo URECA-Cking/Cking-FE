@@ -395,6 +395,11 @@
   }
 }
 
+/* 모션을 줄인 환경에서는 도장 둘레의 고리·반짝이 장식을 아예 그리지 않는다. */
+@media (prefers-reduced-motion: reduce) {
+  .stamp-burst { display: none; }
+}
+
 /* 출석 도장이 찍히는 순간: 크게 내려와 살짝 기울어진 채 자리 잡는다. 모션을 줄인 환경에서는 쓰지 않는다. */
 @keyframes stamp-pop {
   0% { transform: scale(2.2) rotate(-24deg); opacity: 0; }

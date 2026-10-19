@@ -44,3 +44,6 @@ function Shell({ follows, memberId }) {
 
 /** 지정한 팔로우 목록과 회원 번호로 홈을 그린다. 같은 화면에서 회원 번호만 바꿔 다시 부르면 계정 전환을 흉내 낸다. */
 window.renderHome = (follows = [], memberId = 7) => root.render(<Shell follows={follows} memberId={memberId} />)
+
+/** 홈을 화면에서 내린다. 로그아웃이나 화면 이동으로 홈이 사라지는 상황을 흉내 낸다. */
+window.unmountHome = () => root.render(null)

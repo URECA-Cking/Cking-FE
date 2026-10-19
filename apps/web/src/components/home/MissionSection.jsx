@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import FilledCheck from './FilledCheck.jsx'
 import { ErrorBlock } from '../ui/States.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
@@ -43,8 +44,8 @@ function StampBurst() {
 
 /**
  * 홈의 공용 미션(출석). 크리에이터별 미션은 N회 호출이라 크리에이터 스페이스에서 한다.
- * welcomeBonus({ status, claiming, onClaim })가 있고 받을 수 있는 상태(CLAIMABLE)면 별도 상자 없이,
- * 도장 찍기를 누를 때 오늘 도장 다음 칸(신규 회원은 DAY 2)이 웰컴 보너스로 이어서 찍힌다.
+ * welcomeBonus({ status, claiming, onClaim })가 있고 받을 수 있는 상태(CLAIMABLE)면 도장 칸 아래에 웰컴 보너스 배지를 보여 주고,
+ * 도장 찍기를 누르면 출석 뒤에 이어서 보너스 지급을 요청한다. 보너스는 출석 일수가 아니라서 도장 칸에는 찍지 않는다.
  */
 export default function MissionSection({ memberId, welcomeBonus = null }) {
   const showToast = useToast()
@@ -63,9 +64,19 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
   )
   const [busyId, setBusyId] = useState(null)
   const [justStamped, setJustStamped] = useState(false)
+  // 출석 → 보너스를 이어서 처리하는 동안 true. 사이의 대기 시간에도 버튼과 도장 칸이 눌리지 않게 한다.
+  const [chaining, setChaining] = useState(false)
+  const chainingRef = useRef(false)
   // 이번 화면에서 웰컴 보너스를 받았는지. 서버 상태는 곧 CLAIMED로 바뀌지만, 받은 결과를 바로 보여 주기 위해 따로 둔다.
   const [bonusReceived, setBonusReceived] = useState(false)
   const requestIds = useRef(new Map())
+
+  // 찍힘 효과는 한 번 보여 주면 끝나므로, 끝날 때쯤 표시를 내려 이후 다시 그려질 때 효과가 남지 않게 한다.
+  useEffect(() => {
+    if (!justStamped) return undefined
+    const timer = setTimeout(() => setJustStamped(false), 1000)
+    return () => clearTimeout(timer)
+  }, [justStamped])
 
   /** 응답을 받은 미션을 오늘 완료한 상태로 표시한다. */
   const markCompleted = (missionId) => setData((current) => (
@@ -104,15 +115,23 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
   }
 
   /**
-   * 출석 도장을 먼저 찍고, 받을 보너스가 있으면 이어서 다음 칸에 보너스 도장을 찍는다.
-   * 보너스가 출석보다 먼저 찍히지 않게 하고, 신규 회원이 한 번만 눌러도 둘 다 찍히게 한다. 출석이 실패하면 보너스는 받지 않는다.
+   * 출석 도장을 먼저 찍고, 받을 보너스가 있으면 이어서 보너스 지급을 요청한다.
+   * 보너스가 출석보다 먼저 지급되지 않게 하고, 신규 회원이 한 번만 눌러도 둘 다 처리되게 한다. 출석이 실패하면 보너스는 받지 않는다.
    */
   async function completeThenBonus(mission, { alreadyDone }) {
-    if (!alreadyDone && !(await complete(mission))) return
-    if (bonusPending) {
-      // 출석 도장 효과가 끝난 뒤에 보너스 도장이 찍히도록 잠깐 둔다.
-      if (!alreadyDone) await new Promise((resolve) => setTimeout(resolve, 650))
-      await claimBonus()
+    if (chainingRef.current) return
+    chainingRef.current = true
+    setChaining(true)
+    try {
+      if (!alreadyDone && !(await complete(mission))) return
+      if (bonusPending) {
+        // 출석 도장 효과가 끝난 뒤에 보너스가 지급되도록 잠깐 둔다.
+        if (!alreadyDone) await new Promise((resolve) => setTimeout(resolve, 650))
+        await claimBonus()
+      }
+    } finally {
+      chainingRef.current = false
+      setChaining(false)
     }
   }
 
@@ -123,7 +142,7 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
   }
 
   const bonusVisible = (welcomeBonus != null && (welcomeBonus.status === 'CLAIMABLE' || bonusReceived))
-  // 아직 받지 않은 웰컴 보너스가 남아 있는지. 있으면 도장 찍기가 보너스 도장까지 이어서 찍는다.
+  // 아직 받지 않은 웰컴 보너스가 남아 있는지. 있으면 도장 찍기가 보너스 지급까지 이어서 요청한다.
   const bonusPending = bonusVisible && !bonusReceived
 
   // 한 줄 구조라 로딩 중에는 자리를 비워 두고, 미션이 없으면 섹션 자체를 그리지 않는다.
@@ -135,23 +154,19 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
     <section className="mt-6 px-margin flex flex-col gap-2.5">
       {missions.map((mission) => {
         const done = mission.completedToday
-        const busy = busyId === mission.missionId
+        // 보너스 지급 요청이 서버에서 처리 중인 동안(welcomeBonus.claiming)도 처리 중으로 본다.
+        const busy = busyId === mission.missionId || chaining || Boolean(welcomeBonus?.claiming)
         const stampsReady = ledger != null && !ledgerError
-        const baseStamps = mission.type === 'ATTENDANCE'
+        const stamps = mission.type === 'ATTENDANCE'
           ? buildStampSlots({
               ledgerItems: stampsReady ? ledger.items : [],
               missionId: mission.missionId,
               completedToday: stampsReady && done,
             }).map((slot) => (stampsReady ? slot : { ...slot, next: false }))
           : null
-        // 웰컴 보너스는 별도 칸이 아니라 출석 도장 다음 칸에 도장 하나가 더 찍힌 것으로 보여 준다.
-        const attendedCount = baseStamps ? baseStamps.filter((slot) => slot.stamped).length : 0
-        const stampedCount = baseStamps ? Math.min(attendedCount + (bonusReceived ? 1 : 0), baseStamps.length) : 0
-        const stamps = baseStamps ? baseStamps.map((slot, index) => ({ ...slot, stamped: index < stampedCount })) : null
+        const stampedCount = stamps ? stamps.filter((slot) => slot.stamped).length : 0
         // 방금 찍힌 도장(가장 오른쪽에 찍힌 칸)에만 찍힘 효과를 준다.
         const isJustStamped = (index) => justStamped && index === stampedCount - 1
-        // 도장 찍기 버튼뿐 아니라 도장 칸을 눌러도 같은 동작을 한다. 이미 처리 중이거나 더 할 게 없으면 누를 수 없다.
-        const stampable = !busy && (!done || bonusPending)
         const stampButtonLabel = busy ? '처리 중' : done ? (bonusPending ? '보너스 받기' : '출석 완료') : '도장 찍기'
         return (
           <div key={mission.missionId} className="rounded-3xl bg-surface-container p-4">
@@ -174,11 +189,7 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
             </div>
             {stamps && (
               <>
-                <ol
-                  className={`mt-3 grid grid-cols-7 gap-1.5 text-center ${stampable ? 'cursor-pointer' : ''}`}
-                  aria-label="최근 7일 출석 도장"
-                  onClick={stampable ? () => completeThenBonus(mission, { alreadyDone: done }) : undefined}
-                >
+                <ol className="mt-3 grid grid-cols-7 gap-1.5 text-center" aria-label="최근 7일 출석 도장">
                   {stamps.map((slot, index) => (
                     <li
                       key={index}
@@ -192,7 +203,7 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
                       <span className="text-[10px] font-bold opacity-80">DAY {index + 1}</span>
                       <span className={`my-0.5 flex h-[22px] items-center ${slot.stamped && isJustStamped(index) ? 'animate-stamp-pop' : ''}`}>
                         {slot.stamped ? (
-                          <span aria-hidden="true" className="text-[18px] leading-none">💮</span>
+                          <FilledCheck size={18} />
                         ) : (
                           <span aria-hidden="true" className="material-symbols-rounded text-[20px]">{index === stamps.length - 1 ? 'emoji_events' : 'star'}</span>
                         )}
@@ -202,13 +213,21 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
                   ))}
                 </ol>
                 {bonusVisible && (
-                  <p className={`mt-2 text-center font-label-sm text-label-sm font-bold ${bonusReceived ? 'text-success-text' : 'text-warm-accent'}`}>
-                    {bonusReceived ? '웰컴 보너스 응모권 +1장이 지급되었어요!' : '도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!'}
-                  </p>
+                  <div
+                    role="status"
+                    className={`mt-2 flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 font-label-sm text-label-sm font-bold ${
+                      bonusReceived ? 'bg-success-text/10 text-success-text' : 'border border-dashed border-warm-accent bg-warm-accent/10 text-warm-accent'
+                    }`}
+                  >
+                    {bonusReceived
+                      ? <FilledCheck size={16} />
+                      : <span aria-hidden="true" className="material-symbols-rounded text-[18px]">redeem</span>}
+                    <span>{bonusReceived ? '웰컴 보너스 응모권 +1장이 지급되었어요!' : '도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!'}</span>
+                  </div>
                 )}
                 {stampsReady ? (
                   <p className="mt-2 text-center font-label-xs text-label-xs text-on-surface-variant font-normal">
-                    최근 7일 중 {attendedCount}일 출석 · 매일 오전 9시에 초기화돼요
+                    최근 7일 중 {stampedCount}일 출석 · 매일 오전 9시에 초기화돼요
                   </p>
                 ) : ledgerError && !ledgerLoading ? (
                   <p className="mt-2 flex items-center justify-between gap-2 font-label-xs text-label-xs text-on-surface-variant font-normal">

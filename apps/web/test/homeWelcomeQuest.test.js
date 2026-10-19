@@ -212,7 +212,7 @@ test('STEP 3은 펼쳐서 답을 서버에 보내고, 오답은 안내하고 정
   } finally { await page.close() }
 })
 
-test('출석 도장을 누르면 다음 칸에 웰컴 보너스 도장이 이어서 찍히고, 받으면 지급 문구가 보인다', async () => {
+test('출석 도장을 누르면 웰컴 보너스가 이어서 지급되고, 보너스는 출석 도장 칸에 찍히지 않는다', async () => {
   const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
   try {
     await page.evaluate(() => window.renderHome([]))
@@ -220,12 +220,14 @@ test('출석 도장을 누르면 다음 칸에 웰컴 보너스 도장이 이어
     await page.getByText('도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!').waitFor()
 
     await page.getByRole('button', { name: '도장 찍기' }).click()
+    // 출석 → 보너스를 잇는 동안에는 처리 중으로 잠겨 다시 누를 수 없다.
+    assert.equal(await page.getByRole('button', { name: '처리 중' }).isDisabled(), true)
     await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').waitFor()
     const posted = await claims(page)
     assert.equal(posted.at(-1).path, '/api/me/welcome-quest/BONUS/claim')
-    // 출석 도장 다음 칸(DAY 2)이 보너스로 찍힌다.
+    // 보너스는 출석 일수가 아니므로 출석 도장(DAY 1)만 찍히고 DAY 2는 비어 있다.
     assert.equal(await page.getByLabel('1번째 도장 찍힘').count(), 1)
-    assert.equal(await page.getByLabel('2번째 도장 찍힘').count(), 1)
+    assert.equal(await page.getByLabel('2번째 도장 찍힘').count(), 0)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
@@ -384,7 +386,7 @@ test('같은 화면에서 회원이 바뀌어도 이전 회원이 받은 보너�
     // 회원 B로 전환한다. B의 보너스는 아직 받을 수 있는 상태다.
     await page.evaluate((next) => { window.quest = next; window.renderHome([], 8) }, quest(done))
     await page.getByText('도장을 찍으면 웰컴 보너스 응모권 +1장도 함께 받아요!').waitFor()
-    assert.equal(await page.getByLabel('2번째 도장 찍힘').count(), 0)
+    assert.equal(await page.getByText('웰컴 보너스 응모권 +1장이 지급되었어요!').count(), 0)
 
     // B도 정상적으로 지급받을 수 있다.
     await page.getByRole('button', { name: '도장 찍기' }).click()

@@ -37,14 +37,14 @@ const RECOMMENDATION = { recommendationRequestId: 'rid-1', policyVersion: 'INTER
  * window.requests에 호출한 경로를 쌓고, window.failures[경로]가 양수면 그 횟수만큼 먼저 오류를 돌려준다.
  * 목에 없는 경로(관심 분야·응모권 잔액 등)는 404라 해당 영역은 조용히 비거나 실패로 그려진다.
  */
-async function screen(initial = '/explore', { events = EVENTS, creators = CREATORS, counts = null } = {}) {
+async function screen(initial = '/explore', { events = EVENTS, creators = CREATORS, counts = null, failures = {} } = {}) {
   const page = await browser.newPage()
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
   await page.goto('http://localhost/explore-test')
-  await page.evaluate(({ creators, events, recommendation, counts }) => {
+  await page.evaluate(({ creators, events, recommendation, counts, failures }) => {
     window.requests = []
-    window.failures = {}
+    window.failures = { ...failures }
     const reply = (status, code, data, message = null) => Promise.resolve(new Response(JSON.stringify({ code, data, message }), { status }))
     const pageOf = (items, params) => {
       const size = Number(params.get('size') ?? 20)
@@ -69,7 +69,7 @@ async function screen(initial = '/explore', { events = EVENTS, creators = CREATO
       if (path === '/api/me/creator-recommendations') return reply(200, 'SUCCESS', recommendation)
       return reply(404, 'RESOURCE_NOT_FOUND', null, '없음')
     }
-  }, { creators, events, recommendation: RECOMMENDATION, counts })
+  }, { creators, events, recommendation: RECOMMENDATION, counts, failures })
   await page.addStyleTag({ content: styles })
   await page.addScriptTag({ content: bundle })
   await page.evaluate((path) => window.renderExplore(path), initial)
@@ -142,14 +142,17 @@ test('검색 결과가 없으면 안내를 보이고, 목록 조회가 실패하
   await empty.getByText("'없는이름'에 맞는 결과가 없어요.").waitFor()
   await empty.close()
 
-  const page = await screen(`/explore/search?q=${encodeURIComponent('나')}&type=creator`)
-  await page.evaluate(() => { window.failures['/api/creators'] = 1 })
-  await page.evaluate(() => window.renderExplore(`/explore/search?q=${encodeURIComponent('나')}&type=creator`, 8))
+  const page = await screen(`/explore/search?q=${encodeURIComponent('나')}&type=creator`, {
+    failures: { '/api/creators': 1 },
+  })
   await page.getByRole('button', { name: '다시 시도' }).waitFor()
+  assert.equal(await count(page, '/api/creators'), 1)
+  assert.equal(await page.evaluate(() => window.failures['/api/creators']), 0)
   assert.equal(await page.getByText('나래').count(), 0)
 
   await page.getByRole('button', { name: '다시 시도' }).click()
   await page.getByText('나래').first().waitFor()
+  assert.equal(await count(page, '/api/creators'), 2)
   await page.close()
 })
 

@@ -210,13 +210,13 @@ const quizSummary = (quiz) => {
   return {
     quizId: quiz.quizId, title: latest.title, publicationStatus: quiz.publicationStatus,
     publishedRevisionId: quiz.publishedRevisionId, latestRevisionId: latest.revisionId, latestRevisionNo: latest.revisionNo,
-    latestReviewStatus: latest.reviewStatus, publishedAt: iso(quiz.publishedAt), createdAt: iso(quiz.createdAt), updatedAt: iso(quiz.updatedAt),
+    latestReviewStatus: latest.reviewStatus, closedAt: iso(quiz.closedAt), publishedAt: iso(quiz.publishedAt), createdAt: iso(quiz.createdAt), updatedAt: iso(quiz.updatedAt),
   }
 }
 
 const publicationView = (quiz) => ({
   quizId: quiz.quizId, publicationStatus: quiz.publicationStatus, publishedRevisionId: quiz.publishedRevisionId,
-  publishedAt: iso(quiz.publishedAt), unpublishedAt: iso(quiz.unpublishedAt),
+  publishedAt: iso(quiz.publishedAt), unpublishedAt: iso(quiz.unpublishedAt), closedAt: iso(quiz.closedAt),
 })
 
 const pageOf = (items, url) => {
@@ -350,6 +350,7 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
           ? accepted(judgeView(existing))
           : fail(409, 'QUIZ_JUDGE_REQUEST_CONFLICT', '같은 requestId로 다른 대상 요청이 있습니다.')
       }
+      if (quiz.publicationStatus === 'CLOSED') return fail(409, 'QUIZ_CLOSED')
       if (revision.reviewStatus === 'APPROVED') return fail(409, 'QUIZ_JUDGE_REVISION_APPROVED')
       const series = state.judges.filter((job) => job.revisionId === revision.revisionId)
       if (series.some((job) => job.status === 'SUCCEEDED')) return fail(409, 'QUIZ_JUDGE_EVALUATION_COMPLETED')
@@ -378,6 +379,7 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
     ['POST', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)\/approve$/, creatorOnly((state, now, quizId, revisionId) => {
       const { quiz, revision, error } = myRevision(state, quizId, revisionId)
       if (error) return error
+      if (quiz.publicationStatus === 'CLOSED') return fail(409, 'QUIZ_CLOSED')
       if (revision.origin === 'CREATOR_COMPOSED') return fail(409, 'QUIZ_REVISION_CONFLICT')
       if (revision.reviewStatus === 'REJECTED') return fail(409, 'QUIZ_REVISION_ALREADY_DECIDED')
       if (revision.reviewStatus === 'PENDING_REVIEW') {
@@ -393,6 +395,7 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
     ['POST', /^\/api\/creator\/quizzes\/(\d+)\/revisions\/(\d+)\/reject$/, creatorOnly((state, now, quizId, revisionId, url, init) => {
       const { quiz, revision, error } = myRevision(state, quizId, revisionId)
       if (error) return error
+      if (quiz.publicationStatus === 'CLOSED') return fail(409, 'QUIZ_CLOSED')
       const reason = readBody(init).reason
       if (typeof reason === 'string' && reason.length > 500) return fail(400, 'VALIDATION_FAILED', '사유는 500자 이하입니다.')
       if (revision.reviewStatus === 'APPROVED') return fail(409, 'QUIZ_REVISION_ALREADY_DECIDED')
@@ -407,6 +410,7 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
     ['POST', /^\/api\/creator\/quizzes\/(\d+)\/publish$/, creatorOnly((state, now, quizId, url, init) => {
       const { quiz, error } = myQuiz(state, quizId)
       if (error) return error
+      if (quiz.publicationStatus === 'CLOSED') return fail(409, 'QUIZ_CLOSED')
       const revisionId = Number(readBody(init).revisionId)
       const revision = quiz.revisions.find((item) => item.revisionId === revisionId)
       if (!revisionId) return fail(400, 'VALIDATION_FAILED', 'revisionId가 필요합니다.')
@@ -428,10 +432,23 @@ export function quizMockRoutes({ myCreatorId, memberId }) {
     ['POST', /^\/api\/creator\/quizzes\/(\d+)\/unpublish$/, creatorOnly((state, now, quizId) => {
       const { quiz, error } = myQuiz(state, quizId)
       if (error) return error
+      if (quiz.publicationStatus === 'CLOSED') return fail(409, 'QUIZ_CLOSED')
       if (quiz.publicationStatus === 'PUBLISHED') {
         quiz.publicationStatus = 'UNPUBLISHED'
         quiz.publishedRevisionId = null
         quiz.unpublishedAt = now
+        quiz.updatedAt = now
+      }
+      return publicationView(quiz)
+    })],
+
+    ['POST', /^\/api\/creator\/quizzes\/(\d+)\/close$/, creatorOnly((state, now, quizId) => {
+      const { quiz, error } = myQuiz(state, quizId)
+      if (error) return error
+      if (quiz.publicationStatus === 'NOT_PUBLISHED') return fail(409, 'QUIZ_CLOSE_NOT_ALLOWED')
+      if (quiz.publicationStatus !== 'CLOSED') {
+        quiz.publicationStatus = 'CLOSED'
+        quiz.closedAt = now
         quiz.updatedAt = now
       }
       return publicationView(quiz)
@@ -503,6 +520,7 @@ export function submitQuizAttempt(state, { memberId, myCreatorId, creatorId, qui
   const quiz = findQuiz(state, quizId)
   if (!quiz || quiz.creatorId !== creatorId) return fail(404, 'QUIZ_NOT_FOUND', 'Quiz를 찾을 수 없습니다.')
   if (quiz.creatorId === myCreatorId) return fail(403, 'FORBIDDEN', '이 기능을 사용할 권한이 없는 계정입니다.')
+  if (quiz.publicationStatus === 'CLOSED') return fail(409, 'QUIZ_CLOSED')
   if (quiz.publicationStatus !== 'PUBLISHED') return fail(404, 'QUIZ_NOT_FOUND', 'Quiz를 찾을 수 없습니다.')
   if (quiz.publishedRevisionId !== body.revisionId) return fail(409, 'QUIZ_PUBLISHED_REVISION_CHANGED', '게시된 revision이 변경됐습니다.')
   const revision = quiz.revisions.find((item) => item.revisionId === body.revisionId)
@@ -609,6 +627,7 @@ export async function composeMockRevision(state, creatorId, quizId, body, now) {
   if (previous) return previous.fingerprint === fingerprint
     ? { status: 200, code: 'SUCCESS', data: compositionRevisionView(state, quiz, quiz.revisions.find(r => r.revisionId === previous.revisionId)) }
     : fail(409, 'QUIZ_EDIT_REQUEST_CONFLICT')
+  if (quiz.publicationStatus === 'CLOSED') return fail(409, 'QUIZ_CLOSED')
   if (quiz.contentLocked) return fail(409, 'QUIZ_CONTENT_LOCKED')
   if (latestRevision(quiz).revisionId !== parent.revisionId || parent.revisionSha256 !== body.baseRevisionSha256) return fail(409, 'QUIZ_REVISION_CONFLICT')
   const revision = { revisionId: ++state.seq, revisionNo: parent.revisionNo + 1, title: parent.title, promptVersion: parent.promptVersion ?? 'quiz-mcq-v1', origin: 'CREATOR_COMPOSED', hashVersion: 'quiz-revision-v2', parentRevisionId: parent.revisionId, reviewStatus: 'PENDING_REVIEW', createdAt: now,
@@ -634,6 +653,7 @@ export function approveMockComposition(state, creatorId, quizId, revisionId, bod
   const quiz = findQuiz(state, quizId)
   if (!quiz) return fail(404, 'QUIZ_NOT_FOUND')
   if (quiz.creatorId !== creatorId) return fail(403, 'FORBIDDEN')
+  if (quiz.publicationStatus === 'CLOSED') return fail(409, 'QUIZ_CLOSED')
   if (body.acknowledgeResponsibility !== true || !/^[a-f0-9]{64}$/.test(body.revisionSha256 ?? '')) return fail(400, 'VALIDATION_FAILED')
   const r = quiz.revisions.find(item => item.revisionId === Number(revisionId))
   if (!r) return fail(404, 'QUIZ_REVISION_NOT_FOUND')

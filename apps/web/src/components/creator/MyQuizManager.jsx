@@ -86,6 +86,7 @@ export default function MyQuizManager({ creatorId }) {
               </span>
               <span className="font-label-xs text-label-xs text-on-surface-variant">
                 revision {quiz.latestRevisionNo} · {formatDateTime(quiz.createdAt)} 생성
+                {quiz.closedAt && ` · ${formatDateTime(quiz.closedAt)} 마감`}
               </span>
             </span>
             <MaterialIcon name="chevron_right" className="text-[20px] text-outline" />

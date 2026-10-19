@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import BottomSheet from '../ui/BottomSheet.jsx'
+import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import QuizCompositionPanel from './QuizCompositionPanel.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { ErrorBlock, LoadingBlock, Spinner, StatusPill } from '../ui/States.jsx'
@@ -8,6 +9,7 @@ import { useToast } from '../../context/useToast.js'
 import { newRequestId } from '../../api/client.js'
 import {
   approveQuizRevision,
+  closeQuiz,
   approveQuizByCreator,
   getJudgeEvaluation,
   getMyQuiz,
@@ -77,6 +79,8 @@ const POLL_FAILURE_MAX = 3
 
 // 화면의 Quiz·revision 상태가 서버와 달라졌다는 뜻이라 다시 불러오는 오류.
 const STALE_CODES = new Set([
+  'QUIZ_CLOSED',
+  'QUIZ_CLOSE_NOT_ALLOWED',
   'QUIZ_REVISION_CONFLICT',
   'QUIZ_CONTENT_LOCKED',
   'QUIZ_REVISION_ALREADY_DECIDED',
@@ -96,16 +100,39 @@ const sectionClass = 'flex flex-col gap-space-sm rounded-xl bg-surface-container
  * 내 Quiz 검토 시트. Quiz 상세(GET /api/creator/quizzes/{quizId})와 revision 상세(문항·정답·해설·근거)를 보여주고,
  * GPT Judge 평가 요청·조회, 승인(ALL_PASS일 때만)·반려, 게시·게시 중지를 한다.
  */
-export default function QuizRevisionSheet({ creatorId, quizId, initialRevisionId, onClose, onChanged }) {
-  const quiz = useAsync(() => getMyQuiz(quizId), [quizId], { fallbackMessage: 'Quiz를 불러오지 못했어요.' })
+export default function QuizRevisionSheet(props) {
+  return <QuizReview key={`${props.creatorId}:${props.quizId}`} {...props} />
+}
+
+function QuizReview({ creatorId, quizId, initialRevisionId, onClose, onChanged }) {
+  // 마감은 Revision이 아닌 Quiz의 최종 상태다. 늦은 게시 상태 응답으로 되돌리지 않는다.
+  const [closedResult, setClosedResult] = useState(null)
+  const [staleQuiz, setStaleQuiz] = useState(null)
+  function observeClosed(result) {
+    if (result?.publicationStatus === 'CLOSED') {
+      setClosedResult(current => ({
+        publicationStatus: 'CLOSED',
+        closedAt: result.closedAt ?? current?.closedAt ?? null,
+      }))
+    }
+  }
+  const quiz = useAsync(async () => {
+    const latest = await getMyQuiz(quizId)
+    observeClosed(latest)
+    return latest
+  }, [quizId], { fallbackMessage: 'Quiz를 불러오지 못했어요.' })
+  const shownQuiz = closedResult && quiz.data
+    ? { ...quiz.data, publicationStatus: 'CLOSED', closedAt: closedResult.closedAt ?? quiz.data.closedAt }
+    : quiz.data
   const revisions = quiz.data?.revisions ?? []
   const [selected, setSelected] = useState(initialRevisionId ?? null)
   const revisionId = selected ?? revisions.at(-1)?.revisionId ?? null
   const title = revisions.find((item) => item.revisionId === revisionId)?.title ?? 'Quiz 검토'
 
-  function handleChanged() {
-    quiz.reload()
+  async function handleChanged() {
+    const latest = await quiz.reload()
     onChanged?.()
+    return latest
   }
 
   return (
@@ -135,8 +162,10 @@ export default function QuizRevisionSheet({ creatorId, quizId, initialRevisionId
             <RevisionReview
               key={revisionId}
               creatorId={creatorId}
-              quiz={quiz.data}
+              quiz={shownQuiz}
               revisionId={revisionId}
+              publicationPending={staleQuiz === quiz.data}
+              onPublicationStale={(result) => { setStaleQuiz(quiz.data); observeClosed(result) }}
               onChanged={handleChanged}
               onCompositionSaved={(saved) => { setSelected(saved.revisionId); handleChanged() }}
             />
@@ -275,7 +304,7 @@ function useJudgeEvaluation(creatorId, quizId, revisionId, onRevisionStale) {
       } else {
         // 개별 거절 응답만으로 다른 탭의 접수·진행 상태를 삭제하지 않는다.
         setNotice(creatorQuizErrorMessage(error, 'GPT Judge 평가를 요청하지 못했어요.'))
-        if (STALE_CODES.has(error?.code)) onStaleRef.current?.()
+        if (STALE_CODES.has(error?.code)) onStaleRef.current?.(error)
       }
     } finally {
       inFlight.current = false
@@ -299,19 +328,26 @@ function useJudgeEvaluation(creatorId, quizId, revisionId, onRevisionStale) {
   }
 }
 
-function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionSaved }) {
+function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionSaved, publicationPending, onPublicationStale }) {
   const showToast = useToast()
   const quizId = quiz.quizId
   const revision = useAsync(() => getMyQuizRevision(quizId, revisionId), [quizId, revisionId], {
     fallbackMessage: '문항을 불러오지 못했어요.',
   })
-  const judge = useJudgeEvaluation(creatorId, quizId, revisionId, revision.reload)
   const [busy, setBusy] = useState(null)
   const [confirming, setConfirming] = useState(null)
   const [reason, setReason] = useState('')
   const [editing, setEditing] = useState(false)
   const [responsibleHash, setResponsibleHash] = useState(null)
   const [staleData, setStaleData] = useState(null)
+  const judge = useJudgeEvaluation(creatorId, quizId, revisionId, (error) => {
+    revision.reload()
+    if (error?.code === 'QUIZ_CLOSED') {
+      onPublicationStale({ publicationStatus: 'CLOSED' })
+      setConfirming(null)
+      onChanged()
+    }
+  })
   const active = useRef(true)
   useEffect(() => { active.current = true; return () => { active.current = false } }, [])
   // 승인·반려·게시 요청이 겹쳐 나가지 않게 한다.
@@ -321,33 +357,38 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
   const evaluation = judge.evaluation && judge.evaluation.revisionId === revisionId ? judge.evaluation : null
   const action = data ? judgeAction(data, evaluation) : null
   const composed = data?.origin === 'CREATOR_COMPOSED'
-  const approvable = data !== staleData && (composed ? data.latest && !data.contentLocked && data.reviewStatus === 'PENDING_REVIEW' && !!data.revisionSha256 : canApprove(data, evaluation))
-  const publishable = data !== staleData && canPublish(quiz, data)
-  const publication = PUBLICATION_LABELS[quiz.publicationStatus] ?? PUBLICATION_LABELS.NOT_PUBLISHED
+  const closed = quiz.publicationStatus === 'CLOSED'
+  const blocked = closed || publicationPending
+  const approvable = !blocked && data !== staleData && (composed ? data.latest && !data.contentLocked && data.reviewStatus === 'PENDING_REVIEW' && !!data.revisionSha256 : canApprove(data, evaluation))
+  const publishable = !blocked && data !== staleData && canPublish(quiz, data)
+  const publication = PUBLICATION_LABELS[closed ? 'CLOSED' : quiz.publicationStatus] ?? PUBLICATION_LABELS.NOT_PUBLISHED
   const judgedByNo = new Map((evaluation?.status === 'SUCCEEDED' ? evaluation.questions ?? [] : []).map((item) => [item.questionNo, item]))
 
   async function run(kind, task, successMessage, { forgetJudge = false } = {}) {
-    if (actionInFlight.current || data === staleData) return
+    if (blocked || actionInFlight.current || data === staleData) return
     actionInFlight.current = true
     setBusy(kind)
     try {
-      await task()
+      const result = await task()
+      if (kind === 'close') onPublicationStale(result)
       if (!active.current) return
       showToast(successMessage)
       setConfirming(null)
       setReason('')
       if (forgetJudge) await judge.forget()
       revision.reload()
-      onChanged()
+      await onChanged()
     } catch (error) {
+      if (error.code === 'QUIZ_CLOSED') onPublicationStale({ publicationStatus: 'CLOSED' })
       if (!active.current) return
       showToast(creatorQuizErrorMessage(error, '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.'), { icon: 'error' })
-      if (STALE_CODES.has(error?.code)) {
+      if (kind === 'close' || STALE_CODES.has(error?.code)) {
         setConfirming(null)
         setResponsibleHash(null)
+        if (kind === 'close' && error.code !== 'QUIZ_CLOSED') onPublicationStale(null)
         if (error.code === 'QUIZ_REVISION_CONFLICT' || error.code === 'QUIZ_CONTENT_LOCKED') setStaleData(data)
         revision.reload()
-        onChanged()
+        await onChanged()
       }
     } finally {
       actionInFlight.current = false
@@ -359,7 +400,11 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
   if (!data && revision.error) return <ErrorBlock message={revision.error} onRetry={revision.reload} />
   if (!data) return null
 
-  if (editing) return <QuizCompositionPanel creatorId={creatorId} quizId={quizId} revision={data} onClose={() => setEditing(false)} onSaved={onCompositionSaved} />
+  if (editing && !blocked) return <QuizCompositionPanel creatorId={creatorId} quizId={quizId} revision={data} onClose={() => setEditing(false)} onSaved={onCompositionSaved} onQuizClosed={() => {
+    onPublicationStale({ publicationStatus: 'CLOSED' })
+    setEditing(false)
+    onChanged()
+  }} />
 
   const review = REVIEW_LABELS[data.reviewStatus] ?? REVIEW_LABELS.PENDING_REVIEW
   const contentReview = typeof data.contentEdited === 'boolean' ? CONTENT_REVIEW_LABELS[data.contentEdited] : null
@@ -373,7 +418,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
           <span className="font-label-md text-label-md font-semibold text-on-surface">게시 상태</span>
           <StatusPill label={publication.label} icon={publication.icon} tone={publication.tone} />
         </div>
-        {quiz.publicationStatus === 'PUBLISHED' && (
+        {!closed && quiz.publicationStatus === 'PUBLISHED' && (
           <p className="font-body-sm text-body-sm text-on-surface-variant">
             {quiz.publishedRevisionId === revisionId ? '이 revision을 팬에게 공개하고 있어요.' : '다른 revision을 공개하고 있어요.'}
             {quiz.publishedAt && ` · ${formatDateTime(quiz.publishedAt)} 게시`}
@@ -385,9 +430,10 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
         {data.reviewStatus === 'APPROVED' && !data.latest && (
           <p className="font-body-sm text-body-sm text-on-surface-variant">최신 revision만 게시할 수 있어요.</p>
         )}
-        {data.reviewStatus !== 'APPROVED' && quiz.publicationStatus !== 'PUBLISHED' && (
+        {!closed && data.reviewStatus !== 'APPROVED' && quiz.publicationStatus !== 'PUBLISHED' && (
           <p className="font-body-sm text-body-sm text-on-surface-variant">승인한 revision을 게시할 수 있어요.</p>
         )}
+        {closed && <p className="font-body-sm text-body-sm text-on-surface-variant">마감된 Quiz는 재게시할 수 없어요. 기존 문항과 응시·보상 기록은 유지돼요.{quiz.closedAt && ` · ${formatDateTime(quiz.closedAt)} 마감`}</p>}
         <div className="flex flex-wrap gap-2">
           {publishable && (
             <button
@@ -399,7 +445,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
               {busy === 'publish' ? '게시하는 중...' : quiz.publicationStatus === 'PUBLISHED' ? '이 revision으로 바꿔 게시' : '게시하기'}
             </button>
           )}
-          {quiz.publicationStatus === 'PUBLISHED' && (
+          {!blocked && quiz.publicationStatus === 'PUBLISHED' && (
             <button
               type="button"
               disabled={busy !== null}
@@ -409,8 +455,13 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
               {busy === 'unpublish' ? '중지하는 중...' : '게시 중지'}
             </button>
           )}
+          {!blocked && ['PUBLISHED', 'UNPUBLISHED'].includes(quiz.publicationStatus) && (
+            <button type="button" disabled={busy !== null || judge.requesting} onClick={() => setConfirming('close')} className={`${buttonClass} bg-error-container text-on-error-container`}>마감하기</button>
+          )}
         </div>
+        {publicationPending && <ErrorBlock message="최신 Quiz 상태를 다시 확인해 주세요. 확인 전에는 변경할 수 없어요." onRetry={onChanged} />}
       </section>
+      {confirming === 'close' && !closed && <CloseConfirmation busy={busy !== null} onClose={() => setConfirming(null)} onConfirm={() => run('close', () => closeQuiz(quizId), 'Quiz를 마감했어요.')} />}
 
       {/* revision 정보 */}
       <section className={sectionClass} aria-label="revision 정보">
@@ -460,17 +511,17 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
 
       {data.contentLocked && <p className="rounded-xl bg-surface-container p-space-sm">최초 게시된 Quiz는 게시를 취소해도 읽기 전용이에요. 다른 내용은 새 Quiz로 만들어 주세요.</p>}
       {data === staleData && revision.error && <ErrorBlock message="최신 상태를 확인하지 못했어요. 이전 내용의 승인은 중단했습니다." onRetry={() => { revision.reload(); onChanged() }} />}
-      {data.canEdit === true && data.latest && data.contentLocked === false && (
+      {!blocked && data.canEdit === true && data.latest && data.contentLocked === false && (
         <button type="button" className={`${buttonClass} bg-primary text-on-primary`} disabled={busy !== null || data === staleData} onClick={() => setEditing(true)}>최종 문항 선택·편집</button>
       )}
       {composed && <p className="font-body-sm text-body-sm text-on-surface-variant">Creator 구성본이에요. 원본 Judge 결과는 참고용이며 최종 내용은 Creator가 책임 승인합니다.</p>}
       {/* GPT Judge */}
       {!composed && (action !== 'DECIDED' || evaluation) && (
-        <JudgeSection judge={judge} evaluation={evaluation} action={action} />
+        <JudgeSection judge={judge} evaluation={evaluation} action={action} readOnly={blocked || busy !== null} />
       )}
 
       {/* 승인·반려 */}
-      {data.reviewStatus === 'PENDING_REVIEW' && (
+      {!blocked && data.reviewStatus === 'PENDING_REVIEW' && (
         <section className={sectionClass} aria-label="승인과 반려">
           <span className="font-label-md text-label-md font-semibold text-on-surface">검토 결정</span>
           {!approvable && (
@@ -568,10 +619,32 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
   )
 }
 
-function JudgeSection({ judge, evaluation, action }) {
+function CloseConfirmation({ busy, onClose, onConfirm }) {
+  const dialog = useRef(null)
+  useEffect(() => {
+    const previous = document.activeElement
+    dialog.current?.querySelector('button')?.focus()
+    return () => { if (previous?.isConnected) previous.focus() }
+  }, [])
+  useEffect(() => { if (busy) dialog.current?.focus() }, [busy])
+  function handleKey(event) {
+    if (event.key === 'Escape') { event.stopPropagation(); if (!busy) onClose() }
+    if (event.key === 'Tab') {
+      const buttons = [...dialog.current.querySelectorAll('button:not(:disabled)')]
+      const next = buttons.indexOf(document.activeElement) + (event.shiftKey ? -1 : 1)
+      event.preventDefault()
+      buttons[(next + buttons.length) % buttons.length]?.focus()
+    }
+  }
+  return <div ref={dialog} role="dialog" aria-modal="true" aria-label="Quiz를 마감할까요?" tabIndex={-1} onKeyDown={handleKey}>
+    <ConfirmSheet open title="Quiz를 마감할까요?" message="마감 후에는 재게시할 수 없어요. 팬의 신규 응시는 차단되며, 기존 응시 기록과 보상은 유지돼요." confirmLabel="마감 확정" busy={busy} onClose={onClose} onConfirm={onConfirm} />
+  </div>
+}
+
+function JudgeSection({ judge, evaluation, action, readOnly = false }) {
   const aggregation = evaluation?.status === 'SUCCEEDED' ? AGGREGATION_LABELS[evaluation.aggregation] : null
   const failed = evaluation && (evaluation.status === 'FAILED' || evaluation.status === 'UNKNOWN')
-  const canRequest = !judge.checking
+  const canRequest = !readOnly && !judge.checking
     && (action === 'REQUEST' || action === 'RETRY' || (judge.unconfirmed && action !== 'DECIDED' && action !== 'DONE'))
 
   return (

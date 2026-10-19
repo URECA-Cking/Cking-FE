@@ -164,6 +164,7 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
   const [result, setResult] = useState(null)
   const [answers, setAnswers] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [closed, setClosed] = useState(false)
   // 응답을 받지 못해 다시 보낼 때는 같은 답안이면 같은 requestId를 쓴다. 답안이 바뀌면 새 요청이다.
   const pending = useRef(null)
   // 연타로 같은 요청이 겹쳐 나가지 않게 한다(상태 값은 다음 렌더 전까지 바뀌지 않는다).
@@ -178,7 +179,7 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
       onLogin()
       return
     }
-    if (!allAnswered || submitInFlight.current) return
+    if (closed || !allAnswered || submitInFlight.current) return
     const body = questions.map((question) => ({
       questionNo: question.questionNo,
       selectedOptionIndex: answers[question.questionNo],
@@ -220,6 +221,12 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
         showToast('Quiz 내용이 바뀌었어요. 새 문항으로 다시 풀어 주세요.', { icon: 'error' })
         detail.reload()
         return
+      case 'CLOSED':
+        pending.current = null
+        setClosed(true)
+        showToast('마감된 Quiz예요. 신규 응시는 할 수 없어요.', { icon: 'error' })
+        mine.reload()
+        return
       case 'NOT_FOUND':
         showToast('더 이상 공개되지 않은 Quiz예요.', { icon: 'error' })
         onUnavailable()
@@ -249,7 +256,8 @@ function QuizSheet({ creatorId, quizId, authenticated, sessionLoading, isMine, o
       {!loading && !attempt && !mine.error && detail.error && (
         <ErrorBlock message={detail.error} onRetry={detail.reload} />
       )}
-      {!loading && !attempt && !mine.error && !detail.error && detail.data && (
+      {!loading && !attempt && closed && <p role="status" className="rounded-xl bg-surface-container p-space-md">마감된 Quiz예요. 신규 응시는 할 수 없어요.</p>}
+      {!loading && !attempt && !closed && !mine.error && !detail.error && detail.data && (
         <div className="flex flex-col gap-space-md">
           {questions.map((question) => (
             <fieldset key={question.questionNo} className="flex flex-col gap-space-xs">

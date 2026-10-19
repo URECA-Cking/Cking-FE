@@ -85,3 +85,8 @@ export async function confirmQuizContent(generationId, contentText) {
 export async function cancelQuizGeneration(generationId) {
   return apiClient.post(`/api/creator/quizzes/generations/${generationId}/cancel`);
 }
+
+/** POST /api/creator/quizzes/{quizId}/close — 영구 마감(본문 없음), 반복 요청도 현재 상태를 반환한다. */
+export async function closeQuiz(quizId) {
+  return apiClient.post(`/api/creator/quizzes/${quizId}/close`);
+}

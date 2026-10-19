@@ -50,6 +50,7 @@ export function submitRequestFor(pending, answers, newRequestId) {
  */
 export function classifySubmitError(error) {
   const code = error?.code
+  if (code === 'QUIZ_CLOSED') return 'CLOSED'
   if (code === 'QUIZ_ALREADY_ATTEMPTED' || code === 'QUIZ_ATTEMPT_REQUEST_CONFLICT') return 'ALREADY_ATTEMPTED'
   if (code === 'QUIZ_PUBLISHED_REVISION_CHANGED') return 'REVISION_CHANGED'
   if (code === 'QUIZ_NOT_FOUND') return 'NOT_FOUND'

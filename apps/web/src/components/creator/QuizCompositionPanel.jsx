@@ -10,7 +10,7 @@ const fieldClass = 'w-full rounded-lg bg-surface-container-lowest p-space-sm tex
 const buttonClass = 'rounded-xl px-3 py-2 font-label-sm text-label-sm bg-surface-container text-on-surface disabled:opacity-50'
 const labels = { PASS: '원본 통과', FAIL: '원본 미통과', UNCERTAIN: '원본 판단 보류', NOT_REVALIDATED: '수정됨 · 재검증 안 됨', NOT_EVALUATED: '평가 없음' }
 
-export default function QuizCompositionPanel({ creatorId, quizId, revision, onSaved, onClose }) {
+export default function QuizCompositionPanel({ creatorId, quizId, revision, onSaved, onClose, onQuizClosed }) {
   const key = compositionKey(creatorId, quizId), storage = browserStorage()
   const [draft, setDraft] = useState(() => {
     const saved = readComposition(storage, key).entry
@@ -99,7 +99,8 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
       const failed = await compositionLock(key, () => settleComposition(storage, key, reserved.entry.requestId, null, { code: e.code ?? 'NETWORK_ERROR', status: e.status ?? 0 }))
       if (!active.current) return
       if (failed.ok) setRecord(failed.entry)
-      if (e.code === 'QUIZ_CONTENT_LOCKED') setLocked(true)
+      if (e.code === 'QUIZ_CONTENT_LOCKED' || e.code === 'QUIZ_CLOSED') setLocked(true)
+      if (e.code === 'QUIZ_CLOSED') onQuizClosed?.()
       setError(e.code === 'QUIZ_REVISION_CONFLICT' ? '기준 Revision이 바뀌었어요. 작성 내용은 보존했습니다. 최신본을 확인해 주세요.'
         : e.code === 'QUIZ_EDIT_REQUEST_CONFLICT' ? '같은 UUID의 요청 본문이 달라요. 기존 저장 기록을 확인해 주세요.'
         : creatorQuizErrorMessage(e, '저장 결과를 확인하지 못했어요. 기존 UUID와 본문으로 다시 확인해 주세요.'))

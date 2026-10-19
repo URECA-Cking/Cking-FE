@@ -1,3 +1,4 @@
+import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
@@ -291,7 +292,10 @@ export default function Explore() {
                     <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
                   </div>
                   <div className="min-w-0 flex flex-col">
-                    <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
+                    <span className="flex min-w-0 items-center gap-1">
+                      <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
+                      <CreatorVerifiedBadge />
+                    </span>
                     <span className="font-label-sm text-label-sm text-secondary font-semibold">
                       진행 중 {creator.openEventCount}개{directory.data?.eventsComplete && ` · 전체 ${creator.events.length}개`}
                     </span>

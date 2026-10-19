@@ -1,3 +1,4 @@
+import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
@@ -220,8 +221,11 @@ export default function MyPage() {
               <Link to={spacePath(creator.handle)} className="flex items-center gap-space-sm min-w-0 flex-1">
                 <ProfilePhoto src={creator.avatar} className="h-9 w-9 shrink-0" />
                 <div className="min-w-0">
-                  <span className="font-label-md text-label-md text-on-surface font-semibold truncate block">
-                    {creator.name}
+                  <span className="flex min-w-0 items-center gap-1">
+                    <span className="font-label-md text-label-md text-on-surface font-semibold truncate">
+                      {creator.name}
+                    </span>
+                    <CreatorVerifiedBadge />
                   </span>
                   <span className="font-label-xs text-label-xs text-outline">
                     {typeof creator.balance !== 'number'
@@ -259,7 +263,7 @@ export default function MyPage() {
       <section className="flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <MaterialIcon name="workspace_premium" className="text-primary text-[20px]" />
+            <CreatorVerifiedBadge />
             <h3 className="font-title-md text-title-md text-on-surface font-bold">크리에이터 전환</h3>
           </div>
           {latestApplication && (

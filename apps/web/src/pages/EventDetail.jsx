@@ -1,3 +1,4 @@
+import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
@@ -332,7 +333,7 @@ export default function EventDetail() {
               >
                 {creator.name}
               </Link>
-              <MaterialIcon name="verified" filled className="text-primary text-[18px]" />
+              <CreatorVerifiedBadge />
               <StatusPill label={statusDetail.label} tone={statusDetail.tone} className="ml-auto" />
             </div>
             <h2 className="font-headline-md text-headline-md font-extrabold text-on-surface tracking-tight">
@@ -641,7 +642,7 @@ export default function EventDetail() {
           <div className="flex flex-col min-w-0 flex-1">
             <div className="flex items-center gap-1">
               <span className="font-label-sm text-label-sm text-on-surface font-bold tracking-tight">{creator.name}</span>
-              <MaterialIcon name="verified" filled className="text-[15px] text-primary" />
+              <CreatorVerifiedBadge />
               <span className="font-label-xs text-label-xs text-on-surface-variant ml-auto">{dday}</span>
             </div>
             <h3 className="font-title-md text-title-md text-on-surface font-bold truncate mt-0.5">{event.title}</h3>

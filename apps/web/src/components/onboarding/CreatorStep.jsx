@@ -1,3 +1,4 @@
+import CreatorVerifiedBadge from '../ui/CreatorVerifiedBadge.jsx'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
@@ -83,7 +84,10 @@ function CreatorRow({ creator, reason, followed, disabled, onToggle }) {
       <Link to={creator.handle ? spacePath(creator.handle) : `/creators/${creator.creatorId}`} className="min-w-0 flex-1 flex items-center gap-3">
         <ProfilePhoto src={creator.avatar} className="h-14 w-14 shrink-0" iconClassName="text-[28px]" />
         <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-          <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
+          <span className="flex min-w-0 items-center gap-1">
+            <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
+            <CreatorVerifiedBadge />
+          </span>
           {creator.bio && <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">{creator.bio}</p>}
           {reason && (
             <span className="mt-1 self-start max-w-full truncate px-2 py-0.5 rounded-full bg-berry-tint font-label-xs text-label-xs text-primary">

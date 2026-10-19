@@ -1,3 +1,4 @@
+import CreatorVerifiedBadge from '../ui/CreatorVerifiedBadge.jsx'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
@@ -29,7 +30,10 @@ export default function CreatorRow({ creator, followed, disabled, onToggle, rowR
           <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
         </div>
         <div className="min-w-0 flex flex-col gap-1">
-          <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
+          <span className="flex min-w-0 items-center gap-1">
+            <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
+            <CreatorVerifiedBadge />
+          </span>
           {flat
             ? meta
             : <span className="font-body-sm text-body-sm text-outline line-clamp-1">{creator.bio}</span>}

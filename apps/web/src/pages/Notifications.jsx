@@ -178,7 +178,7 @@ export default function Notifications() {
         : <ErrorBlock message={error} onRetry={reloadCurrentPage} />)}
       {!loading && !error && items.length === 0 && (
         <div className="flex flex-1 items-center justify-center">
-          <EmptyBlock icon="notifications_off" message="아직 도착한 알림이 없어요. 당첨 결과나 계정 안내가 있으면 알려드릴게요!" />
+          <EmptyBlock icon="notifications_off" message="도착한 알림이 없어요." />
         </div>
       )}
 

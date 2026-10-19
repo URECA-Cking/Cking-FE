@@ -31,7 +31,7 @@ export function useCreatorNews(creatorIds, memberId) {
       .flatMap(([, items]) => items)
       .toSorted((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     return { latestByCreator, posts, failed: groups.some(([, , failed]) => failed) }
-  }, [idsKey, memberId], { enabled: memberId != null && idsKey !== '' })
+  }, [idsKey, memberId], { enabled: memberId != null && idsKey !== '', cacheKey: `news:${memberId}:${idsKey}` })
 
   return { ...(data ?? emptyNews), loading, retry: reload }
 }

@@ -11,7 +11,7 @@ import WelcomeCreators from '../components/home/WelcomeCreators.jsx'
 import { LoadingBlock, ErrorBlock, InlineRetry } from '../components/ui/States.jsx'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
-import { loadCreatorDirectory } from '../api/creators.js'
+import { getCreatorCatalog } from '../api/creators.js'
 import { getInProgressEvents } from '../api/events.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { useAppliedEvents } from '../hooks/useAppliedEvents.js'
@@ -34,14 +34,16 @@ const ENTRY_LIMIT = 3
 export default function Home() {
   const { user, isCreator, followedCreators } = useUser()
 
-  const directory = useAsync(() => loadCreatorDirectory(), [], {
+  // 홈은 팔로우한 크리에이터의 프로필만 쓴다. 이벤트 100건까지 함께 받는 loadCreatorDirectory 대신 프로필 목록(캐시됨)만 받는다.
+  const directory = useAsync(async () => ({ creators: await getCreatorCatalog() }), [], {
     fallbackMessage: '크리에이터와 이벤트를 불러오지 못했습니다.',
+    cacheKey: 'home:creators',
   })
   // 마감 임박순 3건을 정확히 고르려면 진행 중 이벤트 전체가 필요하다. 목록 전체(최신 100건)에서 고르면 100건을 넘을 때 놓친다.
   const openEvents = useAsync(() => getInProgressEvents(), [], {
     fallbackMessage: '진행 중인 이벤트를 불러오지 못했습니다.',
+    cacheKey: 'home:in-progress-events',
   })
-  const { balances } = useCreatorBalances(followedCreators, user?.memberId)
   const { latestByCreator, posts, failed: newsFailed, retry: retryNews } = useCreatorNews(followedCreators, user?.memberId)
 
   const myCreators = useMemo(
@@ -49,16 +51,19 @@ export default function Home() {
     [directory.data, followedCreators],
   )
 
+  const entryEvents = useMemo(
+    () => selectEntryEvents(openEvents.data ?? [], followedCreators, ENTRY_LIMIT),
+    [openEvents.data, followedCreators],
+  )
+  // 잔액은 홈에 보이는 응모 이벤트의 크리에이터 것만 조회한다. 팔로우 전체를 조회하면 팔로우 수만큼 요청이 나간다.
+  const entryCreatorIds = useMemo(() => [...new Set(entryEvents.map((event) => event.creatorId))], [entryEvents])
+  const { balances } = useCreatorBalances(entryCreatorIds, user?.memberId)
+
   const balanceByCreator = useMemo(() => {
     const map = new Map()
     balances.forEach((balance, creatorId) => map.set(creatorId, balance.balance))
     return map
   }, [balances])
-
-  const entryEvents = useMemo(
-    () => selectEntryEvents(openEvents.data ?? [], followedCreators, ENTRY_LIMIT),
-    [openEvents.data, followedCreators],
-  )
   const { appliedIds, knownIds, failedIds: appliedFailedIds, retry: retryApplied } = useAppliedEvents(entryEvents.map((event) => event.eventId), user?.memberId)
 
   const ready = !directory.loading && !directory.error

@@ -391,3 +391,37 @@ test('같은 화면에서 회원이 바뀌어도 이전 회원이 받은 보너�
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
+
+test('일반 홈은 진행 중 이벤트를 병렬로 받고, 잔액은 응모에 보이는 크리에이터 것만 조회한다', async () => {
+  const { page, errors } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => {
+      const base = window.fetch
+      window.urls = []
+      const day = 86400000
+      const event = (eventId, creatorId, days) => ({ eventId, creatorId, title: `이벤트${eventId}`, displayStatus: 'IN_PROGRESS', endAt: new Date(Date.now() + days * day).toISOString() })
+      // 진행 중 이벤트 3페이지. 마감이 가장 빠른 3건은 크리에이터 1·2·3의 이벤트이고, 4번 크리에이터 이벤트는 밀려난다.
+      const pages = [[event(1, 1, 3)], [event(2, 2, 1)], [event(3, 3, 2), event(4, 4, 30)]]
+      window.fetch = (url, options) => {
+        const parsed = new URL(String(url), location.href)
+        window.urls.push(parsed.pathname + parsed.search)
+        if (parsed.pathname === '/api/events' && parsed.searchParams.get('status') === 'IN_PROGRESS') {
+          const index = Number(parsed.searchParams.get('page'))
+          const data = { items: pages[index], page: index, totalPages: pages.length, hasNext: index < pages.length - 1 }
+          return Promise.resolve(new Response(JSON.stringify({ code: 'SUCCESS', data, message: null }), { status: 200 }))
+        }
+        return base(url, options)
+      }
+      window.renderHome([1, 2, 3, 4, 5])
+    })
+    await page.getByText('이벤트1').first().waitFor()
+    const urls = await page.evaluate(() => window.urls)
+    const inProgressPages = urls.filter((url) => url.includes('status=IN_PROGRESS')).map((url) => new URL(url, 'http://x').searchParams.get('page')).sort()
+    assert.deepEqual(inProgressPages, ['0', '1', '2'])
+    // 이벤트 100건을 함께 받던 예전 목록 조회(상태 필터 없음)는 홈에서 나가지 않는다.
+    assert.equal(urls.some((url) => url.startsWith('/api/events?') && !url.includes('status=')), false)
+    const balanceCreators = urls.map((url) => url.match(/^\/api\/creators\/(\d+)\/tickets$/)?.[1]).filter(Boolean).sort()
+    assert.deepEqual(balanceCreators, ['1', '2', '3'])
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})

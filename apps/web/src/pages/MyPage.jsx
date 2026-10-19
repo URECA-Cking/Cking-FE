@@ -165,9 +165,9 @@ export default function MyPage() {
         />
       )}
 
-      {/* 크리에이터 전환 블록은 아직 크리에이터가 아닌 회원에게만 보인다. 신청 이력은 심사 대기(PENDING) 동안만 보여주고,
-          승인·반려로 처리된 뒤에는 이력 대신 신청 안내로 돌아간다. */}
-      {!isCreator && (
+      {/* 크리에이터 전환 블록은 신청 전(안내·신청 버튼)과 심사 대기(PENDING, 신청일·심사 대기 중) 동안만 보인다.
+          승인·반려로 처리된 뒤에는 숨긴다(이슈 #259). */}
+      {!isCreator && (!latestApplication || hasPending) && (
         <section className="flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
           <div className="flex items-center gap-1.5">
             <MaterialIcon name="workspace_premium" className="text-primary text-[20px]" />

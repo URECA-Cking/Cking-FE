@@ -66,6 +66,9 @@ async function boot(page, initialQuest) {
     window.requests = []
     window.scrolled = 0
     window.failClaims = 0
+    window.winners = []
+    window.winnersFail = false
+    window.failEvents = false
     window.questFailures = 0
     Element.prototype.scrollIntoView = () => { window.scrolled += 1 }
     const envelope = (status, code, data, message = null) => new Response(JSON.stringify({ code, data, message }), { status })
@@ -95,7 +98,11 @@ async function boot(page, initialQuest) {
         window.quest.completed = window.quest.items.every((item) => item.status === 'CLAIMED')
         return Promise.resolve(envelope(202, 'EARN_ACCEPTED', { step, rewardAmount: 1, status: 'CLAIMED' }))
       }
-      if (path === '/api/me/winners') return Promise.resolve(envelope(200, 'SUCCESS', []))
+      if (path === '/api/me/winners') {
+        if (window.winnersFail) return Promise.resolve(envelope(500, 'INTERNAL_SERVER_ERROR', null, '조회 실패'))
+        return Promise.resolve(envelope(200, 'SUCCESS', window.winners))
+      }
+      if (path === '/api/events' && window.failEvents) return Promise.resolve(envelope(500, 'INTERNAL_SERVER_ERROR', null, '조회 실패'))
       if (path === '/api/missions') return Promise.resolve(envelope(200, 'SUCCESS', [{ missionId: 1, type: 'ATTENDANCE', rewardAmount: 1, completedToday: false }]))
       if (path === '/api/tickets/common/history') return Promise.resolve(envelope(200, 'SUCCESS', { items: [], hasNext: false }))
       if (path === '/api/me/creator-recommendations') return Promise.resolve(envelope(200, 'SUCCESS', recommendations))
@@ -422,6 +429,48 @@ test('일반 홈은 진행 중 이벤트를 병렬로 받고, 잔액은 응모�
     assert.equal(urls.some((url) => url.startsWith('/api/events?') && !url.includes('status=')), false)
     const balanceCreators = urls.map((url) => url.match(/^\/api\/creators\/(\d+)\/tickets$/)?.[1]).filter(Boolean).sort()
     assert.deepEqual(balanceCreators, ['1', '2', '3'])
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('회원이 바뀌어 새 회원의 당첨 조회가 실패해도 이전 회원의 당첨 배너는 남지 않는다', async () => {
+  const { page, errors } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => {
+      window.winners = [{ winnerId: 1, winnerManagementStatus: 'SELECTED' }]
+      window.renderHome([], 7)
+    })
+    await page.getByText('수령 대기 1건').waitFor()
+
+    // 회원 B로 전환한다. B의 당첨 조회는 실패하므로, 이전 회원 A의 결과가 남아 있으면 배너가 그대로 보인다.
+    await page.evaluate(() => {
+      window.winnersFail = true
+      window.renderHome([], 8)
+    })
+    await page.waitForFunction(() => window.requests.filter((request) => request.path === '/api/me/winners').length >= 2)
+    await page.waitForTimeout(100)
+    assert.equal(await page.getByText('수령 대기 1건').count(), 0)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('캐시로 그린 홈은 뒤에서 하는 이벤트 갱신이 실패해도 지워지지 않는다', async () => {
+  const { page, errors } = await screen(quest({ eligible: false }))
+  try {
+    await page.evaluate(() => window.renderHome([]))
+    await page.getByText('마감 임박순').waitFor()
+    const before = await page.evaluate(() => window.requests.filter((request) => request.path === '/api/events').length)
+
+    // 홈을 내렸다가 이벤트 조회가 실패하는 상태로 다시 연다. 캐시된 목록이 먼저 보이고 뒤의 갱신만 실패한다.
+    await page.evaluate(() => {
+      window.unmountHome()
+      window.failEvents = true
+    })
+    await page.evaluate(() => window.renderHome([]))
+    await page.waitForFunction((count) => window.requests.filter((request) => request.path === '/api/events').length > count, before)
+    await page.waitForTimeout(100)
+    assert.equal(await page.getByText('마감 임박순').count(), 1)
+    assert.equal((await bodyText(page)).includes('진행 중인 이벤트를 불러오지 못했습니다.'), false)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

@@ -66,7 +66,10 @@ export default function Home() {
   }, [balances])
   const { appliedIds, knownIds, failedIds: appliedFailedIds, retry: retryApplied } = useAppliedEvents(entryEvents.map((event) => event.eventId), user?.memberId)
 
-  const ready = !directory.loading && !directory.error
+  // 캐시로 이미 그린 화면은 뒤에서 하는 갱신이 실패해도 지우지 않는다. 보여줄 데이터가 없을 때만 오류 화면으로 바꾼다.
+  const directoryFailed = Boolean(directory.error) && directory.data == null
+  const eventsFailed = Boolean(openEvents.error) && openEvents.data == null
+  const ready = !directory.loading && !directoryFailed
 
   const welcome = useWelcomeQuest(user?.memberId)
   const claimWelcome = useWelcomeClaim(welcome.claim)
@@ -133,7 +136,7 @@ export default function Home() {
       )}
 
       {directory.loading && <LoadingBlock label="소식과 이벤트를 불러오는 중..." />}
-      {!directory.loading && directory.error && <ErrorBlock message={directory.error} onRetry={directory.reload} />}
+      {!directory.loading && directoryFailed && <ErrorBlock message={directory.error} onRetry={directory.reload} />}
       {ready && (!isNewMember || myCreators.length > 0) && <NewsRow creators={myCreators} latestByCreator={latestByCreator} />}
       {ready && <NewsFeed creators={myCreators} posts={posts} />}
       {ready && newsFailed && (
@@ -143,10 +146,10 @@ export default function Home() {
       )}
       {isCreator && <StudioLink />}
       {ready && !isNewMember && !questPending && openEvents.loading && <LoadingBlock label="진행 중인 이벤트를 불러오는 중..." />}
-      {ready && !isNewMember && !questPending && !openEvents.loading && openEvents.error && (
+      {ready && !isNewMember && !questPending && !openEvents.loading && eventsFailed && (
         <ErrorBlock message={openEvents.error} onRetry={openEvents.reload} />
       )}
-      {ready && !isNewMember && !questPending && !openEvents.loading && !openEvents.error && (
+      {ready && !isNewMember && !questPending && !openEvents.loading && !eventsFailed && (
         <EntrySection
           events={entryEvents}
           balanceByCreator={balanceByCreator}

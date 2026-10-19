@@ -60,8 +60,8 @@ export async function getInProgressEvents({ size = 100, maxPages = 10 } = {}) {
   if (!first?.hasNext) return items;
 
   if (Number.isInteger(first.totalPages)) {
-    const lastPage = Math.min(first.totalPages, maxPages) - 1;
-    const rest = await Promise.all(Array.from({ length: Math.max(lastPage, 0) }, (_, index) => fetchPage(index + 1)));
+    const remainingPages = Math.max(Math.min(first.totalPages, maxPages) - 1, 0);
+    const rest = await Promise.all(Array.from({ length: remainingPages }, (_, index) => fetchPage(index + 1)));
     rest.forEach((result) => items.push(...(result?.items ?? [])));
     return items;
   }

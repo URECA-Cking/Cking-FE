@@ -3,10 +3,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // cacheKey를 준 조회의 마지막 성공 결과. 화면을 다시 열 때 먼저 보여 주고 뒤에서 새로 불러온다.
 const responseCache = new Map()
 
+/** 캐시된 조회 결과를 모두 비운다. 로그아웃처럼 이전 사용자의 결과가 남으면 안 될 때 부른다. */
+export function clearAsyncCache() {
+  responseCache.clear()
+}
+
 /**
  * 화면용 오류 문구와 도메인 분기용 원본 오류를 함께 관리하는 조회 훅을 만든다.
  * cacheKey를 주면 같은 키의 마지막 성공 결과를 바로 보여 주고(로딩 표시 없이) 뒤에서 다시 불러와 최신 값으로 바꾼다.
  * 키에는 회원 번호처럼 결과를 가르는 값을 모두 넣어, 다른 회원의 결과가 섞이지 않게 한다.
+ * 키가 바뀌면 이전 키의 결과는 바로 비우고(새 키의 캐시가 있으면 그것을 보여 준다), 비로그인처럼 키를 만들 수 없을 때는 null을 준다.
  */
 export function createUseAsync(describeError) {
   return function useAsync(loader, deps = [], { enabled = true, fallbackMessage, cacheKey = null } = {}) {
@@ -17,6 +23,17 @@ export function createUseAsync(describeError) {
     const [errorObject, setErrorObject] = useState(null)
     const alive = useRef(true)
     const requestSeq = useRef(0)
+
+    // 키가 바뀐 렌더에서 바로 이전 키의 결과를 걷어낸다. 효과를 기다리면 다른 회원의 결과가 한 번 그려질 수 있다.
+    const [renderedKey, setRenderedKey] = useState(cacheKey)
+    if (renderedKey !== cacheKey) {
+      const nextCached = cacheKey != null ? responseCache.get(cacheKey) : undefined
+      setRenderedKey(cacheKey)
+      setData(nextCached ?? null)
+      setLoading(Boolean(enabled) && nextCached === undefined)
+      setError(null)
+      setErrorObject(null)
+    }
 
     useEffect(() => {
       alive.current = true
@@ -35,6 +52,7 @@ export function createUseAsync(describeError) {
       // 캐시된 결과가 있으면 그것을 보여 주고 로딩 표시 없이 새로 불러온다.
       const cached = cacheKey != null ? responseCache.get(cacheKey) : undefined
       if (cached !== undefined) setData(cached)
+      else if (cacheKey != null) setData(null)
       setLoading(cached === undefined)
       setError(null)
       setErrorObject(null)

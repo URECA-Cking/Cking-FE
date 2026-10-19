@@ -71,29 +71,35 @@ test('실패한 프로필 URL도 다른 URL을 거쳐 돌아오면 다시 시도
   } finally { await page.close() }
 })
 
-test('배너 실패 시 프로필 사진으로 전환하고 둘 다 실패하면 사람 아이콘을 표시한다', async () => {
+test('배너 실패 시 프로필 사진을 사용하지 않고 사람 아이콘을 표시한다', async () => {
   const page = await screen()
   try {
     await page.evaluate(([src, profileSrc]) => window.renderCreatorBanner(src, profileSrc), [a, profile])
     await page.locator('#root img').waitFor()
     await failImage(page)
-    await page.waitForFunction((expected) => document.querySelector('#root img')?.getAttribute('src') === expected, profile)
-    await failImage(page)
     await page.locator('#root img').waitFor({ state: 'hidden' })
+    assert.equal(await page.locator('#root img').count(), 0)
+    assert.equal(await page.locator(`#root img[src="${profile}"]`).count(), 0)
     assert.equal(await page.locator('#root svg').count(), 1)
+    assert.equal(await page.locator('#root svg').isVisible(), true)
   } finally { await page.close() }
 })
 
-test('실패한 배너 URL도 다른 URL을 거쳐 돌아오면 다시 시도한다', async () => {
+test('배너 실패 시 사람 아이콘을 표시하고 URL이 바뀌거나 돌아오면 다시 시도한다', async () => {
   const page = await screen()
   try {
     await page.evaluate(([src, profileSrc]) => window.renderCreatorBanner(src, profileSrc), [a, profile])
     await page.locator('#root img').waitFor()
     await failImage(page)
-    await page.waitForFunction((expected) => document.querySelector('#root img')?.getAttribute('src') === expected, profile)
+    await page.locator('#root img').waitFor({ state: 'hidden' })
+    assert.equal(await page.locator('#root img').count(), 0)
+    assert.equal(await page.locator(`#root img[src="${profile}"]`).count(), 0)
+    assert.equal(await page.locator('#root svg').isVisible(), true)
     await page.evaluate(([src, profileSrc]) => window.renderCreatorBanner(src, profileSrc), [b, profile])
     await page.waitForFunction((expected) => document.querySelector('#root img')?.getAttribute('src') === expected, b)
+    await page.waitForFunction(() => document.querySelector('#root img')?.naturalWidth > 0)
     await page.evaluate(([src, profileSrc]) => window.renderCreatorBanner(src, profileSrc), [a, profile])
     await page.waitForFunction((expected) => document.querySelector('#root img')?.getAttribute('src') === expected, a)
+    await page.waitForFunction(() => document.querySelector('#root img')?.naturalWidth > 0)
   } finally { await page.close() }
 })

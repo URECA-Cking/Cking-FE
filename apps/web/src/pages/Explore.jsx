@@ -353,7 +353,8 @@ export default function Explore() {
             ))}
           </div>
         )}
-        {!eventList.error && eventList.data?.hasNext && eventSize < EVENT_MAX_SIZE && (
+        {/* 더 불러올 게 있으면 '더 보기', 끝까지 펼친 뒤에는 같은 자리에 '접기'를 두어 첫 페이지 크기로 되돌린다. */}
+        {!eventList.error && (eventList.data?.hasNext && eventSize < EVENT_MAX_SIZE ? (
           <button
             type="button"
             onClick={() => setEventSize((size) => Math.min(size + EVENT_PAGE_SIZE, EVENT_MAX_SIZE))}
@@ -362,7 +363,15 @@ export default function Explore() {
           >
             {eventList.loading ? '불러오는 중...' : '더 보기'}
           </button>
-        )}
+        ) : eventSize > EVENT_PAGE_SIZE && !eventList.loading && (
+          <button
+            type="button"
+            onClick={() => setEventSize(EVENT_PAGE_SIZE)}
+            className="mx-margin mt-space-md h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
+          >
+            접기
+          </button>
+        ))}
       </section>
       )}
     </div>

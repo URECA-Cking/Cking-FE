@@ -183,6 +183,7 @@ export function installMockApiIfRequested() {
   const events = empty ? [] : buildEvents(now)
   const posts = empty ? {} : buildPosts(now)
   const follows = empty ? [] : FOLLOWED
+  const postsReadAt = new Map()
   // 내 당첨 화면의 상세·진행 내역·포기 동선을 로컬에서도 확인할 수 있게 실제 Winner API 응답 필드를 유지한다.
   const winners = empty
     ? []
@@ -221,6 +222,21 @@ export function installMockApiIfRequested() {
     ['POST', /^\/api\/auth\/refresh$/, () => ({ accessToken: 'mock-token', expiresIn: 3600 })],
     ['GET', /^\/api\/me$/, () => me],
     ['GET', /^\/api\/me\/follows$/, () => page(follows.map((creatorId) => ({ creatorId })))],
+    // 읽음 기록이 없으면 팔로우 시작(하루 전) 이후의 글만 새 글이다. 읽음 기록은 새로고침하면 초기화된다.
+    ['GET', /^\/api\/me\/follows\/post-news$/, () => ({
+      items: [...follows].sort((a, b) => a - b).map((creatorId) => {
+        const latest = (posts[creatorId] ?? []).map((post) => Date.parse(post.createdAt)).sort((a, b) => b - a)[0] ?? null
+        return {
+          creatorId,
+          hasUnreadPosts: latest !== null && latest > (postsReadAt.get(creatorId) ?? now - DAY),
+          latestPostCreatedAt: latest === null ? null : new Date(latest).toISOString(),
+        }
+      }),
+    })],
+    ['PUT', /^\/api\/creators\/(\d+)\/posts\/read$/, (id) => {
+      postsReadAt.set(Number(id), Date.now())
+      return { creatorId: Number(id), lastReadAt: new Date().toISOString() }
+    }],
     // 실제 목록 API처럼 page·size로 알림을 나눠 반환한다.
     ['GET', /^\/api\/me\/notifications$/, (url) => {
       const size = Number(url.searchParams.get('size')) || 20

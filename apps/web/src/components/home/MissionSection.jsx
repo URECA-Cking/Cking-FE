@@ -23,8 +23,8 @@ const STAMP_WINDOW_MS = 8 * 24 * 60 * 60 * 1000
 function stampTileClass(slot, isLast) {
   const base = 'flex flex-col items-center rounded-2xl border-2 py-2.5'
   if (slot.stamped) return `${base} border-primary/40 bg-primary/15 text-primary`
-  if (slot.next) return `${base} -translate-y-0.5 border-transparent bg-primary/15 text-primary shadow-md shadow-primary/20 ring-2 ring-primary`
-  if (isLast) return `${base} border-warm-accent bg-warm-accent/15 text-warm-accent shadow-[0_4px_0_rgb(var(--color-warm-accent)/0.55)]`
+  if (slot.next) return `${base} -translate-y-0.5 border-transparent bg-gradient-to-b from-primary/35 to-primary/10 text-primary shadow-md shadow-primary/20 ring-2 ring-primary`
+  if (isLast) return `${base} border-warm-accent/50 bg-gradient-to-b from-warm-accent/25 to-warm-accent/5 text-warm-accent shadow-[0_4px_0_rgb(var(--color-warm-accent)/0.55)]`
   return `${base} border-on-surface/15 bg-on-surface/5 text-outline shadow-[0_4px_0_rgb(var(--color-on-surface)/0.15)]`
 }
 
@@ -183,7 +183,7 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
         const isJustStamped = (index) => justStamped && index === stampedCount - 1
         const stampButtonLabel = busy ? '처리 중' : done ? (bonusPending ? '보너스 받기' : '출석 완료') : '도장 찍기'
         return (
-          <div key={mission.missionId} className="rounded-3xl bg-surface-container p-4">
+          <div key={mission.missionId} className="rounded-3xl border border-primary/30 bg-gradient-to-b from-primary/15 to-surface-container p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 {stamps && <span className="rounded-md bg-primary/15 px-2 py-0.5 font-label-sm text-label-sm font-semibold text-primary">DAILY CHECK-IN</span>}
@@ -196,7 +196,7 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
                 type="button"
                 disabled={(done && !bonusPending) || busy}
                 onClick={() => completeThenBonus(mission, { alreadyDone: done })}
-                className="shrink-0 whitespace-nowrap rounded-full bg-primary px-3.5 py-1.5 font-label-sm text-label-sm text-on-primary disabled:bg-on-surface/10 disabled:text-outline active:opacity-70 transition-opacity"
+                className="shrink-0 whitespace-nowrap rounded-full bg-gradient-to-r from-primary to-primary/80 px-3.5 py-1.5 font-label-sm text-label-sm text-on-primary shadow-md shadow-primary/30 disabled:bg-none disabled:bg-on-surface/10 disabled:text-outline disabled:shadow-none active:opacity-70 transition-opacity"
               >
                 {stampButtonLabel}
               </button>

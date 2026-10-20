@@ -442,7 +442,7 @@ export default function EventDetail() {
               </div>
 
               <div className="flex items-start gap-2 pt-1 text-slate-muted">
-                <MaterialIcon name="priority_high" className="text-[16px] text-outline shrink-0 mt-0.5" />
+                <MaterialIcon name="priority_high" className="text-label-xs leading-normal text-outline shrink-0" />
                 <p className="font-label-xs text-label-xs leading-normal">
                   응모 완료 시 사용된 응모권은 취소 또는 환불이 불가합니다.
                 </p>
@@ -452,7 +452,7 @@ export default function EventDetail() {
 
           {!canApply && (
             <div className="p-space-md rounded-2xl bg-surface-container-low flex items-start gap-space-sm">
-              <MaterialIcon name="info" className="text-on-surface-variant text-[20px] shrink-0 mt-0.5" />
+              <MaterialIcon name="info" className="text-on-surface-variant text-body-sm leading-relaxed shrink-0" />
               <div className="flex flex-col gap-2">
                 <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
                   {event.displayStatus === 'UPCOMING'

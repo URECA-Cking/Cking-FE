@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatShortDate, formatEventDate, formatRelativeTime } from '../src/utils/format.js'
+import { formatCountdown, formatShortDate, formatEventDate, formatRelativeTime } from '../src/utils/format.js'
 import { formatScheduleRange, formatScheduleTime } from '../src/utils/calendarGrid.js'
 
 test('화면별 날짜 포맷은 공통 24시간제 표기를 사용한다', () => {
@@ -18,4 +18,13 @@ test('일정 범위는 같은 날과 자정·월·연도 경계 모두 양 끝�
     [new Date(2026, 9, 20, 9, 5), new Date(2026, 9, 20, 12), '26.10.20. 09시 05분 – 26.10.20. 12시 00분'],
     [new Date(2026, 11, 31, 23, 59), new Date(2027, 0, 1), '26.12.31. 23시 59분 – 27.01.01. 00시 00분'],
   ]) assert.equal(formatScheduleRange({ startAt: start.toISOString(), endAt: end.toISOString() }), expected)
+})
+
+test('카운트다운은 일이 남으면 "N일 HH:MM:SS", 하루 미만이면 "HH:MM:SS", 지나면 null이다', () => {
+  const now = new Date(2026, 9, 20, 12).getTime()
+  const at = (ms) => new Date(now + ms).toISOString()
+  assert.equal(formatCountdown(at(((3 * 24 + 19) * 3600 + 32 * 60 + 37) * 1000), now), '3일 19:32:37')
+  assert.equal(formatCountdown(at((5 * 60 + 7) * 1000), now), '00:05:07')
+  assert.equal(formatCountdown(at(0), now), null)
+  assert.equal(formatCountdown(null, now), null)
 })

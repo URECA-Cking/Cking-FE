@@ -152,6 +152,14 @@
       'GRAD' 0,
       'opsz' 24;
   }
+
+  /* 아이콘 폰트가 받아지기 전에는 아이콘 이름 글자(chevron_right 등) 대신 1em 빈칸을 둔다. 클래스는 index.html 스크립트가 붙인다. */
+  html:not(.icons-outlined-ready) .material-symbols-outlined,
+  html:not(.icons-rounded-ready) .material-symbols-rounded {
+    visibility: hidden;
+    width: 1em;
+    overflow: hidden;
+  }
 }
 
 @layer utilities {

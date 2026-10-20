@@ -17,7 +17,7 @@ export default function EntryTicket({ event, ticketsOwned, applied = null }) {
   return (
     <Link
       to={`/events/${event.eventId}`}
-      className="flex h-[5.5rem] overflow-hidden rounded-2xl border border-on-surface/10 bg-surface-container active:opacity-80 transition-opacity"
+      className="flex h-[5.5rem] overflow-hidden rounded-2xl bg-surface-container active:opacity-80 transition-opacity"
     >
       <span aria-hidden="true" className="w-1.5 shrink-0 bg-primary" />
       <span className="flex w-[5.25rem] shrink-0 items-center justify-center bg-surface-container-low">

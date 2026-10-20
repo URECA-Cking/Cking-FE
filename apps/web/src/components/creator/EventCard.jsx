@@ -4,7 +4,8 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { getEventBanner } from '../../data/eventBanners.js'
 import { useCreatorProfile } from '../../hooks/useCreatorProfile.js'
-import { formatDday, formatEventDate, formatNumber, formatShortDate, totalPrizeQuantity } from '../../utils/format.js'
+import { useNow } from '../../hooks/useNow.js'
+import { formatCountdown, formatDday, formatEventDate, formatNumber, formatShortDate, totalPrizeQuantity } from '../../utils/format.js'
 import { displayStatusMeta, eventStatusMeta } from '../../utils/eventStatus.js'
 
 /**
@@ -18,7 +19,7 @@ import { displayStatusMeta, eventStatusMeta } from '../../utils/eventStatus.js'
  * 아직 공개되지 않은 이벤트(초안·승인 대기·거절됨)라 상태 뱃지와 거절 사유를 보여주고 상세로 가지 않는다.
  * onManage를 주면 카드 왼쪽 위에 관리 메뉴(⋯) 버튼이 생긴다.
  */
-export default function EventCard({ event, ticketsOwned, showCreatorTag = false, variant = 'carousel', onManage }) {
+export default function EventCard({ event, showCreatorTag = false, variant = 'carousel', onManage }) {
   const navigate = useNavigate()
   const creator = useCreatorProfile(event.creatorId)
   const published = Boolean(event.displayStatus)
@@ -29,6 +30,12 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
   // D-day 숫자를 보여줄 때는 상태 아이콘(번개) 없이 글자만 쓴다. 임박(D-DAY·D-1)일 때만 알람 아이콘을 붙인다.
   const badgeIcon = urgent ? 'alarm' : published && !closed && dday ? null : status.icon
   const prizeCount = totalPrizeQuantity(event.prizes)
+  // 진행 중이면 마감 시각 대신 1초마다 줄어드는 카운트다운을 보여준다. 응모 가능 여부의 최종 판정은 서버가 한다.
+  const live = event.displayStatus === 'IN_PROGRESS'
+  const now = useNow(live ? 1000 : 60000)
+  const countdown = live ? formatCountdown(event.endAt, now) : null
+  // 목록을 다시 받기 전에 마감 시각이 지나면 응모 버튼 대신 상세 보기로 바꾼다.
+  const deadlinePassed = live && countdown === null
 
   const cta = closed
     ? event.status === 'PUBLISHED'
@@ -36,7 +43,9 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
       : { label: '결과 준비 중', icon: 'hourglass_top' }
     : event.displayStatus === 'UPCOMING'
       ? { label: '오픈 예정 보기', icon: 'schedule' }
-      : { label: '응모하기', icon: 'touch_app' }
+      : deadlinePassed
+        ? { label: '이벤트 상세 보기', icon: 'chevron_right' }
+        : { label: '응모하기', icon: 'touch_app' }
 
   const open = () => navigate(`/events/${event.eventId}`)
 
@@ -61,7 +70,9 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
               {badgeIcon && <MaterialIcon name={badgeIcon} className="text-[12px]" />}
               <span className="font-bold">{!published || closed ? status.label : dday || status.label}</span>
             </span>
-            <span className="truncate">{formatShortDate(event.endAt, { withTime: true })} 마감</span>
+            {live
+              ? <span className={`truncate tabular-nums font-semibold ${urgent ? 'text-error' : 'text-primary'}`}>{countdown ?? '응모 마감'}</span>
+              : <span className="truncate">{formatShortDate(event.endAt, { withTime: true })} 마감</span>}
           </div>
         </div>
         {/* 뽑는 인원(winnerCount)이지 지원자 수가 아니다. 지원자 수는 공개 API가 주지 않아 '당첨 인원'으로 분명히 적는다. */}
@@ -99,7 +110,7 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
 
           <div
             className={`absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm font-label-xs text-label-xs ${
-              urgent ? 'bg-error text-on-error animate-pulse' : status.tone
+              urgent ? 'bg-error text-on-error' : status.tone
             }`}
           >
             {badgeIcon && <MaterialIcon name={badgeIcon} className="text-[12px]" />}
@@ -110,12 +121,6 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
             <span className="font-label-sm text-label-sm font-medium opacity-90">
               {formatNumber(event.winnerCount)}명 추첨
             </span>
-            {typeof ticketsOwned === 'number' && (
-              <div className="flex items-center gap-1 bg-black/30 backdrop-blur-md px-2 py-0.5 rounded-full">
-                <span className="text-[11px]">🎟</span>
-                <span className="font-label-xs text-label-xs font-semibold">보유 {formatNumber(ticketsOwned)}장</span>
-              </div>
-            )}
           </div>
         </div>
 
@@ -133,10 +138,17 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
           </div>
 
           <div className="flex items-center justify-between text-outline font-label-xs text-label-xs">
-            <span className="flex items-center gap-1">
-              <MaterialIcon name="event" className="text-[14px]" />
-              {formatEventDate(event.endAt)} 마감
-            </span>
+            {live ? (
+              <span className={`flex items-center gap-1 tabular-nums font-label-md text-label-md font-bold ${urgent ? 'text-error' : 'text-primary'}`}>
+                <MaterialIcon name="timer" className="text-[16px]" />
+                {countdown ?? '응모 마감'}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <MaterialIcon name="event" className="text-[14px]" />
+                {formatEventDate(event.endAt)} 마감
+              </span>
+            )}
             {prizeCount > 0 && <span>상품 {formatNumber(prizeCount)}개</span>}
           </div>
         </div>
@@ -148,7 +160,7 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
             type="button"
             onClick={open}
             className={`w-full py-2.5 rounded-xl font-label-md text-label-md font-semibold shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 ${
-              closed
+              closed || deadlinePassed
                 ? 'bg-surface-container text-on-surface-variant'
                 : 'bg-gradient-to-r from-primary to-[#e11d48] text-on-primary'
             }`}

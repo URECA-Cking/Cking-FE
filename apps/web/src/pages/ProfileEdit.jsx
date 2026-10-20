@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
+import ConfirmSheet from '../components/ui/ConfirmSheet.jsx'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import { Spinner } from '../components/ui/States.jsx'
@@ -110,6 +111,8 @@ function FanProfileEdit() {
   const nicknameError = !nicknameLocked && (touched || nicknameChanged) ? validateNickname(normalized) : null
   const imageChanged = pendingKey !== undefined
   const dirty = nicknameChanged || imageChanged
+  // 수정 내용을 버리고 나갈지 묻는 확인 시트가 열려 있는지.
+  const [confirmingLeave, setConfirmingLeave] = useState(false)
   // 방금 올린 사진은 미리보기(blob:) 주소로, 저장돼 있는 사진은 서버 주소가 http(s)일 때만 보여준다.
   const shownImage = pendingKey === null ? null : (previewUrl ?? toSafeHttpUrl(user?.profileImageUrl))
   // 오류 문구는 입력을 건드린 뒤에만 보이지만, 저장 가능 여부는 닉네임이 규칙을 지키는지로 항상 따진다(사진만 고른 설정 모드 방지).
@@ -188,10 +191,16 @@ function FanProfileEdit() {
     save(restorable)
   }
 
+  /** 뒤로가기: 수정한 내용이 있으면 확인 시트를 열고, 없으면 바로 나간다. */
   function handleBack() {
     // 저장·사진 업로드 중에 나가면 결과를 화면에 반영하지 못한다. 끝날 때까지 기다리게 한다.
     if (saving || photoBusy) return
-    if (dirty && !window.confirm('수정한 내용이 사라져요. 나갈까요?')) return
+    if (dirty) setConfirmingLeave(true)
+    else leave()
+  }
+
+  /** 이전 화면(기록이 없으면 진입 경로)으로 나간다. */
+  function leave() {
     const canGoBack = (window.history.state?.idx ?? 0) > 0
     if (canGoBack) navigate(-1)
     else navigate(from, { replace: true })
@@ -343,6 +352,17 @@ function FanProfileEdit() {
           )}
         </div>
       </form>
+      <ConfirmSheet
+        open={confirmingLeave}
+        title="수정한 내용이 사라져요"
+        message="저장하지 않고 나가면 수정한 내용이 사라져요."
+        confirmLabel="나가기"
+        onConfirm={() => {
+          setConfirmingLeave(false)
+          leave()
+        }}
+        onClose={() => setConfirmingLeave(false)}
+      />
     </div>
   )
 }

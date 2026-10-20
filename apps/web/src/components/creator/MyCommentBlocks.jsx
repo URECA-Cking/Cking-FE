@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
@@ -47,6 +48,8 @@ function BlockList({ activeOnly }) {
   // 이어 읽는 중에 목록이 바뀌면(해제 후 다시 맞춤) 늦게 도착한 옛 응답을 버리기 위한 세대 번호.
   const generation = useRef(0)
   const [releasingId, setReleasingId] = useState(null)
+  // 해제 확인 시트를 연 차단(없으면 null).
+  const [confirmingRelease, setConfirmingRelease] = useState(null)
 
   const hasNext = more.hasNext ?? Boolean(data?.hasNext)
   const items = [...(data?.items ?? []), ...more.items]
@@ -74,7 +77,6 @@ function BlockList({ activeOnly }) {
 
   async function release(block) {
     if (releasingId !== null) return
-    if (!window.confirm(`${block.memberName ?? '이 회원'}의 차단을 해제할까요?`)) return
     setReleasingId(block.sanctionId)
     try {
       const released = await releaseCommentBlock(block.sanctionId)
@@ -96,6 +98,7 @@ function BlockList({ activeOnly }) {
       showToast(commentBlockErrorMessage(releaseError, '차단을 해제하지 못했어요.'), { icon: 'error' })
     } finally {
       setReleasingId(null)
+      setConfirmingRelease(null)
     }
   }
 
@@ -131,7 +134,7 @@ function BlockList({ activeOnly }) {
               {status === 'ACTIVE' && (
                 <button
                   type="button"
-                  onClick={() => release(block)}
+                  onClick={() => setConfirmingRelease(block)}
                   disabled={releasingId !== null}
                   className="shrink-0 rounded-xl bg-surface-container px-3 py-2 font-label-sm text-label-sm font-semibold text-on-surface disabled:opacity-50"
                 >
@@ -142,6 +145,14 @@ function BlockList({ activeOnly }) {
           )
         })}
       </ul>
+      <ConfirmSheet
+        open={confirmingRelease !== null}
+        title={`${confirmingRelease?.memberName ?? '이 회원'}의 차단을 해제할까요?`}
+        confirmLabel="차단 해제"
+        busy={releasingId !== null}
+        onConfirm={() => release(confirmingRelease)}
+        onClose={() => setConfirmingRelease(null)}
+      />
       {more.error && <p className="font-label-xs text-label-xs text-error" role="alert">{more.error}</p>}
       {hasNext && (
         <button

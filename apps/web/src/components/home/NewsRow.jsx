@@ -43,9 +43,9 @@ export default function NewsRow({ creators, latestByCreator }) {
         <Link
           to="/onboarding/creators"
           aria-label="크리에이터 추가"
-          className="flex flex-col items-center flex-shrink-0 w-16"
+          className="flex flex-col items-center flex-shrink-0 w-[4.5rem]"
         >
-          <span className="w-12 h-12 rounded-full border border-dashed border-on-surface/20 flex items-center justify-center text-outline">
+          <span className="w-16 h-16 rounded-full border border-dashed border-on-surface/20 flex items-center justify-center text-outline">
             <MaterialIcon name="add" className="text-[22px]" />
           </span>
         </Link>

@@ -1,15 +1,13 @@
 /** 크리에이터 목록 필터 선택지. */
-export const CREATOR_FILTERS = ['전체', '도킹', '진행 중']
+export const CREATOR_FILTERS = ['전체', '도킹']
 
 /**
- * 필터 칩별 개수. 관심은 서버 팔로우 목록 수, 전체·진행 중은 받은 크리에이터 목록에서 센다.
- * 진행 중은 서버가 센 openEventCount를 쓰고, 없는 구버전 BE에서는 받아 온 최근 이벤트 기준이라 실제보다 적을 수 있다.
+ * 필터 칩별 개수. 관심은 서버 팔로우 목록 수, 전체는 받은 크리에이터 목록에서 센다.
  */
 export function creatorFilterCounts(creators, followedCreatorIds) {
   return {
     전체: creators.length,
     도킹: followedCreatorIds.length,
-    '진행 중': creators.filter((creator) => creator.openEventCount > 0).length,
   }
 }
 
@@ -33,14 +31,11 @@ export function sortExploreCreators(creators, sortId) {
   return [...creators].sort(compare)
 }
 
-/** 탐색 Creator 필터는 이미 받은 목록과 UserContext의 관심 Creator ID만으로 처리한다. '진행 중'은 이벤트가 열린 Creator만 남긴다. */
+/** 탐색 Creator 필터는 이미 받은 목록과 UserContext의 관심 Creator ID만으로 처리한다. */
 export function filterExploreCreators(creators, followedCreatorIds, filter, query) {
   const keyword = query.trim().toLowerCase()
   return creators.filter((creator) => {
-    const matchesFilter =
-      filter === '도킹' ? followedCreatorIds.includes(creator.creatorId)
-        : filter === '진행 중' ? creator.openEventCount > 0
-          : true
+    const matchesFilter = filter === '도킹' ? followedCreatorIds.includes(creator.creatorId) : true
     const matchesQuery = !keyword || creator.name.toLowerCase().includes(keyword)
     return matchesFilter && matchesQuery
   })

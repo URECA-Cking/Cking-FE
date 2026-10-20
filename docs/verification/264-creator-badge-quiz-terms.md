@@ -1,5 +1,15 @@
 # Issue #264 화면 검증
 
+## 최신 develop 우선 병합 (2026-10-20)
+
+- 기준 develop: `718cbf2`. 충돌은 develop 변경을 우선하고, 삭제된 `useVisibleCreatorIds.js`와 기존 생성 진입 버튼을 복원하지 않았다.
+- Creator Space의 공통 `CreateFab`(`+`) 진입 버튼, 댓글·이벤트 UI 정리, 공통 바텀시트·날짜·캘린더 변경을 유지했다. 진입 버튼 접근성 이름도 develop 값을 유지하고 관련 Quiz 테스트를 맞췄다. Quiz 생성 시트의 제목·제출 버튼과 목록 revision 숨김은 유지한다.
+- 탐색 화면에서 유지되는 배지 사용처에 누락된 공통 배지 import를 보완했다.
+- `npm run lint`, `npm run build:web`, `git diff --check` 통과. lint는 기존 Notifications 1건, CreatorPosts 2건 경고가 남는다.
+- Web `node --test --test-concurrency=2 test/quizJobComponents.test.js test/quizContentReviewComponents.test.js test/eventPrizeKeysComponents.test.js test/eventDetailUi.test.js test/quizCloseComponents.test.js test/quizRevisionContentReview.test.js test/bottomSheetCalendarComponents.test.js`: 108건 통과.
+- Web `node --test test/quizRevisionContentReview.test.js test/quizJobs.test.js test/postCommentCount.test.js test/formatShortDate.test.js`: 38건 통과(앞 실행의 원문 검토 5건과 중복). 실제 BE·Provider E2E와 전체 스위트는 미실행이다.
+- 아래 화면 캡처와 기존 자동 검증 기록은 이전 develop 기준의 기록이며, 최신 병합 후 화면을 다시 촬영한 결과가 아니다.
+
 - 기준: `task/264-creator-badge-quiz-terms`, 2026-10-20. 최신 develop `c4ed5ba` 병합 후 마이페이지의 제거된 응모권 영역과 Creator 전환 노출 조건을 유지했다.
 - Chrome headless, 모바일 390 × 844, Vite 개발 Mock(`?mock=creator`, 전환 블록은 팬 `?mock=1`). 실제 BE 및 유료 AI Provider 호출은 수행하지 않았다.
 - Creator Space의 기존 `verified` 채움 아이콘·primary 색상·모바일/데스크톱 크기를 공통 컴포넌트로 공유한다. 아이콘에는 `인증된 크리에이터` 접근성 이름을 제공한다.

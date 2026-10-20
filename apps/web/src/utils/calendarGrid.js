@@ -1,3 +1,5 @@
+import { formatDateTime } from './format.js'
+
 // 월 단위 캘린더 그리드 공용 로직. 일정이 있는 날짜에 점을 찍는 화면(CreatorCalendar, MyCalendar)에서 함께 쓴다.
 // 날짜 구분·표시는 사용자 브라우저 시간대 기준이다(일정의 startAt·endAt은 UTC Instant).
 
@@ -43,20 +45,11 @@ export function moveMonthSelection(month, offset, today) {
   return { month: next, selectedKey: dayKey(isCurrentMonth ? today : next) }
 }
 
-/** 일정 시각(UTC Instant)을 사용자 브라우저 시간대의 "오전 11:00" 형식으로 보여준다. */
-export function formatScheduleTime(iso) {
-  return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-}
+/** 일정 시작·종료 시각도 공통 날짜·시간 서식을 사용한다. */
+export const formatScheduleTime = formatDateTime
 
-/** 같은 날이면 "오전 11:00 – 오후 02:00", 여러 날에 걸치면 날짜를 함께 보여준다. */
 export function formatScheduleRange(schedule) {
-  const start = new Date(schedule.startAt)
-  const end = new Date(schedule.endAt)
-  if (dayKey(start) === dayKey(new Date(end.getTime() - 1))) {
-    return `${formatScheduleTime(schedule.startAt)} – ${formatScheduleTime(schedule.endAt)}`
-  }
-  const date = (d) => `${d.getMonth() + 1}/${d.getDate()}`
-  return `${date(start)} ${formatScheduleTime(schedule.startAt)} – ${date(end)} ${formatScheduleTime(schedule.endAt)}`
+  return `${formatDateTime(schedule.startAt)} – ${formatDateTime(schedule.endAt)}`
 }
 
 /** after 이후에 시작하는 일정 중 가장 빠른 날(브라우저 시간대 기준)의 일정을 모두 시작 시각순으로(없으면 빈 배열). */

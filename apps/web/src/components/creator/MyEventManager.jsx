@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import CreateFab from '../ui/CreateFab.jsx'
 import BottomSheet from '../ui/BottomSheet.jsx'
 import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import EventCard from './EventCard.jsx'
@@ -81,12 +82,7 @@ export default function MyEventManager() {
 
   return (
     <div className="flex flex-col gap-space-md">
-      <Link
-        to="/creator/events/new"
-        className="flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-primary font-label-md text-label-md font-bold text-on-primary shadow-md transition-all active:scale-[0.98]"
-      >
-        <MaterialIcon name="add" className="text-[20px]" />새 이벤트 작성
-      </Link>
+      <CreateFab label="새 이벤트 만들기" to="/creator/events/new" />
 
       {loading && <LoadingBlock label="내 이벤트를 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}

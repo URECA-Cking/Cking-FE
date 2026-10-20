@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import { MonthGrid } from '../calendar/MonthCalendar.jsx'
+import CreateFab from '../ui/CreateFab.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import ScheduleEditorSheet from './ScheduleEditorSheet.jsx'
 import ConfirmSheet from '../ui/ConfirmSheet.jsx'
@@ -173,15 +175,7 @@ export default function CreatorCalendar({ creatorId, isMine = false }) {
 
   return (
     <div className="flex flex-col gap-space-md px-margin py-space-sm md:mx-auto md:w-full md:max-w-3xl">
-      {isMine && (
-        <button
-          type="button"
-          onClick={() => setEditor({ schedule: null })}
-          className="flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-primary font-label-md text-label-md font-bold text-on-primary shadow-md transition-all active:scale-[0.98]"
-        >
-          <MaterialIcon name="add" className="text-[20px]" />새 일정 등록
-        </button>
-      )}
+      {isMine && <CreateFab label="새 일정 등록" onClick={() => setEditor({ schedule: null })} />}
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -204,49 +198,14 @@ export default function CreatorCalendar({ creatorId, isMine = false }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-y-1 p-space-sm rounded-2xl bg-surface-container-lowest shadow-card text-center">
-        {WEEKDAYS.map((weekday, index) => (
-          <span
-            key={weekday}
-            className={`font-label-xs text-label-xs font-semibold py-1 ${
-              index === 0 ? 'text-error' : index === 6 ? 'text-secondary' : 'text-on-surface-variant'
-            }`}
-          >
-            {weekday}
-          </span>
-        ))}
-        {cells.map((cell) => {
-          if (cell.blank) return <span key={cell.key} />
-          const selected = cell.key === selectedKey
-          const daySchedules = schedulesByDay.get(cell.key) ?? []
-          return (
-            <button
-              key={cell.key}
-              type="button"
-              onClick={() => setSelectedKey(cell.key)}
-              aria-pressed={selected}
-              aria-label={`${month.getMonth() + 1}월 ${cell.day}일${daySchedules.length ? `, 일정 ${daySchedules.length}개` : ''}`}
-              className="flex flex-col items-center gap-0.5 py-1 min-h-[44px]"
-            >
-              <span
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-label-md text-label-md ${
-                  selected ? 'bg-primary text-on-primary font-bold' : 'text-on-surface'
-                }`}
-              >
-                {cell.day}
-              </span>
-              <span className="flex gap-0.5 h-1.5">
-                {daySchedules.slice(0, 3).map((schedule) => (
-                  <span
-                    key={schedule.scheduleId}
-                    className={`w-1.5 h-1.5 rounded-full ${scheduleTypeMeta(schedule.scheduleType).bgClass}`}
-                  />
-                ))}
-              </span>
-            </button>
-          )
-        })}
-      </div>
+      <MonthGrid
+        month={month}
+        cells={cells}
+        selectedKey={selectedKey}
+        schedulesByDay={schedulesByDay}
+        onSelect={setSelectedKey}
+        today={today}
+      />
 
       {selectedDate && (
         <span className="font-label-md text-label-md font-bold text-on-surface">
@@ -314,11 +273,6 @@ export default function CreatorCalendar({ creatorId, isMine = false }) {
           <MaterialIcon name="chevron_right" className="text-[14px]" />
         </Link>
       )}
-
-      <div className="flex items-center gap-2 p-space-sm rounded-xl bg-surface-container-low">
-        <MaterialIcon name="info" className="text-secondary text-[18px]" />
-        <span className="font-label-xs text-label-xs text-on-surface-variant">응모가 있는 추첨 행사는 이벤트 탭에서 확인해요.</span>
-      </div>
 
       {isMine && (
         <ConfirmSheet

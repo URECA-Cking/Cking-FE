@@ -68,6 +68,8 @@ for(const change of ['profile','banner','both','none'])test(`independent images 
   assert.equal(request.body.bannerImageKey,change==='banner'||change==='both'?'banner-new':undefined)
   await p.getByRole('button',{name:'Reload saved space'}).click()
   await p.waitForFunction(()=>window.calls.some(x=>x.method==='GET'&&x.path==='/api/creator/space'))
+  // GET 시작이 아니라 새 시트의 재마운트까지 기다린 뒤 이미지 대체 상태를 검사한다.
+  await p.getByTestId('space-reload-version').filter({hasText:'1'}).waitFor()
   const expectedProfile=change==='profile'||change==='both'?'https://images.test/profile-new.png':base.profileImageUrl
   const expectedBanner=change==='banner'||change==='both'?'https://images.test/banner-new.png':base.bannerImageUrl
   await p.waitForFunction(({profile,banner})=>document.querySelector('[aria-label="프로필 사진 변경"] img')?.src===profile&&document.querySelector('[aria-label="배너 이미지 변경"] img')?.src===banner,{profile:expectedProfile,banner:expectedBanner})
@@ -81,6 +83,8 @@ test('profile save with broken existing banner keeps stored URL and neutral bann
   await p.waitForFunction(()=>window.toasts.includes('스페이스 정보를 저장했어요.'))
   await p.getByRole('button',{name:'Reload saved space'}).click()
   await p.waitForFunction(()=>window.calls.some(x=>x.method==='GET'&&x.path==='/api/creator/space'))
+  // GET 시작이 아니라 새 시트의 재마운트까지 기다린 뒤 이미지 대체 상태를 검사한다.
+  await p.getByTestId('space-reload-version').filter({hasText:'1'}).waitFor()
   await p.waitForFunction(()=>!document.querySelector('[aria-label="배너 이미지 변경"] img')||document.querySelector('[aria-label="배너 이미지 변경"] img').src.includes('profile'))
   assert.equal(await banner(p).locator('img').count(),0)
   assert.equal(await p.evaluate(()=>window.spaceRecord.bannerImageUrl),base.bannerImageUrl)

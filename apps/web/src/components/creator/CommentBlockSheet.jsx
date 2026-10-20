@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import MaterialIcon from '../ui/MaterialIcon.jsx'
+import { useState } from 'react'
+import BottomSheet from '../ui/BottomSheet.jsx'
 import {
   BLOCK_DAYS_MAX,
   BLOCK_DAYS_MIN,
@@ -14,7 +14,7 @@ const inputClass =
 /**
  * 스페이스에서 회원의 댓글 작성·수정을 일정 기간 막는 창(Cking-BE sanction/api.md '크리에이터 스페이스 댓글 차단 API'·'관리자 스페이스 댓글 차단 API').
  * 게시글 주인(크리에이터)과 관리자가 함께 쓰며, 호출할 API는 createBlock으로 받는다(관리자는 스페이스를 직접 지정해야 한다).
- * 게시글 상세 모달(z-60) 위에 떠야 해서 신고 창처럼 따로 둔다. 차단해도 이미 쓴 댓글은 그대로 남는다.
+ * 게시글 상세 위에 공통 바텀시트로 표시한다. 차단해도 이미 쓴 댓글은 그대로 남는다.
  * 이미 유효한 차단이 있으면 서버가 새로 만들지 않고 기존 차단을 돌려주므로, 완료 뒤에는 돌려받은 차단의 종료 시각을 안내한다.
  *
  * @param {{ memberName: string | null, createBlock: (days: number) => Promise<object>,
@@ -24,21 +24,6 @@ export default function CommentBlockSheet({ memberName, createBlock, onClose, on
   const [daysText, setDaysText] = useState(String(BLOCK_DAYS_PRESETS[1]))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const dialogRef = useRef(null)
-
-  // 열리면 대화상자로 포커스를 옮기고(스크린리더가 안내), Esc로 닫는다. 차단을 보내는 중에는 닫지 않는다.
-  useEffect(() => {
-    dialogRef.current?.focus()
-  }, [])
-  useEffect(() => {
-    if (submitting) return undefined
-    function onKeyDown(event) {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [submitting, onClose])
-
   const days = parseBlockDays(daysText)
   const canSubmit = days !== null && !submitting
   const target = memberName || '이 회원'
@@ -58,32 +43,8 @@ export default function CommentBlockSheet({ memberName, createBlock, onClose, on
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex flex-col justify-end bg-black/50 md:items-center md:justify-center"
-      onClick={submitting ? undefined : onClose}
-    >
-      <section
-        ref={dialogRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label="댓글 차단"
-        className="mx-auto flex outline-none max-h-[85dvh] w-full max-w-[480px] flex-col gap-space-md overflow-y-auto rounded-t-[28px] bg-surface-container-lowest p-space-md pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] shadow-2xl md:rounded-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="font-title-md text-title-md font-semibold text-on-surface">{target} 차단</h2>
-          <button
-            type="button"
-            aria-label="닫기"
-            onClick={onClose}
-            disabled={submitting}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant disabled:opacity-50"
-          >
-            <MaterialIcon name="close" className="text-[20px]" />
-          </button>
-        </div>
-
+    <BottomSheet open title={`${target} 차단`} onClose={submitting ? undefined : onClose}>
+      <div className="flex flex-col gap-space-md">
         <p className="font-body-sm text-body-sm text-on-surface-variant">
           정한 기간 동안 이 스페이스에서 댓글을 쓰거나 수정할 수 없어요. 이미 쓴 댓글은 그대로 남고, 다른 스페이스에서는 쓸 수 있어요.
           이미 차단 중이면 기존 차단이 유지돼요.
@@ -144,7 +105,7 @@ export default function CommentBlockSheet({ memberName, createBlock, onClose, on
             {submitting ? '차단하는 중...' : '차단하기'}
           </button>
         </div>
-      </section>
-    </div>
+      </div>
+    </BottomSheet>
   )
 }

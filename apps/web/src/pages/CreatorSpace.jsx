@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
+import SpaceHeaderBackdrop from '../components/creator/SpaceHeaderBackdrop.jsx'
 import BackButton from '../components/ui/BackButton.jsx'
 import { useAppBack } from '../hooks/useAppBack.js'
 import EventCard from '../components/creator/EventCard.jsx'
@@ -21,7 +22,6 @@ import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { loadCreatorSpace } from '../api/creators.js'
 import { getCreatorSpace, getMySpace, spacePath, spaceShareUrl } from '../api/creatorSpace.js'
-import { getCreatorPosts } from '../api/posts.js'
 import { completeShareMission, getCreatorMissions } from '../api/missions.js'
 import { getCreatorYoutubeChannel } from '../api/subscriptionVerification.js'
 import { getTicketBalance } from '../api/tickets.js'
@@ -179,12 +179,6 @@ export default function CreatorSpace() {
   const [shareRewardBusy, setShareRewardBusy] = useState(false)
   // DUPLICATE_MISSION을 받아 서버의 완료 기록을 확인하는 중인 { memberId, creatorId }. 서버가 완료로 확인하기 전에는 "완료"로 바꾸지 않는다.
   const [shareChecking, setShareChecking] = useState(null)
-  // 프로필 통계의 게시물 수는 목록 응답의 totalElements를 쓴다(1건만 요청). 실패하면 그 칸만 숨긴다.
-  const postTotal = useAsync(
-    () => getCreatorPosts(creatorId, { size: 1 }),
-    [creatorId, authenticated],
-    { enabled: creatorId !== null },
-  )
   const ticketBalance = balance.data?.balance ?? 0
   const likeMissions = useMemo(() => (missions ?? []).filter((mission) => mission.type === 'LIKE'), [missions])
   const shareMission = useMemo(() => (missions ?? []).find((mission) => mission.type === 'SHARE') ?? null, [missions])
@@ -287,12 +281,6 @@ export default function CreatorSpace() {
     }
   }, [creatorName, creatorSlug])
 
-  // 값이 없는 통계는 칸 자체를 숨긴다. 팔로워 수는 스페이스 조회 응답의 followerCount가 숫자일 때만 나타난다(0 포함).
-  const profileStats = [
-    typeof postTotal.data?.totalElements === 'number' && { label: '게시물', value: postTotal.data.totalElements },
-    typeof creator?.followerCount === 'number' && { label: '팬', value: creator.followerCount },
-    creator && !creator.eventsError && { label: '진행 이벤트', value: liveEvents.length },
-  ].filter(Boolean)
 
   if (loading) {
     return (
@@ -567,7 +555,7 @@ export default function CreatorSpace() {
           type="button"
           onClick={handleFollow}
           disabled={authenticated && (!followsReady || pendingFollowIds.has(creator.creatorId) || (isCreator && !mySpace.data))}
-          className={`flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 md:flex-none md:px-5 ${
+          className={`flex h-11 w-[calc((100%-3.25rem)/2)] shrink-0 items-center justify-center gap-1.5 rounded-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto md:flex-none md:px-5 ${
             following ? 'bg-surface-container-highest text-on-surface' : 'bg-primary text-on-primary'
           }`}
         >
@@ -719,20 +707,14 @@ export default function CreatorSpace() {
 
       <div className="pt-14 flex flex-col w-full md:mx-auto md:max-w-[935px]">
         <FollowStatus />
-        {/* 좁은 화면: 아바타·통계 → 이름·소개 → 버튼 행. md 이상: 왼쪽 큰 아바타, 오른쪽에 이름+버튼 / 통계 / 소개를 쌓는다(인스타 웹). */}
-        <section className="flex flex-col gap-space-sm px-margin pt-space-md md:grid md:grid-cols-[auto_minmax(0,1fr)] md:gap-x-16 md:gap-y-4 md:px-8 md:pb-6 md:pt-10">
+        {/* 배너를 배경으로 깔고 그 위에 올린다. 좁은 화면: 아바타 → 이름·소개 → 버튼 행. md 이상: 왼쪽 큰 아바타, 오른쪽에 이름+버튼 / 소개를 쌓는다(인스타 웹). */}
+        <div className="relative">
+        <SpaceHeaderBackdrop src={creator.bannerImageUrl} />
+        <section className="relative flex flex-col gap-space-sm px-margin pb-space-sm pt-space-lg md:grid md:grid-cols-[auto_minmax(0,1fr)] md:gap-x-16 md:gap-y-4 md:px-8 md:pb-6 md:pt-10">
           <div className="flex items-center gap-space-lg md:contents">
-            <div className="h-20 w-20 shrink-0 rounded-full border border-surface-container-high bg-surface-container p-0.5 md:col-start-1 md:row-span-3 md:row-start-1 md:mx-6 md:h-36 md:w-36 md:p-1">
+            <div className="h-20 w-20 shrink-0 rounded-full border border-surface-container-high bg-surface-container p-0.5 md:col-start-1 md:row-span-2 md:row-start-1 md:mx-6 md:h-36 md:w-36 md:p-1">
               <ProfilePhoto src={creator.profileImageUrl} className="h-full w-full" iconClassName="text-[40px] md:text-[72px]" />
             </div>
-            <dl className="flex flex-1 justify-around text-center md:col-start-2 md:row-start-2 md:flex-none md:justify-start md:gap-10 md:text-left">
-              {profileStats.map((stat) => (
-                <div key={stat.label} className="flex flex-col md:flex-row md:items-baseline md:gap-1.5">
-                  <dd className="font-title-md text-title-md font-bold text-on-surface">{formatNumber(stat.value)}</dd>
-                  <dt className="font-label-sm text-label-sm font-normal text-on-surface-variant md:text-body-md">{stat.label}</dt>
-                </div>
-              ))}
-            </dl>
           </div>
           <div className="flex flex-col gap-0.5 md:contents">
             <div className="flex items-center gap-1 md:col-start-2 md:row-start-1 md:gap-5">
@@ -742,13 +724,14 @@ export default function CreatorSpace() {
               </span>
               <div className="hidden md:flex md:items-center md:gap-space-xs">{actions}</div>
             </div>
-            <div className="md:col-start-2 md:row-start-3">
+            <div className="md:col-start-2 md:row-start-2">
               <span className="block font-label-xs text-label-xs text-outline">@{creator.slug}</span>
               <ProfileIntro text={creator.introText} />
             </div>
           </div>
           <div className="md:hidden">{actions}</div>
         </section>
+        </div>
 
         {/* 탭이 늘어나도 좁은 화면에서 가로로 스크롤되는 밑줄 탭(유튜브 채널·위버스 방식). */}
         <div className="mt-space-md sticky top-14 z-40 bg-surface/95 backdrop-blur-xl border-b border-surface-container-high">
@@ -829,11 +812,6 @@ export default function CreatorSpace() {
                   <MaterialIcon name="local_activity" className="text-tertiary text-[20px]" />
                   <h2 className="font-title-md text-title-md text-on-surface">진행 중 이벤트</h2>
                 </div>
-                {!creator.eventsError && (
-                  <span className="font-label-xs text-label-xs text-primary font-semibold">
-                    총 {liveEvents.length}개 진행중
-                  </span>
-                )}
               </div>
               {creator.eventsError ? (
                 <ErrorBlock message="이벤트를 불러오지 못했어요." onRetry={reload} />
@@ -880,7 +858,6 @@ export default function CreatorSpace() {
         {tab === 'posts' && !sessionLoading && (
           <CreatorPosts
             key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}:${authenticated}:${following}:${isMine}`}
-            onPostCountChange={postTotal.reload}
             onMissionAwarded={handleLikeMissionAwarded}
             creatorId={creator.creatorId}
             creatorName={creator.creatorName}

@@ -67,7 +67,7 @@ for(const status of ['PUBLISHED','UNPUBLISHED','NOT_PUBLISHED','CLOSED'])test(`$
   }finally{await p.close()}
 })
 test('마감 모달 취소와 Escape는 POST 없이 돌아온다',async()=>{
-  const p=await screen();try{await confirm(p);const dialog=p.getByRole('dialog');await dialog.getByText('마감 후에는 재게시할 수 없어요.',{exact:false}).waitFor();await dialog.getByRole('button',{name:'취소',exact:true}).click();assert.equal((await posts(p)).length,0);await confirm(p);await p.keyboard.press('Escape');await p.getByRole('dialog').waitFor({state:'detached'});assert.equal((await posts(p)).length,0)}finally{await p.close()}
+  const p=await screen();try{await confirm(p);const dialog=p.getByRole('dialog',{name:'Quiz를 마감할까요?',exact:true});await dialog.getByText('마감 후에는 재게시할 수 없어요.',{exact:false}).waitFor();await dialog.getByRole('button',{name:'취소',exact:true}).click();assert.equal((await posts(p)).length,0);await confirm(p);await p.keyboard.press('Escape');await p.getByRole('dialog',{name:'Quiz를 마감할까요?',exact:true}).waitFor({state:'detached'});assert.equal((await posts(p)).length,0)}finally{await p.close()}
 })
 test('확정 연타는 close POST 한 번이며 성공 후 상세와 목록을 갱신한다',async()=>{
   const p=await screen();try{await confirm(p);await p.evaluate(()=>window.hold=true);await button(p,'마감 확정').evaluate(el=>{el.click();el.click()});await p.waitForFunction(()=>window.calls.some(c=>c.path.endsWith('/close')));assert.equal(await button(p,'처리하는 중...').isDisabled(),true);assert.equal((await posts(p)).length,1);await p.evaluate(()=>window.reply());await p.getByText('마감된 Quiz는 재게시할 수 없어요.',{exact:false}).waitFor();assert.equal(await button(p,'게시 중지').count(),0);assert.equal(await p.evaluate(()=>window.changed),1);assert.ok(await p.evaluate(()=>window.calls.filter(c=>c.path==='/api/creator/quizzes/1'&&c.method==='GET').length>=2));assert.equal((await posts(p))[0].body,undefined)}finally{await p.close()}
@@ -111,13 +111,13 @@ for(const action of ['approval','judge','edit'])test(`다른 탭 마감 후 ${ac
 })
 test('마감 모달은 초점 순환·취소 복귀와 요청 중 Escape 차단을 제공한다',async()=>{
   const p=await screen();try{
-    await confirm(p);assert.equal(await p.getByRole('dialog').getByRole('button',{name:'닫기',exact:true}).evaluate(el=>el===document.activeElement),true)
+    await confirm(p);assert.equal(await p.getByRole('dialog',{name:'Quiz를 마감할까요?',exact:true}).evaluate(el=>el===document.activeElement),true)
     await p.keyboard.press('Shift+Tab');assert.equal(await button(p,'마감 확정').evaluate(el=>el===document.activeElement),true)
     await p.keyboard.press('Escape');assert.equal(await button(p,'마감하기').evaluate(el=>el===document.activeElement),true)
     await confirm(p);await p.evaluate(()=>window.hold=true);await button(p,'마감 확정').click()
-    await p.getByRole('dialog').evaluate(el=>el.focus());await p.keyboard.press('Escape')
-    assert.equal(await p.getByRole('dialog').count(),1)
-    await p.evaluate(()=>window.reply());await p.getByRole('dialog').waitFor({state:'detached'})
+    await p.getByRole('dialog',{name:'Quiz를 마감할까요?',exact:true}).evaluate(el=>el.focus());await p.keyboard.press('Escape')
+    assert.equal(await p.getByRole('dialog',{name:'Quiz를 마감할까요?',exact:true}).count(),1)
+    await p.evaluate(()=>window.reply());await p.getByRole('dialog',{name:'Quiz를 마감할까요?',exact:true}).waitFor({state:'detached'})
   }finally{await p.close()}
 })
 
@@ -160,7 +160,7 @@ test('F1: 정상 CLOSED 상세 재조회는 서버 마감 시각과 동기화하
     await p.evaluate(()=>window.quizGets[0]({...window.quiz,closedAt:'2026-10-20T03:04:00Z'}))
     await p.waitForFunction(()=>window.changed===1)
     await assertClosedAcrossRevisions(p)
-    await p.getByText(/2026\.\s*10\.\s*20\./).waitFor()
+    await p.getByText(/26\.10\.20\./).waitFor()
   } finally {await p.close()}
 })
 test('F1: 같은 시트에서 다른 Quiz로 바꿔도 CLOSED가 섞이지 않고 이전 조회 응답을 무시한다',async()=>{

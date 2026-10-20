@@ -2,10 +2,9 @@ import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
-import EntryStatusCard from '../components/ticket/EntryStatusCard.jsx'
 import BottomSheet from '../components/ui/BottomSheet.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
-import { LoadingBlock, ErrorBlock, StatusPill, Spinner, InlineRetry } from '../components/ui/States.jsx'
+import { LoadingBlock, ErrorBlock, StatusPill, Spinner } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useMyTickets } from '../context/useMyTickets.js'
 import { useAsync } from '../hooks/useAsync.js'
@@ -137,7 +136,7 @@ export default function EventDetail() {
   if (loading) {
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe">
-        <BackHeader title="Raffle Detail" onBack={() => navigate(-1)} />
+        <BackHeader title="" onBack={() => navigate(-1)} />
         <LoadingBlock label="이벤트를 불러오는 중..." />
       </div>
     )
@@ -207,7 +206,7 @@ export default function EventDetail() {
       const entries = expected.eventId === eventId ? expected.entries : {}
       const plan = planEntry(source, entries, chosenType, ticketCount)
       if (!plan) {
-        showToast('보유한 응모권이 없어요. 응모권을 먼저 모아주세요!', { icon: 'error' })
+        showToast('보유한 응모권이 없어 응모할 수 없어요.', { icon: 'error' })
         return
       }
       // 시트를 열 때 종류·수량·그때의 잔액을 확정해 둔다. 응모 성공 뒤 잔액이 바뀌어도 시트 표시와
@@ -290,7 +289,7 @@ export default function EventDetail() {
 
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-32">
-      <BackHeader title="Raffle Detail" onBack={() => navigate(-1)} />
+      <BackHeader title="" onBack={() => navigate(-1)} />
       <div className="pt-14 flex flex-col w-full">
         <div className="relative w-full aspect-[16/9] overflow-hidden bg-surface-container">
           <img className="w-full h-full object-cover" src={getEventBanner(event.eventId)} alt="" />
@@ -311,16 +310,6 @@ export default function EventDetail() {
                 상품 {formatNumber(prizeCount)}개
               </span>
             )}
-          </div>
-          <div className="absolute bottom-space-md left-space-md right-space-md flex items-center justify-between text-white">
-            <div className="flex items-center gap-space-xs">
-              <MaterialIcon name="verified" className="text-berry-glow text-[18px]" />
-              <span className="font-label-sm text-label-sm tracking-wide text-white/95">공식 아티스트 래플 이벤트</span>
-            </div>
-            <div className="flex items-center gap-1 bg-surface-glass-dark px-2 py-0.5 rounded-full backdrop-blur-md text-white/90 font-label-xs text-label-xs">
-              <MaterialIcon name="casino" className="text-[14px]" />
-              <span>{event.drawMethod === 'WEIGHTED' ? '가중 난수 추첨' : event.drawMethod}</span>
-            </div>
           </div>
         </div>
 
@@ -345,46 +334,11 @@ export default function EventDetail() {
               <span className="text-outline-variant">•</span>
               <span>{formatEventDate(event.endAt)} 마감</span>
             </div>
-            {event.displayStatus !== 'UPCOMING' && (
-              <div className="pt-space-xs">
-                {entryStatus.failed
-                  ? <InlineRetry message="응모 현황을 확인하지 못했어요." onRetry={entryStatus.retry} />
-                  : <EntryStatusCard status={entryStatus.status} />}
-              </div>
-            )}
             {event.description && (
               <p className="font-body-md text-body-md text-on-surface-variant pt-1 leading-relaxed whitespace-pre-wrap">
                 {event.description}
               </p>
             )}
-          </div>
-
-          <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-card flex items-center justify-between gap-space-sm">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-berry-tint flex items-center justify-center text-primary shrink-0">
-                <MaterialIcon name="confirmation_number" className="text-[26px]" />
-              </div>
-              <div className="flex flex-col gap-1 min-w-0">
-                {[COUPON_TYPE.CREATOR, COUPON_TYPE.COMMON].map((type) => (
-                  <div key={type} className="flex items-baseline gap-1.5 min-w-0">
-                    <span className="font-label-sm text-label-sm text-on-surface-variant truncate">
-                      {type === COUPON_TYPE.CREATOR ? '크리에이터' : '공용'}
-                    </span>
-                    <span className="font-title-lg text-title-lg font-extrabold text-on-surface">
-                      {formatNumber(balances[type])}
-                    </span>
-                    <span className="font-label-md text-label-md font-bold text-primary">장</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <Link
-              to={`/creators/${event.creatorId}`}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl bg-berry-tint text-primary hover:bg-primary hover:text-on-primary transition-all active:scale-95 shadow-sm shrink-0 whitespace-nowrap"
-            >
-              <MaterialIcon name="add_circle" className="text-[18px]" />
-              <span className="font-label-sm text-label-sm font-bold">응모권 더 받기</span>
-            </Link>
           </div>
 
           {canApply && (
@@ -491,8 +445,7 @@ export default function EventDetail() {
               <div className="flex items-start gap-2 pt-1 text-slate-muted">
                 <MaterialIcon name="priority_high" className="text-[16px] text-outline shrink-0 mt-0.5" />
                 <p className="font-label-xs text-label-xs leading-normal">
-                  안내: 사용한 응모권은 응모 완료 후 취소 및 환불할 수 없으며, 이벤트 종료 후 당첨자는 앱 알림으로
-                  개별 고지됩니다.
+                  응모 완료 시 사용된 응모권은 취소 또는 환불이 불가합니다.
                 </p>
               </div>
             </div>
@@ -507,28 +460,15 @@ export default function EventDetail() {
                     ? `아직 응모가 열리지 않았어요. ${formatEventDate(event.startAt)}에 시작됩니다.`
                     : closed
                       ? '응모가 마감된 이벤트예요. 결과가 공개되면 알림으로 알려드릴게요.'
-                      : '보유한 응모권이 없어 응모할 수 없어요. 응모권을 먼저 모아주세요.'}
+                      : '보유한 응모권이 없어 응모할 수 없어요.'}
                 </p>
-                {isEntryOpen(event) && !hasAnyTicket && (
-                  <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    <Link
-                      to={`/creators/${event.creatorId}`}
-                      className="font-label-sm text-label-sm font-semibold text-primary"
-                    >
-                      크리에이터 미션 하러 가기
-                    </Link>
-                    <Link to="/" className="font-label-sm text-label-sm font-semibold text-primary">
-                      출석 미션 하러 가기
-                    </Link>
-                  </div>
-                )}
               </div>
             </div>
           )}
 
           {event.prizes?.length > 0 && (
             <div className="p-space-md rounded-2xl bg-surface-container-low flex flex-col gap-3">
-              <span className="font-title-md text-title-md font-bold text-on-surface">응모 상세 혜택</span>
+              <span className="font-title-md text-title-md font-bold text-on-surface">이벤트 경품</span>
               <div className="grid grid-cols-2 gap-2.5">
                 {event.prizes.map((prize) => (
                   <div
@@ -538,7 +478,7 @@ export default function EventDetail() {
                     <MaterialIcon name="redeem" className="text-primary text-[22px]" />
                     <span className="font-label-md text-label-md font-bold text-on-surface">{prize.displayName}</span>
                     <span className="font-label-xs text-label-xs text-slate-muted">
-                      {formatNumber(prize.quantity)}개 · 가중치 {formatNumber(prize.weight)}
+                      {formatNumber(prize.quantity)}개
                     </span>
                   </div>
                 ))}
@@ -616,19 +556,15 @@ export default function EventDetail() {
             className="w-full h-12 rounded-xl bg-gradient-to-r from-primary via-primary-container to-berry-glow text-on-primary font-title-md text-title-md font-bold flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             <MaterialIcon name="confirmation_number" filled className="text-[20px]" />
-            <span>{canApply ? `🎟️ ${selectedCount}장으로 응모하기` : '응모할 수 없는 상태예요'}</span>
+            <span>{canApply ? `${selectedCount}장으로 응모하기` : '응모할 수 없는 상태예요'}</span>
         </button>
         </div>
-          <p className="text-center font-label-xs text-label-xs text-slate-muted">
-            당첨 발표는 앱 알림으로 개별 안내됩니다.
-          </p>
         </div>
       </div>
 
       <BottomSheet
         open={sheetOpen}
         onClose={phase === 'submitting' ? undefined : () => setSheetOpen(false)}
-        eyebrow="Raffle Confirmation"
         title="응모 확인"
       >
         <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 mb-space-md">
@@ -683,8 +619,7 @@ export default function EventDetail() {
         <div className="bg-gold-badge-bg rounded-xl p-space-md mb-space-lg flex items-start gap-space-sm">
           <MaterialIcon name="warning" className="text-[20px] text-gold-badge flex-shrink-0 mt-0.5" />
           <p className="font-body-sm text-body-sm text-tertiary-container leading-relaxed">
-            응모 완료 시 사용된 응모권은 취소 또는 환불이 불가하며, 이벤트 종료 후 공정 난수 추첨 알고리즘을 통해
-            투명하게 선정됩니다.
+            응모 완료 시 사용된 응모권은 취소 또는 환불이 불가합니다.
           </p>
         </div>
 
@@ -710,7 +645,7 @@ export default function EventDetail() {
           </div>
         )}
 
-        {phase !== 'idle' && (
+        {phase !== 'idle' && !result?.accepted && (
           <div className="flex flex-col gap-space-sm">
             <div
               className={`w-full rounded-xl p-space-md flex items-center gap-space-md ${
@@ -734,11 +669,11 @@ export default function EventDetail() {
                 <span className="font-label-sm text-label-sm text-on-surface font-bold">
                   {phase === 'submitting' ? '응모 처리 중...' : result?.message}
                 </span>
-                <p className="font-label-xs text-label-xs text-on-surface-variant truncate">
-                  {phase === 'submitting'
-                    ? '중복 입력을 방지하기 위해 잠시만 기다려주세요'
-                    : `결과 코드: ${result?.code}`}
-                </p>
+                {phase === 'submitting' && (
+                  <p className="font-label-xs text-label-xs text-on-surface-variant truncate">
+                    중복 입력을 방지하기 위해 잠시만 기다려주세요
+                  </p>
+                )}
               </div>
             </div>
 

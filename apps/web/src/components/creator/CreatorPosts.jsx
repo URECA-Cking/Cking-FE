@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import CreateFab from '../ui/CreateFab.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../ui/States.jsx'
 import PostComments from './PostComments.jsx'
@@ -26,7 +27,7 @@ function modalSize(ratio, hasMedia) {
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 /** 크리에이터 게시물 목록과 상세, 작성·수정·삭제 및 좋아요 상태를 관리한다. */
-export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostCountChange, onMissionAwarded }) {
+export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
@@ -152,15 +153,12 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     setLocal((current) => edited
       ? { ...current, updated: { ...current.updated, [saved.postId]: saved } }
       : { ...current, created: [saved, ...current.created] })
-    // 새 글은 프로필의 게시물 수도 바뀐다(수정은 개수가 그대로).
-    if (!edited) onPostCountChange?.()
     refreshQuietly()
   }
 
   /** 삭제된 게시물을 목록에서 제외하고 서버 목록을 재조회한다. */
   function markDeleted(postId) {
     setLocal((current) => ({ ...current, deleted: [...current.deleted, postId] }))
-    onPostCountChange?.()
     refreshQuietly()
   }
 
@@ -293,17 +291,10 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }
 
   return (
-    <div className="flex flex-col pb-space-md">
+    <div className="flex flex-col pb-space-md pt-space-sm">
       {/* 목록이 보일 때만 쓰기를 열어, 저장한 글이 화면에 반영되지 못하는 상태를 만들지 않는다. */}
       {isMine && !first.loading && !first.error && page && (
-        <button
-          type="button"
-          onClick={() => setEditor({ post: null })}
-          className="mx-margin my-space-sm flex items-center justify-center gap-1.5 rounded-lg bg-surface-container py-2.5 font-label-md text-label-md font-semibold text-on-surface active:scale-[0.98]"
-        >
-          <MaterialIcon name="add" className="text-[18px]" />
-          새 게시글
-        </button>
+        <CreateFab label="새 게시글" onClick={() => setEditor({ post: null })} />
       )}
       {(first.loading || (!page && !first.error)) && <LoadingBlock label="게시글을 불러오는 중..." />}
       {!first.loading && first.error && <ErrorBlock message={first.error} onRetry={reloadFirst} />}
@@ -311,7 +302,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
         <EmptyBlock icon="grid_view" message="아직 게시글이 없어요." />
       )}
       {!first.loading && !first.error && page && posts.length > 0 && (
-        <div className="grid grid-cols-3 gap-0.5 md:gap-1">
+        <div className="grid grid-cols-3 gap-0.5 px-margin md:gap-1">
           {posts.map((post) => (
             <PostGridTile key={post.postId} post={post} onOpen={() => openDetail(post.postId)} onImageError={handleThumbError} />
           ))}
@@ -486,16 +477,7 @@ function Caption({ content }) {
   )
 }
 
-/** 모바일 작성자 줄에 맞게 작성 시각을 월·일과 24시간 시·분으로 짧게 표시한다. */
-function formatCompactPostTime(value) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return formatDateTime(value)
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${month}.${day} ${hours}:${minutes}`
-}
+const formatCompactPostTime = formatDateTime
 
 /** 작성자 이름 옆에 작성 시각을 보여주고, 내 글이면 공개 범위와 수정·삭제 메뉴를 제공한다. */
 function AuthorRow({ creatorName, profileImageUrl, createdAt, visibility, isMine, onEdit, onDelete, deleting }) {
@@ -556,8 +538,18 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
   /** 이미지 재조회에서 접근 제한을 확인하면 본문과 댓글을 숨긴다. */
   const handleRestricted = useCallback(() => setRestricted(true), [])
   const commentsRef = useRef(null)
-  /** 댓글 버튼을 누르면 이미 표시된 댓글 영역으로 스크롤한다. */
-  const scrollToComments = () => commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  // 댓글 영역은 기본으로 접는다. 펼친 게시글의 id를 기억해, 다른 게시글로 넘어가면 다시 접힌 상태가 된다.
+  const [openCommentsPostId, setOpenCommentsPostId] = useState(null)
+  const commentsOpen = openCommentsPostId === post.postId
+  /** 댓글 버튼을 누르면 하트 아래에서 댓글 영역을 펼치거나 접는다. 펼칠 때는 배치가 끝난 뒤 그 위치로 스크롤한다. */
+  const toggleComments = () => {
+    if (commentsOpen) {
+      setOpenCommentsPostId(null)
+      return
+    }
+    setOpenCommentsPostId(post.postId)
+    requestAnimationFrame(() => commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
   const locked = post.locked || restricted
   const hasMedia = !locked && post.imageCount > 0
   const hasLikes = typeof post.likeCount === 'number'
@@ -616,8 +608,9 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
                 )}
                 <button
                   type="button"
-                  aria-label="댓글로 이동"
-                  onClick={scrollToComments}
+                  aria-label={commentsOpen ? '댓글 접기' : '댓글 열기'}
+                  aria-expanded={commentsOpen}
+                  onClick={toggleComments}
                   className="flex items-center gap-1.5 font-label-md text-label-md text-on-surface active:scale-95"
                 >
                   <MaterialIcon name="chat_bubble" className="text-[22px]" />
@@ -626,7 +619,10 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
               </div>
           </>
         )}
-        {!locked && <div ref={commentsRef} className="px-margin pb-space-sm">{children}</div>}
+        {!locked && (
+          // 접어도 마운트를 유지해 쓰던 댓글 입력이 사라지지 않게 한다.
+          <div ref={commentsRef} hidden={!commentsOpen} className="px-margin pb-space-sm">{children}</div>
+        )}
       </article>
       </div>
     </>

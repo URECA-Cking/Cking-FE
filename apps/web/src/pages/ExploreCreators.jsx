@@ -12,7 +12,7 @@ import { describeError } from '../api/client.js'
 import { formatNumber } from '../utils/format.js'
 import { CREATOR_FILTERS, CREATOR_SORTS, creatorFilterCounts, filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
 
-// 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
+// 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘리며, 끝까지 펼치면 같은 자리의 '접기'로 되돌린다.
 const PAGE_SIZE = 30
 
 /**
@@ -86,13 +86,13 @@ export default function ExploreCreators() {
             onToggle={handleToggleFollow}
           />
         ))}
-        {creators.length > shown.length && (
+        {creators.length > PAGE_SIZE && (
           <button
             type="button"
-            onClick={() => setLimit((current) => current + PAGE_SIZE)}
+            onClick={() => setLimit((current) => (creators.length > current ? current + PAGE_SIZE : PAGE_SIZE))}
             className="h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
           >
-            더 보기 ({formatNumber(creators.length - shown.length)}명 남음)
+            {creators.length > shown.length ? `더 보기 (${formatNumber(creators.length - shown.length)}명 남음)` : '접기'}
           </button>
         )}
       </div>

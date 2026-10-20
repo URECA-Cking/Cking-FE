@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import QuizContentReviewSheet from './QuizContentReviewSheet.jsx'
 import { isAwaitingContentReview, clearReviewDraft } from '../../utils/quizContentReview.js'
 import BottomSheet from '../ui/BottomSheet.jsx'
-import MaterialIcon from '../ui/MaterialIcon.jsx'
+import CreateFab from '../ui/CreateFab.jsx'
 import { Spinner, StatusPill } from '../ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { newRequestId } from '../../api/client.js'
@@ -369,14 +369,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
 
   return (
     <div className="flex flex-col gap-space-sm">
-      <button
-        type="button"
-        onClick={() => openForm(EMPTY_FORM)}
-        disabled={!canStart}
-        className="flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-primary font-label-md text-label-md font-bold text-on-primary shadow-md transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <MaterialIcon name="auto_awesome" className="text-[20px]" />AI Quiz 생성
-      </button>
+      <CreateFab label="AI Quiz 만들기" onClick={() => openForm(EMPTY_FORM)} disabled={!canStart} />
 
       {recoveryError && <div role="alert"><p>{recoveryError}</p><button onClick={() => generationId ? openReview() : recoverCurrent()}>다시 확인</button></div>}
       {reviewJob?.generationId === generationId && <QuizContentReviewSheet key={reviewJob.generationId} creatorId={creatorId} job={reviewJob} storage={storage} drafts={reviewDrafts}

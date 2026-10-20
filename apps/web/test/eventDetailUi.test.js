@@ -15,32 +15,40 @@ test.before(async()=>{
  browser=await chromium.launch({headless:true,...executablePath?{executablePath}:{}})
 })
 test.after(async()=>{await browser?.close();assert.deepEqual(errors,[])})
-async function screen({balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,width=375,endAt='2099-01-01T00:00:00Z',clockTime=null}={}){
+async function screen({balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,width=375,endAt='2099-01-01T00:00:00Z',clockTime=null,myTicketCount=5,failStatus=false,prizes=[{prizeKey:'GRAND',displayName:'Grand prize',priority:1,quantity:2,weight:99}]}={}){
  const p=await browser.newPage({viewport:{width,height:1000}})
  p.on('pageerror',e=>errors.push(e.message))
  if(clockTime)await p.clock.install({time:new Date(clockTime)})
  await p.route('**/*',r=>r.request().isNavigationRequest()?r.fulfill({contentType:'text/html',body:'<div id="root"></div>'}):r.abort())
  await p.goto('http://localhost/event-test')
- await p.evaluate(({balance,description,status,displayStatus,failDetail,endAt})=>{
+ await p.evaluate(({balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes})=>{
   window.calls=[];window.toasts=[];window.entryCode='SUCCESS';window.holdEntry=false
-  const record={eventId:16,creatorId:1,title:'Event title',description,status,displayStatus,startAt:'2026-01-01T00:00:00Z',endAt,winnerCount:1,drawMethod:'WEIGHTED',myTicketBalance:balance,myCommonTicketBalance:0,prizes:[{prizeKey:'GRAND',displayName:'Grand prize',quantity:2,weight:99}]}
+  const record={eventId:16,creatorId:1,title:'Event title',description,status,displayStatus,startAt:'2026-01-01T00:00:00Z',endAt,winnerCount:1,drawMethod:'WEIGHTED',myTicketBalance:balance,myCommonTicketBalance:0,prizes}
+  const acceptedRequests=new Set()
   window.fetch=async(url,options={})=>{
    const path=new URL(String(url),location.href).pathname,method=options.method??'GET'
    window.calls.push({path,method,body:options.body&&JSON.parse(options.body)})
    const reply=(data,code='SUCCESS',http=200)=>new Response(JSON.stringify({code,data}),{status:http})
    if(path==='/api/events/16/entries'){
     if(window.holdEntry)await new Promise(resolve=>window.releaseEntry=resolve)
+    const request=JSON.parse(options.body)
+    if(['SUCCESS','DUPLICATE_REPLAY'].includes(window.entryCode)&&!acceptedRequests.has(request.requestId)){
+     acceptedRequests.add(request.requestId)
+     myTicketCount+=request.ticketCount
+     const balanceKey=request.couponType==='COMMON'?'myCommonTicketBalance':'myTicketBalance'
+     record[balanceKey]-=request.ticketCount
+    }
     return reply({},window.entryCode)
    }
    if(path==='/api/events/16'){
     if(window.holdBalance)await new Promise(resolve=>window.releaseBalance=resolve)
     return failDetail?reply(null,'SYSTEM_ERROR',500):reply({...record,myTicketBalance:window.nextBalance??record.myTicketBalance})
    }
-   if(path==='/api/events/16/entry-status')return reply({eventId:16,participantCount:7,totalTicketCount:20,myTicketCount:0,realtime:true})
+   if(path==='/api/events/16/entry-status')return failStatus&&!window.retryStatus?reply(null,'SYSTEM_ERROR',500):reply({eventId:16,participantCount:7,totalTicketCount:20,myTicketCount,realtime:true})
    if(path==='/api/creators')return reply({items:[{creatorId:1,creatorName:'Creator',slug:'creator',profileImageUrl:null}],totalPages:1})
    return reply(null)
   }
- },{balance,description,status,displayStatus,failDetail,endAt})
+ },{balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes})
  await p.addStyleTag({content:styles});await p.addScriptTag({content:bundle})
  await p.getByRole('button',{name:failDetail?'다시 시도':'뒤로가기',exact:true}).waitFor()
  return p
@@ -62,7 +70,7 @@ test('detail UI removes decorations and keeps title/date/introduction/prizes on 
    assert.equal(await mainButton(p).textContent().then(x=>x.includes('🎟')),false)
     assert.equal(await p.getByText('크리에이터',{exact:true}).count(),0)
     assert.equal(await p.getByText('공용',{exact:true}).count(),0)
-   const order=await p.getByText('Event introduction',{exact:true}).evaluate(el=>{const heading=document.querySelector('h2');return Boolean(heading.compareDocumentPosition(el)&Node.DOCUMENT_POSITION_FOLLOWING)&&el.previousElementSibling.textContent.includes('마감')})
+   const order=await p.getByText('Event introduction',{exact:true}).evaluate(el=>{const heading=document.querySelector('h2');return Boolean(heading.compareDocumentPosition(el)&Node.DOCUMENT_POSITION_FOLLOWING)})
    assert.equal(order,true)
    assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true)
    await openConfirm(p)
@@ -168,7 +176,7 @@ test('entry selection opens separately, preserves quantity on confirmation cance
   await p.getByText('Event title',{exact:true}).waitFor()
   assert.equal(await p.getByRole('heading',{name:'사용할 응모권 수',exact:true}).count(),0)
   await p.getByText('마감까지',{exact:true}).waitFor()
-  assert.equal((await p.getByText(/오픈$/).first().textContent()).includes('2026'),false)
+  assert.equal((await p.getByRole('region',{name:'응모기간',exact:true}).textContent()).includes('2026'),false)
   await mainButton(p).click()
   await p.getByRole('button',{name:'응모권 1장 증가',exact:true}).click()
   await p.getByRole('button',{name:'2장으로 응모하기',exact:true}).click()
@@ -232,5 +240,70 @@ for(const reopen of [false,true])test(`uncertain request preserves identical UUI
   assert.equal(requests.length,2)
   assert.deepEqual(requests[1],first)
   await p.getByRole('dialog',{name:'응모 확인',exact:true}).waitFor({state:'hidden'})
+ }finally{await p.close()}
+})
+
+
+for(const width of [375,1280])test(`detail shows my ticket total, countdown, entry period and draggable ranked prizes ${width}px`,async()=>{
+ const p=await screen({width,myTicketCount:12,prizes:[{prizeKey:'THIRD',displayName:'Third prize',priority:3,quantity:3},{prizeKey:'FIRST',displayName:'First prize',priority:1,quantity:1},{prizeKey:'SECOND',displayName:'Second prize',priority:2,quantity:2}]})
+ try{
+  await p.getByRole('region',{name:'내 응모',exact:true}).getByText('12장',{exact:true}).waitFor()
+  assert.equal(await p.getByText(/참여자|7명 참여/).count(),0)
+  const order=await p.evaluate(()=>{
+   const nodes=[document.querySelector('h2'),[...document.querySelectorAll('p')].find(x=>x.textContent==='Event introduction'),document.querySelector('[aria-label="내 응모"]'),document.querySelector('[role="timer"]'),document.querySelector('[aria-label="응모기간"]'),document.querySelector('[aria-label="이벤트 경품"]')]
+   return nodes.every((el,i)=>el&&(i===0||Boolean(nodes[i-1].compareDocumentPosition(el)&Node.DOCUMENT_POSITION_FOLLOWING)))
+  })
+  assert.equal(order,true)
+  const period=p.getByRole('region',{name:'응모기간',exact:true})
+  assert.equal((await period.textContent()).includes('26.01'),false)
+  const prizes=p.getByRole('region',{name:'이벤트 경품',exact:true})
+  assert.deepEqual(await prizes.getByRole('listitem').allTextContents(),['redeem1등First prize1개','redeem2등Second prize2개','redeem3등Third prize3개'])
+  assert.equal(await prizes.getByText(/가중치/).count(),0)
+  await prizes.scrollIntoViewIfNeeded()
+  assert.equal(await prizes.getByRole('button').count(),0)
+  const slider=prizes.getByRole('list',{name:'경품 목록',exact:true})
+  const box=await slider.boundingBox()
+  await p.mouse.move(box.x+box.width*0.85,box.y+box.height/2)
+  await p.mouse.down()
+  await p.mouse.move(box.x+box.width*0.15,box.y+box.height/2,{steps:8})
+  assert.ok(await slider.evaluate(el=>el.scrollLeft)>0)
+  await p.mouse.up()
+  await p.mouse.move(box.x+box.width*0.15,box.y+box.height/2)
+  await p.mouse.down()
+  await p.mouse.move(box.x+box.width*0.95,box.y+box.height/2,{steps:8})
+  await p.mouse.up()
+  await p.waitForFunction(()=>document.querySelector('[aria-label="이벤트 경품"] ul').scrollLeft===0)
+  await slider.focus()
+  await slider.press('ArrowRight')
+  await p.waitForFunction(()=>document.querySelector('[aria-label="이벤트 경품"] ul').scrollLeft>0)
+ }finally{await p.close()}
+})
+
+test('my entry query failure does not show a false zero and supports retry',async()=>{
+ const p=await screen({failStatus:true,myTicketCount:8})
+ try{
+  const mine=p.getByRole('region',{name:'내 응모',exact:true})
+  await mine.getByText('조회하지 못했어요.',{exact:true}).waitFor()
+  assert.equal(await mine.getByText('0장',{exact:true}).count(),0)
+  await p.evaluate(()=>window.retryStatus=true)
+  await mine.getByRole('button',{name:'다시 확인',exact:true}).click()
+  await mine.getByText('8장',{exact:true}).waitFor()
+ }finally{await p.close()}
+})
+
+
+for(const theme of ['dark','light'])test(`accepted additional entries refresh my ticket total in ${theme} mode`,async()=>{
+ const p=await screen({myTicketCount:5})
+ try{
+  await p.evaluate(theme=>document.documentElement.dataset.theme=theme,theme)
+  const mine=p.getByRole('region',{name:'내 응모',exact:true})
+  await mine.getByText('5장',{exact:true}).waitFor()
+  for(const total of [6,7]){
+   await openConfirm(p)
+   await p.getByRole('button',{name:'응모 확정',exact:true}).click()
+   await p.getByRole('dialog',{name:'응모 확인',exact:true}).waitFor({state:'hidden'})
+   await mine.getByText(`${total}장`,{exact:true}).waitFor()
+  }
+  assert.equal((await posts(p)).length,2)
  }finally{await p.close()}
 })

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import MaterialIcon from '../ui/MaterialIcon.jsx'
+import BottomSheet from '../ui/BottomSheet.jsx'
 import { ApiError, describeError } from '../../api/client.js'
 import {
   COMMENT_REPORT_DETAIL_MAX,
@@ -18,7 +18,7 @@ function describeReportError(error) {
 
 /**
  * 댓글 신고 창(Cking-BE comment-api.md '댓글 신고').
- * 게시글 상세 모달(z-60) 위에 떠야 해서 BottomSheet(z-40) 대신 따로 둔다.
+ * 게시글 상세 위에 공통 바텀시트로 표시한다.
  * 신고는 댓글의 노출 상태를 바꾸지 않으므로 접수되면 안내만 하고 닫는다.
  *
  * @param {{ creatorId: number, postId: number, commentId: number,
@@ -55,30 +55,8 @@ export default function CommentReportSheet({ creatorId, postId, commentId, onClo
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex flex-col justify-end bg-black/50 md:items-center md:justify-center"
-      onClick={submitting ? undefined : onClose}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="댓글 신고"
-        className="mx-auto flex max-h-[85dvh] w-full max-w-[480px] flex-col gap-space-md overflow-y-auto rounded-t-[28px] bg-surface-container-lowest p-space-md pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] shadow-2xl md:rounded-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="font-title-md text-title-md font-semibold text-on-surface">댓글 신고</h2>
-          <button
-            type="button"
-            aria-label="닫기"
-            onClick={onClose}
-            disabled={submitting}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant disabled:opacity-50"
-          >
-            <MaterialIcon name="close" className="text-[20px]" />
-          </button>
-        </div>
-
+    <BottomSheet open title="댓글 신고" onClose={submitting ? undefined : onClose}>
+      <div className="flex flex-col gap-space-md">
         <fieldset className="flex flex-col gap-2" disabled={submitting}>
           <legend className="mb-1 font-body-sm text-body-sm text-on-surface-variant">신고 사유를 선택해주세요.</legend>
           {COMMENT_REPORT_REASONS.map((item) => (
@@ -135,7 +113,7 @@ export default function CommentReportSheet({ creatorId, postId, commentId, onClo
             {submitting ? '신고하는 중...' : '신고하기'}
           </button>
         </div>
-      </section>
-    </div>
+      </div>
+    </BottomSheet>
   )
 }

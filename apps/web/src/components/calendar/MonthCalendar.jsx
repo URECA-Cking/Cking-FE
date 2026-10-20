@@ -1,12 +1,12 @@
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { scheduleTypeMeta } from '../../api/calendar.js'
-import { WEEKDAYS, formatScheduleTime } from '../../utils/calendarGrid.js'
+import { WEEKDAYS, dayKey, formatScheduleTime } from '../../utils/calendarGrid.js'
 
-// 월 단위 캘린더 화면(MyCalendar)이 쓰는 표시 컴포넌트.
+// 내 캘린더와 크리에이터 스페이스 캘린더가 함께 쓰는 표시 컴포넌트.
 // 상태(선택한 날짜·조회 데이터)는 각 화면이 들고 있고, 여기서는 받은 값을 그리기만 한다.
 
-/** 이전/다음 달 이동과 "오늘" 버튼. */
-export function MonthNav({ month, onMove, onToday }) {
+/** 이전/다음 달 이동. */
+export function MonthNav({ month, onMove }) {
   return (
     <>
       <div className="flex items-center justify-between">
@@ -31,26 +31,19 @@ export function MonthNav({ month, onMove, onToday }) {
         </button>
       </div>
 
-      <button
-        type="button"
-        onClick={onToday}
-        className="self-start px-3 py-1.5 rounded-full bg-surface-container text-on-surface-variant font-label-xs text-label-xs font-semibold active:scale-[0.98] transition-all"
-      >
-        오늘
-      </button>
     </>
   )
 }
 
 /** 요일 머리글과 날짜 칸. 일정이 있는 날에는 일정 종류 색의 점을 최대 3개 찍는다. */
-export function MonthGrid({ month, cells, selectedKey, schedulesByDay, onSelect }) {
+export function MonthGrid({ month, cells, selectedKey, schedulesByDay, onSelect, today = new Date() }) {
   return (
     <div className="grid grid-cols-7 gap-y-1 p-space-sm rounded-2xl bg-surface-container-lowest shadow-card text-center">
       {WEEKDAYS.map((weekday, index) => (
         <span
           key={weekday}
           className={`font-label-xs text-label-xs font-semibold py-1 ${
-            index === 0 ? 'text-error' : index === 6 ? 'text-secondary' : 'text-on-surface-variant'
+            index === 0 ? 'text-error' : index === 6 ? 'calendar-saturday' : 'text-on-surface-variant'
           }`}
         >
           {weekday}
@@ -59,6 +52,7 @@ export function MonthGrid({ month, cells, selectedKey, schedulesByDay, onSelect 
       {cells.map((cell) => {
         if (cell.blank) return <span key={cell.key} />
         const selected = cell.key === selectedKey
+        const isToday = cell.key === dayKey(today)
         const daySchedules = schedulesByDay.get(cell.key) ?? []
         return (
           <button
@@ -66,12 +60,13 @@ export function MonthGrid({ month, cells, selectedKey, schedulesByDay, onSelect 
             type="button"
             onClick={() => onSelect(cell.key)}
             aria-pressed={selected}
+            aria-current={isToday ? 'date' : undefined}
             aria-label={`${month.getMonth() + 1}월 ${cell.day}일${daySchedules.length ? `, 일정 ${daySchedules.length}개` : ''}`}
             className="flex flex-col items-center gap-0.5 py-1 min-h-[44px]"
           >
             <span
               className={`w-8 h-8 rounded-full flex items-center justify-center font-label-md text-label-md ${
-                selected ? 'bg-primary text-on-primary font-bold' : 'text-on-surface'
+                selected ? 'bg-primary text-on-primary font-bold' : isToday ? 'ring-2 ring-inset ring-primary text-on-surface' : 'text-on-surface'
               }`}
             >
               {cell.day}

@@ -477,16 +477,7 @@ function Caption({ content }) {
   )
 }
 
-/** 모바일 작성자 줄에 맞게 작성 시각을 월·일과 24시간 시·분으로 짧게 표시한다. */
-function formatCompactPostTime(value) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return formatDateTime(value)
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${month}.${day} ${hours}:${minutes}`
-}
+const formatCompactPostTime = formatDateTime
 
 /** 작성자 이름 옆에 작성 시각을 보여주고, 내 글이면 공개 범위와 수정·삭제 메뉴를 제공한다. */
 function AuthorRow({ creatorName, profileImageUrl, createdAt, visibility, isMine, onEdit, onDelete, deleting }) {

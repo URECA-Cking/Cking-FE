@@ -620,25 +620,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
 }
 
 function CloseConfirmation({ busy, onClose, onConfirm }) {
-  const dialog = useRef(null)
-  useEffect(() => {
-    const previous = document.activeElement
-    dialog.current?.querySelector('button')?.focus()
-    return () => { if (previous?.isConnected) previous.focus() }
-  }, [])
-  useEffect(() => { if (busy) dialog.current?.focus() }, [busy])
-  function handleKey(event) {
-    if (event.key === 'Escape') { event.stopPropagation(); if (!busy) onClose() }
-    if (event.key === 'Tab') {
-      const buttons = [...dialog.current.querySelectorAll('button:not(:disabled)')]
-      const next = buttons.indexOf(document.activeElement) + (event.shiftKey ? -1 : 1)
-      event.preventDefault()
-      buttons[(next + buttons.length) % buttons.length]?.focus()
-    }
-  }
-  return <div ref={dialog} role="dialog" aria-modal="true" aria-label="Quiz를 마감할까요?" tabIndex={-1} onKeyDown={handleKey}>
-    <ConfirmSheet open title="Quiz를 마감할까요?" message="마감 후에는 재게시할 수 없어요. 팬의 신규 응시는 차단되며, 기존 응시 기록과 보상은 유지돼요." confirmLabel="마감 확정" busy={busy} onClose={onClose} onConfirm={onConfirm} />
-  </div>
+  return <ConfirmSheet open title="Quiz를 마감할까요?" message="마감 후에는 재게시할 수 없어요. 팬의 신규 응시는 차단되며, 기존 응시 기록과 보상은 유지돼요." confirmLabel="마감 확정" busy={busy} onClose={onClose} onConfirm={onConfirm} />
 }
 
 function JudgeSection({ judge, evaluation, action, readOnly = false }) {

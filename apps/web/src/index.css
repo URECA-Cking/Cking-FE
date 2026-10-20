@@ -458,3 +458,7 @@
 @media (prefers-reduced-motion: no-preference) {
   .animate-welcome-in { animation: welcome-in 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 }
+
+/* 캘린더 토요일 글씨는 각 테마에서 읽기 쉬운 파란색을 쓴다. */
+.calendar-saturday { color: #60a5fa; }
+:root[data-theme='light'] .calendar-saturday { color: #2563eb; }

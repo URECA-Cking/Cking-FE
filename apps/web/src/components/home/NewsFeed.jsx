@@ -16,7 +16,7 @@ function splitContent(post, hasImage) {
 }
 
 /**
- * 팔로우한 크리에이터의 게시물을 최신순 가로 카드로. 카드를 누르면 그 크리에이터 스페이스의 게시물 탭으로 간다.
+ * 팔로우한 크리에이터의 게시물을 최신순 가로 카드로. 카드를 누르면 그 크리에이터 스페이스의 게시물 탭에서 해당 게시물 상세를 연다.
  * 사진이 있는 글은 본문 오른쪽에 작은 썸네일을, 사진만 있는 글은 본문 영역 전체를 사진으로 채운다.
  * 이미 가져온 크리에이터별 최근 글을 그대로 쓰므로 추가 호출이 없다.
  */
@@ -43,7 +43,7 @@ export default function NewsFeed({ creators, posts }) {
             <Link
               key={post.postId}
               to={spacePath(creator.handle)}
-              state={{ tab: 'posts' }}
+              state={{ tab: 'posts', openPostId: post.postId }}
               className="flex min-h-[7.5rem] w-52 flex-shrink-0 flex-col rounded-2xl border border-on-surface/10 bg-surface-container p-3.5 active:opacity-80 transition-opacity"
             >
               <span className="mb-2.5 flex items-center gap-1.5 min-w-0">

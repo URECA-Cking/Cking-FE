@@ -174,7 +174,7 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-label-md text-label-md font-semibold text-on-surface">YouTube 구독 인증</p>
-          <p className="font-label-xs text-label-xs text-secondary">🎟 응모권 +{mission.rewardAmount}</p>
+          <p className="font-label-xs text-label-xs text-secondary">응모권 +{mission.rewardAmount}</p>
           <a href={channel.channelUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex max-w-full items-center gap-1 font-label-xs text-label-xs text-primary underline underline-offset-2">
             <span className="truncate">{channel.channelName} · {channel.channelHandle}</span>
             <MaterialIcon name="open_in_new" className="text-[14px]" />

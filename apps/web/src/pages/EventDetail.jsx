@@ -327,7 +327,6 @@ export default function EventDetail() {
             <span
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-label-xs text-label-xs shadow-md ${status.tone}`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
               {status.label} {!closed && dday}
             </span>
             <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface-glass backdrop-blur-md text-on-surface font-label-xs text-label-xs shadow-sm">
@@ -406,7 +405,8 @@ export default function EventDetail() {
             </div>
           </section>
 
-          {!canApply && (
+          {/* 결과가 공개되면 아래 당첨 결과 카드가 안내를 대신하므로 "결과가 공개되면 알려드릴게요" 안내는 숨긴다. */}
+          {!canApply && !published && (
             <div className="p-space-md rounded-2xl bg-surface-container-low flex items-start gap-space-sm">
               <MaterialIcon name="info" className="text-on-surface-variant text-body-sm leading-relaxed shrink-0" />
               <div className="flex flex-col gap-2">
@@ -546,7 +546,6 @@ export default function EventDetail() {
               <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
                   <h3 className="font-title-lg text-title-lg font-bold text-on-surface">사용할 응모권 수</h3>
                 </div>
               </div>
@@ -626,7 +625,7 @@ export default function EventDetail() {
                   onClick={() => setTicketCount(limit)}
                   className="py-2.5 rounded-xl bg-primary/10 text-primary font-label-md text-label-md font-bold active:scale-95 hover:bg-primary hover:text-on-primary transition-all"
                 >
-                  일괄 사용 ({formatNumber(limit)}장)
+                  일괄 사용
                 </button>
               </div>
 

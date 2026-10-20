@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import CreateFab from '../ui/CreateFab.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../ui/States.jsx'
@@ -16,6 +17,11 @@ import { adjustCommentCount, applyCommentCount, reconcileCommentCounts } from '.
 const MEDIA_RATIO_RANGE = [0.8, 1.91]
 const INFO_PANEL_WIDTH = 400
 
+/** 이벤트 시각(`event.timeStamp`)과 같은 기준의 현재 시각(ms). 시각이 넘어오지 않은 호출의 대체값이다. */
+function monotonicNow() {
+  return performance.now()
+}
+
 /** 게시물 이미지 비율과 유무에 맞춰 데스크톱 상세 창의 크기를 계산한다. */
 function modalSize(ratio, hasMedia) {
   if (!hasMedia) return { '--modal-w': '560px', '--modal-h': 'min(92dvh, 720px)' }
@@ -27,7 +33,7 @@ function modalSize(ratio, hasMedia) {
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 /** 크리에이터 게시물 목록과 상세, 작성·수정·삭제 및 좋아요 상태를 관리한다. */
-export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded }) {
+export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded, initialPostId = null, onInitialPostOpened }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
@@ -35,6 +41,8 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   // editor: null(닫힘) | { post: null }(작성) | { post }(수정)
   const [editor, setEditor] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
+  // 삭제 확인 시트를 연 게시물(없으면 null).
+  const [confirmingDelete, setConfirmingDelete] = useState(null)
   const [local, setLocal] = useState(NO_LOCAL_CHANGES)
   // 좋아요·취소 응답으로 받은 liked·likeCount. 목록과 상세에 같은 값을 보이려고 postId별로 덮어쓴다.
   const [likeOverrides, setLikeOverrides] = useState({})
@@ -163,11 +171,13 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }
 
   // 이미지 주소는 10분만 유효하다. 썸네일이 실패하면 목록을 다시 받아 새 주소로 바꾼다(60초에 한 번만, 다시 실패해도 반복하지 않는다).
-  const lastThumbRefresh = useRef(0)
+  const lastThumbRefresh = useRef(-Infinity)
   /** 썸네일 주소가 만료되면 일정 간격을 두고 목록을 다시 읽는다. */
-  function handleThumbError() {
-    if (sync !== 'synced' || Date.now() - lastThumbRefresh.current < 60_000) return
-    lastThumbRefresh.current = Date.now()
+  function handleThumbError(timeStamp) {
+    // 시각이 넘어오지 않아도 NaN으로 제한이 풀리지 않게 현재 시각으로 대신한다.
+    const now = Number.isFinite(timeStamp) ? timeStamp : monotonicNow()
+    if (sync !== 'synced' || now - lastThumbRefresh.current < 60_000) return
+    lastThumbRefresh.current = now
     refreshQuietly()
   }
 
@@ -222,6 +232,15 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     }
   }
 
+  // 홈 새 게시물 카드처럼 특정 게시물을 가리키며 들어오면 마운트 직후 그 상세를 연다. 한 번 열면 라우터 상태에서 지운다.
+  useEffect(() => {
+    if (initialPostId == null) return
+    openDetail(initialPostId)
+    onInitialPostOpened?.()
+    // 진입 시 한 번만 연다. openDetail은 렌더마다 새로 만들어지지만 이 효과는 initialPostId 변화에만 반응한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPostId])
+
   // 좋아요·취소는 서버 응답의 liked·likeCount를 그대로 반영한다(낙관적 갱신 없음). 처리 중에는 버튼을 막아 연타로 상태가 어긋나지 않게 한다.
   /** 서버의 좋아요·취소 응답으로 목록과 상세의 좋아요 상태를 갱신한다. */
   async function handleLike(post) {
@@ -244,10 +263,9 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     }
   }
 
-  /** 삭제 확인 후 게시물을 삭제하고 상세와 목록을 갱신한다. */
+  /** 확인 시트에서 승인된 게시물을 삭제하고 상세와 목록을 갱신한다. */
   async function handleDelete(post) {
     if (deletingId != null) return
-    if (!window.confirm('이 게시글을 삭제할까요? 삭제하면 이미지와 댓글도 함께 사라지고 되돌릴 수 없어요.')) return
     setDeletingId(post.postId)
     try {
       await deletePost(post.postId)
@@ -259,6 +277,8 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
       showToast(notFound ? POST_ERROR_MESSAGES.RESOURCE_NOT_FOUND : describeError(error, '게시글을 삭제하지 못했어요.'), { icon: 'error' })
       if (notFound) markDeleted(post.postId)
     } finally {
+      // 성공·실패와 무관하게 시트를 닫는다. 실패는 토스트로 알리고, 다시 하려면 메뉴에서 삭제를 다시 누른다.
+      setConfirmingDelete(null)
       setDeletingId(null)
     }
   }
@@ -378,7 +398,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
                   lockedDisabled={followDisabled}
                   isMine={isMine}
                   onEdit={() => editFromDetail(detail.post)}
-                  onDelete={() => handleDelete(detail.post)}
+                  onDelete={() => setConfirmingDelete(detail.post)}
                   deleting={deletingId === detail.post.postId}
                   onMediaRatio={setMediaRatio}
                 >
@@ -405,6 +425,14 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
           </div>
         </div>
       )}
+      <ConfirmSheet
+        open={confirmingDelete !== null}
+        title="게시글을 삭제할까요?"
+        message="삭제하면 이미지와 댓글도 함께 사라지고 되돌릴 수 없어요."
+        busy={deletingId !== null}
+        onConfirm={() => handleDelete(confirmingDelete)}
+        onClose={() => setConfirmingDelete(null)}
+      />
     </div>
   )
 }
@@ -423,7 +451,7 @@ function PostGridTile({ post, onOpen, onImageError }) {
       className="group relative block aspect-square w-full overflow-hidden bg-surface-container active:opacity-80"
     >
       {showImage ? (
-        <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" onError={() => { setFailedUrl(thumb); onImageError?.() }} />
+        <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" onError={(event) => { setFailedUrl(thumb); onImageError?.(event.timeStamp) }} />
       ) : post.locked ? (
         <span className="flex h-full w-full items-center justify-center bg-surface-container-high text-on-surface-variant">
           <MaterialIcon name="lock" className="text-[28px]" />

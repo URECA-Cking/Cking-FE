@@ -1,5 +1,12 @@
 # Issue #264 화면 검증
 
+## develop 추가 충돌 해결 (2026-10-20)
+
+- `origin/develop`의 `a1f1295`를 병합했다. `CreatorAvatarItem.jsx`는 develop의 이름 위 간격(`mt-1.5`)을 유지하면서 공통 배지를 적용했다.
+- `EventDetail.jsx`는 develop의 새 응모 선택·확인 흐름과 `useEffect`를 유지했다. 삭제된 확인 시트의 썸네일·배지 영역은 복원하지 않고, 남은 상세 Creator 이름 옆 배지만 공통 컴포넌트로 바꿨다.
+- Web lint·build 통과(기존 lint 경고 3건 유지). 충돌 마커와 미해결 파일이 없는지 확인했다. 실제 BE·Provider E2E와 전체 스위트는 미실행이다.
+- Web `node --test --test-concurrency=2 test/eventDetailUi.test.js test/creatorVerifiedBadgeComponents.test.js test/bottomSheetExitAnimationComponents.test.js`: 23건 통과.
+
 ## PR #267 리뷰 반영 (2026-10-20)
 
 - 공통 `CreateFab`의 구조와 `+` 아이콘은 유지하고, 접근성 이름을 Quiz는 `AI Quiz 생성`, 이벤트는 `새 이벤트 작성`으로 수정했다. 아래 병합 시점의 접근성 이름 유지 기록은 이 수정으로 대체된다.

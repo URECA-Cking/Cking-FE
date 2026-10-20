@@ -10,7 +10,7 @@ import BottomSheet from './BottomSheet.jsx'
  */
 export default function ConfirmSheet({ open, title, message, confirmLabel = '삭제', busy = false, onConfirm, onClose }) {
   return (
-    <BottomSheet open={open} onClose={busy ? undefined : onClose} title={title}>
+    <BottomSheet open={open} onClose={busy ? undefined : onClose} title={title} compactTitle>
       {message && <p className="mb-space-md font-body-sm text-body-sm text-on-surface-variant">{message}</p>}
       <div className="grid grid-cols-2 gap-2">
         <button

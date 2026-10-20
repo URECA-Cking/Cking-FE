@@ -17,8 +17,8 @@ export default function EntryTicket({ event, ticketsOwned, applied = null, featu
   return (
     <Link
       to={`/events/${event.eventId}`}
-      className={`flex h-[5.5rem] overflow-hidden rounded-2xl active:opacity-80 transition-opacity ${
-        featured ? 'bg-gradient-to-r from-primary/35 to-surface-container' : 'bg-surface-container'
+      className={`flex h-[5.5rem] overflow-hidden rounded-2xl border bg-surface-container active:opacity-80 transition-opacity ${
+        featured ? 'border-primary/40' : 'border-on-surface/10'
       }`}
     >
       <ProfilePhoto src={creator.avatar} className="h-[5.5rem] w-[5.5rem] flex-shrink-0" iconClassName="text-[40px]" loading="lazy" decoding="async" />

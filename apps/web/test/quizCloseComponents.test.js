@@ -15,7 +15,7 @@ test.before(async () => {
 })
 test.after(async()=>{await browser?.close();assert.deepEqual(pageErrors,[])})
 async function screen(status='PUBLISHED',kind='sheet',review='APPROVED',origin='AI_GENERATED',multiple=false) {
-  const page=await browser.newPage()
+  const page=await browser.newPage({reducedMotion:'reduce'})
   page.on('pageerror',error=>pageErrors.push(error.message))
   await page.route('**/*',r=>r.request().isNavigationRequest()?r.fulfill({contentType:'text/html',body:'<div id="root"></div>'}):r.abort())
   await page.goto('http://localhost/close')

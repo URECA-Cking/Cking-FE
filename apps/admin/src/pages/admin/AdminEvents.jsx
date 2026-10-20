@@ -4,45 +4,58 @@ import {
   archiveEvent,
   closeEvent,
   getClosingStatus,
-  getEventSnapshot,
   getOperatingEvent,
   getOperatingEvents,
-  OPERATING_EVENT_STATUSES,
   unarchiveEvent,
 } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
 import { AdminPageHeader, DetailInfoRows } from '../../components/AdminContent.jsx'
 import ConfirmModal from '../../components/ConfirmModal.jsx'
+import Pagination from '../../components/Pagination.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { EVENT_ARCHIVE_VIEWS, archiveStatusSearch, canArchiveEvent, canUnarchiveEvent, shouldShowEventStatusFilter } from '../../utils/eventArchive.js'
+import { EVENT_ARCHIVE_VIEWS, canArchiveEvent, canUnarchiveEvent, eventListSearch, shouldShowEventStatusFilter } from '../../utils/eventArchive.js'
 import { EVENT_OPERATION_FLOW, eventStatusMeta } from '../../utils/eventStatus.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 
-const STATUS_OPTIONS = OPERATING_EVENT_STATUSES.map((status) => ({ status, ...eventStatusMeta(status) }))
+const STATUS_OPTIONS = [
+  ['DRAFT', '작성 중'],
+  ['PENDING_APPROVAL', '승인 대기'],
+  ['REJECTED', '반려'],
+  ['SCHEDULED', eventStatusMeta('SCHEDULED').label],
+  ['OPEN', eventStatusMeta('OPEN').label],
+  ['CLOSING', eventStatusMeta('CLOSING').label],
+  ['CLOSED', eventStatusMeta('CLOSED').label],
+  ['DRAW_COMPLETED', eventStatusMeta('DRAW_COMPLETED').label],
+  ['PUBLISHED', eventStatusMeta('PUBLISHED').label],
+]
 
 function normalizeArchiveStatus(value) {
   return value === 'ARCHIVED' ? 'ARCHIVED' : 'ACTIVE'
 }
 
+function normalizeEventStatus(value) {
+  return STATUS_OPTIONS.some(([status]) => status === value) ? value : ''
+}
+
 /** 운영 Event와 보관 Event를 분리해 검색·상태 필터로 탐색한다. */
 export function AdminEventsPage() {
   const [query, setQuery] = useState('')
-  const [status, setStatus] = useState('')
+  const [page, setPage] = useState(0)
   const [searchParams, setSearchParams] = useSearchParams()
   const archiveStatus = normalizeArchiveStatus(searchParams.get('archiveStatus'))
+  const status = archiveStatus === 'ARCHIVED' ? '' : normalizeEventStatus(searchParams.get('status'))
   const { data, loading, error, reload } = useAsync(
-    () => getOperatingEvents({ archiveStatus }),
-    [archiveStatus],
+    () => getOperatingEvents({ status: status || undefined, archiveStatus, page, size: 20 }),
+    [archiveStatus, status, page],
     { fallbackMessage: '이벤트 목록을 불러오지 못했습니다.' },
   )
   const events = data?.items ?? []
   const term = query.trim().toLowerCase()
   const filtered = events.filter((event) => (
-    (!status || event.status === status)
-    && [event.eventId, event.title, event.creatorName, event.creatorId]
+    [event.eventId, event.title, event.creatorName, event.creatorId]
       .some((value) => String(value ?? '').toLowerCase().includes(term))
   ))
   const emptyMessage = events.length === 0
@@ -50,8 +63,13 @@ export function AdminEventsPage() {
     : '조건에 해당하는 이벤트가 없습니다.'
 
   function changeArchiveStatus(next) {
-    setStatus('')
+    setPage(0)
     setSearchParams(next === 'ARCHIVED' ? { archiveStatus: 'ARCHIVED' } : {})
+  }
+
+  function changeStatus(next) {
+    setPage(0)
+    setSearchParams(next ? { status: next } : {})
   }
 
   return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -66,13 +84,13 @@ export function AdminEventsPage() {
         >{view.label}</button>)}
       </div>
       <div className="flex flex-wrap items-end gap-3 border-b border-slate-200 p-4">
-        <label className="min-w-64 flex-1 text-xs font-medium text-slate-600">검색
+        <label className="min-w-64 flex-1 text-xs font-medium text-slate-600">현재 페이지 검색
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="이벤트 ID, 이벤트명 또는 Creator 검색" className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-pink-600 focus:ring-1 focus:ring-pink-600" />
         </label>
         {shouldShowEventStatusFilter(archiveStatus) && <label className="w-40 text-xs font-medium text-slate-600">상태
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600">
+          <select value={status} onChange={(event) => changeStatus(event.target.value)} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600">
             <option value="">전체</option>
-            {STATUS_OPTIONS.map((option) => <option key={option.status} value={option.status}>{option.label}</option>)}
+            {STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>}
         <button type="button" onClick={() => void reload()} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button>
@@ -81,12 +99,13 @@ export function AdminEventsPage() {
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
       {!loading && !error && (filtered.length === 0
         ? <EmptyBlock icon="event_busy" message={emptyMessage} />
-        : <EventTable events={filtered} archiveStatus={archiveStatus} />)}
+        : <EventTable events={filtered} archiveStatus={archiveStatus} status={status} />)}
+      {!loading && !error && <Pagination page={page} hasNext={data?.hasNext === true} totalElements={data?.totalElements} onPrevious={() => setPage((current) => Math.max(0, current - 1))} onNext={() => setPage((current) => current + 1)} />}
     </section>
   </div>
 }
 
-function EventTable({ events, archiveStatus }) {
+function EventTable({ events, archiveStatus, status }) {
   const archived = archiveStatus === 'ARCHIVED'
   return <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-left text-sm">
     <thead className="bg-slate-50 text-xs font-medium text-slate-500"><tr>
@@ -100,12 +119,12 @@ function EventTable({ events, archiveStatus }) {
       <td className="px-4 py-3"><StatusBadge status={event.status} /></td>
       <td className="px-4 py-3 text-slate-600">{event.startAt || event.endAt ? `${formatDateTime(event.startAt)} ~ ${formatDateTime(event.endAt)}` : '-'}</td>
       {archived && <td className="px-4 py-3 text-slate-600">{formatDateTime(event.archivedAt)}</td>}
-      <td className="px-5 py-3 text-right"><Link to={`/admin/events/${event.eventId}${archiveStatusSearch(archiveStatus)}`} className="font-medium text-pink-700 hover:text-pink-800">상세 보기</Link></td>
+      <td className="px-5 py-3 text-right"><Link to={`/admin/events/${event.eventId}${eventListSearch(archiveStatus, status)}`} className="font-medium text-pink-700 hover:text-pink-800">상세 보기</Link></td>
     </tr>)}</tbody>
   </table></div>
 }
 
-/** URL의 Event를 다시 조회해 현재 서버 상태 중심으로 운영 상세를 표시한다. */
+/** 단건 운영 상세 API로 현재 서버 상태 중심의 Event 운영 정보를 표시한다. */
 export function AdminEventDetailPage() {
   const { eventId } = useParams()
   const navigate = useNavigate()
@@ -116,25 +135,22 @@ export function AdminEventDetailPage() {
   const [closingBusy, setClosingBusy] = useState(false)
   const [archiveBusy, setArchiveBusy] = useState(false)
   const archiveStatus = normalizeArchiveStatus(searchParams.get('archiveStatus'))
-  const { data: event, loading, error, reload } = useAsync(
-    () => getOperatingEvent(eventId, { archiveStatus }),
-    [eventId, archiveStatus],
+  const listStatus = normalizeEventStatus(searchParams.get('status'))
+  const { data: operation, loading, error, reload } = useAsync(
+    () => getOperatingEvent(eventId),
+    [eventId],
     { fallbackMessage: '이벤트 정보를 불러오지 못했습니다.' },
   )
+  const event = operation?.event ?? null
   const closing = useAsync(
     () => event?.status === 'CLOSING' ? getClosingStatus(event.eventId) : Promise.resolve(null),
     [event?.eventId, event?.status],
     { fallbackMessage: '마감 처리 상태를 불러오지 못했습니다.' },
   )
-  const snapshot = useAsync(
-    () => ['CLOSED', 'DRAW_COMPLETED', 'PUBLISHED'].includes(event?.status) ? getEventSnapshot(event.eventId) : Promise.resolve(null),
-    [event?.eventId, event?.status],
-    { fallbackMessage: '스냅샷 정보를 불러오지 못했습니다.' },
-  )
 
   async function refreshEvent() {
-    const nextEvent = await reload()
-    if (nextEvent?.status === 'CLOSING') await closing.reload()
+    const nextOperation = await reload()
+    if (nextOperation?.event?.status === 'CLOSING') await closing.reload()
   }
 
   async function requestClose() {
@@ -174,7 +190,7 @@ export function AdminEventDetailPage() {
 
   if (loading) return <LoadingBlock label="이벤트 정보를 불러오는 중..." />
   if (error) return <ErrorBlock message={error} onRetry={reload} />
-  if (!event) return <div className="mx-auto max-w-6xl"><EmptyBlock message="현재 선택한 이벤트 목록에서 해당 이벤트를 찾을 수 없습니다." /><Link to={`/admin/events${archiveStatusSearch(archiveStatus)}`} className="text-sm font-medium text-pink-700">이벤트 목록으로 돌아가기</Link></div>
+  if (!event) return <div className="mx-auto max-w-6xl"><EmptyBlock message="이벤트 운영 정보를 찾을 수 없습니다." /><Link to={`/admin/events${eventListSearch(archiveStatus, listStatus)}`} className="text-sm font-medium text-pink-700">이벤트 목록으로 돌아가기</Link></div>
 
   const archived = Boolean(event.archivedAt)
   const infoRows = [
@@ -188,10 +204,10 @@ export function AdminEventDetailPage() {
   }
 
   return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><Link to={`/admin/events${archiveStatusSearch(archiveStatus)}`} className="text-sm font-medium text-pink-700 hover:text-pink-800">← 이벤트 목록</Link><h1 className="mt-3 text-xl font-semibold text-slate-950">이벤트 운영 상세</h1><p className="mt-1 text-sm text-slate-500">{event.title} · Event #{event.eventId}</p></div><button type="button" onClick={() => void refreshEvent()} className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button></div>
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><Link to={`/admin/events${eventListSearch(archiveStatus, listStatus)}`} className="text-sm font-medium text-pink-700 hover:text-pink-800">← 이벤트 목록</Link><h1 className="mt-3 text-xl font-semibold text-slate-950">이벤트 운영 상세</h1><p className="mt-1 text-sm text-slate-500">{event.title} · Event #{event.eventId}</p></div><button type="button" onClick={() => void refreshEvent()} className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button></div>
     {!archived && <EventStatusFlow status={event.status} />}
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
-      <section className="border-y border-slate-200 bg-white"><DetailInfoRows title="기본 정보" rows={infoRows} /><DetailInfoRows title="운영 일정" rows={scheduleRows} /><DetailInfoRows title="이벤트 정보" rows={eventRows} />{snapshot.data && <DetailInfoRows title="추첨 Snapshot" rows={toRows(snapshot.data)} />}{snapshot.error && <section className="border-b border-slate-200 px-5 py-5"><ErrorBlock message={snapshot.error} onRetry={snapshot.reload} /></section>}</section>
+      <section className="border-y border-slate-200 bg-white"><DetailInfoRows title="기본 정보" rows={infoRows} /><DetailInfoRows title="운영 일정" rows={scheduleRows} /><DetailInfoRows title="이벤트 정보" rows={eventRows} />{operation.snapshot && <DetailInfoRows title="추첨 Snapshot" rows={toRows(operation.snapshot)} />}</section>
       <OperationPanel event={event} archived={archived} closing={closing} closingBusy={closingBusy} onClose={() => setCloseConfirmOpen(true)} onRefresh={() => void refreshEvent()} onArchive={() => setArchiveConfirmAction('archive')} onUnarchive={() => setArchiveConfirmAction('unarchive')} />
     </div>
     {closeConfirmOpen && <ConfirmModal action="confirm" subject={event.title} busy={closingBusy} title="이 이벤트의 마감을 요청할까요?" message={'마감 요청이 접수되면 백엔드에서 마감 처리가 진행됩니다.\n처리 완료 전까지 상태는 마감 처리 중으로 표시될 수 있습니다.'} confirmLabel="마감 요청" onCancel={() => setCloseConfirmOpen(false)} onConfirm={() => void requestClose()} />}

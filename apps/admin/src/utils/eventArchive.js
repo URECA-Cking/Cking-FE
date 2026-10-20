@@ -18,6 +18,18 @@ export function archiveStatusSearch(archiveStatus) {
   return archiveStatus === 'ARCHIVED' ? '?archiveStatus=ARCHIVED' : ''
 }
 
+/** 목록·상세 이동에서 보관함과 상태 필터 문맥을 함께 유지한다. */
+export function eventListSearch(archiveStatus, status) {
+  const params = new URLSearchParams()
+  if (archiveStatus === 'ARCHIVED') {
+    params.set('archiveStatus', 'ARCHIVED')
+  } else if (status) {
+    params.set('status', status)
+  }
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
+
 /** 보관함은 PUBLISHED Event만 서버에서 받으므로 별도 상태 필터를 노출하지 않는다. */
 export function shouldShowEventStatusFilter(archiveStatus) {
   return archiveStatus !== 'ARCHIVED'

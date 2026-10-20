@@ -138,8 +138,8 @@ export async function replayDeadStream(deadStreamId) {
 }
 
 /** 크리에이터 전환 신청 목록을 페이지 단위로 조회한다. */
-export async function getCreatorApplications({ page = 0, size = 20 } = {}) {
-  return get('/api/admin/creator-applications', { page, size });
+export async function getCreatorApplications({ status, page = 0, size = 20 } = {}) {
+  return get('/api/admin/creator-applications', { status, page, size });
 }
 
 /** 페이지 기반 관리자 목록을 모두 읽어 Dashboard 집계에 사용할 항목을 반환한다. */
@@ -269,53 +269,43 @@ export function resyncCommonTickets(memberId, reason) {
   return post('/api/admin/tickets/common/resync', { memberId, reason })
 }
 
-export const OPERATING_EVENT_STATUSES = ['SCHEDULED', 'OPEN', 'CLOSING', 'CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
-const DRAWING_READY_EVENT_STATUSES = ['CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
-
-/** 지정한 상태의 이벤트 목록을 마지막 페이지까지 조회한다. */
-async function getAllEventsByStatus(status, size, archiveStatus) {
-  const items = []
-  let page = 0
-  let hasNext = true
-
-  while (hasNext) {
-    const result = await get('/api/admin/events', { status, archiveStatus, page, size })
-    items.push(...(result?.items ?? []))
-    hasNext = result?.hasNext === true
-    page += 1
-  }
-
-  return items
+/** 상태·보관 여부·페이지 조건을 서버에 전달해 관리자 Event 목록을 조회한다. */
+export function getAdminEvents({ status, archiveStatus = 'ACTIVE', page = 0, size = 20 } = {}) {
+  return get('/api/admin/events', { status, archiveStatus, page, size })
 }
 
-/** 지정된 상태 목록을 병렬로 조회해 하나의 이벤트 목록으로 합친다. */
-async function getEventsByStatuses(statuses, { size = 100, archiveStatus = 'ACTIVE' } = {}) {
-  const eventsByStatus = await Promise.all(
-    statuses.map((status) => getAllEventsByStatus(status, size, archiveStatus)),
+const DASHBOARD_OPERATING_EVENT_STATUSES = ['CLOSING', 'OPEN', 'CLOSED', 'DRAW_COMPLETED']
+
+/** Dashboard의 마감 처리 건수를 정확히 표시하기 위해 CLOSING 전체 건수만 조회한다. */
+export function getClosingEventSummary() {
+  return getAdminEvents({ status: 'CLOSING', page: 0, size: 1 })
+}
+
+/**
+ * Dashboard 표에 필요한 운영 상태만 각 첫 페이지에서 제한적으로 읽는다.
+ * 목록 화면처럼 다음 페이지를 계속 순회하지 않으며, 최대 8건만 표시한다.
+ */
+export async function getDashboardOperatingEvents() {
+  const results = await Promise.all(
+    DASHBOARD_OPERATING_EVENT_STATUSES.map((status) => getAdminEvents({ status, page: 0, size: 8 })),
   )
-  return { items: eventsByStatus.flat() }
+  return { items: results.flatMap((result) => result?.items ?? []).slice(0, 8) }
 }
 
-/** Dashboard와 이벤트 관리 화면에서 추적하는 전체 운영 이벤트를 조회한다. */
-export function getDrawingEvents(options) {
-  return getEventsByStatuses(OPERATING_EVENT_STATUSES, options)
-}
-
-/** 운영 상태별 목록 계약을 합쳐 이벤트 관리 화면의 전체 목록을 제공한다. */
+/** 운영·보관 Event 목록을 서버 상태 필터와 페이지네이션으로 조회한다. */
 export function getOperatingEvents(options) {
-  const statuses = options?.archiveStatus === 'ARCHIVED' ? ['PUBLISHED'] : OPERATING_EVENT_STATUSES
-  return getEventsByStatuses(statuses, options)
+  const { status, archiveStatus = 'ACTIVE', page = 0, size = 20 } = options ?? {}
+  return getAdminEvents({
+    status: status ?? (archiveStatus === 'ARCHIVED' ? 'PUBLISHED' : undefined),
+    archiveStatus,
+    page,
+    size,
+  })
 }
 
-/** 추첨 콘솔에는 이미 마감된 이벤트만 전달해 이벤트 운영 화면과 책임을 분리한다. */
-export function getDrawingReadyEvents(options) {
-  return getEventsByStatuses(DRAWING_READY_EVENT_STATUSES, options)
-}
-
-/** 단건 조회 계약이 없으므로 운영 상태 목록에서 URL의 이벤트를 찾아 상세를 구성한다. */
-export async function getOperatingEvent(eventId, { archiveStatus = 'ACTIVE' } = {}) {
-  const result = await getOperatingEvents({ archiveStatus })
-  return result.items.find((item) => String(item.eventId) === String(eventId)) ?? null
+/** 관리자 운영 상세의 Event·Snapshot·INITIAL Drawing 요약을 한 번에 조회한다. */
+export function getOperatingEvent(eventId) {
+  return get(`/api/admin/events/${eventId}/operation`)
 }
 
 /** 조건에 맞는 Abuse Detection을 서버 페이지 단위로 조회한다. */

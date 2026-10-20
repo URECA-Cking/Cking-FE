@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { archiveEvent, getOperatingEvents, unarchiveEvent } from '../src/api/admin.js'
 import { clearAccessToken, setAccessToken } from '../src/api/token.js'
-import { archiveStatusSearch, canArchiveEvent, canUnarchiveEvent, shouldShowEventStatusFilter } from '../src/utils/eventArchive.js'
+import { archiveStatusSearch, canArchiveEvent, canUnarchiveEvent, eventListSearch, shouldShowEventStatusFilter } from '../src/utils/eventArchive.js'
 
 function success(data) {
   return { ok: true, status: 200, text: async () => JSON.stringify({ code: 'SUCCESS', data }) }
@@ -30,6 +30,8 @@ test('PUBLISHED 상태와 보관 메타데이터가 일치할 때만 보관 또�
 test('보관함 상세 이동만 archiveStatus Query를 유지한다', () => {
   assert.equal(archiveStatusSearch('ACTIVE'), '')
   assert.equal(archiveStatusSearch('ARCHIVED'), '?archiveStatus=ARCHIVED')
+  assert.equal(eventListSearch('ACTIVE', 'CLOSING'), '?status=CLOSING')
+  assert.equal(eventListSearch('ARCHIVED', 'CLOSING'), '?archiveStatus=ARCHIVED')
 })
 
 test('보관함에서는 PUBLISHED만 조회하므로 운영 상태 필터를 숨긴다', () => {
@@ -53,7 +55,7 @@ test('보관함은 PUBLISHED 상태만 조회하고 보관·복원은 관리자 
 
     assert.equal(requests[0].url.pathname, '/api/admin/events')
     assert.deepEqual(Object.fromEntries(requests[0].url.searchParams), {
-      status: 'PUBLISHED', archiveStatus: 'ARCHIVED', page: '0', size: '100',
+      status: 'PUBLISHED', archiveStatus: 'ARCHIVED', page: '0', size: '20',
     })
     assert.equal(requests[1].url.pathname, '/api/admin/events/7/archive')
     assert.equal(requests[1].options.method, 'PATCH')

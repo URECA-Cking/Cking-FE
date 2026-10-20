@@ -5,17 +5,15 @@ import { useDashboardData } from '../../hooks/useDashboardData.js'
 import { formatDateTime } from '../../utils/format.js'
 import { eventStatusMeta } from '../../utils/eventStatus.js'
 
-const EVENT_TABLE_STATUSES = new Set(['OPEN', 'CLOSING', 'CLOSED', 'DRAW_COMPLETED'])
-
 /** 운영자가 우선 처리할 업무와 현재 운영 이벤트를 한 화면에 표시한다. */
 export default function AdminDashboard() {
   const { sections, lastUpdatedAt, reload } = useDashboardData()
   const creatorPendingCount = sections.creatorApplications.data?.filter((item) => item.status === 'PENDING').length
   const pendingEventCount = sections.pendingEvents.data?.length
   const requestedRedrawCount = sections.requestedRedraws.data?.filter((item) => item.status === 'REQUESTED').length
-  const closingEventCount = sections.operatingEvents.data?.items?.filter((item) => item.status === 'CLOSING').length
+  const closingEventCount = sections.closingEvents.data?.totalElements
   const unresolvedDeadStreamCount = sections.unresolvedDeadStreams.data?.length
-  const operatingEvents = sections.operatingEvents.data?.items?.filter((item) => EVENT_TABLE_STATUSES.has(item.status)).slice(0, 8) ?? []
+  const operatingEvents = sections.operatingEvents.data?.items ?? []
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
@@ -31,7 +29,7 @@ export default function AdminDashboard() {
       </DashboardSection>
 
       <DashboardSection title="주의 필요">
-        <StatusCard title="마감 처리 중" count={closingEventCount} meaning="확인 필요" to="/admin/events" section={sections.operatingEvents} onRetry={reload} />
+        <StatusCard title="마감 처리 중" count={closingEventCount} meaning="확인 필요" to="/admin/events?status=CLOSING" section={sections.closingEvents} onRetry={reload} />
         <StatusCard title="Dead Stream" count={unresolvedDeadStreamCount} meaning="미처리" to="/admin/dead-streams" section={sections.unresolvedDeadStreams} onRetry={reload} />
       </DashboardSection>
 

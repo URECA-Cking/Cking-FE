@@ -18,7 +18,7 @@ import { displayStatusMeta, eventStatusMeta } from '../../utils/eventStatus.js'
  * 아직 공개되지 않은 이벤트(초안·승인 대기·거절됨)라 상태 뱃지와 거절 사유를 보여주고 상세로 가지 않는다.
  * onManage를 주면 카드 왼쪽 위에 관리 메뉴(⋯) 버튼이 생긴다.
  */
-export default function EventCard({ event, ticketsOwned, showCreatorTag = false, variant = 'carousel', onManage }) {
+export default function EventCard({ event, showCreatorTag = false, variant = 'carousel', onManage }) {
   const navigate = useNavigate()
   const creator = useCreatorProfile(event.creatorId)
   const published = Boolean(event.displayStatus)
@@ -110,12 +110,6 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
             <span className="font-label-sm text-label-sm font-medium opacity-90">
               {formatNumber(event.winnerCount)}명 추첨
             </span>
-            {typeof ticketsOwned === 'number' && (
-              <div className="flex items-center gap-1 bg-black/30 backdrop-blur-md px-2 py-0.5 rounded-full">
-                <span className="text-[11px]">🎟</span>
-                <span className="font-label-xs text-label-xs font-semibold">보유 {formatNumber(ticketsOwned)}장</span>
-              </div>
-            )}
           </div>
         </div>
 

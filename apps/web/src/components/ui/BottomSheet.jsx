@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import MaterialIcon from './MaterialIcon.jsx'
 
@@ -6,9 +6,52 @@ import MaterialIcon from './MaterialIcon.jsx'
 const DRAG_THRESHOLD = 6 // px. 이보다 덜 움직이면 드래그가 아니라 클릭으로 본다.
 const FAST_VELOCITY = 0.5 // px/ms. 이보다 빠르게 밀면 거리와 상관없이 그 방향으로 간다.
 const CLOSE_DISTANCE = 100 // px. 접힌 시트를 이만큼 이상 내리면 닫는다.
+const SNAP_DISTANCE = 40 // px. 속도와 상관없이 이만큼 이상 끌면 그 방향(확장·접힘)으로 간다. 그보다 덜 끌면 제자리로 돌아간다.
 const SNAP_MS = 300
+const EXIT_MS = 260
 const COLLAPSED_RATIO = 0.85
 const EXPANDED_RATIO = 0.95
+
+/**
+ * 시트가 사라지는 순간 그 모습을 복사해 아래로 내려보내며 지운다. 닫는 방법(닫기 버튼·바깥 누르기·ESC·드래그)이나
+ * 부모가 컴포넌트째 지우는 경우와 상관없이 같은 효과를 내려고, 컴포넌트가 사라질 때 한 곳에서 처리한다.
+ * 복사본은 클릭·초점·스크린리더에서 빼고 EXIT_MS 뒤에 지운다. 모션을 줄인 환경에서는 쓰지 않는다.
+ */
+function playExitAnimation(backdrop) {
+  if (!backdrop?.isConnected || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const ghost = backdrop.cloneNode(true)
+  const sourceNodes = [backdrop, ...backdrop.querySelectorAll('*')]
+  const ghostNodes = [ghost, ...ghost.querySelectorAll('*')]
+  const scrolls = []
+  sourceNodes.forEach((node, index) => {
+    const copy = ghostNodes[index]
+    if (node.scrollTop > 0) scrolls.push([copy, node.scrollTop])
+    if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement) {
+      copy.value = node.value
+      if (node instanceof HTMLInputElement) copy.checked = node.checked
+    }
+    if (copy.matches?.('button, a[href], input, select, textarea, [tabindex]')) copy.tabIndex = -1
+  })
+  const panel = ghost.querySelector('[role="dialog"]')
+  ghost.setAttribute('aria-hidden', 'true')
+  ghost.style.animation = 'none'
+  if (panel) {
+    panel.removeAttribute('role')
+    panel.removeAttribute('aria-modal')
+    panel.removeAttribute('aria-label')
+    panel.style.animation = 'none'
+  }
+  document.body.appendChild(ghost)
+  scrolls.forEach(([node, top]) => { node.scrollTop = top })
+  ghost.getBoundingClientRect() // 현재 모습을 한 번 그린 뒤 전환을 시작한다.
+  ghost.style.transition = `opacity ${EXIT_MS}ms ease-in`
+  ghost.style.opacity = '0'
+  if (panel) {
+    panel.style.transition = `transform ${EXIT_MS}ms cubic-bezier(0.4, 0, 1, 1)`
+    panel.style.transform = 'translateY(100%)'
+  }
+  window.setTimeout(() => ghost.remove(), EXIT_MS + 60)
+}
 
 /** 접힌 상태에서 내용만큼 차지하는 높이(최대 화면의 85%). 잠깐 높이를 auto로 바꿔 재고 되돌린다. */
 function collapsedHeightOf(element) {
@@ -34,12 +77,18 @@ export default function BottomSheet({ open, ...props }) {
 function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, children }) {
   const [expanded, setExpanded] = useState(false)
   const panel = useRef(null)
+  const backdrop = useRef(null)
   const drag = useRef(null)
   const dragged = useRef(false)
   const settleTimer = useRef(null)
   const close = useRef(onClose)
   useEffect(() => { close.current = onClose }, [onClose])
   useEffect(() => () => window.clearTimeout(settleTimer.current), [])
+  // 사라질 때 아직 화면에 붙어 있는 시점에 모습을 복사해야 해서 레이아웃 효과로 둔다.
+  useLayoutEffect(() => {
+    const element = backdrop.current
+    return () => playExitAnimation(element)
+  }, [])
 
   /** 드래그 중에 붙인 인라인 스타일을 지워 클래스(확장·접힘)가 다시 높이를 정하게 한다. */
   function resetInline() {
@@ -108,12 +157,15 @@ function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, childr
       target = close.current && (state.offset > CLOSE_DISTANCE || state.velocity < -FAST_VELOCITY) ? 'close' : 'collapsed'
     } else if (state.velocity > FAST_VELOCITY) target = 'expanded'
     else if (state.velocity < -FAST_VELOCITY) target = 'collapsed'
-    else target = state.height > (state.collapsedHeight + state.maxHeight) / 2 ? 'expanded' : 'collapsed'
+    else if (state.height - state.startHeight >= SNAP_DISTANCE) target = 'expanded'
+    else if (state.startHeight - state.height >= SNAP_DISTANCE) target = 'collapsed'
+    else target = state.startHeight - state.collapsedHeight > 1 ? 'expanded' : 'collapsed' // 조금만 끌었으면 시작했던 상태 그대로
 
     element.style.transition = '' // CSS의 전환이 다시 적용돼 목표 위치까지 부드럽게 붙는다.
     if (target === 'close') {
-      element.style.transform = 'translateY(100%)'
-      settleTimer.current = window.setTimeout(() => close.current?.(), SNAP_MS - 80)
+      // 시트가 사라지면 그 자리에서 아래로 내려가는 효과가 이어진다(playExitAnimation). 부모가 닫기를 거절하면 제자리로 되돌린다.
+      close.current?.()
+      settleTimer.current = window.setTimeout(resetInline, 80)
       return
     }
     const next = target === 'expanded'
@@ -162,6 +214,7 @@ function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, childr
 
   return createPortal(
     <div
+      ref={backdrop}
       className="bottom-sheet-backdrop fixed inset-0 z-[80] bg-black/60 flex flex-col justify-end"
       onClick={onClose}
     >

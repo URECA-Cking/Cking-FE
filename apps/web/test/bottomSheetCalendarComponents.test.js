@@ -21,7 +21,7 @@ test.before(async () => {
 })
 test.after(async () => { await browser?.close() })
 async function screen(theme, width) {
-  const page = await browser.newPage({ viewport: { width, height: 844 }, hasTouch: true })
+  const page = await browser.newPage({ viewport: { width, height: 844 }, hasTouch: true, reducedMotion: 'reduce' })
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: `<html data-theme="${theme}"><body><div id="root"></div></body></html>` }) : route.abort())
   await page.goto('http://localhost/ui261')

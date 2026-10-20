@@ -44,7 +44,7 @@ export default function NewsFeed({ creators, posts }) {
               <span className="min-w-0">
                 <span className="mb-2.5 flex items-center gap-1.5 min-w-0">
                   <span className="block h-5 w-5 flex-shrink-0 rounded-full overflow-hidden">
-                    <ProfilePhoto src={creator.avatar} className="h-full w-full" iconClassName="text-[14px]" />
+                    <ProfilePhoto src={creator.avatar} className="h-full w-full" iconClassName="text-[14px]" loading="lazy" decoding="async" />
                   </span>
                   <span className="min-w-0 font-label-sm text-label-sm text-outline font-normal truncate">
                     <span className="text-on-surface font-semibold">{creator.name}</span> · {formatRelativeTime(post.createdAt)}

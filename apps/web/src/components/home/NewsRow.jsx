@@ -1,21 +1,10 @@
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import CreatorAvatarItem from '../creator/CreatorAvatarItem.jsx'
+import { sortCreatorsByLatestPost } from '../../utils/followPostNews.js'
 
 const NO_UNREAD = new Set()
 const NO_LATEST = new Map()
-
-/**
- * 최신 글이 있는 크리에이터를 앞으로, 나머지는 기존 순서를 유지한다.
- * 글 목록은 일부 크리에이터만 가져오므로, 팔로우 전체의 최신 글 시각(latestPostAt)을 함께 보고 더 늦은 쪽을 쓴다.
- */
-function sortByLatestPost(creators, latestByCreator, latestPostAt) {
-  const timeOf = (creator) => {
-    const fromPosts = new Date(latestByCreator.get(creator.creatorId)?.createdAt).getTime()
-    return Math.max(Number.isFinite(fromPosts) ? fromPosts : 0, latestPostAt.get(creator.creatorId) ?? 0)
-  }
-  return [...creators].sort((a, b) => timeOf(b) - timeOf(a))
-}
 
 /** 홈 최상단: 팔로우한 크리에이터를 가로 스토리 행으로. 서버가 읽지 않은 새 글이 있다고 알린 크리에이터(unreadCreatorIds)는 링 색과 NEW 배지로 알린다. */
 export default function NewsRow({ creators, latestByCreator, unreadCreatorIds = NO_UNREAD, latestPostAt = NO_LATEST }) {
@@ -34,7 +23,7 @@ export default function NewsRow({ creators, latestByCreator, unreadCreatorIds = 
   return (
     <div className="mt-3">
       <div className="flex gap-3 overflow-x-auto overscroll-x-contain touch-pan-x px-margin pt-3 no-scrollbar">
-        {sortByLatestPost(creators, latestByCreator, latestPostAt).map((creator) => {
+        {sortCreatorsByLatestPost(creators, latestByCreator, latestPostAt).map((creator) => {
           return <CreatorAvatarItem key={creator.creatorId} creator={creator} isNew={unreadCreatorIds.has(creator.creatorId)} />
         })}
         <Link

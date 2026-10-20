@@ -414,6 +414,12 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                 aria-label="댓글 입력"
                 placeholder="댓글을 남겨보세요."
                 onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter는 등록, Shift+Enter는 줄바꿈. 한글 조합 중 Enter는 글자 확정이라 등록하지 않는다.
+                  if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return
+                  event.preventDefault()
+                  submitNew()
+                }}
                 className={draftClass}
               />
               {draft.trim() && (

@@ -66,7 +66,7 @@ export function MonthGrid({ month, cells, selectedKey, schedulesByDay, onSelect,
           >
             <span
               className={`w-8 h-8 rounded-full flex items-center justify-center font-label-md text-label-md ${
-                selected ? 'bg-primary text-on-primary font-bold' : isToday ? 'ring-2 ring-inset ring-primary text-on-surface' : cell.weekday === 6 ? 'calendar-saturday' : 'text-on-surface'
+                selected ? 'bg-primary text-on-primary font-bold' : isToday ? 'ring-2 ring-inset ring-primary text-on-surface' : 'text-on-surface'
               }`}
             >
               {cell.day}

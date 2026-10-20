@@ -16,6 +16,11 @@ import { adjustCommentCount, applyCommentCount, reconcileCommentCounts } from '.
 const MEDIA_RATIO_RANGE = [0.8, 1.91]
 const INFO_PANEL_WIDTH = 400
 
+/** 이벤트 시각(`event.timeStamp`)과 같은 기준의 현재 시각(ms). 시각이 넘어오지 않은 호출의 대체값이다. */
+function monotonicNow() {
+  return performance.now()
+}
+
 /** 게시물 이미지 비율과 유무에 맞춰 데스크톱 상세 창의 크기를 계산한다. */
 function modalSize(ratio, hasMedia) {
   if (!hasMedia) return { '--modal-w': '560px', '--modal-h': 'min(92dvh, 720px)' }
@@ -166,8 +171,10 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   const lastThumbRefresh = useRef(-Infinity)
   /** 썸네일 주소가 만료되면 일정 간격을 두고 목록을 다시 읽는다. */
   function handleThumbError(timeStamp) {
-    if (sync !== 'synced' || timeStamp - lastThumbRefresh.current < 60_000) return
-    lastThumbRefresh.current = timeStamp
+    // 시각이 넘어오지 않아도 NaN으로 제한이 풀리지 않게 현재 시각으로 대신한다.
+    const now = Number.isFinite(timeStamp) ? timeStamp : monotonicNow()
+    if (sync !== 'synced' || now - lastThumbRefresh.current < 60_000) return
+    lastThumbRefresh.current = now
     refreshQuietly()
   }
 

@@ -15,14 +15,15 @@ test.before(async()=>{
  browser=await chromium.launch({headless:true,...executablePath?{executablePath}:{}})
 })
 test.after(async()=>{await browser?.close();assert.deepEqual(errors,[])})
-async function screen({balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,width=375}={}){
+async function screen({balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,width=375,endAt='2099-01-01T00:00:00Z',clockTime=null}={}){
  const p=await browser.newPage({viewport:{width,height:1000}})
  p.on('pageerror',e=>errors.push(e.message))
+ if(clockTime)await p.clock.install({time:new Date(clockTime)})
  await p.route('**/*',r=>r.request().isNavigationRequest()?r.fulfill({contentType:'text/html',body:'<div id="root"></div>'}):r.abort())
  await p.goto('http://localhost/event-test')
- await p.evaluate(({balance,description,status,displayStatus,failDetail})=>{
+ await p.evaluate(({balance,description,status,displayStatus,failDetail,endAt})=>{
   window.calls=[];window.toasts=[];window.entryCode='SUCCESS';window.holdEntry=false
-  const record={eventId:16,creatorId:1,title:'Event title',description,status,displayStatus,startAt:'2026-01-01T00:00:00Z',endAt:'2099-01-01T00:00:00Z',winnerCount:1,drawMethod:'WEIGHTED',myTicketBalance:balance,myCommonTicketBalance:0,prizes:[{prizeKey:'GRAND',displayName:'Grand prize',quantity:2,weight:99}]}
+  const record={eventId:16,creatorId:1,title:'Event title',description,status,displayStatus,startAt:'2026-01-01T00:00:00Z',endAt,winnerCount:1,drawMethod:'WEIGHTED',myTicketBalance:balance,myCommonTicketBalance:0,prizes:[{prizeKey:'GRAND',displayName:'Grand prize',quantity:2,weight:99}]}
   window.fetch=async(url,options={})=>{
    const path=new URL(String(url),location.href).pathname,method=options.method??'GET'
    window.calls.push({path,method,body:options.body&&JSON.parse(options.body)})
@@ -39,7 +40,7 @@ async function screen({balance=5,description='Event introduction',status='OPEN',
    if(path==='/api/creators')return reply({items:[{creatorId:1,creatorName:'Creator',slug:'creator',profileImageUrl:null}],totalPages:1})
    return reply(null)
   }
- },{balance,description,status,displayStatus,failDetail})
+ },{balance,description,status,displayStatus,failDetail,endAt})
  await p.addStyleTag({content:styles});await p.addScriptTag({content:bundle})
  await p.getByRole('button',{name:failDetail?'다시 시도':'뒤로가기',exact:true}).waitFor()
  return p
@@ -179,5 +180,57 @@ test('entry selection opens separately, preserves quantity on confirmation cance
   assert.equal((await posts(p)).length,0)
   await p.getByRole('button',{name:'취소',exact:true}).click()
   assert.equal(await p.getByRole('dialog').count(),0)
+ }finally{await p.close()}
+})
+
+
+test('deadline disables final confirmation while its popup stays open',async()=>{
+ const p=await screen({clockTime:'2026-10-20T00:00:00Z',endAt:'2026-10-20T00:01:00Z'})
+ try{
+  await openConfirm(p)
+  const confirm=p.getByRole('button',{name:'응모 확정',exact:true})
+  assert.equal(await confirm.isEnabled(),true)
+  await p.clock.fastForward(61000)
+  await p.waitForFunction(()=>document.querySelector('dialog button:last-child')?.disabled)
+  assert.equal(await confirm.isDisabled(),true)
+  await confirm.dispatchEvent('click')
+  assert.equal((await posts(p)).length,0)
+ }finally{await p.close()}
+})
+
+test('submission checks current deadline before POST even before countdown renders',async()=>{
+ const p=await screen({clockTime:'2026-10-20T00:00:00Z',endAt:'2026-10-20T00:01:00Z'})
+ try{
+  await openConfirm(p)
+  await p.clock.setSystemTime(new Date('2026-10-20T00:01:01Z'))
+  const confirm=p.getByRole('button',{name:'응모 확정',exact:true})
+  assert.equal(await confirm.isEnabled(),true)
+  await confirm.click()
+  await p.waitForFunction(()=>window.toasts.includes('지금은 응모할 수 있는 상태가 아니에요.'))
+  assert.equal((await posts(p)).length,0)
+ }finally{await p.close()}
+})
+
+for(const reopen of [false,true])test(`uncertain request preserves identical UUID retry after deadline (reopen=${reopen})`,async()=>{
+ const p=await screen({clockTime:'2026-10-20T00:00:00Z',endAt:'2026-10-20T00:01:00Z'})
+ try{
+  await openConfirm(p)
+  await p.evaluate(()=>window.entryCode='SYSTEM_ERROR')
+  await p.getByRole('button',{name:'응모 확정',exact:true}).click()
+  await p.getByText('서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.',{exact:true}).waitFor()
+  const first=(await posts(p))[0]
+  if(reopen)await p.getByRole('button',{name:'닫기',exact:true}).click()
+  await p.clock.fastForward(61000)
+  if(reopen){
+   assert.equal(await mainButton(p).isEnabled(),true)
+   await mainButton(p).click()
+  }
+  await p.evaluate(()=>window.entryCode='DUPLICATE_REPLAY')
+  await p.getByRole('button',{name:'다시 시도',exact:true}).click()
+  await p.waitForFunction(()=>window.toasts.includes('이미 접수된 응모예요. 중복으로 차감되지 않았습니다.'))
+  const requests=await posts(p)
+  assert.equal(requests.length,2)
+  assert.deepEqual(requests[1],first)
+  await p.getByRole('dialog',{name:'응모 확인',exact:true}).waitFor({state:'hidden'})
  }finally{await p.close()}
 })

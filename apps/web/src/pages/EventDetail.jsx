@@ -189,11 +189,6 @@ export default function EventDetail() {
 
   async function openConfirm() {
     if (openingRef.current) return
-    if (!isEntryOpen(event) || deadlinePassed) {
-      showToast('지금은 응모할 수 있는 상태가 아니에요.', { icon: 'error' })
-      return
-    }
-
     // 응답 유실 뒤 시트를 닫았다가 다시 연 경우에는 새 요청을 만들지 않는다. 같은
     // requestId 재전송만이 서버의 멱등 처리(DUPLICATE_REPLAY)를 보장한다.
     const restored = restorePendingEntryAttempt(pendingEntry, eventId)
@@ -204,6 +199,11 @@ export default function EventDetail() {
       setPhase('done')
       setSelectionOpen(false)
       setSheetOpen(true)
+      return
+    }
+
+    if (!isEntryOpen(event) || deadlinePassed) {
+      showToast('지금은 응모할 수 있는 상태가 아니에요.', { icon: 'error' })
       return
     }
 
@@ -240,6 +240,11 @@ export default function EventDetail() {
 
   async function submitEntry() {
     if (!attempt) return
+    const retrying = restorePendingEntryAttempt(pendingEntry, eventId)?.requestId === requestId
+    if (!retrying && (!isEntryOpen(event) || Date.now() >= endTime)) {
+      showToast('지금은 응모할 수 있는 상태가 아니에요.', { icon: 'error' })
+      return
+    }
     setPhase('submitting')
     // 응모 현황에 반영됐는지 확인할 필요 수치의 기준을 이 시점에 잡는다. 같은 requestId로 재시도하면 처음 기준을 유지한다.
     entryStatus.beginEntry(requestId, attempt.count)
@@ -475,7 +480,7 @@ export default function EventDetail() {
             type="button"
             aria-label={canApply ? '응모하기' : '응모할 수 없는 상태예요'}
             onClick={() => pendingEntry ? openConfirm() : setSelectionOpen(true)}
-            disabled={!canApply || opening}
+            disabled={(!canApply && !restorePendingEntryAttempt(pendingEntry, eventId)) || opening}
             className="w-full h-12 rounded-xl bg-gradient-to-r from-primary via-primary-container to-berry-glow text-on-primary font-title-md text-title-md font-bold flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             <MaterialIcon name="confirmation_number" filled className="text-[20px]" />
@@ -629,7 +634,8 @@ export default function EventDetail() {
             <button
               type="button"
               onClick={submitEntry}
-              className="col-span-3 h-12 rounded-xl bg-primary-container text-on-primary-container font-label-md text-label-md font-bold shadow-md flex items-center justify-center gap-space-xs hover:brightness-105 active:scale-[0.98] transition-all"
+              disabled={!canApply}
+              className="col-span-3 disabled:opacity-50 disabled:pointer-events-none h-12 rounded-xl bg-primary-container text-on-primary-container font-label-md text-label-md font-bold shadow-md flex items-center justify-center gap-space-xs hover:brightness-105 active:scale-[0.98] transition-all"
             >
               <span>응모 확정</span>
             </button>

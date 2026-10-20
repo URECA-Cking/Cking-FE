@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getCreatorApplications, getOperatingEvent, getOperatingEvents } from '../src/api/admin.js'
+import {
+  getClosingEventSummary,
+  getCreatorApplications,
+  getDashboardOperatingEvents,
+  getOperatingEvent,
+  getOperatingEvents,
+} from '../src/api/admin.js'
 import { clearAccessToken, setAccessToken } from '../src/api/token.js'
 
 function success(data) {
@@ -31,6 +37,8 @@ test('관리자 Event 운영 상세와 Creator 신청 상태 페이지 조회 �
     await getOperatingEvent(7)
     await getCreatorApplications({ status: 'PENDING', page: 2, size: 20 })
     await getOperatingEvents({ status: 'CLOSED', page: 1, size: 20 })
+    await getClosingEventSummary()
+    await getDashboardOperatingEvents()
 
     assert.equal(requests[0].url.pathname, '/api/admin/events/7/operation')
     assert.equal(requests[1].url.pathname, '/api/admin/creator-applications')
@@ -41,6 +49,15 @@ test('관리자 Event 운영 상세와 Creator 신청 상태 페이지 조회 �
     assert.deepEqual(Object.fromEntries(requests[2].url.searchParams), {
       status: 'CLOSED', archiveStatus: 'ACTIVE', page: '1', size: '20',
     })
+    assert.deepEqual(Object.fromEntries(requests[3].url.searchParams), {
+      status: 'CLOSING', archiveStatus: 'ACTIVE', page: '0', size: '1',
+    })
+    assert.deepEqual(
+      requests.slice(4).map(({ url }) => Object.fromEntries(url.searchParams)),
+      ['CLOSING', 'OPEN', 'CLOSED', 'DRAW_COMPLETED'].map((status) => ({
+        status, archiveStatus: 'ACTIVE', page: '0', size: '8',
+      })),
+    )
     assert.ok(requests.every(({ options }) => options.headers.Authorization === 'Bearer admin-token'))
   } finally {
     clearAccessToken()

@@ -274,9 +274,22 @@ export function getAdminEvents({ status, archiveStatus = 'ACTIVE', page = 0, siz
   return get('/api/admin/events', { status, archiveStatus, page, size })
 }
 
-/** Dashboard의 최근 운영 Event 목록을 서버 첫 페이지에서 조회한다. */
-export function getDrawingEvents(options) {
-  return getAdminEvents(options)
+const DASHBOARD_OPERATING_EVENT_STATUSES = ['CLOSING', 'OPEN', 'CLOSED', 'DRAW_COMPLETED']
+
+/** Dashboard의 마감 처리 건수를 정확히 표시하기 위해 CLOSING 전체 건수만 조회한다. */
+export function getClosingEventSummary() {
+  return getAdminEvents({ status: 'CLOSING', page: 0, size: 1 })
+}
+
+/**
+ * Dashboard 표에 필요한 운영 상태만 각 첫 페이지에서 제한적으로 읽는다.
+ * 목록 화면처럼 다음 페이지를 계속 순회하지 않으며, 최대 8건만 표시한다.
+ */
+export async function getDashboardOperatingEvents() {
+  const results = await Promise.all(
+    DASHBOARD_OPERATING_EVENT_STATUSES.map((status) => getAdminEvents({ status, page: 0, size: 8 })),
+  )
+  return { items: results.flatMap((result) => result?.items ?? []).slice(0, 8) }
 }
 
 /** 운영·보관 Event 목록을 서버 상태 필터와 페이지네이션으로 조회한다. */

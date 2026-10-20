@@ -5,7 +5,8 @@ import {
   getAllPendingEvents,
   getAllRequestedRedraws,
   getAllUnresolvedDeadStreams,
-  getDrawingEvents,
+  getClosingEventSummary,
+  getDashboardOperatingEvents,
 } from '../api/admin.js'
 
 const LOADERS = {
@@ -13,7 +14,8 @@ const LOADERS = {
   pendingEvents: getAllPendingEvents,
   requestedRedraws: getAllRequestedRedraws,
   unresolvedDeadStreams: getAllUnresolvedDeadStreams,
-  operatingEvents: () => getDrawingEvents({ size: 100 }),
+  closingEvents: getClosingEventSummary,
+  operatingEvents: getDashboardOperatingEvents,
 }
 
 function initialSections() {

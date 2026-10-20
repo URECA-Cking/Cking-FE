@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import BottomSheet from '../ui/BottomSheet.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
+import { getEvent } from '../../api/events.js'
 import { getTicketHistory } from '../../api/tickets.js'
 import { describeError } from '../../api/client.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
@@ -48,6 +49,22 @@ function LedgerList({ creatorId }) {
   const last = extraPages.length > 0 ? extraPages[extraPages.length - 1] : data
   const hasNext = Boolean(last?.hasNext && last?.nextCursor)
 
+  // 원장 응답에는 이벤트 제목이 없어, 화면에 나온 이벤트만 상세로 한 번씩 읽어 제목을 채운다.
+  // 삭제됐거나 못 읽은 이벤트는 null로 두고 번호 없이 "이벤트"로만 보여준다.
+  const [eventTitles, setEventTitles] = useState({})
+  const requested = useRef(new Set())
+  const wantedKey = [...new Set(items.map((item) => item.eventId).filter(Boolean))].join(',')
+  useEffect(() => {
+    wantedKey
+      .split(',')
+      .filter((id) => id && !requested.current.has(id))
+      .forEach((id) => {
+        requested.current.add(id)
+        const save = (title) => setEventTitles((prev) => ({ ...prev, [id]: title }))
+        getEvent(id).then((event) => save(event?.title ?? null), () => save(null))
+      })
+  }, [wantedKey])
+
   async function loadMore() {
     setLoadingMore(true)
     setMoreError(null)
@@ -88,7 +105,7 @@ function LedgerList({ creatorId }) {
               <div className="min-w-0 flex-1">
                 <p className="font-label-md text-label-md text-on-surface font-semibold truncate">
                   {meta.label}
-                  {item.eventId ? ` · 이벤트 #${item.eventId}` : ''}
+                  {item.eventId ? ` · ${eventTitles[item.eventId] ?? '이벤트'}` : ''}
                 </p>
                 <p className="font-label-xs text-label-xs text-on-surface-variant truncate">
                   {item.reason ? `${item.reason} · ` : ''}

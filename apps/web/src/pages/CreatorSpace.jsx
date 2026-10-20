@@ -1,3 +1,4 @@
+import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
@@ -719,7 +720,7 @@ export default function CreatorSpace() {
             <div className="flex items-center gap-1 md:col-start-2 md:row-start-1 md:gap-5">
               <span className="flex items-center gap-1">
                 <span className="font-title-md text-title-md font-bold text-on-surface md:text-xl">{creator.creatorName}</span>
-                <MaterialIcon name="verified" filled className="text-[16px] text-primary md:text-[18px]" />
+                <CreatorVerifiedBadge />
               </span>
               <div className="hidden md:flex md:items-center md:gap-space-xs">{actions}</div>
             </div>

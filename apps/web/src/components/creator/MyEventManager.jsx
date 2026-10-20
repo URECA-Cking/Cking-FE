@@ -82,12 +82,12 @@ export default function MyEventManager() {
 
   return (
     <div className="flex flex-col gap-space-md">
-      <CreateFab label="새 이벤트 만들기" to="/creator/events/new" />
+      <CreateFab label="새 이벤트 작성" to="/creator/events/new" />
 
       {loading && <LoadingBlock label="내 이벤트를 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
       {!loading && !error && events.length === 0 && (
-        <EmptyBlock icon="post_add" message="아직 만든 이벤트가 없어요. 첫 이벤트를 만들어보세요!" />
+        <EmptyBlock icon="post_add" message="아직 작성한 이벤트가 없어요. 첫 이벤트를 작성해 보세요!" />
       )}
 
       <div className="grid grid-cols-1 gap-space-md md:grid-cols-2 xl:grid-cols-3">

@@ -106,7 +106,7 @@ function YoutubeChannelForm({ initialChannel, onSaved }) {
       </label>
       {formError && <p className="font-label-xs text-label-xs text-error" role="alert">{formError}</p>}
       <button type="submit" disabled={saving} className="h-11 rounded-xl bg-primary font-label-md text-label-md font-bold text-on-primary transition-all active:scale-[0.98] disabled:opacity-50">
-        {saving ? '저장하는 중...' : initialChannel ? '채널 설정 저장' : '채널 설정하고 미션 만들기'}
+        {saving ? '저장하는 중...' : initialChannel ? '채널 설정 저장' : '채널 설정하고 미션 생성'}
       </button>
     </form>
   )

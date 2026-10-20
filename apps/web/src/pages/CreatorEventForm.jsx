@@ -224,7 +224,7 @@ function EventFormBody({ eventId, isEdit, target }) {
         showToast('이벤트를 수정했어요.')
       } else {
         await createCreatorEvent({ ...payload, requestId })
-        showToast('이벤트 초안을 만들었어요. 승인 요청을 보내면 심사가 시작돼요.')
+        showToast('이벤트 초안을 작성했어요. 승인 요청을 보내면 심사가 시작돼요.')
       }
       navigate(mySpace.data ? spacePath(mySpace.data.slug) : '/my-page', { replace: true, state: { tab: 'events' } })
     } catch (err) {
@@ -241,7 +241,7 @@ function EventFormBody({ eventId, isEdit, target }) {
 
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-32">
-      <BackHeader title={isEdit ? '이벤트 수정' : '새 이벤트 만들기'} onBack={goBack} />
+      <BackHeader title={isEdit ? '이벤트 수정' : '새 이벤트 작성'} onBack={goBack} />
 
       <form onSubmit={handleSubmit} className="pt-16 px-margin flex flex-col gap-space-md md:mx-auto md:w-full md:max-w-4xl md:px-8">
         <div className="flex flex-col gap-1.5">
@@ -418,7 +418,7 @@ function EventFormBody({ eventId, isEdit, target }) {
           disabled={submitting}
           className="w-full h-12 rounded-xl bg-primary text-on-primary font-title-md text-title-md font-bold shadow-lg active:scale-[0.98] transition-all disabled:opacity-60"
         >
-          {submitting ? '저장 중...' : isEdit ? '수정 저장' : '이벤트 초안 만들기'}
+          {submitting ? '저장 중...' : isEdit ? '수정 저장' : '이벤트 초안 작성'}
         </button>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import CreatorVerifiedBadge from '../ui/CreatorVerifiedBadge.jsx'
 import { useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
@@ -92,7 +93,7 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
           {showCreatorTag && (
             <div className="absolute top-2.5 left-2.5 bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
               <span className="font-label-xs text-label-xs text-on-surface font-bold">{creator.name}</span>
-              <MaterialIcon name="verified" filled className="text-primary text-[14px]" />
+              <CreatorVerifiedBadge />
             </div>
           )}
 

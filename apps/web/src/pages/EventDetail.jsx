@@ -1,3 +1,4 @@
+import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
@@ -350,7 +351,7 @@ export default function EventDetail() {
               >
                 {creator.name}
               </Link>
-              <MaterialIcon name="verified" filled className="text-primary text-[18px]" />
+              <CreatorVerifiedBadge />
               <StatusPill label={statusDetail.label} tone={statusDetail.tone} className="ml-auto" />
             </div>
             <h2 className="font-headline-md text-headline-md font-extrabold text-on-surface tracking-tight">

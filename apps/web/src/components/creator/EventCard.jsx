@@ -4,7 +4,8 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { getEventBanner } from '../../data/eventBanners.js'
 import { useCreatorProfile } from '../../hooks/useCreatorProfile.js'
-import { formatDday, formatEventDate, formatNumber, formatShortDate, totalPrizeQuantity } from '../../utils/format.js'
+import { useNow } from '../../hooks/useNow.js'
+import { formatCountdown, formatDday, formatEventDate, formatNumber, formatShortDate, totalPrizeQuantity } from '../../utils/format.js'
 import { displayStatusMeta, eventStatusMeta } from '../../utils/eventStatus.js'
 
 /**
@@ -29,6 +30,10 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
   // D-day 숫자를 보여줄 때는 상태 아이콘(번개) 없이 글자만 쓴다. 임박(D-DAY·D-1)일 때만 알람 아이콘을 붙인다.
   const badgeIcon = urgent ? 'alarm' : published && !closed && dday ? null : status.icon
   const prizeCount = totalPrizeQuantity(event.prizes)
+  // 진행 중이면 마감 시각 대신 1초마다 줄어드는 카운트다운을 보여준다. 응모 가능 여부의 최종 판정은 서버가 한다.
+  const live = event.displayStatus === 'IN_PROGRESS'
+  const now = useNow(live ? 1000 : 60000)
+  const countdown = live ? formatCountdown(event.endAt, now) : null
 
   const cta = closed
     ? event.status === 'PUBLISHED'
@@ -61,7 +66,9 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
               {badgeIcon && <MaterialIcon name={badgeIcon} className="text-[12px]" />}
               <span className="font-bold">{!published || closed ? status.label : dday || status.label}</span>
             </span>
-            <span className="truncate">{formatShortDate(event.endAt, { withTime: true })} 마감</span>
+            {live
+              ? <span className={`truncate tabular-nums font-semibold ${urgent ? 'text-error' : 'text-primary'}`}>{countdown ?? '응모 마감'}</span>
+              : <span className="truncate">{formatShortDate(event.endAt, { withTime: true })} 마감</span>}
           </div>
         </div>
         {/* 뽑는 인원(winnerCount)이지 지원자 수가 아니다. 지원자 수는 공개 API가 주지 않아 '당첨 인원'으로 분명히 적는다. */}
@@ -127,10 +134,17 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
           </div>
 
           <div className="flex items-center justify-between text-outline font-label-xs text-label-xs">
-            <span className="flex items-center gap-1">
-              <MaterialIcon name="event" className="text-[14px]" />
-              {formatEventDate(event.endAt)} 마감
-            </span>
+            {live ? (
+              <span className={`flex items-center gap-1 tabular-nums font-label-md text-label-md font-bold ${urgent ? 'text-error' : 'text-primary'}`}>
+                <MaterialIcon name="timer" className="text-[16px]" />
+                {countdown ?? '응모 마감'}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <MaterialIcon name="event" className="text-[14px]" />
+                {formatEventDate(event.endAt)} 마감
+              </span>
+            )}
             {prizeCount > 0 && <span>상품 {formatNumber(prizeCount)}개</span>}
           </div>
         </div>

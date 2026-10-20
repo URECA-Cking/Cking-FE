@@ -99,7 +99,7 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
 
           <div
             className={`absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm font-label-xs text-label-xs ${
-              urgent ? 'bg-error text-on-error animate-pulse' : status.tone
+              urgent ? 'bg-error text-on-error' : status.tone
             }`}
           >
             {badgeIcon && <MaterialIcon name={badgeIcon} className="text-[12px]" />}

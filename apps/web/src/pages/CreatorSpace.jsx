@@ -629,7 +629,7 @@ export default function CreatorSpace() {
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="font-label-md text-label-md text-on-surface font-semibold">좋아요 미션</span>
-                <span className="text-secondary font-label-xs text-label-xs">🎟 응모권 +{mission.rewardAmount}</span>
+                <span className="text-secondary font-label-xs text-label-xs">응모권 +{mission.rewardAmount}</span>
               </div>
             </div>
             <button
@@ -651,7 +651,7 @@ export default function CreatorSpace() {
             </div>
             <div className="flex flex-col min-w-0">
               <span className="font-label-md text-label-md text-on-surface font-semibold">공유 미션</span>
-              <span className="text-secondary font-label-xs text-label-xs">🎟 응모권 +{shownShareMission.rewardAmount} · {shareUnconfirmed ? '적립을 확인하고 있어요' : '한 번만 받을 수 있어요'}</span>
+              <span className="text-secondary font-label-xs text-label-xs">응모권 +{shownShareMission.rewardAmount} · {shareUnconfirmed ? '적립을 확인하고 있어요' : '한 번만 받을 수 있어요'}</span>
             </div>
           </div>
           <button
@@ -768,7 +768,7 @@ export default function CreatorSpace() {
             {authenticated && (
               <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-container-low px-space-md py-3">
                 <span className="min-w-0 font-label-md text-label-md font-semibold text-on-surface">
-                  🎟 {creator.creatorName} 응모권 {formatNumber(ticketBalance)}장
+                  {creator.creatorName} 응모권 {formatNumber(ticketBalance)}장
                   {balancePending?.creatorId === creator.creatorId && (
                     <span className="ml-1.5 inline-flex items-center gap-1 font-label-xs text-label-xs font-normal text-on-surface-variant">
                       {balancePending.expected === null ? '적립을 접수했어요' : '적립 반영 중'}
@@ -825,7 +825,7 @@ export default function CreatorSpace() {
               ) : liveEvents.length > 0 ? (
                 <div className="flex gap-space-md overflow-x-auto px-margin no-scrollbar snap-x snap-mandatory py-1">
                   {liveEvents.map((event) => (
-                    <EventCard key={event.eventId} event={event} ticketsOwned={ticketBalance} />
+                    <EventCard key={event.eventId} event={event} />
                   ))}
                 </div>
               ) : (
@@ -888,7 +888,7 @@ export default function CreatorSpace() {
             ) : events.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
                 {events.map((event) => (
-                  <EventCard key={event.eventId} event={event} variant="list" ticketsOwned={ticketBalance} />
+                  <EventCard key={event.eventId} event={event} variant="list" />
                 ))}
               </div>
             ) : (

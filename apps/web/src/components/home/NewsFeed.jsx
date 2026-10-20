@@ -39,7 +39,7 @@ export default function NewsFeed({ creators, posts }) {
               key={post.postId}
               to={spacePath(creator.handle)}
               state={{ tab: 'posts' }}
-              className="flex min-h-[7.5rem] w-44 flex-shrink-0 flex-col justify-between rounded-2xl border border-on-surface/10 bg-surface-container p-3.5 active:opacity-80 transition-colors"
+              className="flex min-h-[7.5rem] w-44 flex-shrink-0 flex-col justify-between rounded-2xl border border-on-surface/10 bg-surface-container p-3.5 active:opacity-80 transition-opacity"
             >
               <span className="min-w-0">
                 <span className="mb-2.5 flex items-center gap-1.5 min-w-0">
@@ -50,22 +50,20 @@ export default function NewsFeed({ creators, posts }) {
                     <span className="text-on-surface font-semibold">{creator.name}</span> · {formatRelativeTime(post.createdAt)}
                   </span>
                 </span>
-                <span className="block font-label-md text-label-md font-extrabold text-on-surface break-keep line-clamp-2">{title}</span>
+                <span className={`block font-label-md text-label-md font-extrabold text-on-surface break-keep ${subtitle ? 'line-clamp-2' : 'line-clamp-3'}`}>{title}</span>
                 {subtitle && <span className="mt-1 block font-label-sm text-label-sm text-on-surface-variant font-normal line-clamp-1">{subtitle}</span>}
               </span>
               {(hasLikes || hasComments) && (
                 <span className="mt-2 flex items-center justify-between border-t border-on-surface/5 pt-2 font-label-sm text-[11px] text-outline font-normal">
-                  <span className="flex items-center gap-1">
-                    {hasLikes && (
-                      <>
-                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-primary" fill="currentColor" aria-hidden="true">
-                          <path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.7 4.5 6.4 4.5c2.1 0 3.8 1.2 5.6 3.2 1.8-2 3.5-3.2 5.6-3.2 3.7 0 5.5 3.9 4 7.3C19.5 16.4 12 21 12 21z" />
-                        </svg>
-                        {formatNumber(post.likeCount)}
-                      </>
-                    )}
-                  </span>
-                  {hasComments && <span>댓글 {formatNumber(post.commentCount)}</span>}
+                  {hasLikes && (
+                    <span className="flex items-center gap-1">
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-primary" fill="currentColor" aria-hidden="true">
+                        <path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.7 4.5 6.4 4.5c2.1 0 3.8 1.2 5.6 3.2 1.8-2 3.5-3.2 5.6-3.2 3.7 0 5.5 3.9 4 7.3C19.5 16.4 12 21 12 21z" />
+                      </svg>
+                      {formatNumber(post.likeCount)}
+                    </span>
+                  )}
+                  {hasComments && <span className="ml-auto">댓글 {formatNumber(post.commentCount)}</span>}
                 </span>
               )}
             </Link>

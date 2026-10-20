@@ -1,12 +1,13 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import ConfirmModal from '../../components/ConfirmModal.jsx'
 import { AdminPageHeader, DetailInfoRows } from '../../components/AdminContent.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.jsx'
+import Pagination from '../../components/Pagination.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { approveCreatorApplication, approveEvent, getAllCreatorApplications, getAllPendingEvents, rejectCreatorApplication, rejectEvent } from '../../api/admin.js'
+import { approveCreatorApplication, approveEvent, getAllCreatorApplications, getAllPendingEvents, getCreatorApplications, rejectCreatorApplication, rejectEvent } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 
@@ -33,44 +34,54 @@ export function ReviewListPage({ type }) {
   const config = CONFIG[type]
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('PENDING')
-  const { data, loading, error, reload } = useAsync(config.loadList, [], { fallbackMessage: '목록을 불러오지 못했습니다.' })
+  const [page, setPage] = useState(0)
+  const loadList = () => type === 'creators'
+    ? getCreatorApplications({ status: status || undefined, page, size: 20 })
+    : config.loadList()
+  const { data, loading, error, reload } = useAsync(loadList, [type, status, page], { fallbackMessage: '목록을 불러오지 못했습니다.' })
   const items = data?.items ?? []
-  const filteredItems = items.filter((item) => {
-    const currentStatus = config.status(item)
-    return (type === 'events' || !status || currentStatus === status) && config.matches(item, query.trim().toLowerCase())
-  })
+  const filteredItems = items.filter((item) => config.matches(item, query.trim().toLowerCase()))
 
   return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
     <AdminPageHeader title={config.title} description={config.description} />
     <section className="rounded-lg border border-slate-200 bg-white">
       <div className="flex flex-wrap items-end gap-3 border-b border-slate-200 p-4">
         <label className="min-w-64 flex-1 text-xs font-medium text-slate-600">검색<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={config.searchPlaceholder} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-pink-600 focus:ring-1 focus:ring-pink-600" /></label>
-        {type === 'creators' ? <label className="w-36 text-xs font-medium text-slate-600">상태<select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600"><option value="">전체</option><option value="PENDING">승인 대기</option><option value="APPROVED">승인 완료</option><option value="REJECTED">거절</option></select></label> : <span className="h-9 rounded-md bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">승인 대기 심사 큐</span>}
+        {type === 'creators' ? <label className="w-36 text-xs font-medium text-slate-600">상태<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(0) }} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600"><option value="">전체</option><option value="PENDING">승인 대기</option><option value="APPROVED">승인 완료</option><option value="REJECTED">거절</option></select></label> : <span className="h-9 rounded-md bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">승인 대기 심사 큐</span>}
         <button type="button" onClick={() => void reload()} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button>
       </div>
       {loading && <LoadingBlock label="목록을 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
       {!loading && !error && (filteredItems.length === 0 ? <EmptyBlock icon="done_all" message={items.length === 0 ? config.empty : '검색 조건에 맞는 항목이 없습니다.'} /> : <ReviewTable type={type} config={config} items={filteredItems} />)}
+      {!loading && !error && type === 'creators' && <Pagination page={page} hasNext={data?.hasNext === true} totalElements={data?.totalElements} onPrevious={() => setPage((current) => Math.max(0, current - 1))} onNext={() => setPage((current) => current + 1)} />}
     </section>
   </div>
 }
 
 function ReviewTable({ type, config, items }) {
-  return <div className="overflow-x-auto"><table className="w-full min-w-[740px] text-left text-sm"><thead className="bg-slate-50 text-xs font-medium text-slate-500"><tr>{type === 'creators' ? <><th className="px-5 py-3">신청 ID</th><th className="px-4 py-3">신청자</th><th className="px-4 py-3">상태</th><th className="px-4 py-3">신청일</th><th className="px-4 py-3">처리일</th></> : <><th className="px-5 py-3">이벤트 ID</th><th className="px-4 py-3">이벤트명</th><th className="px-4 py-3">Creator</th><th className="px-4 py-3">상태</th><th className="px-4 py-3">승인 요청일</th></>}<th className="px-5 py-3 text-right">관리</th></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => <tr key={config.itemId(item)} className="hover:bg-slate-50"><td className="px-5 py-3 font-medium text-slate-900">#{config.itemId(item)}</td>{type === 'creators' ? <><td className="px-4 py-3 text-slate-700">{item.applicantName} <span className="text-slate-500">#{item.applicantUserId}</span></td><td className="px-4 py-3"><StatusBadge status={config.status(item)} /></td><td className="px-4 py-3 text-slate-600">{formatDateTime(item.requestedAt)}</td><td className="px-4 py-3 text-slate-600">{item.reviewedAt ? formatDateTime(item.reviewedAt) : '-'}</td></> : <><td className="px-4 py-3 font-medium text-slate-900">{item.title}</td><td className="px-4 py-3 text-slate-600">{item.creatorName ?? `#${item.creatorId}`}</td><td className="px-4 py-3"><StatusBadge status={config.status(item)} /></td><td className="px-4 py-3 text-slate-600">{formatDateTime(item.requestedAt)}</td></>}<td className="px-5 py-3 text-right"><Link to={`${config.listPath}/${config.itemId(item)}`} className="font-medium text-pink-700 hover:text-pink-800">상세 보기</Link></td></tr>)}</tbody></table></div>
+  return <div className="overflow-x-auto"><table className="w-full min-w-[740px] text-left text-sm"><thead className="bg-slate-50 text-xs font-medium text-slate-500"><tr>{type === 'creators' ? <><th className="px-5 py-3">신청 ID</th><th className="px-4 py-3">신청자</th><th className="px-4 py-3">상태</th><th className="px-4 py-3">신청일</th><th className="px-4 py-3">처리일</th></> : <><th className="px-5 py-3">이벤트 ID</th><th className="px-4 py-3">이벤트명</th><th className="px-4 py-3">Creator</th><th className="px-4 py-3">상태</th><th className="px-4 py-3">승인 요청일</th></>}<th className="px-5 py-3 text-right">관리</th></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => <tr key={config.itemId(item)} className="hover:bg-slate-50"><td className="px-5 py-3 font-medium text-slate-900">#{config.itemId(item)}</td>{type === 'creators' ? <><td className="px-4 py-3 text-slate-700">{item.applicantName} <span className="text-slate-500">#{item.applicantUserId}</span></td><td className="px-4 py-3"><StatusBadge status={config.status(item)} /></td><td className="px-4 py-3 text-slate-600">{formatDateTime(item.requestedAt)}</td><td className="px-4 py-3 text-slate-600">{item.reviewedAt ? formatDateTime(item.reviewedAt) : '-'}</td></> : <><td className="px-4 py-3 font-medium text-slate-900">{item.title}</td><td className="px-4 py-3 text-slate-600">{item.creatorName ?? `#${item.creatorId}`}</td><td className="px-4 py-3"><StatusBadge status={config.status(item)} /></td><td className="px-4 py-3 text-slate-600">{formatDateTime(item.requestedAt)}</td></>}<td className="px-5 py-3 text-right"><Link to={`${config.listPath}/${config.itemId(item)}`} state={{ reviewItem: item }} className="font-medium text-pink-700 hover:text-pink-800">상세 보기</Link></td></tr>)}</tbody></table></div>
 }
 
-/** 목록 API가 유일한 조회 계약인 현재 상태에서, 해당 목록을 다시 읽어 URL 기반 상세 화면을 구성한다. */
+/** 목록에서 넘긴 항목으로 상세를 즉시 표시하고, 주소 직접 진입만 기존 목록 조회로 복원한다. */
 export function ReviewDetailPage({ type }) {
   const config = CONFIG[type]
   const { reviewId } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const showToast = useToast()
   const [action, setAction] = useState(null)
   const [busy, setBusy] = useState(false)
   // Creator 승인은 활성 Creator Space 템플릿이 있어야 한다. 없으면 NO_ACTIVE_SPACE_TEMPLATE, 있어도 주소 규칙이 잘못됐으면 INVALID_ACTIVE_SPACE_TEMPLATE(둘 다 409)로 막는다.
   const [templateProblem, setTemplateProblem] = useState(null)
-  const { data, loading, error, reload } = useAsync(config.loadDetail, [type], { fallbackMessage: '상세 정보를 불러오지 못했습니다.' })
-  const item = data?.items?.find((candidate) => String(config.itemId(candidate)) === reviewId)
+  const selectedItem = location.state?.reviewItem && String(config.itemId(location.state.reviewItem)) === reviewId
+    ? location.state.reviewItem
+    : null
+  const { data, loading, error, reload } = useAsync(
+    () => selectedItem ? Promise.resolve(null) : config.loadDetail(),
+    [type, reviewId, selectedItem ? config.itemId(selectedItem) : null],
+    { fallbackMessage: '상세 정보를 불러오지 못했습니다.' },
+  )
+  const item = selectedItem ?? data?.items?.find((candidate) => String(config.itemId(candidate)) === reviewId)
 
   async function decide(reason) {
     if (!item || !action) return

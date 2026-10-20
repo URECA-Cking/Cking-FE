@@ -138,8 +138,8 @@ export async function replayDeadStream(deadStreamId) {
 }
 
 /** 크리에이터 전환 신청 목록을 페이지 단위로 조회한다. */
-export async function getCreatorApplications({ page = 0, size = 20 } = {}) {
-  return get('/api/admin/creator-applications', { page, size });
+export async function getCreatorApplications({ status, page = 0, size = 20 } = {}) {
+  return get('/api/admin/creator-applications', { status, page, size });
 }
 
 /** 페이지 기반 관리자 목록을 모두 읽어 Dashboard 집계에 사용할 항목을 반환한다. */
@@ -312,10 +312,9 @@ export function getDrawingReadyEvents(options) {
   return getEventsByStatuses(DRAWING_READY_EVENT_STATUSES, options)
 }
 
-/** 단건 조회 계약이 없으므로 운영 상태 목록에서 URL의 이벤트를 찾아 상세를 구성한다. */
-export async function getOperatingEvent(eventId, { archiveStatus = 'ACTIVE' } = {}) {
-  const result = await getOperatingEvents({ archiveStatus })
-  return result.items.find((item) => String(item.eventId) === String(eventId)) ?? null
+/** 관리자 운영 상세의 Event·Snapshot·INITIAL Drawing 요약을 한 번에 조회한다. */
+export function getOperatingEvent(eventId) {
+  return get(`/api/admin/events/${eventId}/operation`)
 }
 
 /** 조건에 맞는 Abuse Detection을 서버 페이지 단위로 조회한다. */

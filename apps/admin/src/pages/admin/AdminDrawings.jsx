@@ -5,14 +5,12 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { ApiError, describeError } from "../../api/client.js";
+import { describeError } from "../../api/client.js";
 import {
   getDrawing,
   getDrawingReadyEvents,
   getDrawingResult,
   getDrawingVerificationHistory,
-  getEventSnapshot,
-  getInitialDrawing,
   getOperatingEvent,
   publishDrawing,
   retryDrawing,
@@ -211,11 +209,7 @@ export function AdminDrawingDetailPage() {
   );
   const event = detail.data?.event;
   const drawing = detail.data?.drawing;
-  const snapshot = useAsync(
-    () => (event ? getEventSnapshot(event.eventId) : Promise.resolve(null)),
-    [event?.eventId],
-    { fallbackMessage: "Snapshot 정보를 불러오지 못했습니다." },
-  );
+  const snapshot = detail.data?.snapshot ?? null;
   const result = useAsync(
     () =>
       drawing?.status === "COMPLETED"
@@ -239,7 +233,6 @@ export function AdminDrawingDetailPage() {
     setHistoryOpen(false);
     await Promise.all([
       detail.reload(),
-      snapshot.reload(),
       result.reload(),
       history.reload(),
     ]);
@@ -335,7 +328,7 @@ export function AdminDrawingDetailPage() {
         </button>
       </div>
       <DrawingSteps
-        snapshot={snapshot.data}
+        snapshot={snapshot}
         drawing={drawing}
         verification={verification}
       />
@@ -400,25 +393,24 @@ export function AdminDrawingDetailPage() {
 async function loadDrawingDetail({ drawingId, eventId }) {
   if (drawingId) {
     const drawing = await getDrawing(drawingId);
+    const operation = drawing.eventId
+      ? await getOperatingEvent(drawing.eventId)
+      : null;
     return {
-      event: drawing.eventId ? await getOperatingEvent(drawing.eventId) : null,
+      event: operation?.event ?? null,
       drawing,
+      snapshot: operation?.snapshot ?? null,
     };
   }
   if (!eventId) return { event: null, drawing: null };
-  const event = await getOperatingEvent(eventId);
+  const operation = await getOperatingEvent(eventId);
+  const event = operation.event;
   if (!event) return { event: null, drawing: null };
-  try {
-    return { event, drawing: await getInitialDrawing(event.eventId) };
-  } catch (err) {
-    return err instanceof ApiError && err.code === "DRAWING_NOT_FOUND"
-      ? { event, drawing: null }
-      : {
-          event,
-          drawing: null,
-          drawingError: describeError(err, "추첨 정보를 불러오지 못했습니다."),
-        };
-  }
+  return {
+    event,
+    drawing: operation.initialDrawing,
+    snapshot: operation.snapshot,
+  };
 }
 function DrawingSteps({ snapshot, drawing, verification }) {
   const steps = [
@@ -451,17 +443,16 @@ function SnapshotSection({ snapshot }) {
       <h2 className="px-5 pt-5 text-sm font-semibold text-slate-900">
         Snapshot
       </h2>
-      {snapshot.loading && (
-        <LoadingBlock label="Snapshot 정보를 불러오는 중..." />
-      )}
-      {!snapshot.loading && snapshot.error && (
-        <ErrorBlock message={snapshot.error} onRetry={snapshot.reload} />
-      )}
-      {!snapshot.loading && !snapshot.error && snapshot.data && (
+      {snapshot && (
         <DetailInfoRows
           title="공식 Snapshot"
-          rows={toRows(snapshot.data, SNAPSHOT_LABELS)}
+          rows={toRows(snapshot, SNAPSHOT_LABELS)}
         />
+      )}
+      {!snapshot && (
+        <p className="px-5 py-4 text-sm text-slate-500">
+          아직 생성된 Snapshot이 없습니다.
+        </p>
       )}
     </section>
   );

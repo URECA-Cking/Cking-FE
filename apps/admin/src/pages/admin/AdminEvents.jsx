@@ -4,7 +4,6 @@ import {
   archiveEvent,
   closeEvent,
   getClosingStatus,
-  getEventSnapshot,
   getOperatingEvent,
   getOperatingEvents,
   OPERATING_EVENT_STATUSES,
@@ -105,7 +104,7 @@ function EventTable({ events, archiveStatus }) {
   </table></div>
 }
 
-/** URL의 Event를 다시 조회해 현재 서버 상태 중심으로 운영 상세를 표시한다. */
+/** 단건 운영 상세 API로 현재 서버 상태 중심의 Event 운영 정보를 표시한다. */
 export function AdminEventDetailPage() {
   const { eventId } = useParams()
   const navigate = useNavigate()
@@ -116,25 +115,21 @@ export function AdminEventDetailPage() {
   const [closingBusy, setClosingBusy] = useState(false)
   const [archiveBusy, setArchiveBusy] = useState(false)
   const archiveStatus = normalizeArchiveStatus(searchParams.get('archiveStatus'))
-  const { data: event, loading, error, reload } = useAsync(
-    () => getOperatingEvent(eventId, { archiveStatus }),
-    [eventId, archiveStatus],
+  const { data: operation, loading, error, reload } = useAsync(
+    () => getOperatingEvent(eventId),
+    [eventId],
     { fallbackMessage: '이벤트 정보를 불러오지 못했습니다.' },
   )
+  const event = operation?.event ?? null
   const closing = useAsync(
     () => event?.status === 'CLOSING' ? getClosingStatus(event.eventId) : Promise.resolve(null),
     [event?.eventId, event?.status],
     { fallbackMessage: '마감 처리 상태를 불러오지 못했습니다.' },
   )
-  const snapshot = useAsync(
-    () => ['CLOSED', 'DRAW_COMPLETED', 'PUBLISHED'].includes(event?.status) ? getEventSnapshot(event.eventId) : Promise.resolve(null),
-    [event?.eventId, event?.status],
-    { fallbackMessage: '스냅샷 정보를 불러오지 못했습니다.' },
-  )
 
   async function refreshEvent() {
-    const nextEvent = await reload()
-    if (nextEvent?.status === 'CLOSING') await closing.reload()
+    const nextOperation = await reload()
+    if (nextOperation?.event?.status === 'CLOSING') await closing.reload()
   }
 
   async function requestClose() {
@@ -174,7 +169,7 @@ export function AdminEventDetailPage() {
 
   if (loading) return <LoadingBlock label="이벤트 정보를 불러오는 중..." />
   if (error) return <ErrorBlock message={error} onRetry={reload} />
-  if (!event) return <div className="mx-auto max-w-6xl"><EmptyBlock message="현재 선택한 이벤트 목록에서 해당 이벤트를 찾을 수 없습니다." /><Link to={`/admin/events${archiveStatusSearch(archiveStatus)}`} className="text-sm font-medium text-pink-700">이벤트 목록으로 돌아가기</Link></div>
+  if (!event) return <div className="mx-auto max-w-6xl"><EmptyBlock message="이벤트 운영 정보를 찾을 수 없습니다." /><Link to={`/admin/events${archiveStatusSearch(archiveStatus)}`} className="text-sm font-medium text-pink-700">이벤트 목록으로 돌아가기</Link></div>
 
   const archived = Boolean(event.archivedAt)
   const infoRows = [
@@ -191,7 +186,7 @@ export function AdminEventDetailPage() {
     <div className="flex flex-wrap items-end justify-between gap-4"><div><Link to={`/admin/events${archiveStatusSearch(archiveStatus)}`} className="text-sm font-medium text-pink-700 hover:text-pink-800">← 이벤트 목록</Link><h1 className="mt-3 text-xl font-semibold text-slate-950">이벤트 운영 상세</h1><p className="mt-1 text-sm text-slate-500">{event.title} · Event #{event.eventId}</p></div><button type="button" onClick={() => void refreshEvent()} className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button></div>
     {!archived && <EventStatusFlow status={event.status} />}
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
-      <section className="border-y border-slate-200 bg-white"><DetailInfoRows title="기본 정보" rows={infoRows} /><DetailInfoRows title="운영 일정" rows={scheduleRows} /><DetailInfoRows title="이벤트 정보" rows={eventRows} />{snapshot.data && <DetailInfoRows title="추첨 Snapshot" rows={toRows(snapshot.data)} />}{snapshot.error && <section className="border-b border-slate-200 px-5 py-5"><ErrorBlock message={snapshot.error} onRetry={snapshot.reload} /></section>}</section>
+      <section className="border-y border-slate-200 bg-white"><DetailInfoRows title="기본 정보" rows={infoRows} /><DetailInfoRows title="운영 일정" rows={scheduleRows} /><DetailInfoRows title="이벤트 정보" rows={eventRows} />{operation.snapshot && <DetailInfoRows title="추첨 Snapshot" rows={toRows(operation.snapshot)} />}</section>
       <OperationPanel event={event} archived={archived} closing={closing} closingBusy={closingBusy} onClose={() => setCloseConfirmOpen(true)} onRefresh={() => void refreshEvent()} onArchive={() => setArchiveConfirmAction('archive')} onUnarchive={() => setArchiveConfirmAction('unarchive')} />
     </div>
     {closeConfirmOpen && <ConfirmModal action="confirm" subject={event.title} busy={closingBusy} title="이 이벤트의 마감을 요청할까요?" message={'마감 요청이 접수되면 백엔드에서 마감 처리가 진행됩니다.\n처리 완료 전까지 상태는 마감 처리 중으로 표시될 수 있습니다.'} confirmLabel="마감 요청" onCancel={() => setCloseConfirmOpen(false)} onConfirm={() => void requestClose()} />}

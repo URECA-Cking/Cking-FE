@@ -89,3 +89,16 @@ test('삭제 요청 중에는 시트가 닫히지 않고, 확인하면 삭제하
     assert.equal(await page.evaluate(() => window.nativeConfirmCalls), 0)
   } finally { await page.close() }
 })
+
+test('삭제가 실패하면 시트가 닫히고 게시글은 그대로 남는다', async () => {
+  const page = await screen()
+  try {
+    await page.evaluate(() => { window.respondDelete = () => new Response(JSON.stringify({ code: 'SYSTEM_ERROR', message: 'fail' }), { status: 500 }) })
+    const sheet = page.getByRole('dialog', { name: '게시글을 삭제할까요?' })
+    await sheet.getByRole('button', { name: '삭제', exact: true }).click()
+    await sheet.waitFor({ state: 'detached' })
+    assert.deepEqual(await page.evaluate(() => window.deleteCalls), ['/api/creator/posts/5'])
+    assert.equal((await page.evaluate(() => window.toasts)).length, 1)
+    assert.equal(await page.getByRole('button', { name: '게시글 메뉴' }).count(), 1)
+  } finally { await page.close() }
+})

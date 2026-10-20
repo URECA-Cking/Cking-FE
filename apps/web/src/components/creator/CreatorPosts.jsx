@@ -254,17 +254,15 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     try {
       await deletePost(post.postId)
       showToast('게시글을 삭제했어요.')
-      setConfirmingDelete(null)
       closeDetail()
       markDeleted(post.postId)
     } catch (error) {
       const notFound = error instanceof ApiError && error.code === 'RESOURCE_NOT_FOUND'
       showToast(notFound ? POST_ERROR_MESSAGES.RESOURCE_NOT_FOUND : describeError(error, '게시글을 삭제하지 못했어요.'), { icon: 'error' })
-      if (notFound) {
-        setConfirmingDelete(null)
-        markDeleted(post.postId)
-      }
+      if (notFound) markDeleted(post.postId)
     } finally {
+      // 성공·실패와 무관하게 시트를 닫는다. 실패는 토스트로 알리고, 다시 하려면 메뉴에서 삭제를 다시 누른다.
+      setConfirmingDelete(null)
       setDeletingId(null)
     }
   }

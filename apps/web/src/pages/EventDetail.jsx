@@ -625,7 +625,7 @@ export default function EventDetail() {
                   onClick={() => setTicketCount(limit)}
                   className="py-2.5 rounded-xl bg-primary/10 text-primary font-label-md text-label-md font-bold active:scale-95 hover:bg-primary hover:text-on-primary transition-all"
                 >
-                  일괄 사용 ({formatNumber(limit)}장)
+                  일괄 사용
                 </button>
               </div>
 

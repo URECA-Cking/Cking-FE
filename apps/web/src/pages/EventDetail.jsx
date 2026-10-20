@@ -327,7 +327,6 @@ export default function EventDetail() {
             <span
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-label-xs text-label-xs shadow-md ${status.tone}`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
               {status.label} {!closed && dday}
             </span>
             <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface-glass backdrop-blur-md text-on-surface font-label-xs text-label-xs shadow-sm">
@@ -546,7 +545,6 @@ export default function EventDetail() {
               <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
                   <h3 className="font-title-lg text-title-lg font-bold text-on-surface">사용할 응모권 수</h3>
                 </div>
               </div>

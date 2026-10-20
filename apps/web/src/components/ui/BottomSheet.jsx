@@ -264,7 +264,6 @@ function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, childr
               <div>
                 {eyebrow && (
                   <div className="inline-flex items-center gap-space-xs mb-1">
-                    <span className="w-2 h-2 rounded-full bg-primary-container animate-ping" />
                     <span className="font-label-xs text-label-xs text-primary-container font-bold uppercase tracking-wide">
                       {eyebrow}
                     </span>

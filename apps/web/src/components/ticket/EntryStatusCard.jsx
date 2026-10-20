@@ -35,7 +35,6 @@ export default function EntryStatusCard({ status }) {
               live ? 'bg-berry-tint text-primary' : 'bg-surface-container text-on-surface-variant'
             }`}
           >
-            {live && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
             {live ? '실시간' : '집계'}
           </span>
         )}

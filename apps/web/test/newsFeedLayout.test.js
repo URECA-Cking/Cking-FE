@@ -5,11 +5,17 @@ import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
 import react from '@vitejs/plugin-react'
 import { chromium } from '@playwright/test'
+import tailwindcss from 'tailwindcss'
+import autoprefixer from 'autoprefixer'
+import tailwindConfig from '../tailwind.config.js'
 
 let bundle, css, browser
 
 test.before(async () => {
-  const output = await build({ configFile: false, plugins: [react()], logLevel: 'silent',
+  const output = await build({ configFile: false, plugins: [react()],
+    // 실행 위치(CWD)와 무관하게 Tailwind가 컴파일되도록 PostCSS 플러그인과 content 경로를 직접 지정한다.
+    css: { postcss: { plugins: [tailwindcss({ ...tailwindConfig, content: [fileURLToPath(new URL('../src/**/*.{js,jsx}', import.meta.url))] }), autoprefixer()] } },
+    logLevel: 'silent',
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
     build: { write: false, minify: false, lib: { entry: fileURLToPath(new URL('./fixtures/newsFeedBrowser.jsx', import.meta.url)), name: 'NewsFeedTest', formats: ['iife'] } },
   })

@@ -108,7 +108,8 @@ const useShareMode = (page, mode) => page.evaluate((shareMode) => {
 }, mode)
 
 const shareCalls = (page) => page.evaluate(() => window.shareCalls)
-const shareCard = (page) => page.locator(SHARE_BUTTON, { hasText: /공유하기|완료|다시 확인|처리 중/ })
+// 버튼에는 응모권 장수(또는 완료·처리 중 같은 상태)만 보여서, 버튼 글자 대신 '공유 미션' 줄 안의 버튼으로 찾는다.
+const shareCard = (page) => page.locator('div.justify-between', { has: page.getByText('공유 미션', { exact: true }) }).locator(SHARE_BUTTON)
 // 같은 버튼 묶음을 데스크톱용·모바일용으로 두 번 그리고 테스트 틀에는 CSS가 없어 둘 다 보이므로 첫 번째를 쓴다.
 const headerShare = (page) => page.locator('button[aria-label="공유하기"]').first()
 const editSpaceButton = (page) => page.getByRole('button', { name: '스페이스 편집' }).first()
@@ -168,7 +169,7 @@ test('공유 시트를 닫으면 보상 API를 호출하지 않는다', async ()
     await headerShare(page).click()
     await page.waitForTimeout(300)
     assert.equal((await shareCalls(page)).length, 0)
-    assert.equal(await shareCard(page).innerText(), '공유하기')
+    assert.equal(await shareCard(page).innerText(), '1장')
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
@@ -289,8 +290,8 @@ test('같은 스페이스에서 회원이 바뀌면 이전 회원의 완료 표�
 
     // 서버에서 회원 2의 SHARE 미션은 아직 받지 않은 상태다.
     await page.evaluate(() => window.renderSpace({ memberId: 2 }))
-    await page.waitForFunction(() => document.body.innerText.includes('공유하기'))
-    assert.equal(await shareCard(page).innerText(), '공유하기')
+    await shareCard(page).filter({ hasText: '1장' }).waitFor()
+    assert.equal(await shareCard(page).innerText(), '1장')
     assert.equal(await page.getByText('완료', { exact: true }).count(), 0)
 
     await headerShare(page).click()
@@ -316,10 +317,10 @@ test('이전 회원의 늦은 지급 응답이 새 회원의 미션 상태와 �
     await page.evaluate(() => window.renderSpace({ memberId: 2 }))
     await page.waitForFunction(() => document.body.innerText.includes('공유 미션'))
     await page.evaluate(() => window.releaseShare())
-    await page.waitForFunction(() => document.body.innerText.includes('공유하기'))
+    await shareCard(page).filter({ hasText: '1장' }).waitFor()
     await page.waitForTimeout(300)
 
-    assert.equal(await shareCard(page).innerText(), '공유하기')
+    assert.equal(await shareCard(page).innerText(), '1장')
     assert.equal(await page.getByText('완료', { exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => window.ticketRefreshes), 0)
     assert.equal((await page.evaluate(() => window.toasts)).some((message) => message.includes('공유 미션 완료')), false)
@@ -334,6 +335,8 @@ test('공유 보상 안내는 일일 초기화가 아니라 좋아요 미션에�
     await page.getByText('공유 미션').waitFor()
     const text = await page.evaluate(() => document.body.innerText)
     assert.ok(text.includes('좋아요 미션은 매일 00:00 갱신'))
+    // 응모권 장수는 버튼에 보이고, 공유 미션 줄에는 한 번만 받을 수 있다는 안내만 둔다. 일일 초기화는 좋아요 미션에만 안내한다.
+    assert.ok(/공유 미션/.test(text))
     assert.ok(text.includes('한 번만 받을 수 있어요'))
     assert.deepEqual(errors, [])
   } finally { await page.close() }

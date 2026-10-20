@@ -629,7 +629,6 @@ export default function CreatorSpace() {
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="font-label-md text-label-md text-on-surface font-semibold">좋아요 미션</span>
-                <span className="text-secondary font-label-xs text-label-xs">🎟 응모권 +{mission.rewardAmount}</span>
               </div>
             </div>
             <button
@@ -638,7 +637,7 @@ export default function CreatorSpace() {
               onClick={goLikePosts}
               className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 ${completed ? 'bg-surface-container-high text-outline' : 'bg-berry-tint text-primary'}`}
             >
-              {completed ? '완료' : '좋아요 하러 가기'}
+              {completed ? '완료' : `${mission.rewardAmount}장`}
             </button>
           </div>
         )
@@ -651,7 +650,7 @@ export default function CreatorSpace() {
             </div>
             <div className="flex flex-col min-w-0">
               <span className="font-label-md text-label-md text-on-surface font-semibold">공유 미션</span>
-              <span className="text-secondary font-label-xs text-label-xs">🎟 응모권 +{shownShareMission.rewardAmount} · {shareUnconfirmed ? '적립을 확인하고 있어요' : '한 번만 받을 수 있어요'}</span>
+              <span className="text-secondary font-label-xs text-label-xs">{shareUnconfirmed ? '적립을 확인하고 있어요' : '한 번만 받을 수 있어요'}</span>
             </div>
           </div>
           <button
@@ -660,7 +659,7 @@ export default function CreatorSpace() {
             onClick={shareUnconfirmed ? recheckShare : handleShare}
             className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 ${shownShareMission.completedToday ? 'bg-surface-container-high text-outline' : 'bg-berry-tint text-primary'}`}
           >
-            {shownShareMission.completedToday ? '완료' : shareRewardBusy ? '처리 중...' : shareUnconfirmed ? '다시 확인' : '공유하기'}
+            {shownShareMission.completedToday ? '완료' : shareRewardBusy ? '처리 중...' : shareUnconfirmed ? '다시 확인' : `${shownShareMission.rewardAmount}장`}
           </button>
         </div>
       )}
@@ -719,7 +718,7 @@ export default function CreatorSpace() {
         <SpaceHeaderBackdrop src={creator.bannerImageUrl} />
         <section className="relative flex flex-col gap-space-sm px-margin pb-space-sm pt-space-lg md:grid md:grid-cols-[auto_minmax(0,1fr)] md:gap-x-16 md:gap-y-4 md:px-8 md:pb-6 md:pt-10">
           <div className="flex items-center gap-space-lg md:contents">
-            <div className="h-20 w-20 shrink-0 rounded-full border border-surface-container-high bg-surface-container p-0.5 md:col-start-1 md:row-span-2 md:row-start-1 md:mx-6 md:h-36 md:w-36 md:p-1">
+            <div className="h-20 w-20 shrink-0 rounded-full border border-white p-px md:col-start-1 md:row-span-2 md:row-start-1 md:mx-6 md:h-36 md:w-36 md:p-0.5">
               <ProfilePhoto src={creator.profileImageUrl} className="h-full w-full" iconClassName="text-[40px] md:text-[72px]" />
             </div>
           </div>
@@ -805,7 +804,8 @@ export default function CreatorSpace() {
             <div className="flex flex-col gap-space-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <MaterialIcon name="bolt" className="text-primary text-[20px]" />
+                  {/* bolt는 글자 폭이 좁아 같은 20px로는 옆 헤더 아이콘보다 작고 왼쪽으로 쏠려 보여, 22px로 키우고 20px 칸 안에서 가운데로 맞춘다. */}
+                  <span className="flex h-5 w-5 items-center justify-center"><MaterialIcon name="bolt" className="text-primary text-[22px]" /></span>
                   <h2 className="font-title-md text-title-md text-on-surface">오늘의 미션</h2>
                 </div>
                 <span className="font-label-xs text-label-xs text-on-surface-variant">좋아요 미션은 매일 00:00 갱신</span>

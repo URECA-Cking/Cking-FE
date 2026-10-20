@@ -169,7 +169,7 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
   return (
     <article className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-card">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-700">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-container-high text-primary">
           <MaterialIcon name="subscriptions" filled className="text-[22px]" />
         </div>
         <div className="min-w-0 flex-1">

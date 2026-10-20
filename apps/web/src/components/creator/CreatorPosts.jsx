@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import CreateFab from '../ui/CreateFab.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../ui/States.jsx'
@@ -40,6 +41,8 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   // editor: null(닫힘) | { post: null }(작성) | { post }(수정)
   const [editor, setEditor] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
+  // 삭제 확인 시트를 연 게시물(없으면 null).
+  const [confirmingDelete, setConfirmingDelete] = useState(null)
   const [local, setLocal] = useState(NO_LOCAL_CHANGES)
   // 좋아요·취소 응답으로 받은 liked·likeCount. 목록과 상세에 같은 값을 보이려고 postId별로 덮어쓴다.
   const [likeOverrides, setLikeOverrides] = useState({})
@@ -251,10 +254,9 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     }
   }
 
-  /** 삭제 확인 후 게시물을 삭제하고 상세와 목록을 갱신한다. */
+  /** 확인 시트에서 승인된 게시물을 삭제하고 상세와 목록을 갱신한다. */
   async function handleDelete(post) {
     if (deletingId != null) return
-    if (!window.confirm('이 게시글을 삭제할까요? 삭제하면 이미지와 댓글도 함께 사라지고 되돌릴 수 없어요.')) return
     setDeletingId(post.postId)
     try {
       await deletePost(post.postId)
@@ -266,6 +268,8 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
       showToast(notFound ? POST_ERROR_MESSAGES.RESOURCE_NOT_FOUND : describeError(error, '게시글을 삭제하지 못했어요.'), { icon: 'error' })
       if (notFound) markDeleted(post.postId)
     } finally {
+      // 성공·실패와 무관하게 시트를 닫는다. 실패는 토스트로 알리고, 다시 하려면 메뉴에서 삭제를 다시 누른다.
+      setConfirmingDelete(null)
       setDeletingId(null)
     }
   }
@@ -385,7 +389,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
                   lockedDisabled={followDisabled}
                   isMine={isMine}
                   onEdit={() => editFromDetail(detail.post)}
-                  onDelete={() => handleDelete(detail.post)}
+                  onDelete={() => setConfirmingDelete(detail.post)}
                   deleting={deletingId === detail.post.postId}
                   onMediaRatio={setMediaRatio}
                 >
@@ -412,6 +416,14 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
           </div>
         </div>
       )}
+      <ConfirmSheet
+        open={confirmingDelete !== null}
+        title="게시글을 삭제할까요?"
+        message="삭제하면 이미지와 댓글도 함께 사라지고 되돌릴 수 없어요."
+        busy={deletingId !== null}
+        onConfirm={() => handleDelete(confirmingDelete)}
+        onClose={() => setConfirmingDelete(null)}
+      />
     </div>
   )
 }

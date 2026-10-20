@@ -307,3 +307,16 @@ for(const theme of ['dark','light'])test(`accepted additional entries refresh my
   assert.equal((await posts(p)).length,2)
  }finally{await p.close()}
 })
+
+test('result-published event hides the closed-entry notice, closed event keeps it',async()=>{
+ const notice=/응모가 마감된 이벤트예요/
+ const closed=await screen({status:'CLOSED',displayStatus:'CLOSED'})
+ try{
+  await closed.getByText(notice).waitFor()
+ }finally{await closed.close()}
+ const published=await screen({status:'PUBLISHED',displayStatus:'CLOSED'})
+ try{
+  await published.getByRole('heading',{name:'당첨 결과',exact:true}).waitFor()
+  assert.equal(await published.getByText(notice).count(),0)
+ }finally{await published.close()}
+})

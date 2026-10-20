@@ -369,7 +369,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
 
   return (
     <div className="flex flex-col gap-space-sm">
-      <CreateFab label="AI Quiz 만들기" onClick={() => openForm(EMPTY_FORM)} disabled={!canStart} />
+      <CreateFab label="AI Quiz 생성" onClick={() => openForm(EMPTY_FORM)} disabled={!canStart} />
 
       {recoveryError && <div role="alert"><p>{recoveryError}</p><button onClick={() => generationId ? openReview() : recoverCurrent()}>다시 확인</button></div>}
       {reviewJob?.generationId === generationId && <QuizContentReviewSheet key={reviewJob.generationId} creatorId={creatorId} job={reviewJob} storage={storage} drafts={reviewDrafts}

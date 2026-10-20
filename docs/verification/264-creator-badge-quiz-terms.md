@@ -1,5 +1,12 @@
 # Issue #264 화면 검증
 
+## PR #267 리뷰 반영 (2026-10-20)
+
+- 공통 `CreateFab`의 구조와 `+` 아이콘은 유지하고, 접근성 이름을 Quiz는 `AI Quiz 생성`, 이벤트는 `새 이벤트 작성`으로 수정했다. 아래 병합 시점의 접근성 이름 유지 기록은 이 수정으로 대체된다.
+- 기존 Quiz 생성·복구·원문 검토 테스트도 새 접근성 이름으로 갱신했다. `quizJobComponents.test.js`, `quizContentReviewComponents.test.js` 44건 통과.
+- `creatorVerifiedBadgeComponents.test.js` 1건 통과: 공통 배지와 실제 `CreatorRow`·`CreatorAvatarItem`의 접근성 이름·동일 마크업·반응형 스타일 클래스 확인. 전체 화면의 시각적 E2E 검증은 아니다.
+- `npm run lint:web`, `npm run build:web` 통과(기존 lint 경고 3건 유지). 실제 BE·Provider 호출과 전체 테스트 스위트는 미실행이다.
+
 ## 최신 develop 우선 병합 (2026-10-20)
 
 - 기준 develop: `718cbf2`. 충돌은 develop 변경을 우선하고, 삭제된 `useVisibleCreatorIds.js`와 기존 생성 진입 버튼을 복원하지 않았다.

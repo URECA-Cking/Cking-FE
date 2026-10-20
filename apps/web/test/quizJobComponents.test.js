@@ -80,14 +80,14 @@ async function screen(kind, initial = null, context = null) {
   assert.deepEqual(errors, [])
   await page.evaluate((kind) => window.renderQuiz(kind), kind)
   // 초기 저장소 조회가 끝난 뒤 장애/경쟁을 주입해 요청 직전 조회와 예약 조회 사이를 정확히 검증한다.
-  if (kind === 'generation') await page.getByRole('button', { name: 'AI Quiz 만들기', exact: false }).waitFor()
+  if (kind === 'generation') await page.getByRole('button', { name: 'AI Quiz 생성', exact: false }).waitFor()
   else await page.getByRole('region', { name: 'GPT Judge 평가', exact: true }).waitFor()
   return page
 }
 async function send(page, kind, recovery = false) {
   if (kind === 'judge') { await page.getByRole('button', { name: recovery ? '평가 요청 다시 확인' : '평가 요청', exact: true }).click(); return }
   if (recovery) { await page.getByRole('button', { name: '다시 확인', exact: true }).click(); return }
-  await page.getByRole('button', { name: 'AI Quiz 만들기', exact: false }).click()
+  await page.getByRole('button', { name: 'AI Quiz 생성', exact: false }).click()
   const inputs = page.locator('input')
   await inputs.nth(0).fill(input.youtubeUrl)
   await inputs.nth(1).fill(input.title)
@@ -173,7 +173,7 @@ for (const kind of ['generation', 'judge']) {
         await page.getByText('요청 결과를 확인하지 못했어요. 같은 내용으로 다시 요청하면 중복 없이 이어서 확인해요.').waitFor()
         await page.getByRole('button', { name: '닫기', exact: true }).click()
         assert.equal(await page.getByRole('button', { name: '요청 지우기', exact: true }).count(), 0)
-        assert.equal(await page.getByRole('button', { name: 'AI Quiz 만들기', exact: false }).isDisabled(), true)
+        assert.equal(await page.getByRole('button', { name: 'AI Quiz 생성', exact: false }).isDisabled(), true)
       } else {
         await page.getByRole('button', { name: '평가 요청 다시 확인', exact: true }).waitFor()
       }
@@ -218,7 +218,7 @@ for (const kind of ['generation', 'judge']) {
       await page.evaluate((kind) => window.reply(0, 202, kind === 'generation' ? { generationId: 11, status: 'PENDING' } : { evaluationId: 11, revisionId: 100, status: 'PENDING' }), kind)
       await page.waitForTimeout(100)
       // 응답 후에는 메모리에서 작업 ID로 이어 조회하며 신규 요청 버튼을 막는다.
-      if (kind === 'generation') assert.equal(await page.getByRole('button', { name: 'AI Quiz 만들기', exact: false }).isDisabled(), true)
+      if (kind === 'generation') assert.equal(await page.getByRole('button', { name: 'AI Quiz 생성', exact: false }).isDisabled(), true)
       else assert.equal(await page.getByRole('button', { name: '평가 요청', exact: true }).count(), 0)
     } finally { await page.close() }
   })

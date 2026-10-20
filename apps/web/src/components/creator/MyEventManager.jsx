@@ -82,7 +82,7 @@ export default function MyEventManager() {
 
   return (
     <div className="flex flex-col gap-space-md">
-      <CreateFab label="새 이벤트 만들기" to="/creator/events/new" />
+      <CreateFab label="새 이벤트 작성" to="/creator/events/new" />
 
       {loading && <LoadingBlock label="내 이벤트를 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}

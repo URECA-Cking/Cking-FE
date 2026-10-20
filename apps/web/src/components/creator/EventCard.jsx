@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { getEventBanner } from '../../data/eventBanners.js'
 import { useCreatorProfile } from '../../hooks/useCreatorProfile.js'
 import { formatDday, formatEventDate, formatNumber, formatShortDate, totalPrizeQuantity } from '../../utils/format.js'
@@ -47,9 +48,8 @@ export default function EventCard({ event, ticketsOwned, showCreatorTag = false,
         disabled={!published}
         className="w-full text-left bg-surface-container-lowest rounded-xl shadow-card p-2.5 flex items-center gap-3 active:scale-[0.98] transition-all"
       >
-        <div className="w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-surface-container-high">
-          <img className="w-full h-full object-cover" src={getEventBanner(event.eventId)} alt="" loading="lazy" decoding="async" />
-        </div>
+        {/* 정방형 미리보기는 이벤트 배너 대신 크리에이터 사진(64 × 64)이다. */}
+        <ProfilePhoto src={creator.avatar} className="h-16 w-16 shrink-0" iconClassName="text-[28px]" loading="lazy" decoding="async" />
         <div className="min-w-0 flex flex-col gap-0.5">
           {showCreatorTag && <span className="font-label-xs text-label-xs text-outline truncate">{creator.name}</span>}
           <h4 className="font-label-md text-label-md font-semibold text-on-surface line-clamp-1">{event.title}</h4>

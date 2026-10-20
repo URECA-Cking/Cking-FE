@@ -80,13 +80,13 @@ export default function ExploreRecommend() {
         {!loading && !error && shown.length > 0 && (
           <div className="px-margin flex flex-col gap-2.5">
             {shown.map((creator) => renderRow(creator, { tracked: true }))}
-            {recommended.length > shown.length && (
+            {recommended.length > RECOMMEND_PAGE_SIZE && (
               <button
                 type="button"
-                onClick={() => setLimit((current) => current + RECOMMEND_PAGE_SIZE)}
+                onClick={() => setLimit((current) => (recommended.length > current ? current + RECOMMEND_PAGE_SIZE : RECOMMEND_PAGE_SIZE))}
                 className="h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
               >
-                더 보기
+                {recommended.length > shown.length ? '더 보기' : '접기'}
               </button>
             )}
           </div>

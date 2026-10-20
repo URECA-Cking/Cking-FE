@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
-import { getEventBanner } from '../../data/eventBanners.js'
+import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { useEntryStatus } from '../../hooks/useEntryStatus.js'
 import { useCreatorProfile } from '../../hooks/useCreatorProfile.js'
 import { formatDday, formatNumber } from '../../utils/format.js'
 
 /**
- * 홈 응모 목록의 티켓 한 장. 이미지 | 절취선 | 정보 순이고, 정보는 D-day·크리에이터, 제목, 보유 응모권 세 줄뿐이다.
+ * 홈 응모 목록의 티켓 한 장. 크리에이터 사진(88 × 88) | 절취선 | 정보 순이고, 정보는 D-day·크리에이터, 제목, 보유 응모권 세 줄뿐이다.
  * 카드 전체가 상세로 가는 링크이고, 응모 가능 여부의 최종 판정은 서버(응모 결과 코드)가 한다.
  */
 export default function EntryTicket({ event, ticketsOwned, applied = null, featured = false }) {
@@ -21,7 +21,7 @@ export default function EntryTicket({ event, ticketsOwned, applied = null, featu
         featured ? 'bg-gradient-to-r from-primary/35 to-surface-container' : 'bg-surface-container'
       }`}
     >
-      <img className="h-full w-[5.5rem] flex-shrink-0 object-cover bg-surface-container-high" src={getEventBanner(event.eventId)} alt="" />
+      <ProfilePhoto src={creator.avatar} className="h-[5.5rem] w-[5.5rem] flex-shrink-0" iconClassName="text-[40px]" loading="lazy" decoding="async" />
       <span className="relative w-0 flex-shrink-0 border-l-2 border-dashed border-surface">
         <span className="absolute -top-2 -left-[9px] h-4 w-4 rounded-full bg-surface" />
         <span className="absolute -bottom-2 -left-[9px] h-4 w-4 rounded-full bg-surface" />

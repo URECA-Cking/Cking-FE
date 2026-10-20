@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getDeadStreams, replayDeadStream } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
+import ConfirmModal from '../../components/ConfirmModal.jsx'
 import MaterialIcon from '../../components/MaterialIcon.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
@@ -22,6 +23,8 @@ export default function AdminDeadStreams() {
   const [status, setStatus] = useState('UNRESOLVED')
   const [page, setPage] = useState(0)
   const [busyId, setBusyId] = useState(null)
+  // 재처리 확인 모달을 연 메시지(없으면 null).
+  const [replayTarget, setReplayTarget] = useState(null)
 
   const { data, loading, error, reload } = useAsync(
     () => getDeadStreams({ status, page, size: 20 }),
@@ -38,10 +41,9 @@ export default function AdminDeadStreams() {
     setPage(0)
   }
 
-  /** 관리자 운영 화면에서 replay 동작을 처리한다. */
+  /** 확인 모달에서 승인된 데드 메시지를 다시 처리하고 목록을 새로 읽는다. */
 
   async function replay(item) {
-    if (!window.confirm(`데드 메시지 #${item.id}을 다시 처리할까요? 원인을 해결한 뒤 실행해주세요.`)) return
     setBusyId(item.id)
     try {
       await replayDeadStream(item.id)
@@ -51,6 +53,7 @@ export default function AdminDeadStreams() {
       showToast(describeError(replayError, '데드 메시지를 다시 처리하지 못했어요.'), { icon: 'error' })
     } finally {
       setBusyId(null)
+      setReplayTarget(null)
     }
   }
 
@@ -95,7 +98,7 @@ export default function AdminDeadStreams() {
           <section className="flex flex-col gap-space-sm">
             <p className="font-label-sm text-label-sm text-on-surface-variant">총 {data.totalElements}건 · 오래된 메시지부터 표시돼요.</p>
             <div className="grid grid-cols-1 gap-space-sm xl:grid-cols-2">
-              {items.map((item) => <DeadStreamCard key={item.id} item={item} busy={busyId === item.id} onReplay={replay} />)}
+              {items.map((item) => <DeadStreamCard key={item.id} item={item} busy={busyId === item.id} onReplay={setReplayTarget} />)}
             </div>
           </section>
         )}
@@ -107,6 +110,18 @@ export default function AdminDeadStreams() {
             <button type="button" disabled={!data.hasNext} onClick={() => setPage((current) => current + 1)} className="h-10 px-3 rounded-xl bg-surface-container-low text-on-surface font-label-sm text-label-sm font-semibold disabled:opacity-40">다음</button>
           </div>
         )}
+      {replayTarget && (
+        <ConfirmModal
+          action="confirm"
+          subject={`데드 메시지 #${replayTarget.id}`}
+          title="데드 메시지를 다시 처리할까요?"
+          message={`데드 메시지 #${replayTarget.id}의 처리를 다시 시도해요. 원인을 해결한 뒤 실행해주세요.`}
+          confirmLabel="다시 처리"
+          busy={busyId !== null}
+          onCancel={() => setReplayTarget(null)}
+          onConfirm={() => void replay(replayTarget)}
+        />
+      )}
     </div>
   )
 }

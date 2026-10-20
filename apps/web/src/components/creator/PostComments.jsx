@@ -24,13 +24,11 @@ import { ceilToMinute, describeCommentRestriction } from '../../utils/sanctionNo
 import { createCommentBlockAsAdmin, deleteCommentAsAdmin } from '../../api/adminComments.js'
 import { createCommentBlock } from '../../api/creatorCommentBlocks.js'
 import { useUser } from '../../context/useUser.js'
-import { displayedCommentTotal } from '../../utils/postCommentCount.js'
 import { canBlockAuthor, canDeleteComment, deleteRoute, moderationActor } from '../../utils/commentModeration.js'
 
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
-// counted: 재조회한 서버 전체 개수(totalElements)가 이미 포함하고 있는 created 댓글 ID.
-// deleted: 목록에서 숨길 댓글 ID. removed: 그중 내 삭제 요청이 성공(204)해 서버 전체 개수가 줄어야 하는 댓글 ID(404로 이미 삭제돼 있던 댓글은 넣지 않는다).
-const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [], counted: [], removed: [] }
+// deleted: 목록에서 숨길 댓글 ID.
+const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 function describeCommentError(error, fallback) {
   // 작성·수정 제한(플랫폼 제한·스페이스 차단)은 BE 메시지의 UTC 해제 시각을 앱 공통 시각 표기(브라우저 시간대)로 바꿔 안내한다.
@@ -48,6 +46,9 @@ function byServerOrder(a, b) {
   return diff !== 0 && !Number.isNaN(diff) ? diff : a.commentId - b.commentId
 }
 
+// 새 댓글 입력창. 한 줄일 때 오른쪽 전송 버튼과 위아래 여백이 같도록 위아래 패딩을 넉넉히 둔다.
+const draftClass =
+  'w-full max-h-40 overflow-y-auto pl-3 pr-14 py-4 rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none shadow-sm transition-all resize-none'
 const inputClass =
   'w-full px-3 py-2.5 rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none shadow-sm transition-all resize-none'
 
@@ -75,6 +76,14 @@ export default function PostComments({ creatorId, postId, authenticated, followi
   const loadedPageCount = useRef(0)
 
   const [draft, setDraft] = useState('')
+  // 한 줄 높이로 시작해 입력한 만큼 늘리고(최대 max-h-40), 비우면 다시 한 줄로 줄인다.
+  const draftRef = useRef(null)
+  useEffect(() => {
+    const box = draftRef.current
+    if (!box) return
+    box.style.height = 'auto'
+    box.style.height = `${box.scrollHeight}px`
+  }, [draft])
   const [posting, setPosting] = useState(false)
   const [postError, setPostError] = useState('')
   const [editing, setEditing] = useState(null) // { commentId, text }
@@ -138,7 +147,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
         const pending = state.created
           .filter((comment) => !fetchedIds.has(comment.commentId) && !state.deleted.includes(comment.commentId))
           .map((comment) => state.updated[comment.commentId] ?? comment)
-        return { ...NO_LOCAL_CHANGES, created: pending, counted: pending.map((comment) => comment.commentId) }
+        return { ...NO_LOCAL_CHANGES, created: pending }
       })
       setSync('synced')
     } catch {
@@ -252,9 +261,8 @@ export default function PostComments({ creatorId, postId, authenticated, followi
     setLocal((state) => ({
       ...state,
       deleted: [...state.deleted, comment.commentId],
-      removed: deletedByMe ? [...state.removed, comment.commentId] : state.removed,
     }))
-    // 헤더 '댓글 N'과 부모(목록 카드·상세)는 같은 조건으로만 줄인다: 내 삭제가 성공했을 때.
+    // 부모(목록 카드·상세)의 댓글 수는 내 삭제가 성공했을 때만 줄인다.
     if (deletedByMe) onCommentCountChange?.(-1)
     setDeletingId(null)
     refreshQuietly()
@@ -262,10 +270,6 @@ export default function PostComments({ creatorId, postId, authenticated, followi
 
   return (
     <section className="mt-space-md border-t border-surface-container pt-space-md" aria-label="댓글">
-      <h4 className="mb-3 font-title-md text-title-md font-semibold text-on-surface">
-        댓글 {page ? displayedCommentTotal(page.totalElements, local) : ''}
-      </h4>
-
       {first.loading && <LoadingBlock label="댓글을 불러오는 중..." />}
       {!first.loading && first.error && <ErrorBlock message={first.error} onRetry={first.reload} />}
       {!first.loading && !first.error && page && comments.length === 0 && (
@@ -391,33 +395,42 @@ export default function PostComments({ creatorId, postId, authenticated, followi
         )}
         {authenticated && !canWrite && (
           <div className="flex flex-col items-center gap-2 rounded-xl bg-surface-container-low px-4 py-5 text-center">
-            <p className="font-body-sm text-body-sm text-on-surface-variant">팔로워만 댓글을 쓸 수 있어요.</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">팬만 댓글을 쓸 수 있어요.</p>
             <button type="button" onClick={onFollow} disabled={followDisabled} className="rounded-xl bg-primary px-4 py-2 font-label-sm text-label-sm font-semibold text-on-primary disabled:opacity-60">
-              팔로우하기
+              도킹하기
             </button>
           </div>
         )}
         {canWrite && listReady && (
           <div className="flex flex-col gap-2">
-            <textarea
-              value={draft}
-              maxLength={COMMENT_MAX_LENGTH}
-              rows={3}
-              aria-label="댓글 입력"
-              placeholder="댓글을 남겨보세요."
-              onChange={(event) => setDraft(event.target.value)}
-              className={inputClass}
-            />
-            <div className="flex items-center justify-between">
-              <span className="font-label-xs text-label-xs text-outline">{draft.length}/{COMMENT_MAX_LENGTH}</span>
-              <button
-                type="button"
-                onClick={submitNew}
-                disabled={posting || !draft.trim()}
-                className="rounded-xl bg-primary px-4 py-2 font-label-sm text-label-sm font-semibold text-on-primary disabled:opacity-60"
-              >
-                {posting ? '남기는 중...' : '댓글 남기기'}
-              </button>
+            <div className="relative">
+              <textarea
+                value={draft}
+                maxLength={COMMENT_MAX_LENGTH}
+                ref={draftRef}
+                rows={1}
+                aria-label="댓글 입력"
+                placeholder="댓글을 남겨보세요."
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter는 등록, Shift+Enter는 줄바꿈. 한글 조합 중 Enter는 글자 확정이라 등록하지 않는다.
+                  if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return
+                  event.preventDefault()
+                  submitNew()
+                }}
+                className={draftClass}
+              />
+              {draft.trim() && (
+                <button
+                  type="button"
+                  onClick={submitNew}
+                  disabled={posting}
+                  aria-label={posting ? '댓글을 남기는 중' : '댓글 남기기'}
+                  className="absolute right-3 top-2.5 flex h-8 w-9 items-center justify-center rounded-xl bg-primary text-on-primary disabled:opacity-60"
+                >
+                  <MaterialIcon name="arrow_upward" className="text-[20px]" />
+                </button>
+              )}
             </div>
             {postError && <p className="font-label-xs text-label-xs text-error" role="alert">{postError}</p>}
           </div>

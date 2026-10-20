@@ -69,7 +69,7 @@ export const WELCOME_QUEST_STEP_COUNT = QUEST_STEPS.length
 // 서버가 준 문구 대신 화면에서 정한 안내를 쓸 오류 코드.
 const FAILURE_MESSAGES = {
   WELCOME_QUEST_WRONG_ANSWER: '다시 생각해 보세요! 크킹에서는 무료로 응모권을 모을 수 있어요.',
-  WELCOME_QUEST_CONDITION_NOT_MET: '먼저 관심 크리에이터를 팔로우해 주세요.',
+  WELCOME_QUEST_CONDITION_NOT_MET: '먼저 크리에이터에 도킹해 주세요.',
   WELCOME_QUEST_NOT_ELIGIBLE: '웰컴 퀘스트 대상이 아니에요.',
 }
 

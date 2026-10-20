@@ -8,14 +8,12 @@ import { spacePath } from '../../api/creatorSpace.js'
  *
  * variant="card"는 카드 배경에 소개문을 보여주고, variant="flat"은 배경 없이 큰 아바타와 이름, 오른쪽 테두리 버튼만 둔다.
  * flat에서는 소개문 자리에 meta(예: 진행 중 뱃지·응모권)를 넣고, highlight이면 아바타에 강조 링을 두른다.
- * trackBalance는 화면에 보이는 행만 응모권 잔액을 조회하도록 표시한다.
  */
-export default function CreatorRow({ creator, followed, disabled, onToggle, rowRef, onOpen, variant = 'card', meta, highlight = false, trackBalance = false }) {
+export default function CreatorRow({ creator, followed, disabled, onToggle, rowRef, onOpen, variant = 'card', meta, highlight = false }) {
   const flat = variant === 'flat'
   return (
     <div
       ref={rowRef}
-      data-balance-creator-id={trackBalance ? creator.creatorId : undefined}
       className={flat
         ? 'w-full py-2.5 flex items-center justify-between gap-3'
         : 'w-full p-3 rounded-2xl bg-surface-container-lowest shadow-card flex items-center justify-between gap-3'}
@@ -48,11 +46,11 @@ export default function CreatorRow({ creator, followed, disabled, onToggle, rowR
           }`}
       >
         {flat
-          ? <span>{followed ? '관심 중' : '관심 추가'}</span>
+          ? <span>{followed ? '도킹 중' : '도킹'}</span>
           : (
             <>
               <MaterialIcon name={followed ? 'done' : 'add'} className="text-[16px]" />
-              <span>{followed ? '완료' : '관심'}</span>
+              <span>{followed ? '완료' : '도킹'}</span>
             </>
           )}
       </button>

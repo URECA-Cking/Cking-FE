@@ -21,7 +21,7 @@ const SEARCH_DEBOUNCE_MS = 300
 function reasonOf(item, interestNames) {
   const names = item.interestCodes.map((code) => interestNames.get(code)).filter(Boolean)
   if (names.length > 0) return `관심 분야 · ${names.join(', ')}`
-  if (item.seedCreatorIds.length > 0) return '내가 관심 있는 크리에이터와 비슷해요'
+  if (item.seedCreatorIds.length > 0) return '내가 도킹한 크리에이터와 비슷해요'
   return null
 }
 
@@ -102,7 +102,7 @@ function CreatorRow({ creator, reason, followed, disabled, onToggle }) {
         }`}
       >
         <MaterialIcon name={followed ? 'check' : 'add'} className="text-[16px]" />
-        {followed ? '관심 중' : '관심 추가'}
+        {followed ? '도킹 중' : '도킹'}
       </button>
     </li>
   )
@@ -112,7 +112,7 @@ function CreatorRow({ creator, reason, followed, disabled, onToggle }) {
  * 온보딩 2단계: 크리에이터 추천(기본) / 직접 찾기.
  *
  * 추천은 화면을 열 때 한 번만 불러온다. BE는 이미 팔로우한 크리에이터를 추천에서 빼므로,
- * 팔로우한 카드가 목록에서 사라져 화면이 흔들리지 않도록 머무는 동안은 다시 불러오지 않고 "관심 중"으로 유지한다.
+ * 팔로우한 카드가 목록에서 사라져 화면이 흔들리지 않도록 머무는 동안은 다시 불러오지 않고 "도킹 중"으로 유지한다.
  */
 export default function CreatorStep({ onFinish, finishLabel = '시작하기', showSkip = true, busy = false }) {
   const showToast = useToast()
@@ -146,9 +146,9 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
   async function handleToggle(creator) {
     try {
       const result = await toggleFollow(creator.creatorId)
-      if (result) showToast(result.following ? `${creator.name} 관심 등록 완료!` : '관심 크리에이터에서 해제되었어요.')
+      if (result) showToast(result.following ? `${creator.name} 도킹 완료!` : '도킹이 해제되었어요.')
     } catch (err) {
-      showToast(describeError(err, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
+      showToast(describeError(err, '도킹 상태를 변경하지 못했어요.'), { icon: 'error' })
     }
   }
 
@@ -172,8 +172,8 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
           {mode === 'recommend'
             ? personalized === false
               ? '아직 취향 정보가 부족해서 인기 크리에이터를 보여드려요.'
-              : '고른 분야와 관심 크리에이터를 바탕으로 추천해요.'
-            : '이름으로 검색해서 관심 크리에이터를 골라봐요.'}
+              : '고른 분야와 도킹한 크리에이터를 바탕으로 추천해요.'
+            : '이름으로 검색해서 도킹할 크리에이터를 골라봐요.'}
         </p>
       </div>
 
@@ -270,7 +270,7 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
           <span>{finishLabel}</span>
           {followedCount > 0 && (
             <span className="font-label-sm text-label-sm px-2.5 py-0.5 rounded-full bg-white/20 text-white font-medium backdrop-blur-sm">
-              {followedCount}명 관심 중
+              {followedCount}명 도킹 중
             </span>
           )}
         </PrimaryButton>

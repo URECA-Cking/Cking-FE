@@ -12,7 +12,7 @@ import { describeError } from '../api/client.js'
 import { formatNumber } from '../utils/format.js'
 import { CREATOR_FILTERS, CREATOR_SORTS, creatorFilterCounts, filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
 
-// 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘린다.
+// 크리에이터가 수천 명일 수 있어 처음엔 일부만 그리고 '더 보기'로 늘리며, 끝까지 펼치면 같은 자리의 '접기'로 되돌린다.
 const PAGE_SIZE = 30
 
 /**
@@ -47,9 +47,9 @@ export default function ExploreCreators() {
   async function handleToggleFollow(creator) {
     try {
       const result = await toggleFollow(creator.creatorId)
-      if (result) showToast(result.following ? `${creator.name} 관심 크리에이터로 등록되었어요! 💖` : '관심 크리에이터에서 해제되었습니다.')
+      if (result) showToast(result.following ? `${creator.name} 도킹 완료! 💖` : '도킹이 해제되었습니다.')
     } catch (error) {
-      showToast(describeError(error, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
+      showToast(describeError(error, '도킹 상태를 변경하지 못했어요.'), { icon: 'error' })
     }
   }
 
@@ -69,7 +69,7 @@ export default function ExploreCreators() {
         {!directory.loading && !directory.error && creators.length === 0 && (
           <EmptyBlock
             icon="person_search"
-            message={filter === '관심' ? '아직 관심 등록한 크리에이터가 없어요.' : filter === '진행 중' ? '지금 진행 중인 이벤트가 있는 크리에이터가 없어요.' : '크리에이터가 없어요.'}
+            message={filter === '도킹' ? '아직 도킹한 크리에이터가 없어요.' : filter === '진행 중' ? '지금 진행 중인 이벤트가 있는 크리에이터가 없어요.' : '크리에이터가 없어요.'}
           />
         )}
         {shown.map((creator) => (
@@ -86,13 +86,13 @@ export default function ExploreCreators() {
             onToggle={handleToggleFollow}
           />
         ))}
-        {creators.length > shown.length && (
+        {creators.length > PAGE_SIZE && (
           <button
             type="button"
-            onClick={() => setLimit((current) => current + PAGE_SIZE)}
+            onClick={() => setLimit((current) => (creators.length > current ? current + PAGE_SIZE : PAGE_SIZE))}
             className="h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
           >
-            더 보기 ({formatNumber(creators.length - shown.length)}명 남음)
+            {creators.length > shown.length ? `더 보기 (${formatNumber(creators.length - shown.length)}명 남음)` : '접기'}
           </button>
         )}
       </div>

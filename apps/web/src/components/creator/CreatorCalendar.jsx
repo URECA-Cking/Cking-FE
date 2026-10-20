@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { MonthGrid } from '../calendar/MonthCalendar.jsx'
+import CreateFab from '../ui/CreateFab.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../ui/States.jsx'
 import ScheduleEditorSheet from './ScheduleEditorSheet.jsx'
 import ConfirmSheet from '../ui/ConfirmSheet.jsx'
@@ -24,6 +25,7 @@ import {
 
 const UPCOMING_DAYS = 60
 const EMPTY_MESSAGE = '현재 열려있는 게 없습니다.'
+const EMPTY_UPCOMING_MESSAGE = '예정된 일정이 없어요.'
 
 /**
  * calendar: 로그인 사용자의 "내 캘린더 담기" 상태({ ready, added, busy, onToggle }), 비로그인이면 null.
@@ -173,15 +175,7 @@ export default function CreatorCalendar({ creatorId, isMine = false }) {
 
   return (
     <div className="flex flex-col gap-space-md px-margin py-space-sm md:mx-auto md:w-full md:max-w-3xl">
-      {isMine && (
-        <button
-          type="button"
-          onClick={() => setEditor({ schedule: null })}
-          className="flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-primary font-label-md text-label-md font-bold text-on-primary shadow-md transition-all active:scale-[0.98]"
-        >
-          <MaterialIcon name="add" className="text-[20px]" />새 일정 등록
-        </button>
-      )}
+      {isMine && <CreateFab label="새 일정 등록" onClick={() => setEditor({ schedule: null })} />}
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -280,11 +274,6 @@ export default function CreatorCalendar({ creatorId, isMine = false }) {
         </Link>
       )}
 
-      <div className="flex items-center gap-2 p-space-sm rounded-xl bg-surface-container-low">
-        <MaterialIcon name="info" className="text-secondary text-[18px]" />
-        <span className="font-label-xs text-label-xs text-on-surface-variant">응모가 있는 추첨 행사는 이벤트 탭에서 확인해요.</span>
-      </div>
-
       {isMine && (
         <ConfirmSheet
           open={deleteTarget !== null}
@@ -338,7 +327,7 @@ export function UpcomingSchedules({ creatorId, onShowAll }) {
       </div>
       {loading && <LoadingBlock label="다가오는 일정을 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
-      {!loading && !error && upcoming.length === 0 && <EmptyBlock icon="calendar_month" message={EMPTY_MESSAGE} />}
+      {!loading && !error && upcoming.length === 0 && <EmptyBlock icon="calendar_month" message={EMPTY_UPCOMING_MESSAGE} />}
       {!loading && !error && upcoming.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
           {upcoming.map((schedule) => {

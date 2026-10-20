@@ -3,7 +3,7 @@ import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { spacePath } from '../../api/creatorSpace.js'
 
 /**
- * 홈 "소식" 가로 행의 크리에이터 항목. 최근 글이 있으면(isNew) 링 색만 바뀐다.
+ * 홈 "소식" 가로 행의 크리에이터 항목. 최근 글이 있으면(isNew) 링 색이 바뀌고 NEW 배지가 프로필 사진 위에 얹힌다.
  * isNew는 화면 힌트일 뿐이라 부모가 계산해 넘긴다(읽음 상태를 주는 API는 없다).
  */
 export default function CreatorAvatarItem({ creator, isNew = false }) {
@@ -19,7 +19,7 @@ export default function CreatorAvatarItem({ creator, isNew = false }) {
         }`}
       >
         {isNew && (
-          <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-primary px-1.5 font-label-xs text-[10px] leading-4 text-on-primary">
+          <span className="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-primary px-1.5 font-label-xs text-[10px] leading-4 text-on-primary">
             NEW
           </span>
         )}

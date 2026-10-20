@@ -45,9 +45,9 @@ export default function ExploreRecommend() {
   async function handleToggleFollow(creator) {
     try {
       const result = await toggleFollow(creator.creatorId)
-      if (result) showToast(result.following ? `${creator.name} 관심 크리에이터로 등록되었어요! 💖` : '관심 크리에이터에서 해제되었습니다.')
+      if (result) showToast(result.following ? `${creator.name} 도킹 완료! 💖` : '도킹이 해제되었습니다.')
     } catch (error) {
-      showToast(describeError(error, '관심 상태를 변경하지 못했어요.'), { icon: 'error' })
+      showToast(describeError(error, '도킹 상태를 변경하지 못했어요.'), { icon: 'error' })
     }
   }
 
@@ -69,7 +69,7 @@ export default function ExploreRecommend() {
     <div className="page-enter flex flex-col w-full pb-8">
       <section className="mt-space-md flex flex-col">
         <div className="px-margin">
-          <SectionHeader icon="auto_awesome" title="나를 위한 추천" action="관심 관리" actionTo="/onboarding/creators" />
+          <SectionHeader icon="auto_awesome" title="나를 위한 추천" action="도킹 관리" actionTo="/onboarding/creators" />
         </div>
         <InterestEditor onSaved={() => { setLimit(RECOMMEND_PAGE_SIZE); reloadRecommendations() }} />
         {loading && <LoadingBlock label="추천 크리에이터를 찾는 중..." />}
@@ -80,13 +80,13 @@ export default function ExploreRecommend() {
         {!loading && !error && shown.length > 0 && (
           <div className="px-margin flex flex-col gap-2.5">
             {shown.map((creator) => renderRow(creator, { tracked: true }))}
-            {recommended.length > shown.length && (
+            {recommended.length > RECOMMEND_PAGE_SIZE && (
               <button
                 type="button"
-                onClick={() => setLimit((current) => current + RECOMMEND_PAGE_SIZE)}
+                onClick={() => setLimit((current) => (recommended.length > current ? current + RECOMMEND_PAGE_SIZE : RECOMMEND_PAGE_SIZE))}
                 className="h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
               >
-                더 보기
+                {recommended.length > shown.length ? '더 보기' : '접기'}
               </button>
             )}
           </div>

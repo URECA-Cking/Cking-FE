@@ -99,7 +99,7 @@ test('단계 항목을 찾고 없으면 undefined를 돌려준다', () => {
 
 test('정해 둔 지급 실패 코드는 안내 문구를, 그 밖의 코드는 null을 돌려준다', () => {
   assert.equal(claimFailureMessage('WELCOME_QUEST_WRONG_ANSWER'), '다시 생각해 보세요! 크킹에서는 무료로 응모권을 모을 수 있어요.')
-  assert.equal(claimFailureMessage('WELCOME_QUEST_CONDITION_NOT_MET'), '먼저 관심 크리에이터를 팔로우해 주세요.')
+  assert.equal(claimFailureMessage('WELCOME_QUEST_CONDITION_NOT_MET'), '먼저 크리에이터에 도킹해 주세요.')
   assert.equal(claimFailureMessage('EARN_STATUS_UNKNOWN'), null)
   assert.equal(claimFailureMessage(undefined), null)
 })

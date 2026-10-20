@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import CreateFab from '../ui/CreateFab.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../ui/States.jsx'
 import PostComments from './PostComments.jsx'
@@ -26,7 +27,7 @@ function modalSize(ratio, hasMedia) {
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 /** 크리에이터 게시물 목록과 상세, 작성·수정·삭제 및 좋아요 상태를 관리한다. */
-export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostCountChange, onMissionAwarded }) {
+export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
@@ -152,15 +153,12 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     setLocal((current) => edited
       ? { ...current, updated: { ...current.updated, [saved.postId]: saved } }
       : { ...current, created: [saved, ...current.created] })
-    // 새 글은 프로필의 게시물 수도 바뀐다(수정은 개수가 그대로).
-    if (!edited) onPostCountChange?.()
     refreshQuietly()
   }
 
   /** 삭제된 게시물을 목록에서 제외하고 서버 목록을 재조회한다. */
   function markDeleted(postId) {
     setLocal((current) => ({ ...current, deleted: [...current.deleted, postId] }))
-    onPostCountChange?.()
     refreshQuietly()
   }
 
@@ -217,7 +215,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
           postId,
           loading: false,
           post: null,
-          error: restricted ? '팔로워에게만 공개된 게시글이에요.' : describeError(error, '게시글을 불러오지 못했어요.'),
+          error: restricted ? '팬에게만 공개된 게시글이에요.' : describeError(error, '게시글을 불러오지 못했어요.'),
           restricted,
         })
       }
@@ -283,7 +281,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     else if (!following && !isMine) onFollow()
     else reloadFirst()
   }
-  const lockedLabel = !authenticated ? '로그인하고 팔로우하기' : following || isMine ? '다시 확인' : '팔로우하기'
+  const lockedLabel = !authenticated ? '로그인하고 도킹하기' : following || isMine ? '다시 확인' : '도킹하기'
 
   // 수정은 바텀시트(z-40)로 열리므로 전체 화면 상세(z-60)를 먼저 닫는다.
   /** 상세를 닫고 선택한 게시물을 수정 화면에 전달한다. */
@@ -293,17 +291,10 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }
 
   return (
-    <div className="flex flex-col pb-space-md">
+    <div className="flex flex-col pb-space-md pt-space-sm">
       {/* 목록이 보일 때만 쓰기를 열어, 저장한 글이 화면에 반영되지 못하는 상태를 만들지 않는다. */}
       {isMine && !first.loading && !first.error && page && (
-        <button
-          type="button"
-          onClick={() => setEditor({ post: null })}
-          className="mx-margin my-space-sm flex items-center justify-center gap-1.5 rounded-lg bg-surface-container py-2.5 font-label-md text-label-md font-semibold text-on-surface active:scale-[0.98]"
-        >
-          <MaterialIcon name="add" className="text-[18px]" />
-          새 게시글
-        </button>
+        <CreateFab label="새 게시글" onClick={() => setEditor({ post: null })} />
       )}
       {(first.loading || (!page && !first.error)) && <LoadingBlock label="게시글을 불러오는 중..." />}
       {!first.loading && first.error && <ErrorBlock message={first.error} onRetry={reloadFirst} />}
@@ -311,7 +302,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
         <EmptyBlock icon="grid_view" message="아직 게시글이 없어요." />
       )}
       {!first.loading && !first.error && page && posts.length > 0 && (
-        <div className="grid grid-cols-3 gap-0.5 md:gap-1">
+        <div className="grid grid-cols-3 gap-0.5 px-margin md:gap-1">
           {posts.map((post) => (
             <PostGridTile key={post.postId} post={post} onOpen={() => openDetail(post.postId)} onImageError={handleThumbError} />
           ))}
@@ -428,7 +419,7 @@ function PostGridTile({ post, onOpen, onImageError }) {
     <button
       type="button"
       onClick={onOpen}
-      aria-label={post.locked ? '팔로워 전용 게시글' : `게시글 ${post.content?.slice(0, 20) ?? ''}`.trim()}
+      aria-label={post.locked ? '팬 전용 게시글' : `게시글 ${post.content?.slice(0, 20) ?? ''}`.trim()}
       className="group relative block aspect-square w-full overflow-hidden bg-surface-container active:opacity-80"
     >
       {showImage ? (
@@ -505,7 +496,7 @@ function AuthorRow({ creatorName, profileImageUrl, createdAt, visibility, isMine
             <>
               <span aria-hidden="true" className="md:hidden">·</span>
             <MaterialIcon name={visibility === 'FOLLOWERS' ? 'lock' : 'public'} className="text-[14px]" />
-            {visibility === 'FOLLOWERS' ? '팔로워 공개' : '전체 공개'}
+            {visibility === 'FOLLOWERS' ? '팬 공개' : '전체 공개'}
             </>
           )}
         </div>
@@ -547,8 +538,18 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
   /** 이미지 재조회에서 접근 제한을 확인하면 본문과 댓글을 숨긴다. */
   const handleRestricted = useCallback(() => setRestricted(true), [])
   const commentsRef = useRef(null)
-  /** 댓글 버튼을 누르면 이미 표시된 댓글 영역으로 스크롤한다. */
-  const scrollToComments = () => commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  // 댓글 영역은 기본으로 접는다. 펼친 게시글의 id를 기억해, 다른 게시글로 넘어가면 다시 접힌 상태가 된다.
+  const [openCommentsPostId, setOpenCommentsPostId] = useState(null)
+  const commentsOpen = openCommentsPostId === post.postId
+  /** 댓글 버튼을 누르면 하트 아래에서 댓글 영역을 펼치거나 접는다. 펼칠 때는 배치가 끝난 뒤 그 위치로 스크롤한다. */
+  const toggleComments = () => {
+    if (commentsOpen) {
+      setOpenCommentsPostId(null)
+      return
+    }
+    setOpenCommentsPostId(post.postId)
+    requestAnimationFrame(() => commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
   const locked = post.locked || restricted
   const hasMedia = !locked && post.imageCount > 0
   const hasLikes = typeof post.likeCount === 'number'
@@ -578,7 +579,7 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
         {locked ? (
           <div className="mx-margin flex flex-col items-center gap-3 rounded-xl bg-surface-container-low px-4 py-7 text-center">
             <MaterialIcon name="lock" className="text-[28px] text-primary" />
-            <p className="font-body-sm text-body-sm text-on-surface-variant">팔로워에게만 공개된 게시글이에요.</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">팬에게만 공개된 게시글이에요.</p>
             {post.imageCount > 0 && <p className="font-label-xs text-label-xs text-outline">이미지 {post.imageCount}장</p>}
             <button type="button" onClick={onLockedAction} disabled={lockedDisabled} className="rounded-xl bg-primary px-4 py-2 text-on-primary font-label-sm text-label-sm disabled:opacity-60">
               {lockedLabel}
@@ -607,8 +608,9 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
                 )}
                 <button
                   type="button"
-                  aria-label="댓글로 이동"
-                  onClick={scrollToComments}
+                  aria-label={commentsOpen ? '댓글 접기' : '댓글 열기'}
+                  aria-expanded={commentsOpen}
+                  onClick={toggleComments}
                   className="flex items-center gap-1.5 font-label-md text-label-md text-on-surface active:scale-95"
                 >
                   <MaterialIcon name="chat_bubble" className="text-[22px]" />
@@ -617,7 +619,10 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
               </div>
           </>
         )}
-        {!locked && <div ref={commentsRef} className="px-margin pb-space-sm">{children}</div>}
+        {!locked && (
+          // 접어도 마운트를 유지해 쓰던 댓글 입력이 사라지지 않게 한다.
+          <div ref={commentsRef} hidden={!commentsOpen} className="px-margin pb-space-sm">{children}</div>
+        )}
       </article>
       </div>
     </>

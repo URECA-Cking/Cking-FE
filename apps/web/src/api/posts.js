@@ -82,8 +82,8 @@ export function getCommentOriginal(creatorId, postId, commentId) {
 
 /** 댓글 오류 코드별 사용자 문구. FORBIDDEN은 공통 문구(크리에이터 계정 안내)가 맞지 않아 따로 둔다. */
 export const COMMENT_ERROR_MESSAGES = {
-  COMMENT_FOLLOWERS_ONLY: '팔로워만 댓글을 쓸 수 있어요. 관심 크리에이터로 등록해주세요.',
-  POST_FOLLOWERS_ONLY: '팔로워에게만 공개된 게시글이에요.',
+  COMMENT_FOLLOWERS_ONLY: '팬만 댓글을 쓸 수 있어요. 크리에이터에 도킹해 주세요.',
+  POST_FOLLOWERS_ONLY: '팬에게만 공개된 게시글이에요.',
   COMMENT_NOT_REVEALABLE: '원문을 볼 수 없는 댓글이에요.',
   FORBIDDEN: '이 댓글을 수정하거나 삭제할 권한이 없어요.',
   RESOURCE_NOT_FOUND: '댓글이나 게시글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
@@ -109,7 +109,7 @@ export function reportComment(creatorId, postId, commentId, { reason, detail }) 
 export const COMMENT_REPORT_ERROR_MESSAGES = {
   COMMENT_REPORT_LIMIT_EXCEEDED: '짧은 시간에 너무 많이 신고했어요. 잠시 뒤에 다시 시도해주세요.',
   COMMENT_REPORT_OWN_COMMENT: '내가 쓴 댓글은 신고할 수 없어요.',
-  POST_FOLLOWERS_ONLY: '팔로워에게만 공개된 게시글이에요.',
+  POST_FOLLOWERS_ONLY: '팬에게만 공개된 게시글이에요.',
   RESOURCE_NOT_FOUND: '댓글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
   VALIDATION_FAILED: '신고 사유를 확인해주세요. 기타는 1~200자의 내용이 필요해요.',
   UNAUTHORIZED: '로그인이 필요해요.',
@@ -129,7 +129,7 @@ export function unlikePost(creatorId, postId) {
 
 /** 좋아요·취소 오류 코드별 사용자 문구. */
 export const POST_LIKE_ERROR_MESSAGES = {
-  POST_FOLLOWERS_ONLY: '팔로워에게만 공개된 게시글이에요.',
+  POST_FOLLOWERS_ONLY: '팬에게만 공개된 게시글이에요.',
   RESOURCE_NOT_FOUND: '게시글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
   UNAUTHORIZED: '로그인이 필요해요.',
 }

@@ -80,7 +80,6 @@ export async function loadMyEntries() {
 
   return {
     entries,
-    totalSpent: entries.reduce((sum, entry) => sum + entry.ticketCount, 0),
     failedEventCount,
     winnersFailed,
   };

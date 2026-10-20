@@ -300,12 +300,12 @@ test('이벤트 필터 칩에 상태별 이벤트 개수가 붙는다', async ()
   await page.close()
 })
 
-test('크리에이터 필터 칩에 전체·관심·진행 중 개수가 붙는다', async () => {
+test('크리에이터 필터 칩에 전체·도킹·진행 중 개수가 붙는다', async () => {
   const page = await screen('/explore')
   await page.getByText('다온').first().waitFor()
-  // 크리에이터 4명, 관심 0명, 진행 중 이벤트가 있는 크리에이터 2명(다온·나래)
+  // 크리에이터 4명, 도킹 0명, 진행 중 이벤트가 있는 크리에이터 2명(다온·나래)
   await page.getByRole('button', { name: '전체 4' }).waitFor()
-  await page.getByRole('button', { name: '관심 0' }).waitFor()
+  await page.getByRole('button', { name: '도킹 0' }).waitFor()
   await page.getByRole('button', { name: '진행 중 2' }).waitFor()
   await page.close()
 })

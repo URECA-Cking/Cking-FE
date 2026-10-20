@@ -547,8 +547,18 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
   /** 이미지 재조회에서 접근 제한을 확인하면 본문과 댓글을 숨긴다. */
   const handleRestricted = useCallback(() => setRestricted(true), [])
   const commentsRef = useRef(null)
-  /** 댓글 버튼을 누르면 이미 표시된 댓글 영역으로 스크롤한다. */
-  const scrollToComments = () => commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  // 댓글 영역은 기본으로 접는다. 펼친 게시글의 id를 기억해, 다른 게시글로 넘어가면 다시 접힌 상태가 된다.
+  const [openCommentsPostId, setOpenCommentsPostId] = useState(null)
+  const commentsOpen = openCommentsPostId === post.postId
+  /** 댓글 버튼을 누르면 하트 아래에서 댓글 영역을 펼치거나 접는다. 펼칠 때는 배치가 끝난 뒤 그 위치로 스크롤한다. */
+  const toggleComments = () => {
+    if (commentsOpen) {
+      setOpenCommentsPostId(null)
+      return
+    }
+    setOpenCommentsPostId(post.postId)
+    requestAnimationFrame(() => commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
   const locked = post.locked || restricted
   const hasMedia = !locked && post.imageCount > 0
   const hasLikes = typeof post.likeCount === 'number'
@@ -607,8 +617,9 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
                 )}
                 <button
                   type="button"
-                  aria-label="댓글로 이동"
-                  onClick={scrollToComments}
+                  aria-label={commentsOpen ? '댓글 접기' : '댓글 열기'}
+                  aria-expanded={commentsOpen}
+                  onClick={toggleComments}
                   className="flex items-center gap-1.5 font-label-md text-label-md text-on-surface active:scale-95"
                 >
                   <MaterialIcon name="chat_bubble" className="text-[22px]" />
@@ -617,7 +628,10 @@ function PostDetail({ post, onLike, liking, creatorName, profileImageUrl, onLock
               </div>
           </>
         )}
-        {!locked && <div ref={commentsRef} className="px-margin pb-space-sm">{children}</div>}
+        {!locked && (
+          // 접어도 마운트를 유지해 쓰던 댓글 입력이 사라지지 않게 한다.
+          <div ref={commentsRef} hidden={!commentsOpen} className="px-margin pb-space-sm">{children}</div>
+        )}
       </article>
       </div>
     </>

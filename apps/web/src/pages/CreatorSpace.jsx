@@ -811,11 +811,6 @@ export default function CreatorSpace() {
                   <MaterialIcon name="local_activity" className="text-tertiary text-[20px]" />
                   <h2 className="font-title-md text-title-md text-on-surface">진행 중 이벤트</h2>
                 </div>
-                {!creator.eventsError && (
-                  <span className="font-label-xs text-label-xs text-primary font-semibold">
-                    총 {liveEvents.length}개 진행중
-                  </span>
-                )}
               </div>
               {creator.eventsError ? (
                 <ErrorBlock message="이벤트를 불러오지 못했어요." onRetry={reload} />

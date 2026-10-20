@@ -24,7 +24,6 @@ import { ceilToMinute, describeCommentRestriction } from '../../utils/sanctionNo
 import { createCommentBlockAsAdmin, deleteCommentAsAdmin } from '../../api/adminComments.js'
 import { createCommentBlock } from '../../api/creatorCommentBlocks.js'
 import { useUser } from '../../context/useUser.js'
-import { displayedCommentTotal } from '../../utils/postCommentCount.js'
 import { canBlockAuthor, canDeleteComment, deleteRoute, moderationActor } from '../../utils/commentModeration.js'
 
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
@@ -273,10 +272,6 @@ export default function PostComments({ creatorId, postId, authenticated, followi
 
   return (
     <section className="mt-space-md border-t border-surface-container pt-space-md" aria-label="댓글">
-      <h4 className="mb-3 font-title-md text-title-md font-semibold text-on-surface">
-        댓글 {page ? displayedCommentTotal(page.totalElements, local) : ''}
-      </h4>
-
       {first.loading && <LoadingBlock label="댓글을 불러오는 중..." />}
       {!first.loading && first.error && <ErrorBlock message={first.error} onRetry={first.reload} />}
       {!first.loading && !first.error && page && comments.length === 0 && (

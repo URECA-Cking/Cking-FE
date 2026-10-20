@@ -11,10 +11,10 @@ export default function CreatorAvatarItem({ creator, isNew = false }) {
     <Link
       to={spacePath(creator.handle)}
       aria-label={isNew ? `${creator.name}, 새 소식` : creator.name}
-      className="flex flex-col items-center flex-shrink-0 w-16 group"
+      className="flex flex-col items-center flex-shrink-0 w-[4.5rem] group"
     >
       <span
-        className={`relative block w-12 h-12 rounded-full p-0.5 border-2 group-active:scale-95 transition-transform ${
+        className={`relative block w-16 h-16 rounded-full p-0.5 border-2 group-active:scale-95 transition-transform ${
           isNew ? 'border-primary' : 'border-on-surface/10'
         }`}
       >
@@ -25,7 +25,7 @@ export default function CreatorAvatarItem({ creator, isNew = false }) {
         )}
         <ProfilePhoto src={creator.avatar} className="h-full w-full" />
       </span>
-      <span className="mt-1 font-label-sm text-label-sm text-on-surface-variant font-normal truncate max-w-full">
+      <span className="mt-1.5 font-label-sm text-label-sm text-on-surface-variant font-normal truncate max-w-full">
         {creator.name}
       </span>
     </Link>

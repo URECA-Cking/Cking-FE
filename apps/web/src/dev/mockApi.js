@@ -48,7 +48,7 @@ function buildEvents(now) {
 function buildPosts(now) {
   const ago = (ms) => new Date(now - ms).toISOString()
   const post = (postId, creatorId, content, createdAt) => ({
-    postId, creatorId, visibility: 'PUBLIC', locked: false, content, imageCount: 0, images: [], createdAt, updatedAt: createdAt,
+    postId, creatorId, visibility: 'PUBLIC', locked: false, content, imageCount: 0, images: [], likeCount: (postId * 7) % 30 + 3, commentCount: postId % 9, createdAt, updatedAt: createdAt,
   })
   return {
     1: [

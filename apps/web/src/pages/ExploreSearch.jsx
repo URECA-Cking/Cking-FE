@@ -36,7 +36,9 @@ export default function ExploreSearch() {
   const limitKey = `${keyword}|${scope}`
   const [expanded, setExpanded] = useState({ key: '', creators: ALL_PAGE_SIZE, events: ALL_PAGE_SIZE })
   const limits = expanded.key === limitKey ? expanded : { creators: ALL_PAGE_SIZE, events: ALL_PAGE_SIZE }
-  const showMore = (section) => setExpanded({ ...limits, key: limitKey, [section]: limits[section] + ALL_PAGE_SIZE })
+  // 더 볼 게 남았으면 한 번에 ALL_PAGE_SIZE개씩 늘리고, 끝까지 펼친 뒤에는 처음 개수로 접는다.
+  const showMore = (section, total) =>
+    setExpanded({ ...limits, key: limitKey, [section]: limits[section] < total ? limits[section] + ALL_PAGE_SIZE : ALL_PAGE_SIZE })
   const { followedCreators } = useUser()
   const directory = useAsync(() => loadCreatorDirectory(), [], {
     fallbackMessage: '크리에이터를 불러오지 못했습니다.',
@@ -136,13 +138,13 @@ export default function ExploreSearch() {
                   </div>
                 </Link>
               ))}
-              {paged && results.length > shownCreators.length && (
+              {paged && results.length > ALL_PAGE_SIZE && (
                 <button
                   type="button"
-                  onClick={() => showMore('creators')}
+                  onClick={() => showMore('creators', results.length)}
                   className="h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
                 >
-                  크리에이터 더 보기 ({results.length - shownCreators.length}명 남음)
+                  {results.length > shownCreators.length ? `크리에이터 더 보기 (${results.length - shownCreators.length}명 남음)` : '크리에이터 접기'}
                 </button>
               )}
             </div>
@@ -153,13 +155,13 @@ export default function ExploreSearch() {
           <section className={`flex flex-col gap-space-sm ${paged && shownCreators.length > 0 ? 'border-t border-outline-variant/30 pt-space-xl' : ''}`}>
             {scope === 'all' && <SectionHeader icon="confirmation_number" title="이벤트" count={eventResults.length} />}
             {shownEvents.map((event) => <EventCard key={event.eventId} event={event} variant={paged ? 'compact' : 'list'} showCreatorTag />)}
-            {paged && eventResults.length > shownEvents.length && (
+            {paged && eventResults.length > ALL_PAGE_SIZE && (
               <button
                 type="button"
-                onClick={() => showMore('events')}
+                onClick={() => showMore('events', eventResults.length)}
                 className="h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
               >
-                이벤트 더 보기 ({eventResults.length - shownEvents.length}개 남음)
+                {eventResults.length > shownEvents.length ? `이벤트 더 보기 (${eventResults.length - shownEvents.length}개 남음)` : '이벤트 접기'}
               </button>
             )}
           </section>

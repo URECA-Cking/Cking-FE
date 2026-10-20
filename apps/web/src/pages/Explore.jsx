@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
@@ -12,8 +12,6 @@ import { loadCreatorDirectory } from '../api/creators.js'
 import { getEventCounts, getEvents } from '../api/events.js'
 import { CreatorFilterChips, CreatorSortMenu } from '../components/creator/CreatorListControls.jsx'
 import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
-import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
-import { useVisibleCreatorIds } from '../hooks/useVisibleCreatorIds.js'
 import { formatNumber } from '../utils/format.js'
 import { creatorFilterCounts, filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
 import { describeError } from '../api/client.js'
@@ -42,11 +40,10 @@ const EVENT_FILTERS = [
  * 이벤트 목록은 GET /api/events 의 status(표시 상태) 필터를 그대로 사용한다.
  */
 export default function Explore() {
-  const pageRef = useRef(null)
   const showToast = useToast()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds } = useUser()
+  const { followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds } = useUser()
   const { ownCreatorId, ownSpacePending } = useOwnCreatorId()
   // 탭과 검색어는 주소에 둔다. 다른 화면의 '이벤트 둘러보기' 링크가 이벤트 탭으로 열 수 있고, 검색 뒤 뒤로 가기에서도 유지된다.
   const tab = params.get('tab') === 'event' ? 'event' : 'creator'
@@ -89,12 +86,6 @@ export default function Explore() {
   const eventsFirstLoad = eventList.loading && eventSize === EVENT_PAGE_SIZE
   const events = eventsFirstLoad ? [] : (eventList.data?.items ?? [])
   const shownCreators = useMemo(() => filteredCreators.slice(0, CREATOR_PREVIEW), [filteredCreators])
-  const renderedBalanceIds = [
-    ...shownCreators.map((creator) => creator.creatorId),
-  ]
-  const visibleBalanceIds = useVisibleCreatorIds(pageRef, renderedBalanceIds)
-  const { balances, failedIds, retry: retryBalances, loading: balancesLoading } = useCreatorBalances(visibleBalanceIds, user?.memberId)
-
   async function handleToggleFollow(creator) {
     try {
       const result = await toggleFollow(creator.creatorId)
@@ -122,21 +113,15 @@ export default function Explore() {
     setCreatorFilter(nextFilter)
   }
 
-  // 진행 중 뱃지와 응모권 잔액은 이름 아래에 작게 보여 준다. 잔액은 화면에 보이는 행만 조회한다.
+  // 진행 중 이벤트가 있는 크리에이터에게는 이름 아래에 진행 중 태그를 작게 보여 준다.
   function renderCreatorMeta(creator) {
-    const balance = balances.get(creator.creatorId)
-    return (
-      <div className="flex items-center gap-2 font-label-xs text-label-xs text-outline">
-        {creator.openEventCount > 0 && (
-          <span className="px-2 py-0.5 rounded border border-primary text-primary">진행 중 {creator.openEventCount}</span>
-        )}
-        <span>🎟 {balance ? `${formatNumber(balance.balance)}장` : failedIds.has(creator.creatorId) ? '조회 실패' : '조회 중'}</span>
-      </div>
+    return creator.openEventCount > 0 && (
+      <span className="self-start px-2 py-0.5 rounded border border-primary text-primary font-label-xs text-label-xs">진행 중 {creator.openEventCount}</span>
     )
   }
 
   return (
-    <div ref={pageRef} className="flex flex-col w-full pb-8">
+    <div className="flex flex-col w-full pb-8">
       <div className="px-margin pt-space-md pb-space-sm flex flex-col gap-space-sm">
         <form
           className="relative w-full"
@@ -157,7 +142,7 @@ export default function Explore() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-colors shadow-sm"
-            placeholder={tab === 'event' ? '이벤트 제목이나 크리에이터로 검색해 보세요' : '크리에이터를 검색해 보세요 (아티스트, 유튜버, 스트리머)'}
+            placeholder={tab === 'event' ? '이벤트 제목이나 크리에이터로 검색해 보세요' : '크리에이터를 검색해 보세요'}
             type="search"
           />
           {query && (
@@ -221,11 +206,6 @@ export default function Explore() {
         {!directory.loading && directory.error && (
           <ErrorBlock message={directory.error} onRetry={directory.reload} />
         )}
-        {failedIds.size > 0 && !directory.error && (
-          <button type="button" onClick={retryBalances} disabled={balancesLoading} className="mx-margin mb-2 self-start font-label-sm text-label-sm text-primary disabled:opacity-50">
-            응모권 잔액 다시 조회
-          </button>
-        )}
         {!directory.loading && !directory.error && filteredCreators.length === 0 && (
           creatorFilter === '도킹' && followedCreators.length === 0
             ? <EmptyBlock
@@ -244,7 +224,6 @@ export default function Explore() {
                 variant="flat"
                 highlight={creator.openEventCount > 0}
                 meta={renderCreatorMeta(creator)}
-                trackBalance
                 followed={isFollowing(creator.creatorId)}
                 disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
                 onToggle={handleToggleFollow}
@@ -293,7 +272,7 @@ export default function Explore() {
                   <div className="min-w-0 flex flex-col">
                     <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
                     <span className="font-label-sm text-label-sm text-secondary font-semibold">
-                      진행 중 {creator.openEventCount}개{directory.data?.eventsComplete && ` · 전체 ${creator.events.length}개`}
+                      진행 중 {creator.openEventCount}개
                     </span>
                   </div>
                 </Link>

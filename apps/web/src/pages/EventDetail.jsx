@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import BottomSheet from '../components/ui/BottomSheet.jsx'
@@ -58,6 +58,18 @@ export default function EventDetail() {
   const [opening, setOpening] = useState(false) // 응모 확인 시트를 열기 전 최신 잔액을 불러오는 중(버튼 표시용)
   const openingRef = useRef(false) // 같은 순간에 여러 번 눌려도 한 번만 처리하려는 잠금(state는 다음 렌더에야 바뀐다)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const confirmationRef = useRef(null)
+  useEffect(() => {
+    const dialog = confirmationRef.current
+    if (sheetOpen) dialog?.showModal()
+    else dialog?.close()
+  }, [sheetOpen])
+  const [selectionOpen, setSelectionOpen] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
   const [phase, setPhase] = useState('idle') // idle | submitting | done
   const [result, setResult] = useState(null)
   const [requestId, setRequestId] = useState(() => newRequestId())
@@ -128,7 +140,10 @@ export default function EventDetail() {
   const hasAnyTicket = balances[COUPON_TYPE.CREATOR] > 0 || balances[COUPON_TYPE.COMMON] > 0
   const creator = useCreatorProfile(event?.creatorId)
   const prizeCount = totalPrizeQuantity(event?.prizes)
-  const canApply = isEntryOpen(event) && hasAnyTicket
+  const endTime = new Date(event?.endAt).getTime()
+  const remaining = Number.isFinite(endTime) ? Math.max(0, Math.ceil((endTime - now) / 1000)) : null
+  const deadlinePassed = remaining === 0
+  const canApply = isEntryOpen(event) && hasAnyTicket && !deadlinePassed
   // 응모 성공으로 잔액이 줄어들 수 있으므로, 실제로 쓸 수량은 렌더 시점에 한도 범위로 맞춘다.
   const selectedCount = clampEntryCount(ticketCount, balance)
 
@@ -174,11 +189,6 @@ export default function EventDetail() {
 
   async function openConfirm() {
     if (openingRef.current) return
-    if (!isEntryOpen(event)) {
-      showToast('지금은 응모할 수 있는 상태가 아니에요.', { icon: 'error' })
-      return
-    }
-
     // 응답 유실 뒤 시트를 닫았다가 다시 연 경우에는 새 요청을 만들지 않는다. 같은
     // requestId 재전송만이 서버의 멱등 처리(DUPLICATE_REPLAY)를 보장한다.
     const restored = restorePendingEntryAttempt(pendingEntry, eventId)
@@ -187,7 +197,13 @@ export default function EventDetail() {
       setRequestId(restored.requestId)
       setResult(restored.outcome)
       setPhase('done')
+      setSelectionOpen(false)
       setSheetOpen(true)
+      return
+    }
+
+    if (!isEntryOpen(event) || deadlinePassed) {
+      showToast('지금은 응모할 수 있는 상태가 아니에요.', { icon: 'error' })
       return
     }
 
@@ -214,6 +230,7 @@ export default function EventDetail() {
       setPhase('idle')
       setResult(null)
       setRequestId(newRequestId())
+      setSelectionOpen(false)
       setSheetOpen(true)
     } finally {
       openingRef.current = false
@@ -223,6 +240,11 @@ export default function EventDetail() {
 
   async function submitEntry() {
     if (!attempt) return
+    const retrying = restorePendingEntryAttempt(pendingEntry, eventId)?.requestId === requestId
+    if (!retrying && (!isEntryOpen(event) || Date.now() >= endTime)) {
+      showToast('지금은 응모할 수 있는 상태가 아니에요.', { icon: 'error' })
+      return
+    }
     setPhase('submitting')
     // 응모 현황에 반영됐는지 확인할 필요 수치의 기준을 이 시점에 잡는다. 같은 requestId로 재시도하면 처음 기준을 유지한다.
     entryStatus.beginEntry(requestId, attempt.count)
@@ -260,9 +282,9 @@ export default function EventDetail() {
             [attempt.couponType]: { value: attempt.balance - attempt.count, at: Date.now() },
           },
         }))
+        setSheetOpen(false)
         refreshMyTickets()
         await syncBalances()
-        setTimeout(() => setSheetOpen(false), 1200)
         // DB 반영이 끝났을 즈음 한 번 더 불러와 서버가 따라잡은 예상 값을 일찍 해제하고, 시간 제한으로 해제되는 때에도
         // 한 번 더 불러와 그 사이 다른 곳에서 바뀐 잔액을 화면에 반영한다.
         setTimeout(syncBalances, EXPECTED_SYNC_MS)
@@ -284,7 +306,6 @@ export default function EventDetail() {
   }
 
   // 확인 시트는 열 때 확정한 값을 보여 준다(시트를 열기 전에는 현재 선택값).
-  const sheet = attempt ?? { couponType, count: selectedCount, balance }
 
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-32">
@@ -329,9 +350,9 @@ export default function EventDetail() {
             </h2>
             <div className="flex flex-wrap items-center gap-1.5 text-slate-muted font-body-sm text-body-sm pt-0.5">
               <MaterialIcon name="event" className="text-primary text-[17px]" />
-              <span>{formatEventDate(event.startAt)} 오픈</span>
+              <span>{formatEventDate(event.startAt).replace(/^\d{2,4}[.\-/년]\s*/, '')} 오픈</span>
               <span className="text-outline-variant">•</span>
-              <span>{formatEventDate(event.endAt)} 마감</span>
+              <span>{formatEventDate(event.endAt).replace(/^\d{2,4}[.\-/년]\s*/, '')} 마감</span>
             </div>
             {event.description && (
               <p className="font-body-md text-body-md text-on-surface-variant pt-1 leading-relaxed whitespace-pre-wrap">
@@ -340,109 +361,19 @@ export default function EventDetail() {
             )}
           </div>
 
-          {canApply && (
-            <div className="p-space-lg rounded-2xl bg-surface-container-lowest shadow-floating flex flex-col gap-space-lg relative overflow-hidden">
-              <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
-                  <h3 className="font-title-lg text-title-lg font-bold text-on-surface">사용할 응모권 수</h3>
-                </div>
-              </div>
-
-              <div role="radiogroup" aria-label="사용할 응모권 종류" className="grid grid-cols-2 gap-2">
-                {[COUPON_TYPE.CREATOR, COUPON_TYPE.COMMON].map((type) => {
-                  const selected = couponType === type
-                  const empty = balances[type] <= 0
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      disabled={empty}
-                      onClick={() => chooseCouponType(type)}
-                      className={`flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-xl border text-left transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none ${
-                        selected
-                          ? 'bg-primary/10 border-primary text-primary'
-                          : 'bg-surface-container border-transparent text-on-surface-variant'
-                      }`}
-                    >
-                      <span className="font-label-sm text-label-sm font-semibold">{COUPON_LABEL[type]}</span>
-                      <span className="font-label-md text-label-md font-bold">{formatNumber(balances[type])}장</span>
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="flex items-center justify-between bg-surface-container-low rounded-2xl p-2.5">
-                <button
-                  type="button"
-                  aria-label="응모권 1장 감소"
-                  disabled={selectedCount <= 1}
-                  onClick={() => adjust(-1)}
-                  className="w-14 h-14 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface active:scale-90 transition-transform shadow-sm disabled:opacity-30 disabled:pointer-events-none"
-                >
-                  <MaterialIcon name="remove" className="text-[26px]" />
-                </button>
-                <div className="flex flex-col items-center justify-center px-4">
-                  <div className="flex items-baseline gap-1">
-                    <span className="font-headline-xl text-headline-xl font-extrabold text-primary tracking-tight">
-                      {selectedCount}
-                    </span>
-                    <span className="font-title-md text-title-md font-bold text-primary">장</span>
+          {remaining !== null && (
+            <div className="rounded-2xl bg-surface-container-low p-space-lg text-center" role="timer" aria-label="이벤트 마감 카운트다운">
+              <p className="font-label-md text-label-md text-on-surface-variant mb-3">{deadlinePassed || closed ? '응모 마감' : '마감까지'}</p>
+              <div className="flex justify-center gap-3 text-primary tabular-nums">
+                {[['일', Math.floor(remaining / 86400)], ['시간', Math.floor(remaining / 3600) % 24], ['분', Math.floor(remaining / 60) % 60], ['초', remaining % 60]].map(([label, value], index) => (
+                  <div key={label} className="flex items-start gap-3">
+                    {index > 0 && <span className="text-[28px] sm:text-[36px] leading-tight font-bold" aria-hidden="true">:</span>}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[36px] sm:text-[44px] leading-tight font-extrabold">{String(closed ? 0 : value).padStart(2, '0')}</span>
+                      <span className="text-label-xs text-on-surface-variant">{label}</span>
+                    </div>
                   </div>
-                  <span className="font-label-xs text-label-xs text-slate-muted">선택 수량</span>
-                </div>
-                <button
-                  type="button"
-                  aria-label="응모권 1장 증가"
-                  disabled={selectedCount >= limit}
-                  onClick={() => adjust(1)}
-                  className="w-14 h-14 rounded-xl bg-surface-container-lowest flex items-center justify-center text-primary active:scale-90 transition-transform shadow-sm disabled:opacity-30 disabled:pointer-events-none"
-                >
-                  <MaterialIcon name="add" className="text-[26px]" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => quickAdd(1)}
-                  className="py-2.5 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
-                >
-                  +1장
-                </button>
-                <button
-                  type="button"
-                  onClick={() => quickAdd(5)}
-                  className="py-2.5 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
-                >
-                  +5장
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTicketCount(limit)}
-                  className="py-2.5 rounded-xl bg-primary/10 text-primary font-label-md text-label-md font-bold active:scale-95 hover:bg-primary hover:text-on-primary transition-all"
-                >
-                  일괄 사용 ({formatNumber(limit)}장)
-                </button>
-              </div>
-
-              <div className="p-4 rounded-xl bg-surface-rose-muted flex items-center justify-between gap-space-sm">
-                <span className="font-body-sm text-body-sm text-on-surface-variant">응모 후 잔여 응모권</span>
-                <div className="flex items-center gap-1.5 font-label-md text-label-md">
-                  <span className="text-on-surface-variant">{formatNumber(balance)}장</span>
-                  <MaterialIcon name="arrow_forward" className="text-[14px] text-on-surface-variant" />
-                  <span className="font-bold text-on-surface">{formatNumber(balance - selectedCount)}장</span>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2 pt-1 text-slate-muted">
-                <MaterialIcon name="priority_high" className="text-label-xs leading-normal text-outline shrink-0" />
-                <p className="font-label-xs text-label-xs leading-normal">
-                  응모 완료 시 사용된 응모권은 취소 또는 환불이 불가합니다.
-                </p>
+                ))}
               </div>
             </div>
           )}
@@ -547,83 +478,155 @@ export default function EventDetail() {
         <div className="flex flex-col gap-2">
           <button
             type="button"
-            onClick={openConfirm}
-            disabled={!canApply || opening}
+            aria-label={canApply ? '응모하기' : '응모할 수 없는 상태예요'}
+            onClick={() => pendingEntry ? openConfirm() : setSelectionOpen(true)}
+            disabled={(!canApply && !restorePendingEntryAttempt(pendingEntry, eventId)) || opening}
             className="w-full h-12 rounded-xl bg-gradient-to-r from-primary via-primary-container to-berry-glow text-on-primary font-title-md text-title-md font-bold flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             <MaterialIcon name="confirmation_number" filled className="text-[20px]" />
-            <span>{canApply ? `${selectedCount}장으로 응모하기` : '응모할 수 없는 상태예요'}</span>
+            <span>{canApply ? '응모하기' : '응모할 수 없는 상태예요'}</span>
         </button>
         </div>
         </div>
       </div>
 
       <BottomSheet
-        open={sheetOpen}
-        onClose={phase === 'submitting' ? undefined : () => setSheetOpen(false)}
-        title="응모 확인"
+        open={selectionOpen}
+        onClose={opening ? undefined : () => setSelectionOpen(false)}
+        title="응모하기"
       >
-        <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 mb-space-md">
-          아래 내용으로 응모를 완료할까요?
-        </p>
-
-        <div className="p-space-sm bg-surface-rose-muted rounded-xl flex items-center gap-space-md mb-space-md shadow-sm">
-          <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-surface-container">
-            <img className="w-full h-full object-cover" src={getEventBanner(event.eventId)} alt="" />
-          </div>
-          <div className="flex flex-col min-w-0 flex-1">
-            <div className="flex items-center gap-1">
-              <span className="font-label-sm text-label-sm text-on-surface font-bold tracking-tight">{creator.name}</span>
-              <MaterialIcon name="verified" filled className="text-[15px] text-primary" />
-              <span className="font-label-xs text-label-xs text-on-surface-variant ml-auto">{dday}</span>
-            </div>
-            <h3 className="font-title-md text-title-md text-on-surface font-bold truncate mt-0.5">{event.title}</h3>
-          </div>
-        </div>
-
-        <div className="bg-surface-container-low rounded-xl p-space-md mb-space-md flex flex-col gap-space-sm">
-          <div className="flex items-center justify-between pb-space-sm border-b border-surface-container-high">
-            <div className="flex items-center gap-space-xs">
-              <div className="w-7 h-7 rounded-lg bg-primary-fixed flex items-center justify-center text-on-primary-fixed">
-                <MaterialIcon name="confirmation_number" className="text-[16px]" />
+            <div className="p-space-lg rounded-2xl bg-surface-container-lowest shadow-floating flex flex-col gap-space-lg relative overflow-hidden">
+              <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+                  <h3 className="font-title-lg text-title-lg font-bold text-on-surface">사용할 응모권 수</h3>
+                </div>
               </div>
-              <span className="font-title-md text-title-md text-on-surface font-semibold">사용할 응모권</span>
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="font-metric-display text-metric-display text-primary-container font-extrabold tracking-tight">
-                {sheet.count}
-              </span>
-              <span className="font-label-md text-label-md text-primary-container font-bold">장 소모</span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between pt-1">
-            <span className="font-body-sm text-body-sm text-on-surface-variant">응모권 종류</span>
-            <span className="font-label-md text-label-md text-on-surface font-medium">{COUPON_LABEL[sheet.couponType]}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="font-body-sm text-body-sm text-on-surface-variant">현재 보유 수량</span>
-            <span className="font-label-md text-label-md text-on-surface font-medium">{formatNumber(sheet.balance)}장</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="font-body-sm text-body-sm text-on-surface-variant">응모 후 잔여 수량</span>
-            <span className="font-label-md text-label-md text-on-surface font-bold">
-              {formatNumber(sheet.balance - sheet.count)}장
-            </span>
-          </div>
-        </div>
 
-        <div className="bg-gold-badge-bg rounded-xl p-space-md mb-space-lg flex items-start gap-space-sm">
-          <MaterialIcon name="warning" className="text-[20px] text-gold-badge flex-shrink-0 mt-0.5" />
-          <p className="font-body-sm text-body-sm text-tertiary-container leading-relaxed">
-            응모 완료 시 사용된 응모권은 취소 또는 환불이 불가합니다.
-          </p>
+              <div role="radiogroup" aria-label="사용할 응모권 종류" className="grid grid-cols-2 gap-2">
+                {[COUPON_TYPE.CREATOR, COUPON_TYPE.COMMON].map((type) => {
+                  const selected = couponType === type
+                  const empty = balances[type] <= 0
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      disabled={empty}
+                      onClick={() => chooseCouponType(type)}
+                      className={`flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-xl border text-left transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none ${
+                        selected
+                          ? 'bg-primary/10 border-primary text-primary'
+                          : 'bg-surface-container border-transparent text-on-surface-variant'
+                      }`}
+                    >
+                      <span className="font-label-sm text-label-sm font-semibold">{COUPON_LABEL[type]}</span>
+                      <span className="font-label-md text-label-md font-bold">{formatNumber(balances[type])}장</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="flex items-center justify-between bg-surface-container-low rounded-2xl p-2.5">
+                <button
+                  type="button"
+                  aria-label="응모권 1장 감소"
+                  disabled={selectedCount <= 1}
+                  onClick={() => adjust(-1)}
+                  className="w-14 h-14 rounded-xl bg-surface-container-lowest flex items-center justify-center text-on-surface active:scale-90 transition-transform shadow-sm disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  <MaterialIcon name="remove" className="text-[26px]" />
+                </button>
+                <div className="flex flex-col items-center justify-center px-4">
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-headline-xl text-headline-xl font-extrabold text-primary tracking-tight">
+                      {selectedCount}
+                    </span>
+                    <span className="font-title-md text-title-md font-bold text-primary">장</span>
+                  </div>
+                  <span className="font-label-xs text-label-xs text-slate-muted">선택 수량</span>
+                </div>
+                <button
+                  type="button"
+                  aria-label="응모권 1장 증가"
+                  disabled={selectedCount >= limit}
+                  onClick={() => adjust(1)}
+                  className="w-14 h-14 rounded-xl bg-surface-container-lowest flex items-center justify-center text-primary active:scale-90 transition-transform shadow-sm disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  <MaterialIcon name="add" className="text-[26px]" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => quickAdd(1)}
+                  className="py-2.5 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
+                >
+                  +1장
+                </button>
+                <button
+                  type="button"
+                  onClick={() => quickAdd(5)}
+                  className="py-2.5 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
+                >
+                  +5장
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTicketCount(limit)}
+                  className="py-2.5 rounded-xl bg-primary/10 text-primary font-label-md text-label-md font-bold active:scale-95 hover:bg-primary hover:text-on-primary transition-all"
+                >
+                  일괄 사용 ({formatNumber(limit)}장)
+                </button>
+              </div>
+
+              <div className="p-4 rounded-xl bg-surface-rose-muted flex items-center justify-between gap-space-sm">
+                <span className="font-body-sm text-body-sm text-on-surface-variant">응모 후 잔여 응모권</span>
+                <div className="flex items-center gap-1.5 font-label-md text-label-md">
+                  <span className="text-on-surface-variant">{formatNumber(balance)}장</span>
+                  <MaterialIcon name="arrow_forward" className="text-[14px] text-on-surface-variant" />
+                  <span className="font-bold text-on-surface">{formatNumber(balance - selectedCount)}장</span>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2 pt-1 text-slate-muted">
+                <MaterialIcon name="priority_high" className="text-label-xs leading-normal text-outline shrink-0" />
+                <p className="font-label-xs text-label-xs leading-normal">
+                  응모 완료 시 사용된 응모권은 취소 또는 환불이 불가합니다.
+                </p>
+              </div>
+            </div>
+        <div className="grid grid-cols-2 gap-space-sm mt-4">
+          <button type="button" disabled={opening} onClick={() => setSelectionOpen(false)} className="h-12 rounded-xl bg-surface-container text-on-surface font-bold">취소</button>
+          <button type="button" disabled={!canApply || opening} onClick={openConfirm} className="h-12 rounded-xl bg-primary text-on-primary font-bold disabled:opacity-50">{opening ? '확인 중...' : `${selectedCount}장으로 응모하기`}</button>
         </div>
+      </BottomSheet>
+
+      <dialog
+        ref={confirmationRef}
+        aria-label="응모 확인"
+        aria-describedby="entry-confirm-message"
+        onCancel={(event) => {
+          event.preventDefault()
+          if (phase !== 'submitting') {
+            setSheetOpen(false)
+            if (phase === 'idle') setSelectionOpen(true)
+          }
+        }}
+        className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border-0 bg-surface-container-lowest p-6 text-on-surface shadow-2xl backdrop:bg-black/60"
+      >
+        <p id="entry-confirm-message" className="font-body-md text-body-md text-on-surface leading-relaxed mb-6">
+          응모 완료 시 사용된 응모권은 취소 또는 환불이 불가합니다. 응모하시겠습니까?
+        </p>
 
         {phase === 'idle' && (
           <div className="grid grid-cols-5 gap-space-sm">
             <button
               type="button"
-              onClick={() => setSheetOpen(false)}
+              onClick={() => { setSheetOpen(false); setSelectionOpen(true) }}
               className="col-span-2 h-12 rounded-xl bg-berry-tint text-berry-deep font-label-md text-label-md font-bold flex items-center justify-center hover:bg-border-rose active:scale-[0.98] transition-all"
             >
               취소
@@ -631,12 +634,10 @@ export default function EventDetail() {
             <button
               type="button"
               onClick={submitEntry}
-              className="col-span-3 h-12 rounded-xl bg-primary-container text-on-primary-container font-label-md text-label-md font-bold shadow-md flex items-center justify-center gap-space-xs hover:brightness-105 active:scale-[0.98] transition-all"
+              disabled={!canApply}
+              className="col-span-3 disabled:opacity-50 disabled:pointer-events-none h-12 rounded-xl bg-primary-container text-on-primary-container font-label-md text-label-md font-bold shadow-md flex items-center justify-center gap-space-xs hover:brightness-105 active:scale-[0.98] transition-all"
             >
-              <span>최종 응모하기</span>
-              <span className="bg-berry-deep/40 px-1.5 py-0.5 rounded-full text-[11px] font-medium text-white">
-                {sheet.count}장 소모
-              </span>
+              <span>응모 확정</span>
             </button>
           </div>
         )}
@@ -693,7 +694,7 @@ export default function EventDetail() {
             )}
           </div>
         )}
-      </BottomSheet>
+      </dialog>
     </div>
   )
 }

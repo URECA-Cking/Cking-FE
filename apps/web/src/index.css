@@ -462,3 +462,23 @@
 /* 캘린더 토요일 글씨는 각 테마에서 읽기 쉬운 파란색을 쓴다. */
 .calendar-saturday { color: #60a5fa; }
 :root[data-theme='light'] .calendar-saturday { color: #2563eb; }
+
+/* 바텀시트: 아래에서 올라오며 배경이 서서히 어두워진다. 모션을 줄인 환경에서는 쓰지 않는다.
+   fill-mode를 backwards로 둬서 끝난 뒤 transform이 남지 않게 한다(남으면 안쪽 fixed 요소의 기준이 바뀐다). */
+@keyframes bottom-sheet-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bottom-sheet-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bottom-sheet-backdrop { animation: bottom-sheet-fade-in 240ms ease-out backwards; }
+  .bottom-sheet-panel {
+    animation: bottom-sheet-slide-up 340ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+    /* 확장·접기 때 높이가 부드럽게 바뀐다. interpolate-size를 모르는 브라우저는 예전처럼 바로 바뀐다. */
+    interpolate-size: allow-keywords;
+    transition: height 300ms cubic-bezier(0.32, 0.72, 0, 1), max-height 300ms cubic-bezier(0.32, 0.72, 0, 1), transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}

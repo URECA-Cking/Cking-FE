@@ -3,6 +3,7 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 import CommentBlockSheet from './CommentBlockSheet.jsx'
 import CommentMoreMenu from './CommentMoreMenu.jsx'
 import CommentReportSheet from './CommentReportSheet.jsx'
+import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../ui/States.jsx'
 import { useToast } from '../../context/useToast.js'
@@ -90,6 +91,8 @@ export default function PostComments({ creatorId, postId, authenticated, followi
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  // 삭제 확인 시트를 연 댓글(없으면 null). 삭제 요청이 끝날 때까지 시트를 유지해 처리 중 표시를 한다.
+  const [confirmingDelete, setConfirmingDelete] = useState(null)
   // 신고 창을 연 댓글 ID(없으면 null).
   const [reportingId, setReportingId] = useState(null)
   const [blockingMember, setBlockingMember] = useState(null) // { memberId, name } 크리에이터가 차단하려는 작성자
@@ -233,13 +236,18 @@ export default function PostComments({ creatorId, postId, authenticated, followi
     }
   }
 
+  // 관리자 권한으로 지우는 댓글이면 확인 문구가 달라진다(작성자에게 경고·알림이 가지 않는다).
+  const deleteByAdmin = confirmingDelete !== null && deleteRoute({ actor, isOwn: isOwn(confirmingDelete) }) === 'admin'
+
+  /** 삭제 버튼을 누르면 바로 지우지 않고 확인 시트를 연다. */
+  function askRemove(comment) {
+    if (deletingId != null) return
+    setConfirmingDelete(comment)
+  }
+
   async function remove(comment) {
     if (deletingId != null) return
     const route = deleteRoute({ actor, isOwn: isOwn(comment) })
-    const confirmMessage = route === 'admin'
-      ? '관리자 권한으로 이 댓글을 삭제할까요? 되돌릴 수 없고, 작성자에게 경고나 알림은 가지 않아요.'
-      : '이 댓글을 삭제할까요? 삭제하면 되돌릴 수 없어요.'
-    if (!window.confirm(confirmMessage)) return
     setDeletingId(comment.commentId)
     // 내 삭제 요청이 성공(204)했을 때만 true. 404(이미 삭제됨)는 행만 숨기고 댓글 수는 그대로 둔 채 재조회로 맞춘다.
     let deletedByMe = false
@@ -255,6 +263,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
       showToast(describeCommentError(error, '댓글을 삭제하지 못했어요.'), { icon: 'error' })
       if (!gone) {
         setDeletingId(null)
+        setConfirmingDelete(null)
         return
       }
     }
@@ -265,6 +274,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
     // 부모(목록 카드·상세)의 댓글 수는 내 삭제가 성공했을 때만 줄인다.
     if (deletedByMe) onCommentCountChange?.(-1)
     setDeletingId(null)
+    setConfirmingDelete(null)
     refreshQuietly()
   }
 
@@ -343,7 +353,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                       {canDeleteComment({ authenticated, actor, isOwn: isOwn(comment) }) && (
                         <button
                           type="button"
-                          onClick={() => remove(comment)}
+                          onClick={() => askRemove(comment)}
                           disabled={deletingId === comment.commentId}
                           className="font-label-sm text-label-sm text-error disabled:opacity-50"
                         >
@@ -436,6 +446,14 @@ export default function PostComments({ creatorId, postId, authenticated, followi
           </div>
         )}
       </div>
+      <ConfirmSheet
+        open={confirmingDelete !== null}
+        title={deleteByAdmin ? '관리자 권한으로 댓글을 삭제할까요?' : '댓글을 삭제할까요?'}
+        message={deleteByAdmin ? '되돌릴 수 없고, 작성자에게 경고나 알림은 가지 않아요.' : '삭제하면 되돌릴 수 없어요.'}
+        busy={deletingId !== null}
+        onConfirm={() => remove(confirmingDelete)}
+        onClose={() => setConfirmingDelete(null)}
+      />
       {blockingMember !== null && (
         <CommentBlockSheet
           memberName={blockingMember.name}

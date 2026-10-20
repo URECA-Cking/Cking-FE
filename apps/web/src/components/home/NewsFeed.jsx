@@ -30,7 +30,8 @@ export default function NewsFeed({ creators, posts }) {
       <div className="px-margin">
         <SectionTitle title="새 게시물" subtitle="도킹한 크리에이터" />
       </div>
-      <div className="flex gap-3 overflow-x-auto overscroll-x-contain px-margin no-scrollbar">
+      {/* 카드 안 sr-only 라벨(absolute)이 이 컨테이너 안에 갇히도록 relative를 둔다. 없으면 문서 폭이 늘어 페이지가 가로로 스크롤된다. */}
+      <div className="relative flex gap-3 overflow-x-auto overscroll-x-contain px-margin no-scrollbar">
         {cards.map((post) => {
           const creator = creatorById.get(post.creatorId)
           const thumb = toSafeImageUrl(post.images?.[0]?.url)

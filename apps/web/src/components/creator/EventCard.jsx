@@ -34,6 +34,8 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
   const live = event.displayStatus === 'IN_PROGRESS'
   const now = useNow(live ? 1000 : 60000)
   const countdown = live ? formatCountdown(event.endAt, now) : null
+  // 목록을 다시 받기 전에 마감 시각이 지나면 응모 버튼 대신 상세 보기로 바꾼다.
+  const deadlinePassed = live && countdown === null
 
   const cta = closed
     ? event.status === 'PUBLISHED'
@@ -41,7 +43,9 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
       : { label: '결과 준비 중', icon: 'hourglass_top' }
     : event.displayStatus === 'UPCOMING'
       ? { label: '오픈 예정 보기', icon: 'schedule' }
-      : { label: '응모하기', icon: 'touch_app' }
+      : deadlinePassed
+        ? { label: '이벤트 상세 보기', icon: 'chevron_right' }
+        : { label: '응모하기', icon: 'touch_app' }
 
   const open = () => navigate(`/events/${event.eventId}`)
 
@@ -156,7 +160,7 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
             type="button"
             onClick={open}
             className={`w-full py-2.5 rounded-xl font-label-md text-label-md font-semibold shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 ${
-              closed
+              closed || deadlinePassed
                 ? 'bg-surface-container text-on-surface-variant'
                 : 'bg-gradient-to-r from-primary to-[#e11d48] text-on-primary'
             }`}

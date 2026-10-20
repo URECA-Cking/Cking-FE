@@ -33,7 +33,7 @@ export const NOTIFICATION_TYPE_META = {
 }
 
 export const TICKET_LEDGER_TYPE_META = {
-  EARN: { label: '적립', icon: 'add_circle', tone: 'text-secondary' },
+  EARN: { label: '적립', icon: 'add_circle', tone: 'text-success-text' },
   SPEND: { label: '사용', icon: 'confirmation_number', tone: 'text-primary' },
   COMPENSATE: { label: '보상 반환', icon: 'undo', tone: 'text-tertiary' },
 }

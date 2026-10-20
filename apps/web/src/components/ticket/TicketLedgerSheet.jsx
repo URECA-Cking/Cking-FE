@@ -16,7 +16,7 @@ import { TICKET_LEDGER_TYPE_META } from '../../utils/eventStatus.js'
  */
 export default function TicketLedgerSheet({ open, onClose, creatorId, creatorName, balance }) {
   return (
-    <BottomSheet open={open} onClose={onClose} eyebrow="Ticket Ledger" title="응모권 내역">
+    <BottomSheet open={open} onClose={onClose} title="응모권 내역">
       <div className="flex items-center justify-between p-space-md rounded-xl bg-berry-tint mb-space-md">
         <div className="min-w-0">
           <p className="font-label-xs text-label-xs text-berry-deep font-semibold">{creatorName} 전용 응모권</p>
@@ -89,7 +89,6 @@ function LedgerList({ creatorId }) {
                 <p className="font-label-md text-label-md text-on-surface font-semibold truncate">
                   {meta.label}
                   {item.eventId ? ` · 이벤트 #${item.eventId}` : ''}
-                  {item.missionId ? ` · 미션 #${item.missionId}` : ''}
                 </p>
                 <p className="font-label-xs text-label-xs text-on-surface-variant truncate">
                   {item.reason ? `${item.reason} · ` : ''}

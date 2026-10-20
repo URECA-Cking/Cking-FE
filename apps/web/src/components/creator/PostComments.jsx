@@ -24,13 +24,11 @@ import { ceilToMinute, describeCommentRestriction } from '../../utils/sanctionNo
 import { createCommentBlockAsAdmin, deleteCommentAsAdmin } from '../../api/adminComments.js'
 import { createCommentBlock } from '../../api/creatorCommentBlocks.js'
 import { useUser } from '../../context/useUser.js'
-import { displayedCommentTotal } from '../../utils/postCommentCount.js'
 import { canBlockAuthor, canDeleteComment, deleteRoute, moderationActor } from '../../utils/commentModeration.js'
 
 // 저장·삭제 성공 응답을 재조회 전에 먼저 보여주기 위한 로컬 변경분.
-// counted: 재조회한 서버 전체 개수(totalElements)가 이미 포함하고 있는 created 댓글 ID.
-// deleted: 목록에서 숨길 댓글 ID. removed: 그중 내 삭제 요청이 성공(204)해 서버 전체 개수가 줄어야 하는 댓글 ID(404로 이미 삭제돼 있던 댓글은 넣지 않는다).
-const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [], counted: [], removed: [] }
+// deleted: 목록에서 숨길 댓글 ID.
+const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 function describeCommentError(error, fallback) {
   // 작성·수정 제한(플랫폼 제한·스페이스 차단)은 BE 메시지의 UTC 해제 시각을 앱 공통 시각 표기(브라우저 시간대)로 바꿔 안내한다.
@@ -149,7 +147,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
         const pending = state.created
           .filter((comment) => !fetchedIds.has(comment.commentId) && !state.deleted.includes(comment.commentId))
           .map((comment) => state.updated[comment.commentId] ?? comment)
-        return { ...NO_LOCAL_CHANGES, created: pending, counted: pending.map((comment) => comment.commentId) }
+        return { ...NO_LOCAL_CHANGES, created: pending }
       })
       setSync('synced')
     } catch {
@@ -263,9 +261,8 @@ export default function PostComments({ creatorId, postId, authenticated, followi
     setLocal((state) => ({
       ...state,
       deleted: [...state.deleted, comment.commentId],
-      removed: deletedByMe ? [...state.removed, comment.commentId] : state.removed,
     }))
-    // 헤더 '댓글 N'과 부모(목록 카드·상세)는 같은 조건으로만 줄인다: 내 삭제가 성공했을 때.
+    // 부모(목록 카드·상세)의 댓글 수는 내 삭제가 성공했을 때만 줄인다.
     if (deletedByMe) onCommentCountChange?.(-1)
     setDeletingId(null)
     refreshQuietly()
@@ -273,10 +270,6 @@ export default function PostComments({ creatorId, postId, authenticated, followi
 
   return (
     <section className="mt-space-md border-t border-surface-container pt-space-md" aria-label="댓글">
-      <h4 className="mb-3 font-title-md text-title-md font-semibold text-on-surface">
-        댓글 {page ? displayedCommentTotal(page.totalElements, local) : ''}
-      </h4>
-
       {first.loading && <LoadingBlock label="댓글을 불러오는 중..." />}
       {!first.loading && first.error && <ErrorBlock message={first.error} onRetry={first.reload} />}
       {!first.loading && !first.error && page && comments.length === 0 && (
@@ -419,6 +412,12 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                 aria-label="댓글 입력"
                 placeholder="댓글을 남겨보세요."
                 onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter는 등록, Shift+Enter는 줄바꿈. 한글 조합 중 Enter는 글자 확정이라 등록하지 않는다.
+                  if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return
+                  event.preventDefault()
+                  submitNew()
+                }}
                 className={draftClass}
               />
               {draft.trim() && (

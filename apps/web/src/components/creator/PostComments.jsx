@@ -123,6 +123,8 @@ export default function PostComments({ creatorId, postId, authenticated, followi
   // 목록이 보일 때만 입력창을 연다: 최초 조회가 실패한 채 작성하면 저장은 되는데 오류 화면 때문에 결과가 보이지 않는다.
   const listReady = !first.loading && !first.error && page != null
   const isOwn = (comment) => memberId != null && Number(comment.authorMemberId) === Number(memberId)
+  // 본인 댓글과, 필터 차단·관리자 숨김으로 이미 가려진 댓글은 신고할 수 없다(BE가 COMMENT_REPORT_ALREADY_FILTERED로 거절한다).
+  const canReport = (comment) => !isOwn(comment) && !comment.filtered
   // 남의 댓글을 조치(차단·삭제)할 자격. 게시글 주인(크리에이터)이 우선이고, 아니면 관리자다. 호출하는 API만 다르다.
   const actor = moderationActor({ isMine, isAdmin })
 
@@ -337,7 +339,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                   ) : (
                     <p className="whitespace-pre-wrap break-words font-body-sm text-body-sm text-on-surface">{comment.content}</p>
                   )}
-                  {(canDeleteComment({ authenticated, actor, isOwn: isOwn(comment) }) || !isOwn(comment)) && (
+                  {(canDeleteComment({ authenticated, actor, isOwn: isOwn(comment) }) || canReport(comment)) && (
                     <div className="mt-2 flex justify-end gap-3">
                       {/* 수정은 쓰기 권한이 있을 때만(팔로우를 끊은 작성자는 서버가 거절한다). 삭제는 팔로우와 무관하다. */}
                       {isOwn(comment) && canWrite && (
@@ -361,7 +363,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                         </button>
                       )}
                       {/* 본인 댓글은 신고할 수 없다(BE도 거절한다). 비로그인이면 로그인 안내로 보낸다. */}
-                      {!isOwn(comment) && (
+                      {canReport(comment) && (
                         <button
                           type="button"
                           onClick={() => (authenticated ? setReportingId(comment.commentId) : onLogin())}

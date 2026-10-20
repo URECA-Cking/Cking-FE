@@ -406,7 +406,8 @@ export default function EventDetail() {
             </div>
           </section>
 
-          {!canApply && (
+          {/* 결과가 공개되면 아래 당첨 결과 카드가 안내를 대신하므로 "결과가 공개되면 알려드릴게요" 안내는 숨긴다. */}
+          {!canApply && !published && (
             <div className="p-space-md rounded-2xl bg-surface-container-low flex items-start gap-space-sm">
               <MaterialIcon name="info" className="text-on-surface-variant text-body-sm leading-relaxed shrink-0" />
               <div className="flex flex-col gap-2">

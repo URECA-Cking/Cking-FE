@@ -205,6 +205,14 @@ export default function CreatorSpace() {
   // useAsync는 재조회 중 이전 data를 유지한다. Creator를 이동했을 때 이전 채널을 새 Space에 보이지 않게 응답의 소유 Creator를 확인한다.
   const currentYoutubeChannel = isYoutubeChannelForCreator(youtubeChannel.data, creatorId) ? youtubeChannel.data : null
   const goLogin = () => navigate('/login', { state: { from: location.pathname + location.search } })
+  /** 홈에서 넘어온 openPostId를 한 번 쓴 뒤 지워, 새로고침·뒤로 가기에서 상세가 다시 열리지 않게 한다. */
+  function clearOpenPostId() {
+    navigate(location.pathname + location.search + location.hash, {
+      replace: true,
+      state: { ...location.state, openPostId: null },
+      preventScrollReset: true,
+    })
+  }
   /** 탭 선택을 현재 방문 기록에 반영해 상세 화면과 브라우저 뒤로 가기에서 같은 탭으로 돌아온다. */
   function selectTab(nextTab) {
     navigate(location.pathname + location.search + location.hash, {
@@ -876,6 +884,8 @@ export default function CreatorSpace() {
             followDisabled={authenticated && !following && (!followsReady || pendingFollowIds.has(creator.creatorId) || (isCreator && !mySpace.data))}
             onFollow={handleFollow}
             onLogin={goLogin}
+            initialPostId={location.state?.openPostId ?? null}
+            onInitialPostOpened={clearOpenPostId}
           />
         )}
 

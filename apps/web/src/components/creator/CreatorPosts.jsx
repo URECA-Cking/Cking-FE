@@ -33,7 +33,7 @@ function modalSize(ratio, hasMedia) {
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 /** 크리에이터 게시물 목록과 상세, 작성·수정·삭제 및 좋아요 상태를 관리한다. */
-export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded }) {
+export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded, initialPostId = null, onInitialPostOpened }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
@@ -231,6 +231,15 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
       }
     }
   }
+
+  // 홈 새 게시물 카드처럼 특정 게시물을 가리키며 들어오면 마운트 직후 그 상세를 연다. 한 번 열면 라우터 상태에서 지운다.
+  useEffect(() => {
+    if (initialPostId == null) return
+    openDetail(initialPostId)
+    onInitialPostOpened?.()
+    // 진입 시 한 번만 연다. openDetail은 렌더마다 새로 만들어지지만 이 효과는 initialPostId 변화에만 반응한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPostId])
 
   // 좋아요·취소는 서버 응답의 liked·likeCount를 그대로 반영한다(낙관적 갱신 없음). 처리 중에는 버튼을 막아 연타로 상태가 어긋나지 않게 한다.
   /** 서버의 좋아요·취소 응답으로 목록과 상세의 좋아요 상태를 갱신한다. */

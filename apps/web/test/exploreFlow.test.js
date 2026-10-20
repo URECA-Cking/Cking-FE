@@ -219,33 +219,6 @@ for (const theme of ['dark', 'light']) {
   })
 }
 
-test('이벤트가 한 번에 받는 100건을 넘으면 인기 크리에이터 순위가 일부 기준임을 밝힌다', async () => {
-  const many = Array.from({ length: 120 }, (_, index) => event(1000 + index, (index % 4) + 1, `이벤트 ${index}`))
-  const truncated = await screen('/explore?tab=event', { events: many })
-  await truncated.getByText('진행 중 이벤트가 많은 크리에이터').waitFor()
-  await truncated.getByText('최근 이벤트 100건 기준 집계예요.').waitFor()
-  await truncated.close()
-
-  const complete = await screen('/explore?tab=event')
-  await complete.getByText('진행 중 이벤트가 많은 크리에이터').waitFor()
-  assert.equal(await complete.getByText(/건 기준 집계예요/).count(), 0)
-  await complete.close()
-})
-
-test('서버 openEventCount가 있으면 이벤트가 100건을 넘어도 진행 중 순위가 그 값을 쓰고 범위 안내를 숨긴다', async () => {
-  // 최근 100건에는 크리에이터 1의 이벤트만 있고, 크리에이터 2의 진행 중 이벤트는 그보다 오래돼 목록에 없다.
-  const recent = Array.from({ length: 120 }, (_, index) => event(1000 + index, 1, `이벤트 ${index}`))
-  const creators = [{ ...creator(1, '다온'), openEventCount: 120 }, { ...creator(2, '나래'), openEventCount: 3 }]
-  const page = await screen('/explore?tab=event', { events: recent, creators })
-  await page.getByText('진행 중 이벤트가 많은 크리에이터').waitFor()
-  await page.getByText('진행 중 3개').waitFor()
-  await page.getByText('진행 중 120개').waitFor()
-  assert.equal(await page.getByText(/건 기준 집계예요/).count(), 0)
-  // 크리에이터별 전체 개수는 최근 100건 기준이라 서버 값을 쓸 때도 일부만 받았다면 보이지 않는다.
-  assert.equal(await page.getByText(/· 전체 \d+개/).count(), 0)
-  await page.close()
-})
-
 test('이벤트 상태별 개수 API가 있으면 한 번의 요청으로 칩 개수를 채우고, 없으면 상태별 호출로 대체한다', async () => {
   const counts = { total: 46, upcoming: 5, inProgress: 28, closed: 13 }
   const served = await screen('/explore?tab=event', { counts })
@@ -300,12 +273,12 @@ test('이벤트 필터 칩에 상태별 이벤트 개수가 붙는다', async ()
   await page.close()
 })
 
-test('크리에이터 필터 칩에 전체·도킹·진행 중 개수가 붙는다', async () => {
+test('크리에이터 필터 칩에 전체·도킹 개수가 붙고 진행 중 칩은 없다', async () => {
   const page = await screen('/explore')
   await page.getByText('다온').first().waitFor()
-  // 크리에이터 4명, 도킹 0명, 진행 중 이벤트가 있는 크리에이터 2명(다온·나래)
+  // 크리에이터 4명, 도킹 0명
   await page.getByRole('button', { name: '전체 4' }).waitFor()
   await page.getByRole('button', { name: '도킹 0' }).waitFor()
-  await page.getByRole('button', { name: '진행 중 2' }).waitFor()
+  assert.equal(await page.getByRole('button', { name: /^진행 중/ }).count(), 0)
   await page.close()
 })

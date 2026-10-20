@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import '../../src/index.css'
 import Explore from '../../src/pages/Explore.jsx'
-import ExploreCreators from '../../src/pages/ExploreCreators.jsx'
 import ExploreRecommend from '../../src/pages/ExploreRecommend.jsx'
 import ExploreSearch from '../../src/pages/ExploreSearch.jsx'
 import UserContext from '../../src/context/userContext.js'
@@ -21,7 +20,7 @@ function Bridge() {
 }
 
 /**
- * 탐색 네 화면(탐색·검색 결과·맞춤 추천·전체 크리에이터)을 실제 컴포넌트와 라우팅 그대로 그리고,
+ * 탐색 세 화면(탐색·검색 결과·맞춤 추천)을 실제 컴포넌트와 라우팅 그대로 그리고,
  * 로그인 상태(UserContext)와 토스트만 대신하는 틀. 팔로우는 서버 대신 이 틀이 목록만 바꾼다.
  */
 function Shell({ initial, memberId }) {
@@ -48,7 +47,6 @@ function Shell({ initial, memberId }) {
               <Route path="/explore" element={<Explore />} />
               <Route path="/explore/search" element={<ExploreSearch />} />
               <Route path="/explore/recommend" element={<ExploreRecommend />} />
-              <Route path="/explore/creators" element={<ExploreCreators />} />
             </Routes>
           </main>
         </UserContext.Provider>

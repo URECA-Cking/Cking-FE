@@ -11,7 +11,6 @@ import ChunkErrorBoundary from './components/ui/ChunkErrorBoundary.jsx'
 
 // 첫 화면(홈·로그인)만 처음부터 불러오고, 나머지 화면은 처음 열 때 내려받아 첫 진입의 JS 크기를 줄인다.
 const Explore = lazy(() => import('./pages/Explore.jsx'))
-const ExploreCreators = lazy(() => import('./pages/ExploreCreators.jsx'))
 const ExploreRecommend = lazy(() => import('./pages/ExploreRecommend.jsx'))
 const ExploreSearch = lazy(() => import('./pages/ExploreSearch.jsx'))
 const MyEntries = lazy(() => import('./pages/MyEntries.jsx'))
@@ -46,7 +45,6 @@ function App() {
       >
         <Route path="/" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
-        <Route path="/explore/creators" element={<ExploreCreators />} />
         <Route path="/explore/recommend" element={<ExploreRecommend />} />
         <Route path="/explore/search" element={<ExploreSearch />} />
         <Route path="/my-entries" element={<MyEntries />} />

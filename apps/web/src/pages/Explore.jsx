@@ -1,8 +1,6 @@
-import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
-import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import CreatorRow from '../components/creator/CreatorRow.jsx'
 import EventCard from '../components/creator/EventCard.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
@@ -13,17 +11,13 @@ import { loadCreatorDirectory } from '../api/creators.js'
 import { getEventCounts, getEvents } from '../api/events.js'
 import { CreatorFilterChips, CreatorSortMenu } from '../components/creator/CreatorListControls.jsx'
 import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
-import { formatNumber } from '../utils/format.js'
 import { creatorFilterCounts, filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
+import { formatNumber } from '../utils/format.js'
 import { describeError } from '../api/client.js'
-import { spacePath } from '../api/creatorSpace.js'
 
-// 목록에는 앞 7명만 보여주고, 그 뒤는 '전체' 버튼으로 전체 크리에이터 화면에 넘긴다.
+// 목록에는 앞 7명만 보여주고, 그 뒤는 검색이나 맞춤 추천으로 찾는다.
 const CREATOR_PREVIEW = 7
 // 이벤트는 5개씩 늘려 가며 다시 받는다. BE 페이지 상한(100)을 넘기면 더 받을 수 없다.
-// 진행 중 이벤트가 많은 크리에이터는 3위까지 먼저 보이고 '더 보기'로 5위까지 펼친다.
-const TRENDING_PREVIEW = 3
-const TRENDING_MAX = 5
 const EVENT_PAGE_SIZE = 5
 const EVENT_MAX_SIZE = 100
 
@@ -51,7 +45,6 @@ export default function Explore() {
   const [query, setQuery] = useState(params.get('q') ?? '')
   const [creatorFilter, setCreatorFilter] = useState('전체')
   const [creatorSort, setCreatorSort] = useState('name-asc')
-  const [trendingExpanded, setTrendingExpanded] = useState(false)
   const [eventFilter, setEventFilter] = useState('IN_PROGRESS')
   const [eventSize, setEventSize] = useState(EVENT_PAGE_SIZE)
 
@@ -71,16 +64,6 @@ export default function Explore() {
   const filteredCreators = useMemo(
     () => sortExploreCreators(filterExploreCreators(creators, followedCreators, creatorFilter, ''), creatorSort),
     [creators, creatorFilter, creatorSort, followedCreators],
-  )
-
-  // 진행 중 이벤트 수는 공개 API의 값만 사용한다. 이벤트 탭에서 이벤트가 많이 열린 크리에이터를 소개한다.
-  const trending = useMemo(
-    () =>
-      [...creators]
-        .filter((creator) => creator.openEventCount > 0)
-        .sort((a, b) => b.openEventCount - a.openEventCount || b.events.length - a.events.length)
-        .slice(0, TRENDING_MAX),
-    [creators],
   )
 
   // 필터를 바꿔 처음부터 다시 받는 동안에는 이전 필터의 목록을 보여주지 않는다. '더 보기'로 늘리는 중에는 목록을 유지한다.
@@ -214,7 +197,7 @@ export default function Explore() {
               message="아직 도킹한 크리에이터가 없어요. 마음에 드는 크리에이터를 찾아보세요."
               action={<button type="button" onClick={() => changeCreatorFilter('전체')} className="mt-2 min-h-10 rounded-xl bg-primary px-4 font-label-sm text-label-sm font-semibold text-on-primary active:scale-95">전체 크리에이터 보기</button>}
             />
-            : <EmptyBlock icon="person_search" message={creatorFilter === '진행 중' ? '지금 진행 중인 이벤트가 있는 크리에이터가 없어요.' : '조건에 맞는 크리에이터가 없어요.'} />
+            : <EmptyBlock icon="person_search" message="조건에 맞는 크리에이터가 없어요." />
         )}
         {!directory.loading && !directory.error && filteredCreators.length > 0 && (
           <div className="px-margin flex flex-col">
@@ -230,15 +213,6 @@ export default function Explore() {
                 onToggle={handleToggleFollow}
               />
             ))}
-            {filteredCreators.length > shownCreators.length && (
-              <Link
-                to={`/explore/creators?filter=${encodeURIComponent(creatorFilter)}&sort=${creatorSort}`}
-                aria-label="전체 크리에이터 보기"
-                className="self-center mt-2 h-[34px] px-5 rounded-full bg-surface-container-low text-primary font-label-md text-label-md flex items-center active:scale-95 transition-all"
-              >
-                전체
-              </Link>
-            )}
           </div>
         )}
       </section>
@@ -247,52 +221,6 @@ export default function Explore() {
 
       {tab === 'event' && (
       <section className="mt-space-sm flex flex-col">
-        {trending.length > 0 && (
-          <div className="px-margin mb-space-lg flex flex-col">
-            <div className="flex items-center gap-1.5 mb-1">
-              <MaterialIcon name="trending_up" className="text-tertiary text-[20px]" />
-              <h2 className="font-title-md text-title-md font-bold text-on-surface">진행 중 이벤트가 많은 크리에이터</h2>
-            </div>
-            {directory.data?.eventsTruncated && (
-              <p className="mb-space-sm font-label-xs text-label-xs text-outline">
-                최근 이벤트 {formatNumber(directory.data.events.length)}건 기준 집계예요.
-              </p>
-            )}
-            {!directory.data?.eventsTruncated && <div className="mb-1" />}
-            <div className="flex flex-col gap-2.5">
-              {trending.slice(0, trendingExpanded ? TRENDING_MAX : TRENDING_PREVIEW).map((creator, index) => (
-                <Link
-                  key={creator.creatorId}
-                  to={spacePath(creator.handle)}
-                  className="w-full px-3 py-2 rounded-xl bg-surface-container-lowest shadow-card flex items-center gap-2.5 active:scale-[0.98] transition-all"
-                >
-                  <span className="font-label-md text-label-md font-bold text-primary w-4 text-center">{index + 1}</span>
-                  <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
-                    <ProfilePhoto src={creator.avatar} className="h-full w-full" loading="lazy" decoding="async" />
-                  </div>
-                  <div className="min-w-0 flex flex-col">
-                    <span className="flex min-w-0 items-center gap-1">
-                      <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{creator.name}</span>
-                      <CreatorVerifiedBadge />
-                    </span>
-                    <span className="font-label-sm text-label-sm text-secondary font-semibold">
-                      진행 중 {creator.openEventCount}개
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-            {trending.length > TRENDING_PREVIEW && (
-              <button
-                type="button"
-                onClick={() => setTrendingExpanded((expanded) => !expanded)}
-                className="mt-2 h-9 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
-              >
-                {trendingExpanded ? '접기' : '더 보기'}
-              </button>
-            )}
-          </div>
-        )}
         <div className="px-margin flex items-center justify-between mb-space-sm">
           <div className="flex items-center gap-1.5">
             <MaterialIcon name="confirmation_number" filled className="text-primary text-[20px]" />

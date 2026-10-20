@@ -163,11 +163,11 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }
 
   // 이미지 주소는 10분만 유효하다. 썸네일이 실패하면 목록을 다시 받아 새 주소로 바꾼다(60초에 한 번만, 다시 실패해도 반복하지 않는다).
-  const lastThumbRefresh = useRef(0)
+  const lastThumbRefresh = useRef(-Infinity)
   /** 썸네일 주소가 만료되면 일정 간격을 두고 목록을 다시 읽는다. */
-  function handleThumbError() {
-    if (sync !== 'synced' || Date.now() - lastThumbRefresh.current < 60_000) return
-    lastThumbRefresh.current = Date.now()
+  function handleThumbError(timeStamp) {
+    if (sync !== 'synced' || timeStamp - lastThumbRefresh.current < 60_000) return
+    lastThumbRefresh.current = timeStamp
     refreshQuietly()
   }
 
@@ -423,7 +423,7 @@ function PostGridTile({ post, onOpen, onImageError }) {
       className="group relative block aspect-square w-full overflow-hidden bg-surface-container active:opacity-80"
     >
       {showImage ? (
-        <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" onError={() => { setFailedUrl(thumb); onImageError?.() }} />
+        <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" onError={(event) => { setFailedUrl(thumb); onImageError?.(event.timeStamp) }} />
       ) : post.locked ? (
         <span className="flex h-full w-full items-center justify-center bg-surface-container-high text-on-surface-variant">
           <MaterialIcon name="lock" className="text-[28px]" />

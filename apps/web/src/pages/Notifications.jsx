@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import SwipeToHide from '../components/notification/SwipeToHide.jsx'
@@ -60,9 +60,8 @@ export default function Notifications() {
   const canMarkAllRead = Boolean(totalUnreadCount > 0 || notificationsData?.hasNext)
 
   // 숨겨서 마지막 페이지가 비면 한 페이지 앞으로 돌아간다(빈 목록 안내가 "알림 없음"으로 오해되지 않게).
-  useEffect(() => {
-    if (page > 0 && data && !loading && items.length === 0) setPage((prev) => Math.max(0, prev - 1))
-  }, [page, data, loading, items.length])
+  // effect 없이 렌더 중에 보정해, 빈 페이지가 한 번도 그려지지 않는다.
+  if (page > 0 && data && !loading && items.length === 0) setPage(Math.max(0, page - 1))
 
   /** 현재 목록 페이지와 헤더의 서버 상태를 필요한 조회만으로 다시 맞춘다. */
   async function reloadCurrentPage() {

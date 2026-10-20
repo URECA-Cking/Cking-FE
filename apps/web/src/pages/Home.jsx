@@ -17,6 +17,7 @@ import { getInProgressEvents } from '../api/events.js'
 import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
 import { useAppliedEvents } from '../hooks/useAppliedEvents.js'
 import { useCreatorNews } from '../hooks/useCreatorNews.js'
+import { useFollowPostNews } from '../hooks/useFollowPostNews.js'
 import { useWelcomeQuest } from '../hooks/useWelcomeQuest.js'
 import { useWelcomeClaim } from '../hooks/useWelcomeClaim.js'
 import { useWelcomeGuideHidden } from '../hooks/useWelcomeGuideHidden.js'
@@ -46,6 +47,8 @@ export default function Home() {
     cacheKey: 'home:in-progress-events',
   })
   const { latestByCreator, posts, failed: newsFailed, retry: retryNews } = useCreatorNews(followedCreators, user?.memberId)
+
+  const unreadCreatorIds = useFollowPostNews(user?.memberId, followedCreators.length)
 
   const myCreators = useMemo(
     () => (directory.data?.creators ?? []).filter((creator) => followedCreators.includes(creator.creatorId)),
@@ -140,7 +143,7 @@ export default function Home() {
 
       {directory.loading && <LoadingBlock label="소식과 이벤트를 불러오는 중..." />}
       {!directory.loading && directoryFailed && <ErrorBlock message={directory.error} onRetry={directory.reload} />}
-      {ready && (!isNewMember || myCreators.length > 0) && <NewsRow creators={myCreators} latestByCreator={latestByCreator} />}
+      {ready && (!isNewMember || myCreators.length > 0) && <NewsRow creators={myCreators} latestByCreator={latestByCreator} unreadCreatorIds={unreadCreatorIds} />}
       {ready && <NewsFeed creators={myCreators} posts={posts} />}
       {ready && newsFailed && (
         <div className="mt-3 px-margin">

@@ -24,6 +24,7 @@ import { getCreatorSpace, getMySpace, spacePath, spaceShareUrl } from '../api/cr
 import { completeShareMission, getCreatorMissions } from '../api/missions.js'
 import { getCreatorYoutubeChannel } from '../api/subscriptionVerification.js'
 import { getTicketBalance } from '../api/tickets.js'
+import { markCreatorPostsRead } from '../api/follows.js'
 import { ApiError, describeError, newRequestId } from '../api/client.js'
 import { formatNumber } from '../utils/format.js'
 import FollowStatus from '../components/creator/FollowStatus.jsx'
@@ -251,6 +252,12 @@ export default function CreatorSpace() {
   )
 
   const following = creatorId !== null && isFollowing(creatorId)
+
+  // 팔로우 중인 크리에이터의 스페이스를 열면 읽음으로 기록해 홈의 NEW가 사라지게 한다. 표시 힌트라 실패해도 화면에는 영향이 없다.
+  useEffect(() => {
+    if (!following || !authenticated || isMine) return
+    markCreatorPostsRead(creatorId).catch(() => {})
+  }, [creatorId, memberId, following, authenticated, isMine])
 
   // 다른 Creator로 이동하거나 로그인 회원이 바뀌거나 화면을 떠나면 진행 중인 잔액 확인을 멈춘다.
   useEffect(() => () => {

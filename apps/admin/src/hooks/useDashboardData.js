@@ -13,7 +13,7 @@ const LOADERS = {
   pendingEvents: getAllPendingEvents,
   requestedRedraws: getAllRequestedRedraws,
   unresolvedDeadStreams: getAllUnresolvedDeadStreams,
-  operatingEvents: getDrawingEvents,
+  operatingEvents: () => getDrawingEvents({ size: 100 }),
 }
 
 function initialSections() {

@@ -8,10 +8,10 @@ import {
 import { describeError } from "../../api/client.js";
 import {
   getDrawing,
-  getDrawingReadyEvents,
   getDrawingResult,
   getDrawingVerificationHistory,
   getOperatingEvent,
+  getOperatingEvents,
   publishDrawing,
   retryDrawing,
   runInitialDrawing,
@@ -22,6 +22,7 @@ import {
   DetailInfoRows,
 } from "../../components/AdminContent.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
+import Pagination from "../../components/Pagination.jsx";
 import StatusBadge from "../../components/StatusBadge.jsx";
 import {
   EmptyBlock,
@@ -35,7 +36,6 @@ import { drawingStatusMeta } from "../../utils/eventStatus.js";
 import { formatDateTime, formatNumber } from "../../utils/format.js";
 
 const FILTERS = [
-  ["", "전체"],
   ["CLOSED", "추첨 전 / 마감 완료"],
   ["DRAW_COMPLETED", "추첨 완료 / 미공개"],
   ["PUBLISHED", "공개 완료"],
@@ -60,17 +60,17 @@ export function AdminDrawingsRoute() {
 
 export function AdminDrawingsPage() {
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("CLOSED");
+  const [page, setPage] = useState(0);
   const { data, loading, error, reload } = useAsync(
-    () => getDrawingReadyEvents(),
-    [],
+    () => getOperatingEvents({ status, page, size: 20 }),
+    [status, page],
     { fallbackMessage: "추첨 관리 목록을 불러오지 못했습니다." },
   );
   const events = data?.items ?? [];
   const term = query.trim().toLowerCase();
   const filtered = events.filter(
     (event) =>
-      (!status || event.status === status) &&
       [event.eventId, event.title].some((value) =>
         String(value ?? "")
           .toLowerCase()
@@ -86,7 +86,7 @@ export function AdminDrawingsPage() {
       <section className="rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-end gap-3 border-b border-slate-200 p-4">
           <label className="min-w-64 flex-1 text-xs font-medium text-slate-600">
-            검색
+            현재 페이지 검색
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -98,7 +98,10 @@ export function AdminDrawingsPage() {
             Event 상태
             <select
               value={status}
-              onChange={(event) => setStatus(event.target.value)}
+              onChange={(event) => {
+                setStatus(event.target.value);
+                setPage(0);
+              }}
               className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600"
             >
               {FILTERS.map(([value, label]) => (
@@ -132,6 +135,15 @@ export function AdminDrawingsPage() {
               }
             />
           ))}
+        {!loading && !error && (
+          <Pagination
+            page={page}
+            hasNext={data?.hasNext === true}
+            totalElements={data?.totalElements}
+            onPrevious={() => setPage((current) => Math.max(0, current - 1))}
+            onNext={() => setPage((current) => current + 1)}
+          />
+        )}
       </section>
       <p className="text-xs leading-5 text-slate-500">
         Drawing·공개 상태와 Snapshot은 상세 화면에서 서버 기준으로 확인합니다.

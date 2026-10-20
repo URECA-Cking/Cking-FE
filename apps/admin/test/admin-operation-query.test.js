@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getCreatorApplications, getOperatingEvent } from '../src/api/admin.js'
+import { getCreatorApplications, getOperatingEvent, getOperatingEvents } from '../src/api/admin.js'
 import { clearAccessToken, setAccessToken } from '../src/api/token.js'
 
 function success(data) {
@@ -30,11 +30,16 @@ test('관리자 Event 운영 상세와 Creator 신청 상태 페이지 조회 �
     setAccessToken('admin-token', 3600)
     await getOperatingEvent(7)
     await getCreatorApplications({ status: 'PENDING', page: 2, size: 20 })
+    await getOperatingEvents({ status: 'CLOSED', page: 1, size: 20 })
 
     assert.equal(requests[0].url.pathname, '/api/admin/events/7/operation')
     assert.equal(requests[1].url.pathname, '/api/admin/creator-applications')
     assert.deepEqual(Object.fromEntries(requests[1].url.searchParams), {
       status: 'PENDING', page: '2', size: '20',
+    })
+    assert.equal(requests[2].url.pathname, '/api/admin/events')
+    assert.deepEqual(Object.fromEntries(requests[2].url.searchParams), {
+      status: 'CLOSED', archiveStatus: 'ACTIVE', page: '1', size: '20',
     })
     assert.ok(requests.every(({ options }) => options.headers.Authorization === 'Bearer admin-token'))
   } finally {

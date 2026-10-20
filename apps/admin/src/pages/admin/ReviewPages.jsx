@@ -46,13 +46,13 @@ export function ReviewListPage({ type }) {
     <AdminPageHeader title={config.title} description={config.description} />
     <section className="rounded-lg border border-slate-200 bg-white">
       <div className="flex flex-wrap items-end gap-3 border-b border-slate-200 p-4">
-        <label className="min-w-64 flex-1 text-xs font-medium text-slate-600">검색<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={config.searchPlaceholder} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-pink-600 focus:ring-1 focus:ring-pink-600" /></label>
+        <label className="min-w-64 flex-1 text-xs font-medium text-slate-600">{type === 'creators' ? '현재 페이지 검색' : '검색'}<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={config.searchPlaceholder} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-pink-600 focus:ring-1 focus:ring-pink-600" /></label>
         {type === 'creators' ? <label className="w-36 text-xs font-medium text-slate-600">상태<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(0) }} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600"><option value="">전체</option><option value="PENDING">승인 대기</option><option value="APPROVED">승인 완료</option><option value="REJECTED">거절</option></select></label> : <span className="h-9 rounded-md bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">승인 대기 심사 큐</span>}
         <button type="button" onClick={() => void reload()} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button>
       </div>
       {loading && <LoadingBlock label="목록을 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
-      {!loading && !error && (filteredItems.length === 0 ? <EmptyBlock icon="done_all" message={items.length === 0 ? config.empty : '검색 조건에 맞는 항목이 없습니다.'} /> : <ReviewTable type={type} config={config} items={filteredItems} />)}
+      {!loading && !error && (filteredItems.length === 0 ? <EmptyBlock icon="done_all" message={items.length === 0 ? config.empty : type === 'creators' ? '현재 페이지에서 검색 조건에 맞는 항목이 없습니다.' : '검색 조건에 맞는 항목이 없습니다.'} /> : <ReviewTable type={type} config={config} items={filteredItems} />)}
       {!loading && !error && type === 'creators' && <Pagination page={page} hasNext={data?.hasNext === true} totalElements={data?.totalElements} onPrevious={() => setPage((current) => Math.max(0, current - 1))} onNext={() => setPage((current) => current + 1)} />}
     </section>
   </div>

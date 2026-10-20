@@ -6,12 +6,12 @@ import {
   getClosingStatus,
   getOperatingEvent,
   getOperatingEvents,
-  OPERATING_EVENT_STATUSES,
   unarchiveEvent,
 } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
 import { AdminPageHeader, DetailInfoRows } from '../../components/AdminContent.jsx'
 import ConfirmModal from '../../components/ConfirmModal.jsx'
+import Pagination from '../../components/Pagination.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.jsx'
 import { useToast } from '../../context/useToast.js'
@@ -20,7 +20,17 @@ import { EVENT_ARCHIVE_VIEWS, archiveStatusSearch, canArchiveEvent, canUnarchive
 import { EVENT_OPERATION_FLOW, eventStatusMeta } from '../../utils/eventStatus.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 
-const STATUS_OPTIONS = OPERATING_EVENT_STATUSES.map((status) => ({ status, ...eventStatusMeta(status) }))
+const STATUS_OPTIONS = [
+  ['DRAFT', '작성 중'],
+  ['PENDING_APPROVAL', '승인 대기'],
+  ['REJECTED', '반려'],
+  ['SCHEDULED', eventStatusMeta('SCHEDULED').label],
+  ['OPEN', eventStatusMeta('OPEN').label],
+  ['CLOSING', eventStatusMeta('CLOSING').label],
+  ['CLOSED', eventStatusMeta('CLOSED').label],
+  ['DRAW_COMPLETED', eventStatusMeta('DRAW_COMPLETED').label],
+  ['PUBLISHED', eventStatusMeta('PUBLISHED').label],
+]
 
 function normalizeArchiveStatus(value) {
   return value === 'ARCHIVED' ? 'ARCHIVED' : 'ACTIVE'
@@ -30,18 +40,18 @@ function normalizeArchiveStatus(value) {
 export function AdminEventsPage() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
+  const [page, setPage] = useState(0)
   const [searchParams, setSearchParams] = useSearchParams()
   const archiveStatus = normalizeArchiveStatus(searchParams.get('archiveStatus'))
   const { data, loading, error, reload } = useAsync(
-    () => getOperatingEvents({ archiveStatus }),
-    [archiveStatus],
+    () => getOperatingEvents({ status: status || undefined, archiveStatus, page, size: 20 }),
+    [archiveStatus, status, page],
     { fallbackMessage: '이벤트 목록을 불러오지 못했습니다.' },
   )
   const events = data?.items ?? []
   const term = query.trim().toLowerCase()
   const filtered = events.filter((event) => (
-    (!status || event.status === status)
-    && [event.eventId, event.title, event.creatorName, event.creatorId]
+    [event.eventId, event.title, event.creatorName, event.creatorId]
       .some((value) => String(value ?? '').toLowerCase().includes(term))
   ))
   const emptyMessage = events.length === 0
@@ -50,6 +60,7 @@ export function AdminEventsPage() {
 
   function changeArchiveStatus(next) {
     setStatus('')
+    setPage(0)
     setSearchParams(next === 'ARCHIVED' ? { archiveStatus: 'ARCHIVED' } : {})
   }
 
@@ -65,13 +76,13 @@ export function AdminEventsPage() {
         >{view.label}</button>)}
       </div>
       <div className="flex flex-wrap items-end gap-3 border-b border-slate-200 p-4">
-        <label className="min-w-64 flex-1 text-xs font-medium text-slate-600">검색
+        <label className="min-w-64 flex-1 text-xs font-medium text-slate-600">현재 페이지 검색
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="이벤트 ID, 이벤트명 또는 Creator 검색" className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-pink-600 focus:ring-1 focus:ring-pink-600" />
         </label>
         {shouldShowEventStatusFilter(archiveStatus) && <label className="w-40 text-xs font-medium text-slate-600">상태
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600">
+          <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(0) }} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600">
             <option value="">전체</option>
-            {STATUS_OPTIONS.map((option) => <option key={option.status} value={option.status}>{option.label}</option>)}
+            {STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>}
         <button type="button" onClick={() => void reload()} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button>
@@ -81,6 +92,7 @@ export function AdminEventsPage() {
       {!loading && !error && (filtered.length === 0
         ? <EmptyBlock icon="event_busy" message={emptyMessage} />
         : <EventTable events={filtered} archiveStatus={archiveStatus} />)}
+      {!loading && !error && <Pagination page={page} hasNext={data?.hasNext === true} totalElements={data?.totalElements} onPrevious={() => setPage((current) => Math.max(0, current - 1))} onNext={() => setPage((current) => current + 1)} />}
     </section>
   </div>
 }

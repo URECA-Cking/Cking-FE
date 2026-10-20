@@ -53,7 +53,7 @@ test('보관함은 PUBLISHED 상태만 조회하고 보관·복원은 관리자 
 
     assert.equal(requests[0].url.pathname, '/api/admin/events')
     assert.deepEqual(Object.fromEntries(requests[0].url.searchParams), {
-      status: 'PUBLISHED', archiveStatus: 'ARCHIVED', page: '0', size: '100',
+      status: 'PUBLISHED', archiveStatus: 'ARCHIVED', page: '0', size: '20',
     })
     assert.equal(requests[1].url.pathname, '/api/admin/events/7/archive')
     assert.equal(requests[1].options.method, 'PATCH')

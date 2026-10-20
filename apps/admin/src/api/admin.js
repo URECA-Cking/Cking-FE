@@ -269,47 +269,25 @@ export function resyncCommonTickets(memberId, reason) {
   return post('/api/admin/tickets/common/resync', { memberId, reason })
 }
 
-export const OPERATING_EVENT_STATUSES = ['SCHEDULED', 'OPEN', 'CLOSING', 'CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
-const DRAWING_READY_EVENT_STATUSES = ['CLOSED', 'DRAW_COMPLETED', 'PUBLISHED']
-
-/** 지정한 상태의 이벤트 목록을 마지막 페이지까지 조회한다. */
-async function getAllEventsByStatus(status, size, archiveStatus) {
-  const items = []
-  let page = 0
-  let hasNext = true
-
-  while (hasNext) {
-    const result = await get('/api/admin/events', { status, archiveStatus, page, size })
-    items.push(...(result?.items ?? []))
-    hasNext = result?.hasNext === true
-    page += 1
-  }
-
-  return items
+/** 상태·보관 여부·페이지 조건을 서버에 전달해 관리자 Event 목록을 조회한다. */
+export function getAdminEvents({ status, archiveStatus = 'ACTIVE', page = 0, size = 20 } = {}) {
+  return get('/api/admin/events', { status, archiveStatus, page, size })
 }
 
-/** 지정된 상태 목록을 병렬로 조회해 하나의 이벤트 목록으로 합친다. */
-async function getEventsByStatuses(statuses, { size = 100, archiveStatus = 'ACTIVE' } = {}) {
-  const eventsByStatus = await Promise.all(
-    statuses.map((status) => getAllEventsByStatus(status, size, archiveStatus)),
-  )
-  return { items: eventsByStatus.flat() }
-}
-
-/** Dashboard와 이벤트 관리 화면에서 추적하는 전체 운영 이벤트를 조회한다. */
+/** Dashboard의 최근 운영 Event 목록을 서버 첫 페이지에서 조회한다. */
 export function getDrawingEvents(options) {
-  return getEventsByStatuses(OPERATING_EVENT_STATUSES, options)
+  return getAdminEvents(options)
 }
 
-/** 운영 상태별 목록 계약을 합쳐 이벤트 관리 화면의 전체 목록을 제공한다. */
+/** 운영·보관 Event 목록을 서버 상태 필터와 페이지네이션으로 조회한다. */
 export function getOperatingEvents(options) {
-  const statuses = options?.archiveStatus === 'ARCHIVED' ? ['PUBLISHED'] : OPERATING_EVENT_STATUSES
-  return getEventsByStatuses(statuses, options)
-}
-
-/** 추첨 콘솔에는 이미 마감된 이벤트만 전달해 이벤트 운영 화면과 책임을 분리한다. */
-export function getDrawingReadyEvents(options) {
-  return getEventsByStatuses(DRAWING_READY_EVENT_STATUSES, options)
+  const { status, archiveStatus = 'ACTIVE', page = 0, size = 20 } = options ?? {}
+  return getAdminEvents({
+    status: status ?? (archiveStatus === 'ARCHIVED' ? 'PUBLISHED' : undefined),
+    archiveStatus,
+    page,
+    size,
+  })
 }
 
 /** 관리자 운영 상세의 Event·Snapshot·INITIAL Drawing 요약을 한 번에 조회한다. */

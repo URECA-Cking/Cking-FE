@@ -775,10 +775,13 @@ export default function CreatorSpace() {
             {anonymous && loginPrompt(`로그인하면 ${creator.creatorName} 전용 응모권을 확인하고 이벤트에 응모할 수 있어요.`)}
             {authenticated && (
               <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-container-low px-space-md py-3">
-                <span className="min-w-0 font-label-md text-label-md font-semibold text-on-surface">
-                  {creator.creatorName} 응모권 {formatNumber(ticketBalance)}장
+                <div className="flex min-w-0 items-center gap-space-sm">
+                  <MaterialIcon name="confirmation_number" className="shrink-0 text-primary text-[24px]" />
+                  <div className="min-w-0">
+                    <p className="truncate font-label-xs text-label-xs text-on-surface-variant">{creator.creatorName} 응모권</p>
+                    <p className="font-title-md text-title-md font-extrabold text-primary">{formatNumber(ticketBalance)}장</p>
                   {balancePending?.creatorId === creator.creatorId && (
-                    <span className="ml-1.5 inline-flex items-center gap-1 font-label-xs text-label-xs font-normal text-on-surface-variant">
+                    <span className="mt-0.5 inline-flex items-center gap-1 font-label-xs text-label-xs font-normal text-on-surface-variant">
                       {balancePending.expected === null ? '적립을 접수했어요' : '적립 반영 중'}
                       {balancePending.expected === null ? (
                         <button type="button" onClick={openLedgerFromPending} className="text-primary underline">
@@ -796,7 +799,8 @@ export default function CreatorSpace() {
                       )}
                     </span>
                   )}
-                </span>
+                  </div>
+                </div>
                 <button
                   type="button"
                   onClick={() => setLedgerOpen(true)}

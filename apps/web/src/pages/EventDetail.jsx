@@ -1,3 +1,4 @@
+import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
@@ -59,6 +60,7 @@ export default function EventDetail() {
   const openingRef = useRef(false) // 같은 순간에 여러 번 눌려도 한 번만 처리하려는 잠금(state는 다음 렌더에야 바뀐다)
   const [sheetOpen, setSheetOpen] = useState(false)
   const confirmationRef = useRef(null)
+  const prizeDragRef = useRef(null)
   useEffect(() => {
     const dialog = confirmationRef.current
     if (sheetOpen) dialog?.showModal()
@@ -171,6 +173,13 @@ export default function EventDetail() {
   const statusDetail = eventStatusMeta(event.status)
   const closed = event.displayStatus === 'CLOSED'
   const dday = formatDday(event.endAt, { closed })
+
+  function finishPrizeDrag(event) {
+    if (prizeDragRef.current?.id !== event.pointerId) return
+    prizeDragRef.current = null
+    event.currentTarget.style.scrollSnapType = ''
+    event.currentTarget.style.cursor = ''
+  }
 
   function adjust(delta) {
     setTicketCount(Math.min(limit, Math.max(1, selectedCount + delta)))
@@ -342,24 +351,34 @@ export default function EventDetail() {
               >
                 {creator.name}
               </Link>
-              <MaterialIcon name="verified" filled className="text-primary text-[18px]" />
+              <CreatorVerifiedBadge />
               <StatusPill label={statusDetail.label} tone={statusDetail.tone} className="ml-auto" />
             </div>
             <h2 className="font-headline-md text-headline-md font-extrabold text-on-surface tracking-tight">
               {event.title}
             </h2>
-            <div className="flex flex-wrap items-center gap-1.5 text-slate-muted font-body-sm text-body-sm pt-0.5">
-              <MaterialIcon name="event" className="text-primary text-[17px]" />
-              <span>{formatEventDate(event.startAt).replace(/^\d{2,4}[.\-/년]\s*/, '')} 오픈</span>
-              <span className="text-outline-variant">•</span>
-              <span>{formatEventDate(event.endAt).replace(/^\d{2,4}[.\-/년]\s*/, '')} 마감</span>
-            </div>
             {event.description && (
               <p className="font-body-md text-body-md text-on-surface-variant pt-1 leading-relaxed whitespace-pre-wrap">
                 {event.description}
               </p>
             )}
           </div>
+
+          <section aria-label="내 응모" className="flex items-center justify-center gap-2 text-primary font-title-md text-title-md font-bold">
+            <span>내 응모</span>
+            {entryStatus.status?.myTicketCount != null ? (
+              <span>{formatNumber(entryStatus.status.myTicketCount)}장</span>
+            ) : event.displayStatus === 'UPCOMING' ? (
+              <span className="text-on-surface-variant text-body-sm">응모 시작 전</span>
+            ) : entryStatus.failed ? (
+              <>
+                <span className="text-on-surface-variant text-body-sm">조회하지 못했어요.</span>
+                <button type="button" onClick={entryStatus.retry} className="text-label-sm underline">다시 확인</button>
+              </>
+            ) : (
+              <span className="text-on-surface-variant text-body-sm">확인 중...</span>
+            )}
+          </section>
 
           {remaining !== null && (
             <div className="rounded-2xl bg-surface-container-low p-space-lg text-center" role="timer" aria-label="이벤트 마감 카운트다운">
@@ -378,6 +397,15 @@ export default function EventDetail() {
             </div>
           )}
 
+          <section aria-label="응모기간" className="p-space-md rounded-2xl bg-surface-container-low flex items-start justify-between gap-4">
+            <h3 className="font-label-md text-label-md text-on-surface font-bold shrink-0">응모기간</h3>
+            <div className="text-right font-body-sm text-body-sm text-on-surface-variant">
+              <span>{formatEventDate(event.startAt).replace(/^\d{2,4}[.\-/년]\s*/, '')}</span>
+              <span className="mx-1">~</span>
+              <span>{formatEventDate(event.endAt).replace(/^\d{2,4}[.\-/년]\s*/, '')}</span>
+            </div>
+          </section>
+
           {!canApply && (
             <div className="p-space-md rounded-2xl bg-surface-container-low flex items-start gap-space-sm">
               <MaterialIcon name="info" className="text-on-surface-variant text-body-sm leading-relaxed shrink-0" />
@@ -394,23 +422,42 @@ export default function EventDetail() {
           )}
 
           {event.prizes?.length > 0 && (
-            <div className="p-space-md rounded-2xl bg-surface-container-low flex flex-col gap-3">
-              <span className="font-title-md text-title-md font-bold text-on-surface">이벤트 경품</span>
-              <div className="grid grid-cols-2 gap-2.5">
-                {event.prizes.map((prize) => (
-                  <div
-                    key={prize.prizeKey}
-                    className="p-3 rounded-xl bg-surface-container-lowest flex flex-col gap-1 shadow-sm"
-                  >
-                    <MaterialIcon name="redeem" className="text-primary text-[22px]" />
-                    <span className="font-label-md text-label-md font-bold text-on-surface">{prize.displayName}</span>
-                    <span className="font-label-xs text-label-xs text-slate-muted">
-                      {formatNumber(prize.quantity)}개
-                    </span>
-                  </div>
-                ))}
+            <section aria-label="이벤트 경품" aria-roledescription="캐러셀" className="p-space-md rounded-2xl bg-surface-container-low flex flex-col gap-3 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-title-md text-title-md font-bold text-on-surface">이벤트 경품</h3>
               </div>
-            </div>
+              <ul
+                tabIndex={0}
+                aria-label="경품 목록"
+                onPointerDown={(event) => {
+                  if (event.pointerType !== 'mouse' || event.button !== 0) return
+                  event.preventDefault()
+                  event.currentTarget.focus()
+                  prizeDragRef.current = { id: event.pointerId, x: event.clientX, left: event.currentTarget.scrollLeft }
+                  event.currentTarget.setPointerCapture(event.pointerId)
+                  event.currentTarget.style.scrollSnapType = 'none'
+                  event.currentTarget.style.cursor = 'grabbing'
+                }}
+                onPointerMove={(event) => {
+                  const drag = prizeDragRef.current
+                  if (drag?.id !== event.pointerId) return
+                  event.currentTarget.scrollLeft = drag.left + drag.x - event.clientX
+                }}
+                onPointerUp={finishPrizeDrag}
+                onPointerCancel={finishPrizeDrag}
+                onLostPointerCapture={finishPrizeDrag}
+                className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 cursor-grab select-none"
+              >
+                {[...event.prizes].sort((a,b) => a.priority - b.priority).map((prize) => (
+                  <li key={prize.prizeKey} className="p-4 rounded-xl bg-surface-container-lowest flex flex-col gap-2 shadow-sm basis-[55%] sm:basis-[35%] shrink-0 min-w-0 snap-start">
+                    <MaterialIcon name="redeem" className="text-primary text-[28px]" />
+                    {Number.isInteger(prize.priority) && <span className="font-label-sm text-label-sm text-primary font-bold">{prize.priority}등</span>}
+                    <span className="font-label-md text-label-md font-bold text-on-surface break-words">{prize.displayName}</span>
+                    <span className="font-label-xs text-label-xs text-slate-muted">{formatNumber(prize.quantity)}개</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           {published && (

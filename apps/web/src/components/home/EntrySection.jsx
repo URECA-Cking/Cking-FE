@@ -19,9 +19,8 @@ export default function EntrySection({ events, balanceByCreator, appliedIds, kno
         <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">지금 응모할 수 있는 이벤트가 없어요.</p>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {events.map((event, index) => (
+          {events.map((event) => (
             <EntryTicket
-              featured={index === 0}
               key={event.eventId}
               event={event}
               ticketsOwned={balanceByCreator.get(event.creatorId)}

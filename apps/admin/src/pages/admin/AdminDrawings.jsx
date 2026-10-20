@@ -5,15 +5,13 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { ApiError, describeError } from "../../api/client.js";
+import { describeError } from "../../api/client.js";
 import {
   getDrawing,
-  getDrawingReadyEvents,
   getDrawingResult,
   getDrawingVerificationHistory,
-  getEventSnapshot,
-  getInitialDrawing,
   getOperatingEvent,
+  getOperatingEvents,
   publishDrawing,
   retryDrawing,
   runInitialDrawing,
@@ -24,6 +22,7 @@ import {
   DetailInfoRows,
 } from "../../components/AdminContent.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
+import Pagination from "../../components/Pagination.jsx";
 import StatusBadge from "../../components/StatusBadge.jsx";
 import {
   EmptyBlock,
@@ -37,7 +36,6 @@ import { drawingStatusMeta } from "../../utils/eventStatus.js";
 import { formatDateTime, formatNumber } from "../../utils/format.js";
 
 const FILTERS = [
-  ["", "전체"],
   ["CLOSED", "추첨 전 / 마감 완료"],
   ["DRAW_COMPLETED", "추첨 완료 / 미공개"],
   ["PUBLISHED", "공개 완료"],
@@ -62,17 +60,17 @@ export function AdminDrawingsRoute() {
 
 export function AdminDrawingsPage() {
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("CLOSED");
+  const [page, setPage] = useState(0);
   const { data, loading, error, reload } = useAsync(
-    () => getDrawingReadyEvents(),
-    [],
+    () => getOperatingEvents({ status, page, size: 20 }),
+    [status, page],
     { fallbackMessage: "추첨 관리 목록을 불러오지 못했습니다." },
   );
   const events = data?.items ?? [];
   const term = query.trim().toLowerCase();
   const filtered = events.filter(
     (event) =>
-      (!status || event.status === status) &&
       [event.eventId, event.title].some((value) =>
         String(value ?? "")
           .toLowerCase()
@@ -88,7 +86,7 @@ export function AdminDrawingsPage() {
       <section className="rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-end gap-3 border-b border-slate-200 p-4">
           <label className="min-w-64 flex-1 text-xs font-medium text-slate-600">
-            검색
+            현재 페이지 검색
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -100,7 +98,10 @@ export function AdminDrawingsPage() {
             Event 상태
             <select
               value={status}
-              onChange={(event) => setStatus(event.target.value)}
+              onChange={(event) => {
+                setStatus(event.target.value);
+                setPage(0);
+              }}
               className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600"
             >
               {FILTERS.map(([value, label]) => (
@@ -134,6 +135,15 @@ export function AdminDrawingsPage() {
               }
             />
           ))}
+        {!loading && !error && (
+          <Pagination
+            page={page}
+            hasNext={data?.hasNext === true}
+            totalElements={data?.totalElements}
+            onPrevious={() => setPage((current) => Math.max(0, current - 1))}
+            onNext={() => setPage((current) => current + 1)}
+          />
+        )}
       </section>
       <p className="text-xs leading-5 text-slate-500">
         Drawing·공개 상태와 Snapshot은 상세 화면에서 서버 기준으로 확인합니다.
@@ -211,11 +221,7 @@ export function AdminDrawingDetailPage() {
   );
   const event = detail.data?.event;
   const drawing = detail.data?.drawing;
-  const snapshot = useAsync(
-    () => (event ? getEventSnapshot(event.eventId) : Promise.resolve(null)),
-    [event?.eventId],
-    { fallbackMessage: "Snapshot 정보를 불러오지 못했습니다." },
-  );
+  const snapshot = detail.data?.snapshot ?? null;
   const result = useAsync(
     () =>
       drawing?.status === "COMPLETED"
@@ -239,7 +245,6 @@ export function AdminDrawingDetailPage() {
     setHistoryOpen(false);
     await Promise.all([
       detail.reload(),
-      snapshot.reload(),
       result.reload(),
       history.reload(),
     ]);
@@ -335,7 +340,7 @@ export function AdminDrawingDetailPage() {
         </button>
       </div>
       <DrawingSteps
-        snapshot={snapshot.data}
+        snapshot={snapshot}
         drawing={drawing}
         verification={verification}
       />
@@ -400,25 +405,24 @@ export function AdminDrawingDetailPage() {
 async function loadDrawingDetail({ drawingId, eventId }) {
   if (drawingId) {
     const drawing = await getDrawing(drawingId);
+    const operation = drawing.eventId
+      ? await getOperatingEvent(drawing.eventId)
+      : null;
     return {
-      event: drawing.eventId ? await getOperatingEvent(drawing.eventId) : null,
+      event: operation?.event ?? null,
       drawing,
+      snapshot: operation?.snapshot ?? null,
     };
   }
   if (!eventId) return { event: null, drawing: null };
-  const event = await getOperatingEvent(eventId);
+  const operation = await getOperatingEvent(eventId);
+  const event = operation.event;
   if (!event) return { event: null, drawing: null };
-  try {
-    return { event, drawing: await getInitialDrawing(event.eventId) };
-  } catch (err) {
-    return err instanceof ApiError && err.code === "DRAWING_NOT_FOUND"
-      ? { event, drawing: null }
-      : {
-          event,
-          drawing: null,
-          drawingError: describeError(err, "추첨 정보를 불러오지 못했습니다."),
-        };
-  }
+  return {
+    event,
+    drawing: operation.initialDrawing,
+    snapshot: operation.snapshot,
+  };
 }
 function DrawingSteps({ snapshot, drawing, verification }) {
   const steps = [
@@ -451,17 +455,16 @@ function SnapshotSection({ snapshot }) {
       <h2 className="px-5 pt-5 text-sm font-semibold text-slate-900">
         Snapshot
       </h2>
-      {snapshot.loading && (
-        <LoadingBlock label="Snapshot 정보를 불러오는 중..." />
-      )}
-      {!snapshot.loading && snapshot.error && (
-        <ErrorBlock message={snapshot.error} onRetry={snapshot.reload} />
-      )}
-      {!snapshot.loading && !snapshot.error && snapshot.data && (
+      {snapshot && (
         <DetailInfoRows
           title="공식 Snapshot"
-          rows={toRows(snapshot.data, SNAPSHOT_LABELS)}
+          rows={toRows(snapshot, SNAPSHOT_LABELS)}
         />
+      )}
+      {!snapshot && (
+        <p className="px-5 py-4 text-sm text-slate-500">
+          아직 생성된 Snapshot이 없습니다.
+        </p>
       )}
     </section>
   );

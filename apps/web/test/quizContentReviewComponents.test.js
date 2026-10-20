@@ -57,10 +57,10 @@ test('저장된 작업은 상태 API로 복구하고 검토 대기 polling을 �
  const {page}=await screen({stored:true});try{await page.getByText('원문 검토 대기',{exact:false}).waitFor();const n=await page.evaluate(()=>window.calls.length);await page.waitForTimeout(11000);assert.equal(await page.evaluate(()=>window.calls.length),n);await open(page)}finally{await page.close()}
 })
 for(const active of [null,undefined])test(`current data ${active===null?'null':'생략'}은 빈 상태`,async()=>{
- const {page}=await screen({active:active??null,omit:active===undefined});try{await page.waitForTimeout(150);assert.equal(await page.getByRole('button',{name:'AI Quiz 만들기',exact:false}).isEnabled(),true);assert.equal(await page.getByText('원문 검토 대기').count(),0)}finally{await page.close()}
+ const {page}=await screen({active:active??null,omit:active===undefined});try{await page.waitForTimeout(150);assert.equal(await page.getByRole('button',{name:'AI Quiz 생성',exact:false}).isEnabled(),true);assert.equal(await page.getByText('원문 검토 대기').count(),0)}finally{await page.close()}
 })
 test('같은 작업 수정본 복구 및 취소 후 삭제·새 생성 허용',async()=>{
- const {page}=await screen({draft:{text:'저장한 수정본',pendingText:null}});try{await open(page);assert.equal(await page.getByRole('textbox',{name:'검토 원문'}).inputValue(),'저장한 수정본');await page.getByRole('button',{name:'생성 취소',exact:true}).last().click();await page.getByText('Quiz 생성을 취소했어요.',{exact:false}).waitFor();assert.equal(await page.getByRole('button',{name:'AI Quiz 만들기',exact:false}).isEnabled(),true);assert.equal(await page.evaluate(()=>localStorage.getItem('cking.creatorQuizReviewDraft.v1.10.42')),null)}finally{await page.close()}
+ const {page}=await screen({draft:{text:'저장한 수정본',pendingText:null}});try{await open(page);assert.equal(await page.getByRole('textbox',{name:'검토 원문'}).inputValue(),'저장한 수정본');await page.getByRole('button',{name:'생성 취소',exact:true}).last().click();await page.getByText('Quiz 생성을 취소했어요.',{exact:false}).waitFor();assert.equal(await page.getByRole('button',{name:'AI Quiz 생성',exact:false}).isEnabled(),true);assert.equal(await page.evaluate(()=>localStorage.getItem('cking.creatorQuizReviewDraft.v1.10.42')),null)}finally{await page.close()}
 })
 test('503 수정본 유지 및 불확실 응답은 같은 원문으로 재확인하고 연타를 막는다',async()=>{
  const {page}=await screen();try{await open(page);await page.getByRole('textbox',{name:'검토 원문'}).fill('수정본');await page.evaluate(()=>window.failure={status:503,code:'QUIZ_GENERATION_DISABLED'});await confirm(page);await page.getByRole('alert').filter({hasText:'지금은'}).waitFor();assert.equal(await page.getByRole('textbox',{name:'검토 원문'}).inputValue(),'수정본');await page.evaluate(()=>window.failure='network');await page.getByRole('button',{name:'확정하고 문항 생성',exact:true}).click();await page.getByRole('button',{name:'같은 원문으로 다시 확인'}).waitFor();assert.equal(await page.getByRole('textbox',{name:'검토 원문'}).isDisabled(),true);await page.evaluate(()=>{window.failure=null;window.hold=true});await page.getByRole('button',{name:'같은 원문으로 다시 확인'}).click();assert.equal(await page.getByRole('button',{name:'처리 중...'}).isDisabled(),true);await page.evaluate(()=>window.delayed());await page.getByText('문항 생성 중',{exact:false}).waitFor();const bodies=await page.evaluate(()=>window.calls.filter(c=>c.path.endsWith('/content-confirmation')).map(c=>c.body.contentText));assert.deepEqual(bodies,['수정본','수정본','수정본'])}finally{await page.close()}
@@ -90,9 +90,9 @@ test('생성 요청 409는 current의 기존 작업을 복구하고 추가 생�
   if(new URL(url).pathname.endsWith('/generations')&&options.method==='POST'){window.calls.push({path:'/api/creator/quizzes/generations',method:'POST'});window.active=initial;return new Response(JSON.stringify({code:'QUIZ_GENERATION_IN_PROGRESS'}),{status:409})}
   return original(url,options)
  }},initial)
- await page.getByRole('button',{name:'AI Quiz 만들기',exact:false}).click()
+ await page.getByRole('button',{name:'AI Quiz 생성',exact:false}).click()
  await page.locator('input[type="url"]').fill('https://youtu.be/dQw4w9WgXcQ');await page.locator('input[type="text"]').fill('새 Quiz')
- await page.getByRole('button',{name:'만들기',exact:true}).click();await open(page)
+ await page.getByRole('button',{name:'생성',exact:true}).click();await open(page)
  assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.path==='/api/creator/quizzes/generations').length),1)
  assert.equal(await page.getByRole('textbox',{name:'검토 원문'}).inputValue(),initial.content.aiContentText)
  }finally{await page.close()}
@@ -109,10 +109,10 @@ test('409 뒤 상태 조회가 404여도 작업과 수정본을 지운다',async
 })
 
 async function createNew(page){
- await page.getByRole('button',{name:'AI Quiz 만들기',exact:false}).click()
+ await page.getByRole('button',{name:'AI Quiz 생성',exact:false}).click()
  await page.locator('input[type="url"]').fill('https://youtu.be/dQw4w9WgXcQ')
  await page.locator('input[type="text"]').fill('새 요청')
- await page.getByRole('button',{name:'만들기',exact:true}).click()
+ await page.getByRole('button',{name:'생성',exact:true}).click()
 }
 test('복구 작업 취소 후 실제 새 생성 POST를 한 번 보낸다',async()=>{
  const {page}=await screen();try{

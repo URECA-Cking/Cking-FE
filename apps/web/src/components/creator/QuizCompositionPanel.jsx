@@ -139,7 +139,7 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
     <section className="flex flex-col gap-space-md" aria-label="최종 문항 구성">
       <div className="flex justify-between items-center"><h3 className="font-semibold">최종 문항 구성 · {selected.length}/5</h3><button className={buttonClass} disabled={busy} onClick={onClose}>편집 닫기</button></div>
       <p className="text-sm text-on-surface-variant">원본 평가와 관계없이 선택할 수 있어요. 수정·추가 문항은 재평가하지 않으며 최종 내용은 Creator가 책임 승인합니다.</p>
-      {locked && <p role="status">최초 게시 이후에는 게시를 취소해도 편집할 수 없어요. 새 Quiz를 만들어 주세요.</p>}
+      {locked && <p role="status">최초 게시 이후에는 게시를 취소해도 편집할 수 없어요. 새 Quiz를 생성해 주세요.</p>}
       {error && <ErrorBlock message={error} />}
       {successfulConflict && <div className="rounded-xl p-space-sm bg-surface-container" role="status"><p>다른 탭이 다른 내용으로 저장했어요. 현재 작성 내용은 보존했으며 이 탭의 저장 성공으로 처리하지 않습니다.</p><button className={buttonClass} disabled={busy} onClick={checkLatest}>최신 Revision 확인</button></div>}
       {unresolved && <div className="rounded-xl p-space-sm bg-surface-container"><p>미확정 저장 요청이 있어요. 변경한 내용으로 새 요청을 보내지 않고 기존 본문으로 복구합니다.</p><button className={buttonClass} disabled={busy || locked} onClick={() => save(true)}>기존 저장 요청 다시 확인</button><button className={buttonClass} disabled={busy} onClick={checkLatest}>최신 Revision 확인</button></div>}

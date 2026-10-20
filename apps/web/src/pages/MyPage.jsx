@@ -1,3 +1,4 @@
+import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
@@ -170,7 +171,7 @@ export default function MyPage() {
       {!isCreator && (!latestApplication || hasPending) && (
         <section className="flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
           <div className="flex items-center gap-1.5">
-            <MaterialIcon name="workspace_premium" className="text-primary text-[20px]" />
+            <CreatorVerifiedBadge />
             <h3 className="font-title-md text-title-md text-on-surface font-bold">크리에이터 전환</h3>
           </div>
 
@@ -187,7 +188,7 @@ export default function MyPage() {
                 </p>
               ) : (
                 <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                  크리에이터가 되면 직접 이벤트를 만들고 응모를 운영할 수 있어요.
+                  크리에이터가 되면 직접 이벤트를 작성하고 응모를 운영할 수 있어요.
                 </p>
               )}
               <button

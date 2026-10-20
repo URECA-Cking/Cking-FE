@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { creatorFilterCounts, filterExploreCreators, sortExploreCreators } from '../src/utils/exploreCreatorSection.js'
+import { CREATOR_FILTERS, creatorFilterCounts, filterExploreCreators, sortExploreCreators } from '../src/utils/exploreCreatorSection.js'
 
 const creators = [
   { creatorId: 1, name: '유니' },
@@ -39,4 +39,8 @@ test('필터 칩 개수는 전체·도킹을 따로 센다', () => {
     { creatorId: 3, name: '다', openEventCount: 1 },
   ]
   assert.deepEqual(creatorFilterCounts(list, [2, 9]), { 전체: 3, 도킹: 2 })
+})
+
+test('크리에이터 필터 선택지는 전체·도킹뿐이고 진행 중은 없다', () => {
+  assert.deepEqual(CREATOR_FILTERS, ['전체', '도킹'])
 })

@@ -63,7 +63,7 @@ export default function MyQuizManager({ creatorId }) {
       {loading && <LoadingBlock label="내 Quiz를 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
       {!loading && !error && quizzes.length === 0 && (
-        <EmptyBlock icon="quiz" message="아직 만든 Quiz가 없어요. YouTube 영상으로 첫 Quiz를 만들어 보세요." />
+        <EmptyBlock icon="quiz" message="아직 생성한 Quiz가 없어요. YouTube 영상으로 첫 Quiz를 생성해 보세요." />
       )}
       {!loading && !error && quizzes.map((quiz) => {
         const publication = PUBLICATION_LABELS[quiz.publicationStatus] ?? PUBLICATION_LABELS.NOT_PUBLISHED
@@ -85,7 +85,7 @@ export default function MyQuizManager({ creatorId }) {
                 <StatusPill label={review.label} icon={review.icon} tone={review.tone} />
               </span>
               <span className="font-label-xs text-label-xs text-on-surface-variant">
-                revision {quiz.latestRevisionNo} · {formatDateTime(quiz.createdAt)} 생성
+                {formatDateTime(quiz.createdAt)} 생성
                 {quiz.closedAt && ` · ${formatDateTime(quiz.closedAt)} 마감`}
               </span>
             </span>

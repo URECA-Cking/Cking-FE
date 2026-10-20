@@ -1,3 +1,4 @@
+import CreatorVerifiedBadge from '../ui/CreatorVerifiedBadge.jsx'
 import { Link } from 'react-router-dom'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import { spacePath } from '../../api/creatorSpace.js'
@@ -25,8 +26,9 @@ export default function CreatorAvatarItem({ creator, isNew = false }) {
         )}
         <ProfilePhoto src={creator.avatar} className="h-full w-full" />
       </span>
-      <span className="mt-1.5 font-label-sm text-label-sm text-on-surface-variant font-normal truncate max-w-full">
-        {creator.name}
+      <span className="mt-1.5 flex max-w-full items-center gap-1 font-label-sm text-label-sm text-on-surface-variant font-normal">
+        <span className="truncate">{creator.name}</span>
+        <CreatorVerifiedBadge />
       </span>
     </Link>
   )

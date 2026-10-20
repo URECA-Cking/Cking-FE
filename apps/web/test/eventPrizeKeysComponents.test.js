@@ -51,8 +51,8 @@ async function screen(prizes=null) {
 }
 const field=(p,n,name)=>p.getByRole(name==='이름'?'textbox':'spinbutton',{name:`상품 ${n} ${name}`,exact:true})
 const writes=p=>p.evaluate(()=>window.calls.filter(c=>c.method==='POST'||c.method==='PATCH'))
-async function submit(p,edit=false){await p.getByRole('button',{name:edit?'수정 저장':'이벤트 초안 만들기',exact:true}).click()}
-async function failed(p,count,edit=false){await submit(p,edit);await p.waitForFunction(count=>window.calls.filter(c=>c.method==='POST'||c.method==='PATCH').length===count,count);await p.getByRole('button',{name:edit?'수정 저장':'이벤트 초안 만들기',exact:true}).waitFor({state:'visible'});await p.waitForFunction(()=>!document.querySelector('button[disabled]'))}
+async function submit(p,edit=false){await p.getByRole('button',{name:edit?'수정 저장':'이벤트 초안 작성',exact:true}).click()}
+async function failed(p,count,edit=false){await submit(p,edit);await p.waitForFunction(count=>window.calls.filter(c=>c.method==='POST'||c.method==='PATCH').length===count,count);await p.getByRole('button',{name:edit?'수정 저장':'이벤트 초안 작성',exact:true}).waitFor({state:'visible'});await p.waitForFunction(()=>!document.querySelector('button[disabled]'))}
 const original=[{prizeKey:'GRAND',displayName:'대상',priority:3,weight:15,quantity:2},{prizeKey:'Silver_2',displayName:'은상',priority:7,weight:25,quantity:3}]
 
 test('신규 첫 상품은 자동 UUID 키를 보내며 키 입력만 제거하고 기존 네 필드를 유지한다',async()=>{

@@ -203,17 +203,17 @@ const GENERATION_FAILURES = {
   GENERATION_INVALID: '생성된 문항이 기준에 맞지 않았어요.',
   DRAFT_INVALID: '생성된 문항이 저장 기준(길이 등)에 맞지 않았어요.',
   CANCELLED: 'Quiz 생성을 취소했어요.',
-  PROVIDER_ERROR: 'AI 서비스 오류로 만들지 못했어요.',
+  PROVIDER_ERROR: 'AI 서비스 오류로 생성하지 못했어요.',
   PROVIDER_TIMEOUT: 'AI 응답 시간이 초과돼 결과를 알 수 없어요.',
   DISPATCH_REJECTED: '생성 대기열이 가득 찼어요. 잠시 후 다시 요청해 주세요.',
   STALE_PENDING: '생성이 오래 시작되지 않아 취소됐어요.',
   STALE_RUNNING: '생성이 너무 오래 걸려 결과를 알 수 없어요.',
-  INTERNAL_ERROR: '서버 오류로 만들지 못했어요.',
+  INTERNAL_ERROR: '서버 오류로 생성하지 못했어요.',
 }
 
 /** 생성 실패(FAILED·UNKNOWN) 안내. BE는 자동으로 다시 시도하지 않으므로 새 요청이 필요하다. */
 export function generationFailureMessage(job) {
-  return GENERATION_FAILURES[job?.failureCode] ?? 'Quiz를 만들지 못했어요.'
+  return GENERATION_FAILURES[job?.failureCode] ?? 'Quiz를 생성하지 못했어요.'
 }
 
 const JUDGE_FAILURES = {

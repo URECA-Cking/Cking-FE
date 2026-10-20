@@ -509,7 +509,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
         )}
       </section>
 
-      {data.contentLocked && <p className="rounded-xl bg-surface-container p-space-sm">최초 게시된 Quiz는 게시를 취소해도 읽기 전용이에요. 다른 내용은 새 Quiz로 만들어 주세요.</p>}
+      {data.contentLocked && <p className="rounded-xl bg-surface-container p-space-sm">최초 게시된 Quiz는 게시를 취소해도 읽기 전용이에요. 다른 내용은 새 Quiz로 생성해 주세요.</p>}
       {data === staleData && revision.error && <ErrorBlock message="최신 상태를 확인하지 못했어요. 이전 내용의 승인은 중단했습니다." onRetry={() => { revision.reload(); onChanged() }} />}
       {!blocked && data.canEdit === true && data.latest && data.contentLocked === false && (
         <button type="button" className={`${buttonClass} bg-primary text-on-primary`} disabled={busy !== null || data === staleData} onClick={() => setEditing(true)}>최종 문항 선택·편집</button>

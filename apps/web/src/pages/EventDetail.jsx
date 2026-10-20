@@ -348,9 +348,6 @@ export default function EventDetail() {
                   <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
                   <h3 className="font-title-lg text-title-lg font-bold text-on-surface">사용할 응모권 수</h3>
                 </div>
-                <span className="font-label-xs text-label-xs px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant">
-                  단위: 1장
-                </span>
               </div>
 
               <div role="radiogroup" aria-label="사용할 응모권 종류" className="grid grid-cols-2 gap-2">

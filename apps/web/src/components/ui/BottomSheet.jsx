@@ -15,10 +15,20 @@ const EXPANDED_RATIO = 0.95
 /**
  * 시트가 사라지는 순간 그 모습을 복사해 아래로 내려보내며 지운다. 닫는 방법(닫기 버튼·바깥 누르기·ESC·드래그)이나
  * 부모가 컴포넌트째 지우는 경우와 상관없이 같은 효과를 내려고, 컴포넌트가 사라질 때 한 곳에서 처리한다.
- * 복사본은 클릭·초점·스크린리더에서 빼고 EXIT_MS 뒤에 지운다. 모션을 줄인 환경에서는 쓰지 않는다.
+ * 복사본은 클릭(pointer-events)·초점·스크린리더에서 빼고 EXIT_MS 뒤에 지운다. 모션을 줄인 환경에서는 쓰지 않는다.
+ * 복사는 DOM이 아직 붙어 있을 때 하지만, 화면에 붙이는 건 정리 함수가 끝난 뒤 원본이 실제로 떨어졌는지 보고 정한다.
+ * StrictMode(개발 환경)는 시트를 닫지 않고도 효과의 정리 함수를 한 번 돌리는데, 그때는 원본이 그대로 붙어 있어 복사본을 버린다.
  */
 function playExitAnimation(backdrop) {
   if (!backdrop?.isConnected || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const { ghost, panel, scrolls } = cloneForExit(backdrop)
+  queueMicrotask(() => {
+    if (backdrop.isConnected) return
+    startExit(ghost, panel, scrolls)
+  })
+}
+
+function cloneForExit(backdrop) {
   const ghost = backdrop.cloneNode(true)
   const sourceNodes = [backdrop, ...backdrop.querySelectorAll('*')]
   const ghostNodes = [ghost, ...ghost.querySelectorAll('*')]
@@ -31,6 +41,7 @@ function playExitAnimation(backdrop) {
       if (node instanceof HTMLInputElement) copy.checked = node.checked
     }
     if (copy.matches?.('button, a[href], input, select, textarea, [tabindex]')) copy.tabIndex = -1
+    copy.style.pointerEvents = 'none' // fixed inset-0 복사본이 사라지는 동안 뒤의 화면(중첩된 아래 시트 포함)을 누르지 못하게 막지 않도록
   })
   const panel = ghost.querySelector('[role="dialog"]')
   ghost.setAttribute('aria-hidden', 'true')
@@ -41,6 +52,10 @@ function playExitAnimation(backdrop) {
     panel.removeAttribute('aria-label')
     panel.style.animation = 'none'
   }
+  return { ghost, panel, scrolls }
+}
+
+function startExit(ghost, panel, scrolls) {
   document.body.appendChild(ghost)
   scrolls.forEach(([node, top]) => { node.scrollTop = top })
   ghost.getBoundingClientRect() // 현재 모습을 한 번 그린 뒤 전환을 시작한다.

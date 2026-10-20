@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import BottomSheet from '../ui/BottomSheet.jsx'
+import ConfirmSheet from '../ui/ConfirmSheet.jsx'
+import { CLOSE_ALLOW, CLOSE_BLOCK, CLOSE_CONFIRM, useCloseGuard } from '../../hooks/useCloseGuard.js'
 import { describeError } from '../../api/client.js'
 import { CALENDAR_ERROR_MESSAGES, SCHEDULE_TYPE_META, createSchedule, updateSchedule } from '../../api/calendar.js'
 
@@ -112,24 +114,22 @@ function isZonedInputValueValid(value, timeZone) {
  *   시각·시간대를 이번에 건드리지 않은 필드는 저장된 Instant를 그대로 돌려준다.
  */
 export default function ScheduleEditorSheet({ open, onClose, schedule, onSaved }) {
-  const closeGuard = useRef(() => true)
-  const registerGuard = (guard) => {
-    closeGuard.current = guard
-  }
-  const requestClose = () => {
-    if (closeGuard.current()) onClose()
-  }
+  // 폼이 "지금 닫아도 되는지"(저장 중이면 막고, 작성 내용이 있으면 확인 시트)를 등록한다.
+  const { registerGuard, requestClose, confirmSheetProps } = useCloseGuard(open, onClose)
   return (
-    <BottomSheet
-      open={open}
-      onClose={requestClose}
-      eyebrow="Creator Calendar"
-      title={schedule ? '일정 수정' : '일정 등록'}
-    >
-      {open && (
-        <ScheduleEditorForm schedule={schedule} onClose={onClose} onSaved={onSaved} registerGuard={registerGuard} />
-      )}
-    </BottomSheet>
+    <>
+      <BottomSheet
+        open={open}
+        onClose={requestClose}
+        eyebrow="Creator Calendar"
+        title={schedule ? '일정 수정' : '일정 등록'}
+      >
+        {open && (
+          <ScheduleEditorForm schedule={schedule} onClose={onClose} onSaved={onSaved} registerGuard={registerGuard} />
+        )}
+      </BottomSheet>
+      <ConfirmSheet {...confirmSheetProps} />
+    </>
   )
 }
 
@@ -155,10 +155,10 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
 
   useEffect(() => {
     registerGuard(() => {
-      if (saving) return false
-      return !dirty || window.confirm('작성 중인 내용이 사라져요. 닫을까요?')
+      if (saving) return CLOSE_BLOCK
+      return dirty ? CLOSE_CONFIRM : CLOSE_ALLOW
     })
-    return () => registerGuard(() => true)
+    return () => registerGuard(() => CLOSE_ALLOW)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registerGuard, saving, dirty])
 

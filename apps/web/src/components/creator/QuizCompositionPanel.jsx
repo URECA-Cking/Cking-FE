@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { ErrorBlock, StatusPill } from '../ui/States.jsx'
 import { composeQuizRevision, getMyQuiz, getMyQuizRevision } from '../../api/creatorQuizzes.js'
@@ -22,6 +23,8 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
   const [record, setRecord] = useState(() => readComposition(storage, key).entry)
   const [busy, setBusy] = useState(false), [error, setError] = useState(null), [preview, setPreview] = useState(false)
   const [locked, setLocked] = useState(revision.contentLocked), [latest, setLatest] = useState(null)
+  // 최신 Revision에서 새 편집을 시작할지 묻는 확인 시트가 열려 있는지.
+  const [confirmingRestart, setConfirmingRestart] = useState(false)
   const inFlight = useRef(false), active = useRef(true)
   useEffect(() => { active.current = true; return () => { active.current = false } }, [])
   useEffect(() => {
@@ -116,8 +119,9 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
       if (active.current) { setLatest(data); setLocked(data.contentLocked) }
     } catch (e) { if (active.current) setError(creatorQuizErrorMessage(e, '최신본을 확인하지 못했어요.')) }
   }
-  async function useLatest() {
-    if (!latest || inFlight.current || !window.confirm('현재 편집본 대신 최신 Revision에서 새 편집을 시작할까요?')) return
+  /** 확인 시트에서 승인되면 현재 편집본 대신 최신 Revision에서 새 편집을 시작한다. */
+  async function restartFromLatest() {
+    if (!latest || inFlight.current) return
     if (successfulConflict) {
       const checked = await compositionLock(key, () => {
         const current = readComposition(storage, key)
@@ -144,7 +148,7 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
       {successfulConflict && <div className="rounded-xl p-space-sm bg-surface-container" role="status"><p>다른 탭이 다른 내용으로 저장했어요. 현재 작성 내용은 보존했으며 이 탭의 저장 성공으로 처리하지 않습니다.</p><button className={buttonClass} disabled={busy} onClick={checkLatest}>최신 Revision 확인</button></div>}
       {unresolved && <div className="rounded-xl p-space-sm bg-surface-container"><p>미확정 저장 요청이 있어요. 변경한 내용으로 새 요청을 보내지 않고 기존 본문으로 복구합니다.</p><button className={buttonClass} disabled={busy || locked} onClick={() => save(true)}>기존 저장 요청 다시 확인</button><button className={buttonClass} disabled={busy} onClick={checkLatest}>최신 Revision 확인</button></div>}
       {result && <button className={buttonClass} disabled={busy} onClick={() => openSaved(result)}>저장된 Revision 다시 열기</button>}
-      {latest && <div className="rounded-xl bg-surface-container p-space-sm"><p>최신 revision {latest.revisionNo} · {latest.title}</p>{latest.questions.map(q => <p key={q.questionId}>{q.questionNo + 1}. {q.question}</p>)}<p>현재 작성 내용은 그대로 보존했습니다. 계속 검토하거나, 명시적으로 최신 기준에서 다시 시작할 수 있어요.</p>{(successfulConflict || record?.failure?.code === 'QUIZ_REVISION_CONFLICT') && latest.canEdit && <button className={buttonClass} disabled={busy} onClick={useLatest}>최신 기준으로 다시 시작</button>}</div>}
+      {latest && <div className="rounded-xl bg-surface-container p-space-sm"><p>최신 revision {latest.revisionNo} · {latest.title}</p>{latest.questions.map(q => <p key={q.questionId}>{q.questionNo + 1}. {q.question}</p>)}<p>현재 작성 내용은 그대로 보존했습니다. 계속 검토하거나, 명시적으로 최신 기준에서 다시 시작할 수 있어요.</p>{(successfulConflict || record?.failure?.code === 'QUIZ_REVISION_CONFLICT') && latest.canEdit && <button className={buttonClass} disabled={busy} onClick={() => setConfirmingRestart(true)}>최신 기준으로 다시 시작</button>}</div>}
       <fieldset disabled={busy || locked} className="flex flex-col gap-space-sm">
         {draft.map(q => <article key={q.id} className="rounded-xl bg-surface-container-low p-space-md flex flex-col gap-space-xs">
           <div className="flex items-center gap-2"><label><input type="checkbox" checked={q.selected} onChange={e => setDraft(items => items.map(item => item.id === q.id ? { ...item, selected: e.target.checked } : item))} /> 게시 대상으로 선택</label><StatusPill label={labels[compositionStatus(q)] ?? '평가 없음'} /></div>
@@ -160,6 +164,17 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
       </fieldset>
       <div className="flex gap-2"><button className={buttonClass} onClick={() => setPreview(value => !value)}>최종 미리보기</button><button className={`${buttonClass} bg-primary text-on-primary`} disabled={busy || locked || successfulConflict || selected.length < 1 || selected.length > 5 || !!result} onClick={() => save()}>{busy ? '저장 중...' : '최종 문항 저장'}</button></div>
       {preview && <div aria-label="최종 미리보기" className="rounded-xl bg-surface-container p-space-md">{selected.map((q, i) => <article key={q.id}><h4>{i + 1}. {q.question}</h4>{q.options.map((o, j) => <p key={j}>{j + 1}. {o}{j === q.correctOptionIndex ? ' (정답)' : ''}</p>)}<p>해설: {q.explanation}</p><p>근거: {q.sourceEvidence || '근거 없음'}</p><p>{labels[compositionStatus(q)]}</p></article>)}</div>}
+      <ConfirmSheet
+        open={confirmingRestart}
+        title="최신 기준으로 다시 시작할까요?"
+        message="현재 편집본 대신 최신 Revision에서 새 편집을 시작해요."
+        confirmLabel="다시 시작"
+        onConfirm={() => {
+          setConfirmingRestart(false)
+          void restartFromLatest()
+        }}
+        onClose={() => setConfirmingRestart(false)}
+      />
     </section>
   )
 }

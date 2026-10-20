@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import BottomSheet from '../ui/BottomSheet.jsx'
+import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { useToast } from '../../context/useToast.js'
+import { CLOSE_ALLOW, CLOSE_BLOCK, CLOSE_CONFIRM, useCloseGuard } from '../../hooks/useCloseGuard.js'
 import { ApiError } from '../../api/client.js'
 import { describeCreatorWriteError } from '../../api/creatorProfile.js'
 import { POST_ERROR_MESSAGES, POST_LIMITS, createPost, updatePost, uploadPostImage } from '../../api/posts.js'
@@ -58,18 +60,15 @@ function describePostError(error, fallback) {
  * - 수정은 전체 교체라서 유지할 이미지의 key도 목록 순서대로 다시 보낸다.
  */
 export default function PostEditorSheet({ open, onClose, post, onSaved }) {
-  // 폼이 "지금 닫아도 되는지"(저장 중이면 막고, 작성 내용이 있으면 확인)를 등록한다.
-  const closeGuard = useRef(() => true)
-  const registerGuard = (guard) => {
-    closeGuard.current = guard
-  }
-  const requestClose = () => {
-    if (closeGuard.current()) onClose()
-  }
+  // 폼이 "지금 닫아도 되는지"(저장 중이면 막고, 작성 내용이 있으면 확인 시트)를 등록한다.
+  const { registerGuard, requestClose, confirmSheetProps } = useCloseGuard(open, onClose)
   return (
-    <BottomSheet open={open} onClose={requestClose} eyebrow="Creator Post" title={post ? '게시글 수정' : '게시글 작성'}>
-      {open && <PostEditorForm post={post} onClose={onClose} onSaved={onSaved} registerGuard={registerGuard} />}
-    </BottomSheet>
+    <>
+      <BottomSheet open={open} onClose={requestClose} eyebrow="Creator Post" title={post ? '게시글 수정' : '게시글 작성'}>
+        {open && <PostEditorForm post={post} onClose={onClose} onSaved={onSaved} registerGuard={registerGuard} />}
+      </BottomSheet>
+      <ConfirmSheet {...confirmSheetProps} />
+    </>
   )
 }
 
@@ -111,10 +110,10 @@ function PostEditorForm({ post, onClose, onSaved, registerGuard }) {
 
   useEffect(() => {
     registerGuard(() => {
-      if (saving) return false
-      return !dirty || window.confirm('작성 중인 내용이 사라져요. 닫을까요?')
+      if (saving) return CLOSE_BLOCK
+      return dirty ? CLOSE_CONFIRM : CLOSE_ALLOW
     })
-    return () => registerGuard(() => true)
+    return () => registerGuard(() => CLOSE_ALLOW)
   }, [registerGuard, saving, dirty])
 
   const patchItem = (id, patch) =>

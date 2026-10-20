@@ -17,6 +17,11 @@ import { adjustCommentCount, applyCommentCount, reconcileCommentCounts } from '.
 const MEDIA_RATIO_RANGE = [0.8, 1.91]
 const INFO_PANEL_WIDTH = 400
 
+/** 이벤트 시각(`event.timeStamp`)과 같은 기준의 현재 시각(ms). 시각이 넘어오지 않은 호출의 대체값이다. */
+function monotonicNow() {
+  return performance.now()
+}
+
 /** 게시물 이미지 비율과 유무에 맞춰 데스크톱 상세 창의 크기를 계산한다. */
 function modalSize(ratio, hasMedia) {
   if (!hasMedia) return { '--modal-w': '560px', '--modal-h': 'min(92dvh, 720px)' }
@@ -166,11 +171,13 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   }
 
   // 이미지 주소는 10분만 유효하다. 썸네일이 실패하면 목록을 다시 받아 새 주소로 바꾼다(60초에 한 번만, 다시 실패해도 반복하지 않는다).
-  const lastThumbRefresh = useRef(0)
+  const lastThumbRefresh = useRef(-Infinity)
   /** 썸네일 주소가 만료되면 일정 간격을 두고 목록을 다시 읽는다. */
-  function handleThumbError() {
-    if (sync !== 'synced' || Date.now() - lastThumbRefresh.current < 60_000) return
-    lastThumbRefresh.current = Date.now()
+  function handleThumbError(timeStamp) {
+    // 시각이 넘어오지 않아도 NaN으로 제한이 풀리지 않게 현재 시각으로 대신한다.
+    const now = Number.isFinite(timeStamp) ? timeStamp : monotonicNow()
+    if (sync !== 'synced' || now - lastThumbRefresh.current < 60_000) return
+    lastThumbRefresh.current = now
     refreshQuietly()
   }
 
@@ -435,7 +442,7 @@ function PostGridTile({ post, onOpen, onImageError }) {
       className="group relative block aspect-square w-full overflow-hidden bg-surface-container active:opacity-80"
     >
       {showImage ? (
-        <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" onError={() => { setFailedUrl(thumb); onImageError?.() }} />
+        <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" onError={(event) => { setFailedUrl(thumb); onImageError?.(event.timeStamp) }} />
       ) : post.locked ? (
         <span className="flex h-full w-full items-center justify-center bg-surface-container-high text-on-surface-variant">
           <MaterialIcon name="lock" className="text-[28px]" />

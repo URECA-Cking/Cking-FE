@@ -45,6 +45,8 @@ HTTP 전송·토큰 저장소·MaterialIcon·포맷터·조회 훅은 `packages/
 
 응모권 관리는 대상 회원 ID와 종류를 직접 입력해 조회한다. Creator 전용 응모권일 때만 Creator ID를 전달한다. 이력은 발생 시각·유형·증감량·이벤트/미션/요청 ID·사유를 표시하며, 서버 cursor를 이용한 더보기로 이전 목록 아래에 추가한다. 추가 조회가 실패하면 이미 읽은 이력은 유지하고 재시도할 수 있다. Redis·MySQL 잔액 중 하나가 없으면 비교 불가로 표시하고, Redis 키 미존재는 Redis 조회 실패(`REDIS_BALANCE_QUERY_FAILED`)와 별도로 안내한다. Redis 조회 실패 시에는 응답이 없어 MySQL 잔액과 비교 결과를 표시하지 않는다. 두 값의 차이는 비동기 반영 지연일 수 있으므로 자동 보정하지 않는다. 수동 재동기화는 MySQL 행이 있고 Redis 키가 없거나 잔액이 다를 때만 시작할 수 있다. 확인창에서 사유를 입력한 뒤 최신 잔액을 재조회하고 처음 조회한 값과의 변경 여부, 키 유실 또는 일시적인 불일치 가능성을 안내한다. 운영자가 원인을 확인해야 보정 요청을 보낼 수 있으며, 최신 잔액이 일치하면 요청을 막는다. `INVALID_STATE`는 미반영 Stream·Dead Stream 확인, `CONCURRENT_COMMAND`는 진행 중인 보정 확인을 안내한다. 최종 허용 여부는 BE의 maintenance lock 및 미반영 메시지 검사에 따른다. 성공 후 잔액과 이력을 첫 페이지부터 다시 조회한다. 요청·응답·오류 규약은 [BE Ticket API](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/ticket/api.md)를 따른다.
 
+승인·거절·재처리처럼 되돌리기 어려운 작업의 확인은 브라우저 기본 확인창(`window.confirm`) 대신 `ConfirmModal`로 받는다. Dead Stream 재처리도 같은 모달을 쓰며, 처리 중에는 버튼을 막고 끝나면 모달을 닫고 목록을 다시 읽는다.
+
 ## 로컬 E2E 확인
 
 `npm run test:e2e:admin`은 실제 개발 배포 환경에서 관리자 로그인, Refresh Cookie를 이용한 세션 복원, 로그아웃과 보호 라우트 차단을 확인하는 선택적 Playwright 테스트다. CI와 기본 `npm run test`에는 포함하지 않는다. 테스트 계정은 `E2E_ADMIN_LOGIN_ID`, `E2E_ADMIN_PASSWORD` 환경변수로 전달하며 저장소에 기록하지 않는다.

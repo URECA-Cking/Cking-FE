@@ -127,3 +127,44 @@ test('터치 확장·키보드 접기·Tab 순환·배경 닫기를 지원한다
     await page.getByRole('dialog').waitFor({ state: 'detached' })
   } finally { await page.close() }
 })
+
+// 실제 스페이스 캘린더를 렌더링해 공통 그리드 연결과 월 이동·일정 점 표시를 함께 검증한다.
+for (const theme of ['light', 'dark']) for (const width of [390, 1280]) {
+  test(`${theme} ${width}px: 스페이스 캘린더도 토요일 파란색과 오늘 테두리를 유지한다`, async () => {
+    const page = await screen(theme, width)
+    try {
+      await page.clock.setFixedTime(new Date(2026, 9, 20, 12))
+      await page.evaluate(() => {
+        window.fetch = async (url) => {
+          if (!String(url).includes('/api/creators/13/calendar/schedules')) throw new Error('예상하지 않은 API 요청')
+          return new Response(JSON.stringify({ code: 'SUCCESS', data: [{
+            scheduleId: 101, title: '캘린더 회귀 일정', scheduleType: 'BROADCAST',
+            startAt: new Date(2026, 9, 21, 12).toISOString(), endAt: new Date(2026, 9, 21, 13).toISOString(),
+          }] }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        window.renderCreatorCalendar(true)
+      })
+      const today = page.getByRole('button', { name: '10월 20일', exact: true })
+      const tomorrow = page.getByRole('button', { name: '10월 21일, 일정 1개', exact: true })
+      await tomorrow.waitFor()
+      assert.equal(await today.getAttribute('aria-current'), 'date')
+      const selectedColor = await today.locator('span').first().evaluate((node) => getComputedStyle(node).backgroundColor)
+      await tomorrow.click()
+      assert.equal(await tomorrow.getAttribute('aria-pressed'), 'true')
+      assert.equal(await tomorrow.locator('span').first().evaluate((node) => getComputedStyle(node).backgroundColor), selectedColor)
+      const ring = await today.locator('span').first().evaluate((node) => ({ shadow: getComputedStyle(node).boxShadow, background: getComputedStyle(node).backgroundColor }))
+      assert.ok(ring.shadow.includes(selectedColor))
+      assert.equal(ring.background, 'rgba(0, 0, 0, 0)')
+      assert.equal(await page.getByText('토', { exact: true }).evaluate((node) => getComputedStyle(node).color), theme === 'light' ? 'rgb(37, 99, 235)' : 'rgb(96, 165, 250)')
+      assert.equal(await tomorrow.locator(':scope > span').last().locator('span').count(), 1)
+      await page.getByText('캘린더 회귀 일정', { exact: true }).waitFor()
+      if (process.env.UI_SCREENSHOT_DIR) await page.screenshot({ path: join(process.env.UI_SCREENSHOT_DIR, `creator-calendar-${theme}-${width}.png`) })
+      await today.click()
+      assert.equal(await today.locator('span').first().evaluate((node) => getComputedStyle(node).backgroundColor), selectedColor)
+      await page.getByRole('button', { name: '다음 달' }).click()
+      assert.equal(await page.locator('[aria-current="date"]').count(), 0)
+      await page.getByRole('button', { name: '이전 달' }).click()
+      assert.equal(await today.getAttribute('aria-pressed'), 'true')
+    } finally { await page.close() }
+  })
+}

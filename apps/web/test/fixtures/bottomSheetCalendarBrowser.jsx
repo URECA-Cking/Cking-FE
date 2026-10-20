@@ -8,6 +8,8 @@ import CommentBlockSheet from '../../src/components/creator/CommentBlockSheet.js
 import { BackHeader } from '../../src/components/layout/TopHeader.jsx'
 import { MonthGrid, MonthNav } from '../../src/components/calendar/MonthCalendar.jsx'
 import { buildMonthCells } from '../../src/utils/calendarGrid.js'
+import CreatorCalendar from '../../src/components/creator/CreatorCalendar.jsx'
+import UserContext from '../../src/context/userContext.js'
 import ToastContext from '../../src/context/toastContext.js'
 function Screen() {
   const [variant, setVariant] = useState(null)
@@ -30,4 +32,10 @@ function Screen() {
     {variant === '차단' && <CommentBlockSheet memberName="회원" onClose={() => setVariant(null)} />}
   </ToastContext.Provider></MemoryRouter>
 }
-createRoot(document.getElementById('root')).render(<Screen />)
+const root = createRoot(document.getElementById('root'))
+root.render(<Screen />)
+window.renderCreatorCalendar = (isMine = false) => root.render(
+  <MemoryRouter><ToastContext.Provider value={() => {}}><UserContext.Provider value={{ status: 'anonymous' }}>
+    <CreatorCalendar creatorId={13} isMine={isMine} />
+  </UserContext.Provider></ToastContext.Provider></MemoryRouter>,
+)

@@ -92,7 +92,7 @@ export function TopHeader({
               className="h-11 px-2 flex items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors"
               aria-label={ticketCount === null ? '내 응모권' : `내 응모권 ${ticketCount}장`}
             >
-              <MaterialIcon name="confirmation_number" className="text-[22px]" />
+              <MaterialIcon name="confirmation_number" className="text-[28px]" />
               <span className="font-label-sm text-label-sm font-semibold tabular-nums text-on-surface">
                 {ticketCount === null ? '–' : formatTicketBadge(ticketCount)}
               </span>
@@ -104,10 +104,10 @@ export function TopHeader({
               className="relative w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
               aria-label="알림"
             >
-              <MaterialIcon name="notifications" className="text-[22px]" />
+              <MaterialIcon name="notifications" className="text-[28px]" />
               {unreadCount > 0 && (
                 <span
-                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-error text-on-error font-label-xs text-[10px] leading-4 text-center font-bold"
+                  className="absolute top-0.5 left-1/2 -ml-0.5 min-w-[24px] h-[18px] px-1.5 rounded-full bg-primary text-on-primary font-label-xs text-[10px] leading-[18px] text-center font-bold tabular-nums"
                   aria-label={`${unreadCountPartial ? '최근 100건 중 ' : ''}읽지 않은 알림 ${unreadCount}개${unreadCountPartial ? ' 이상' : ''}`}
                 >
                   {unreadCount > 99 ? '99+' : unreadCountPartial ? `${unreadCount}+` : unreadCount}

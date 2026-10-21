@@ -83,17 +83,17 @@ export async function searchCreators({ keyword = '', page = 0, size = 20 } = {})
 
 /**
  * GET /api/me/creator-recommendations?size - 관심 분야·팔로우 기반 추천(size 1~20, 기본 10).
- * 개인화 결과가 없으면 BE가 팔로워 수 순 인기 크리에이터로 대체하고 policyVersion을 POPULAR_FALLBACK_V1로 준다.
+ * 관련 후보가 부족하면 0~size개를 그대로 반환한다. 구 서버의 인기순 대체 응답도 추천으로 표시하지 않는다.
  * 이미 팔로우한 크리에이터와 본인은 BE가 제외한다. aggregateScore는 정렬용이라 화면에 넘기지 않는다.
- * @returns {Promise<{ personalized: boolean, items: object[] }>} personalized가 false면 인기순 대체
+ * @returns {Promise<{ personalized: boolean, items: object[] }>} 기존 카드·섹션 디자인을 유지한다
  */
 export async function getMyCreatorRecommendations({ size = 10 } = {}) {
   const result = await apiClient.get('/api/me/creator-recommendations', { size });
   return {
-    personalized: result.policyVersion !== POPULAR_FALLBACK,
+    personalized: true,
     // 노출·클릭 수집(sendRecommendationEvents)에 쓰는 응답 ID. 스냅샷 저장에 실패하면 null이고 이때는 수집하지 않는다.
     requestId: result.recommendationRequestId ?? null,
-    items: (result.items ?? []).map((item) => ({
+    items: (result.policyVersion === POPULAR_FALLBACK ? [] : result.items ?? []).map((item) => ({
       creatorId: item.creatorId,
       name: item.creatorName,
       avatar: item.profileImageUrl,

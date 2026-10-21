@@ -47,13 +47,13 @@ export default function ExploreRecommend() {
   // 유사 크리에이터는 기준이 필요해서 가장 최근에 관심 등록한 크리에이터를 기준으로 삼는다(followedCreators는 최근 팔로우 순). 관심이 없으면 숨긴다.
   const similarBaseId = followsReady ? (followedCreators[0] ?? null) : null
   const similar = useAsync(
-    () => getSimilarCreators(similarBaseId, { size: SIMILAR_SIZE }),
-    [similarBaseId],
+    () => getSimilarCreators(similarBaseId, { size: SIMILAR_SIZE }).then((items) => ({ owner: user?.memberId, seed: similarBaseId, items })),
+    [user?.memberId, similarBaseId],
     { enabled: similarBaseId !== null },
   )
   const similarCreators = useMemo(
-    () => (similar.data ?? []).map((candidate) => creatorsById.get(candidate.similarCreatorId)).filter(Boolean),
-    [similar.data, creatorsById],
+    () => (similar.data?.owner === user?.memberId && similar.data?.seed === similarBaseId && !similar.loading && !similar.error ? similar.data.items : []).map((candidate) => creatorsById.get(candidate.similarCreatorId)).filter(Boolean),
+    [similar.data, similar.loading, similar.error, creatorsById, user?.memberId, similarBaseId],
   )
   const similarBase = creatorsById.get(similarBaseId)
 

@@ -14,7 +14,7 @@ Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서
 | 온보딩·공개 Space | `/onboarding`, `/onboarding/creators`, `/creators/:creatorId`, `/space/:slug`, `/events/:eventId` | 관심 분야·추천, 팔로우, Creator Space, 이벤트·응모 |
 | Creator 운영 | `/creator/events/new`, `/creator/events/:eventId/edit` | 이벤트 작성·수정. 이벤트 목록·일정 관리는 내 스페이스의 이벤트·캘린더 탭에서 한다 |
 
-`/studio*`는 내 스페이스로 리다이렉트한다. `/space/:slug`는 비로그인 공개 조회를 허용한다. 그 밖의 사용자 경로는 `RequireUser`, Creator 운영은 추가로 `RequireRole role="creator"`를 사용한다.
+`/studio*`는 내 스페이스로 리다이렉트한다. `/space/:slug`와 `/events/:eventId`는 비로그인 조회를 허용한다. 이벤트 상세는 비로그인이면 응모권·응모 현황·내 당첨 호출을 생략하고, 응모 버튼이 로그인 화면으로 보내며 로그인 뒤 이벤트 상세로 돌아온다. BE의 `GET /api/events/{eventId}`는 비로그인 공개로 전환됐다(Cking-BE#714). 그래도 조회가 거절되면 오류 화면에 "로그인하고 확인하기" 버튼을 보여 준다. 그 밖의 사용자 경로는 `RequireUser`, Creator 운영은 추가로 `RequireRole role="creator"`를 사용한다.
 
 크리에이터 스페이스의 탭 선택은 현재 방문 기록 항목의 라우터 상태에 보관한다. 홈에는 마감되지 않은 이벤트만 미리 보여주고, 종료된 이벤트와 공개 결과는 이벤트 탭의 기존 카드에서 이벤트 상세로 이동해 확인한다. 상세 화면에서 화면 또는 브라우저 뒤로 가기로 돌아오면 마지막으로 선택한 탭을 유지한다. 홈 '새 게시물' 카드는 라우터 상태 `openPostId`로 게시물 ID를 함께 넘겨, 게시물 탭이 열리면서 해당 게시물 상세를 바로 연다(한 번 연 뒤 상태에서 지운다). 개인 결과는 기존 `내 응모`와 `내 당첨` 화면에서 계속 조회한다.
 

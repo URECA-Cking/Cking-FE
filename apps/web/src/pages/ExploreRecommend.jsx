@@ -32,7 +32,7 @@ export default function ExploreRecommend() {
   const shown = recommended.slice(0, limit)
   // 카탈로그는 편집기와 추천 이유에서 함께 쓰며, 조회 실패 뒤에도 추천 목록은 표시한다.
   const interests = useAsync(getInterests, [], { fallbackMessage: '관심 분야를 불러오지 못했어요.' })
-  const selectedInterests = useAsync(() => getMyInterests().then((result) => ({ owner: user.memberId, result })), [user?.memberId], {
+  const selectedInterests = useAsync(() => getMyInterests().then((result) => ({ owner: user?.memberId, result })), [user?.memberId], {
     enabled: user?.memberId != null,
     fallbackMessage: '관심 분야를 불러오지 못했어요.',
   })

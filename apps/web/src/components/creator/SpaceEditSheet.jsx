@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import BottomSheet from '../ui/BottomSheet.jsx'
+import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { Spinner } from '../ui/States.jsx'
 import ActivityNameSection from './ActivityNameSection.jsx'
 import CreatorBanner from './CreatorBanner.jsx'
 import { useToast } from '../../context/useToast.js'
+import { CLOSE_ALLOW, CLOSE_BLOCK, CLOSE_CONFIRM, useCloseGuard } from '../../hooks/useCloseGuard.js'
 import { ApiError, describeError } from '../../api/client.js'
 import {
   SLUG_ERROR_MESSAGES,
@@ -128,16 +130,23 @@ function useSpaceImagePick({ validate, upload, failMessage }) {
  *   이 브라우저에서 바꿀 때 이전 주소를 기억해 두었다가(utils/previousSlug.js) 되돌리기 버튼에 쓴다.
  *   14일 변경 제한이 있어도 본인이 버린 이전 slug로 되돌리는 것은 허용되므로, 버튼은 막지 않고 백엔드 판단을 따른다.
  */
-export default function SpaceEditSheet({ open, onClose, space, onSaved }) {
+export default function SpaceEditSheet({ open, onClose, space, onSaved, closeOnBack = false }) {
+  // 폼이 "지금 닫아도 되는지"(저장 중이면 막고, 저장하지 않은 변경이 있으면 확인 시트)를 등록한다.
+  const { registerGuard, requestClose, confirmSheetProps } = useCloseGuard(open, onClose)
+  // closeOnBack: 뒤로가기도 같은 가드를 거치게 한다. 시트를 닫을 때 부모가 navigate(replace)로 이동 상태를 지우는 경우(다른 화면에서
+  // openSpaceEdit 상태로 들어온 경우)에는 시트가 쌓은 history 항목과 어긋나므로 부모가 그때는 켜지 않는다.
   return (
-    <BottomSheet open={open} onClose={onClose} eyebrow="Creator Space" title="스페이스 편집">
-      {open && space && <SpaceEditForm space={space} onSaved={onSaved} />}
-    </BottomSheet>
+    <>
+      <BottomSheet open={open} onClose={requestClose} closeOnBack={closeOnBack} eyebrow="Creator Space" title="스페이스 편집">
+        {open && space && <SpaceEditForm space={space} onSaved={onSaved} registerGuard={registerGuard} />}
+      </BottomSheet>
+      <ConfirmSheet {...confirmSheetProps} closeOnBack={closeOnBack} />
+    </>
   )
 }
 
 /** 열린 스페이스 편집 시트의 프로필 사진·소개·주소 입력과 저장 상태를 관리한다. */
-function SpaceEditForm({ space, onSaved }) {
+function SpaceEditForm({ space, onSaved, registerGuard }) {
   const showToast = useToast()
   const [profile, setProfile] = useState({
     introText: space.introText ?? '',
@@ -166,7 +175,24 @@ function SpaceEditForm({ space, onSaved }) {
   const shownImage = photo.pendingKey === null ? null : (photo.previewUrl ?? toSafeHttpUrl(space.profileImageUrl))
   const imageBusy = photo.busy || banner.busy
 
+  // 저장하지 않은 변경: 소개, 고른(올리는 중 포함) 프로필 사진·배너, 입력한 주소. 저장하면 space가 갱신돼 다시 같아진다.
+  // 활동명은 자체 저장 버튼이 있는 별도 입력이라 여기에 넣지 않는다.
+  // 소개는 저장할 때 앞뒤 공백을 지워 보내므로 같은 기준(trim)으로 비교한다.
+  const dirty = profile.introText.trim() !== (space.introText ?? '').trim()
+    || photo.pendingKey !== undefined || photo.busy
+    || banner.pendingKey !== undefined || banner.busy
+    || slug.trim() !== (space.slug ?? '')
+  useEffect(() => {
+    registerGuard(() => {
+      if (savingProfile || savingSlug) return CLOSE_BLOCK
+      return dirty ? CLOSE_CONFIRM : CLOSE_ALLOW
+    })
+    return () => registerGuard(() => CLOSE_ALLOW)
+  }, [registerGuard, savingProfile, savingSlug, dirty])
+
   async function saveProfile() {
+    // 응답을 기다리는 동안 소개를 더 고칠 수 있어, 응답 값은 요청 때와 같은 입력일 때만 입력칸에 반영한다.
+    const sentIntro = profile.introText
     setSavingProfile(true)
     try {
       const updated = await updateMySpace({
@@ -180,6 +206,7 @@ function SpaceEditForm({ space, onSaved }) {
       // 저장된 사진·배너가 현재 이미지가 된다. 이후 저장에는 새 주소를 보내고 이미지는 다시 바꾸지 않은 상태로 둔다.
       setProfile((prev) => ({
         ...prev,
+        introText: prev.introText === sentIntro ? (updated.introText ?? sentIntro.trim()) : prev.introText,
         profileImageUrl: updated.profileImageUrl ?? prev.profileImageUrl,
         bannerImageUrl: updated.bannerImageUrl ?? prev.bannerImageUrl,
       }))
@@ -205,12 +232,13 @@ function SpaceEditForm({ space, onSaved }) {
   /** 새 주소로 바꾸거나(restoring=false) 이전 주소로 되돌린다. 바꾸기 전 주소를 이전 주소로 기억한다(되돌릴 때 버린 주소도 14일 예약된다). */
   async function applySlug(nextSlug, { restoring }) {
     const before = space.slug
+    const slugAtRequest = slug // 응답을 기다리는 동안 주소를 더 고쳤으면 응답이 그 입력을 덮어쓰지 않게 한다.
     setSavingSlug(true)
     setSlugError(null)
     try {
       const updated = await changeMySpaceSlug(nextSlug)
       if (before && before !== updated.slug) rememberPreviousSlug(space.creatorId, before)
-      setSlug(updated.slug)
+      setSlug((current) => (current === slugAtRequest ? updated.slug : current))
       onSaved(pickFields(updated, SLUG_FIELDS))
       showToast(restoring ? '이전 공유 주소로 되돌렸어요.' : '공유 주소를 바꿨어요.')
     } catch (error) {

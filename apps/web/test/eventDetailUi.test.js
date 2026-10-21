@@ -23,7 +23,7 @@ async function screen({guest=false,balance=5,description='Event introduction',st
  await p.goto('http://localhost/event-test')
  await p.evaluate(({guest,balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes})=>{
   window.guest=guest;window.calls=[];window.toasts=[];window.entryCode='SUCCESS';window.holdEntry=false
-  const record={eventId:16,creatorId:1,title:'Event title',description,status,displayStatus,startAt:'2026-01-01T00:00:00Z',endAt,winnerCount:1,drawMethod:'WEIGHTED',myTicketBalance:balance,myCommonTicketBalance:0,prizes}
+  const record={eventId:16,creatorId:1,title:'Event title',description,status,displayStatus,startAt:'2026-01-01T00:00:00Z',endAt,winnerCount:1,drawMethod:'WEIGHTED',myTicketBalance:guest?null:balance,myCommonTicketBalance:guest?null:0,prizes}
   const acceptedRequests=new Set()
   window.fetch=async(url,options={})=>{
    const path=new URL(String(url),location.href).pathname,method=options.method??'GET'
@@ -42,7 +42,7 @@ async function screen({guest=false,balance=5,description='Event introduction',st
    }
    if(path==='/api/events/16'){
     if(window.holdBalance)await new Promise(resolve=>window.releaseBalance=resolve)
-    return failDetail?reply(null,'SYSTEM_ERROR',500):reply({...record,myTicketBalance:window.nextBalance??record.myTicketBalance})
+    return failDetail?(guest?reply(null,'UNAUTHORIZED',401):reply(null,'SYSTEM_ERROR',500)):reply({...record,myTicketBalance:window.nextBalance??record.myTicketBalance})
    }
    if(path==='/api/events/16/entry-status')return failStatus&&!window.retryStatus?reply(null,'SYSTEM_ERROR',500):reply({eventId:16,participantCount:7,totalTicketCount:20,myTicketCount,realtime:true})
    if(path==='/api/creators')return reply({items:[{creatorId:1,creatorName:'Creator',slug:'creator',profileImageUrl:null}],totalPages:1})
@@ -333,5 +333,13 @@ test('guest can read the event detail, and applying sends them to login without 
   await p.getByRole('button',{name:'로그인하고 응모하기',exact:true}).click()
   await p.getByText('Login page',{exact:true}).waitFor()
   assert.deepEqual(await posts(p),[])
+ }finally{await p.close()}
+})
+
+test('guest whose event detail request is rejected gets a login path instead of a dead end',async()=>{
+ const p=await screen({guest:true,failDetail:true})
+ try{
+  await p.getByRole('button',{name:'로그인하고 확인하기',exact:true}).click()
+  await p.getByText('Login page',{exact:true}).waitFor()
  }finally{await p.close()}
 })

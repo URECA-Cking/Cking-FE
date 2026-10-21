@@ -170,6 +170,12 @@ export default function EventDetail() {
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe justify-center gap-3">
         <ErrorBlock message={error ?? '이벤트를 찾을 수 없어요.'} onRetry={reload} />
+        {/* 비로그인이 조회에 실패했다면 로그인이 필요한 상태일 수 있다(BE가 상세 조회를 아직 로그인 필수로 둔 동안). 막다른 화면이 되지 않게 로그인 길을 연다. */}
+        {anonymous && (
+          <button type="button" onClick={goLogin} className="self-center px-4 py-2 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-semibold active:scale-95 transition-all">
+            로그인하고 확인하기
+          </button>
+        )}
         <Link to="/" className="text-center text-primary font-label-md text-label-md font-semibold">
           홈으로 돌아가기
         </Link>
@@ -547,7 +553,7 @@ export default function EventDetail() {
           >
             <MaterialIcon name="confirmation_number" filled className="text-[20px]" />
             <span>{anonymous && canApply ? '로그인하고 응모하기' : canApply ? '응모하기' : '응모할 수 없는 상태예요'}</span>
-        </button>
+          </button>
         </div>
         </div>
       </div>

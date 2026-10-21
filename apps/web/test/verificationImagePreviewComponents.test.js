@@ -35,7 +35,8 @@ async function screen(postReply = { status: 200, data: { status: 'VERIFYING' } }
   await page.addStyleTag({ content: css })
   const png = await page.evaluate(() => {
     const draw = (color) => { const canvas = document.createElement('canvas'); canvas.width = 40; canvas.height = 30; const context = canvas.getContext('2d'); context.fillStyle = color; context.fillRect(0, 0, 40, 30); return canvas.toDataURL('image/png').split(',')[1] }
-    return [draw('#cc0000'), draw('#0000cc')]
+    const tall = (() => { const canvas = document.createElement('canvas'); canvas.width = 300; canvas.height = 650; const context = canvas.getContext('2d'); context.fillStyle = '#006600'; context.fillRect(0, 0, 300, 650); return canvas.toDataURL('image/png').split(',')[1] })()
+    return [draw('#cc0000'), draw('#0000cc'), tall]
   })
   await page.evaluate((reply) => {
     window.posts = []
@@ -131,5 +132,17 @@ test('카드가 사라질 때 미리보기 주소를 해제한다', async () => 
     const url = await preview(page).getAttribute('src')
     await page.evaluate(() => window.unmountCard())
     await page.waitForFunction((value) => window.revoked.includes(value), url)
+  } finally { await page.close() }
+})
+
+test('세로 폰 캡처도 읽을 수 있게 화면 높이의 60%까지 크게 보인다', async () => {
+  const { page, png } = await screen()
+  try {
+    await pick(page, png[2], 'phone.png')
+    await preview(page).waitFor()
+    await page.waitForFunction(() => { const image = document.querySelector('img[alt="선택한 인증 이미지 미리보기"]'); return image?.complete && image.naturalHeight === 650 })
+    const { height, viewport } = await page.evaluate(() => ({ height: document.querySelector('img[alt="선택한 인증 이미지 미리보기"]').getBoundingClientRect().height, viewport: window.innerHeight }))
+    assert.ok(height > 256, `이전 상한(256px)보다 커야 한다: ${height}px`)
+    assert.ok(height <= viewport * 0.6 + 1, `화면 높이의 60%를 넘지 않아야 한다: ${height}px / ${viewport}px`)
   } finally { await page.close() }
 })

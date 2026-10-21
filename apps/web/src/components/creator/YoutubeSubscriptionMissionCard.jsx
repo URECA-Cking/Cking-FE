@@ -224,6 +224,7 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
                   {submitting ? '제출 중...' : '인증 제출'}
                 </button>
               </div>
+              {/* 세로 폰 캡처도 채널명·구독 상태 글씨를 읽을 수 있게 화면 높이의 60%까지 키운다. */}
               {selectedFile && safePreviewUrl && (
                 failedPreviewUrl === safePreviewUrl ? (
                   <p className="font-label-xs text-label-xs text-on-surface-variant">미리보기를 표시하지 못했어요. 이미지가 맞다면 그대로 제출할 수 있어요.</p>
@@ -232,7 +233,7 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
                     src={safePreviewUrl}
                     alt="선택한 인증 이미지 미리보기"
                     onError={() => setFailedPreviewUrl(safePreviewUrl)}
-                    className="max-h-64 w-full rounded-lg bg-surface-container object-contain"
+                    className="max-h-[60dvh] w-full rounded-lg bg-surface-container object-contain"
                   />
                 )
               )}

@@ -53,6 +53,15 @@ for (const [themeName, tokens] of Object.entries(THEMES)) {
     }
   }
 
+  // 라이트의 outline은 서브 카드·입력 영역 위 보조 정보 글씨로 쓰인다. 다크 outline은 기존 디자인 값을 유지해 검사하지 않는다.
+  if (themeName === '라이트') {
+    for (const surfaceName of ['surface-container', 'surface-container-low', 'surface-container-lowest']) {
+      test(`라이트 모드에서 outline 글씨는 ${surfaceName} 위에서 대비 4.5 이상이다`, () => {
+        assert.ok(contrast(tokens.outline, tokens[surfaceName]) >= 4.5, `라이트 outline/${surfaceName} = ${contrast(tokens.outline, tokens[surfaceName]).toFixed(2)}`)
+      })
+    }
+  }
+
   test(`${themeName} 모드에서 warm-accent 글씨는 10% 옅은 배경 위에서도 대비 4.5 이상이고, 아이콘은 20% 배경 위에서 대비 3 이상이다`, () => {
     for (const surfaceName of SURFACES) {
       const textBackground = blend(tokens['warm-accent'], tokens[surfaceName], TEXT_TINT_ALPHA)

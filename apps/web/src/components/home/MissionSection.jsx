@@ -197,7 +197,7 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
                 type="button"
                 disabled={(done && !bonusPending) || busy}
                 onClick={() => completeThenBonus(mission, { alreadyDone: done })}
-                className="shrink-0 whitespace-nowrap rounded-full bg-gradient-to-r from-primary to-primary/80 px-3.5 py-1.5 font-label-sm text-label-sm text-on-primary shadow-md shadow-primary/30 disabled:bg-none disabled:bg-on-surface/10 disabled:text-outline disabled:shadow-none active:opacity-70 transition-opacity"
+                className="shrink-0 whitespace-nowrap rounded-full bg-gradient-to-r from-primary to-primary/80 px-3.5 py-1.5 font-label-sm text-label-sm text-on-primary shadow-md shadow-primary/30 disabled:bg-none disabled:bg-on-surface/10 disabled:text-disabled disabled:shadow-none active:opacity-70 transition-opacity"
               >
                 {stampButtonLabel}
               </button>

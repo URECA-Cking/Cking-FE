@@ -23,6 +23,8 @@ export default {
         // outline·outline-variant·primary·berry-tint·secondary-fixed는 다크 값은 그대로 두고 일반 모드만 쿨 그레이·브랜드 핑크로 바꾸려고 변수로 뺐다.
         outline: themeColor('outline'),
         'outline-variant': themeColor('outline-variant'),
+        // 비활성(disabled:) 글씨 전용. 정보 글씨는 대비를 맞춘 outline을 쓴다.
+        disabled: themeColor('disabled'),
         'surface-tint': '#ba0060',
         primary: themeColor('primary'),
         'on-primary': '#ffffff',

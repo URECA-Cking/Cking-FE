@@ -2,6 +2,25 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { installMockApiIfRequested } from '../src/dev/mockApi.js'
 
+test('알림 미리보기에는 긴 본문·URL·여러 유형의 알림이 있고 실제 API를 호출하지 않는다', async () => {
+  const originalWindow = globalThis.window
+  const originalStorage = globalThis.sessionStorage
+  globalThis.sessionStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} }
+  globalThis.window = { location: new URL('http://localhost:5182/notifications?mock=notifications'), fetch: async () => { throw new Error('실제 API 호출 금지') } }
+  try {
+    installMockApiIfRequested()
+    const { data } = await (await window.fetch('/api/me/notifications')).json()
+    assert.equal(data.items.length, 6)
+    assert.equal(new Set(data.items.map((item) => item.notificationId)).size, 6)
+    assert.ok(data.items.some((item) => item.body.includes('\n') && item.body.includes('https://')))
+    assert.ok(data.items.some((item) => item.event))
+    assert.ok(data.items.some((item) => !item.event))
+  } finally {
+    globalThis.window = originalWindow
+    globalThis.sessionStorage = originalStorage
+  }
+})
+
 test('개별·전체 읽음은 서버 모의 응답에 남고 새로고침 뒤에도 복원된다', async () => {
   const originalWindow = globalThis.window
   const originalStorage = globalThis.sessionStorage

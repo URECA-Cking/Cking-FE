@@ -31,7 +31,7 @@ export default function SwipeToHide({ open, onOpenChange, onHide, hiding = false
   const willDelete = dragOffset !== null && isDeleteSwipe(dragOffset, cardWidth)
 
   function onPointerDown(event) {
-    if (disabled || (event.pointerType === 'mouse' && event.button !== 0)) return
+    if (disabled || hiding || (event.pointerType === 'mouse' && event.button !== 0)) return
     const width = cardRef.current?.offsetWidth ?? 0
     setCardWidth(width)
     start.current = { id: event.pointerId, x: event.clientX, y: event.clientY, offset: resting, width, axis: null }
@@ -63,12 +63,13 @@ export default function SwipeToHide({ open, onOpenChange, onHide, hiding = false
     start.current = null
     if (current.axis !== 'x') return
     const outcome = swipeOutcome(current.latest ?? resting, current.width)
-    setDragOffset(null)
     if (outcome === 'delete') {
+      // 삭제는 부모가 낙관적으로 제거한다. 제거 직전 0으로 되돌려 카드가 튀어 보이지 않게 한다.
       onOpenChange(false)
       onHide()
       return
     }
+    setDragOffset(null)
     onOpenChange(outcome === 'open')
   }
 
@@ -93,7 +94,7 @@ export default function SwipeToHide({ open, onOpenChange, onHide, hiding = false
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl shadow-card">
+    <div className="relative shrink-0 overflow-hidden rounded-2xl shadow-card">
       <button
         type="button"
         onClick={onHide}
@@ -102,10 +103,11 @@ export default function SwipeToHide({ open, onOpenChange, onHide, hiding = false
         aria-hidden={!open}
         aria-label={label}
         // 끝까지 끌면 버튼이 카드가 비운 만큼 늘어나 "놓으면 삭제"가 보인다.
-        style={{ width: Math.max(SWIPE_REVEAL, -offset) }}
-        className="absolute inset-y-0 right-0 flex flex-col items-center justify-center gap-0.5 bg-error text-on-error font-label-xs text-label-xs font-semibold disabled:opacity-60"
+        // 닫힌 카드의 투명 테두리로 삭제 배경이 비치지 않게 한다. 테마와 무관하게 불투명한 두 고정색만 쓴다.
+        style={{ width: Math.max(SWIPE_REVEAL, -offset), visibility: offset < 0 ? 'visible' : 'hidden' }}
+        className={`absolute inset-y-0 right-0 flex flex-col items-center justify-center gap-0.5 text-on-error font-label-xs text-label-xs font-semibold ${dragOffset !== null ? 'bg-[#79191b]' : 'bg-error'}`}
       >
-        <MaterialIcon name="delete" className={`text-[20px] transition-transform ${willDelete ? 'scale-125' : ''}`} />
+        <MaterialIcon name="delete" className="text-[20px]" />
         {hiding ? '삭제하는 중' : willDelete ? '놓으면 삭제' : '삭제'}
       </button>
       <div

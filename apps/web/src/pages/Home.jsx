@@ -26,6 +26,9 @@ import { WELCOME_QUEST_STEPS, isWelcomeQuestActive } from '../utils/welcomeQuest
 
 // 한 화면에 소식·응모·미션이 함께 보이도록 응모는 티켓 3장까지만 보여준다.
 const ENTRY_LIMIT = 3
+// 응모 가능한 이벤트를 먼저 채우므로, 응모 여부는 마감 임박순으로 이 수만큼씩 조회하고 응모 가능한 이벤트가 3장이 안 되면 다음 묶음을 더 조회한다.
+// 사용자 단위 응모 목록 API가 없어 조회한 이벤트 수만큼 요청이 나간다.
+const ENTRY_CANDIDATE_STEP = 3
 
 /**
  * 홈. 당첨 → 소식 → 응모 → 미션 순으로 팬이 지금 할 수 있는 "내 것"만 보여준다. 남의 이벤트·크리에이터를 훑어보는 건 탐색 화면이 맡는다.
@@ -57,10 +60,20 @@ export default function Home() {
 
   // 캐시로 그린 목록은 마감 뒤에도 남을 수 있어 현재 시각으로 한 번 더 걸러 낸다. 시각은 주기적으로 갱신된다.
   const now = useNow()
-  const entryEvents = useMemo(
-    () => selectEntryEvents(openEvents.data ?? [], followedCreators, ENTRY_LIMIT, now),
+  const [candidateLimit, setCandidateLimit] = useState(ENTRY_CANDIDATE_STEP)
+  const allEntryEvents = useMemo(
+    () => selectEntryEvents(openEvents.data ?? [], followedCreators, Infinity, now),
     [openEvents.data, followedCreators, now],
   )
+  const entryCandidates = useMemo(() => allEntryEvents.slice(0, candidateLimit), [allEntryEvents, candidateLimit])
+  const { appliedIds, knownIds, failedIds: appliedFailedIds, retry: retryApplied } = useAppliedEvents(entryCandidates.map((event) => event.eventId), user?.memberId)
+  // 응모 완료로 확인된 이벤트만 뒤로 보낸다. 조회 중이거나 실패한 이벤트는 응모 여부를 모르므로 그대로 둔다. 응모 가능한 이벤트가 모자라면 응모 완료 이벤트가 마감 임박순으로 채운다.
+  const entryEvents = useMemo(() => selectEntryEvents(entryCandidates, [], ENTRY_LIMIT, null, appliedIds), [entryCandidates, appliedIds])
+  // 후보를 모두 조회했는데 응모 가능한 이벤트가 3장이 안 되고 남은 이벤트가 있으면 다음 묶음을 후보에 넣는다.
+  const candidatesChecked = entryCandidates.length > 0 && entryCandidates.every((event) => knownIds.has(event.eventId) || appliedFailedIds.has(event.eventId))
+  if (candidatesChecked && entryCandidates.filter((event) => !appliedIds.has(event.eventId)).length < ENTRY_LIMIT && candidateLimit < allEntryEvents.length) {
+    setCandidateLimit(candidateLimit + ENTRY_CANDIDATE_STEP)
+  }
   // 잔액은 홈에 보이는 응모 이벤트의 크리에이터 것만 조회한다. 팔로우 전체를 조회하면 팔로우 수만큼 요청이 나간다.
   const entryCreatorIds = useMemo(() => [...new Set(entryEvents.map((event) => event.creatorId))], [entryEvents])
   const { balances } = useCreatorBalances(entryCreatorIds, user?.memberId)
@@ -70,7 +83,6 @@ export default function Home() {
     balances.forEach((balance, creatorId) => map.set(creatorId, balance.balance))
     return map
   }, [balances])
-  const { appliedIds, knownIds, failedIds: appliedFailedIds, retry: retryApplied } = useAppliedEvents(entryEvents.map((event) => event.eventId), user?.memberId)
 
   // 캐시로 이미 그린 화면은 뒤에서 하는 갱신이 실패해도 지우지 않는다. 보여줄 데이터가 없을 때만 오류 화면으로 바꾼다.
   const directoryFailed = Boolean(directory.error) && directory.data == null
@@ -161,7 +173,7 @@ export default function Home() {
           balanceByCreator={balanceByCreator}
           appliedIds={appliedIds}
           knownIds={knownIds}
-          appliedCheckFailed={appliedFailedIds.size > 0}
+          appliedCheckFailed={entryEvents.some((event) => appliedFailedIds.has(event.eventId))}
           onRetryApplied={retryApplied}
         />
       )}

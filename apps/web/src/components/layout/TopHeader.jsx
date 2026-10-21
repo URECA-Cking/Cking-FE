@@ -104,7 +104,7 @@ export function TopHeader({
               className="relative w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
               aria-label="알림"
             >
-              <MaterialIcon name="notifications" className="text-[22px]" />
+              <MaterialIcon name="notifications" className="text-[26px]" />
               {unreadCount > 0 && (
                 <span
                   className="absolute top-0.5 left-1/2 ml-0.5 min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-on-primary font-label-xs text-[11px] leading-5 text-center font-bold tabular-nums"

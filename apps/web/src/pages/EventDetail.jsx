@@ -49,8 +49,10 @@ export default function EventDetail() {
   const showToast = useToast()
   const redirectToProfileSetup = useProfileSetupRedirect()
   const { refresh: refreshMyTickets } = useMyTickets() // 응모하면 헤더의 총 응모권 개수도 바뀌어야 한다
-  // 크리에이터는 내 스페이스를 불러와야 이 이벤트가 내 것인지 안다. 알 수 없는 동안(ownSpacePending)에는 응모를 막는다.
-  const { ownCreatorId, ownSpacePending } = useOwnCreatorId()
+  // 크리에이터는 내 스페이스를 불러와야 이 이벤트가 내 것인지 안다. 알 수 없는 동안에는 응모를 막는다.
+  // 불러오는 중(ownSpaceLoading)이면 확인 중으로, 실패했으면(ownSpaceError) 다시 확인할 수 있게 따로 안내한다.
+  const { ownCreatorId, ownSpacePending, ownSpaceError, reloadOwnSpace } = useOwnCreatorId()
+  const ownSpaceLoading = ownSpacePending && !ownSpaceError
 
   const [ticketCount, setTicketCount] = useState(1)
   const [chosenType, setChosenType] = useState(null) // 사용자가 고른 응모권 종류. 고른 적 없으면 null
@@ -431,10 +433,15 @@ export default function EventDetail() {
                       ? '응모가 마감된 이벤트예요. 결과가 공개되면 알림으로 알려드릴게요.'
                       : isOwnEvent
                         ? '내가 만든 이벤트에는 응모할 수 없어요.'
-                        : ownSpacePending
+                        : ownSpaceLoading
                           ? '내 이벤트인지 확인하는 중이에요.'
-                          : '보유한 응모권이 없어 응모할 수 없어요.'}
+                          : ownSpaceError
+                            ? '내 이벤트인지 확인하지 못했어요.'
+                            : '보유한 응모권이 없어 응모할 수 없어요.'}
                 </p>
+                {ownSpaceError && !isOwnEvent && isEntryOpen(event) && (
+                  <button type="button" onClick={reloadOwnSpace} className="self-start text-label-sm underline text-on-surface-variant">다시 확인</button>
+                )}
               </div>
             </div>
           )}

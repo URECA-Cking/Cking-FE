@@ -14,6 +14,7 @@ import { getEvent } from '../api/events.js'
 import { applyEntry, describeEntryResult } from '../api/entries.js'
 import { requiresSameRequestRetry, restorePendingEntryAttempt } from '../utils/entryResult.js'
 import { useProfileSetupRedirect } from '../hooks/useProfileSetupRedirect.js'
+import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
 import { getPublicWinners } from '../api/winners.js'
 import { getMyWinners } from '../api/myWinners.js'
 import { newRequestId } from '../api/client.js'
@@ -57,6 +58,10 @@ export default function EventDetail() {
   const anonymous = userStatus === 'anonymous'
   const redirectToProfileSetup = useProfileSetupRedirect()
   const { refresh: refreshMyTickets } = useMyTickets() // 응모하면 헤더의 총 응모권 개수도 바뀌어야 한다
+  // 크리에이터는 내 스페이스를 불러와야 이 이벤트가 내 것인지 안다. 알 수 없는 동안에는 응모를 막는다.
+  // 불러오는 중(ownSpaceLoading)이면 확인 중으로, 실패했으면(ownSpaceError) 다시 확인할 수 있게 따로 안내한다.
+  const { ownCreatorId, ownSpacePending, ownSpaceError, reloadOwnSpace } = useOwnCreatorId()
+  const ownSpaceLoading = ownSpacePending && !ownSpaceError
 
   const [ticketCount, setTicketCount] = useState(1)
   const [chosenType, setChosenType] = useState(null) // 사용자가 고른 응모권 종류. 고른 적 없으면 null
@@ -159,8 +164,16 @@ export default function EventDetail() {
   const endTime = new Date(event?.endAt).getTime()
   const remaining = Number.isFinite(endTime) ? Math.max(0, Math.ceil((endTime - now) / 1000)) : null
   const deadlinePassed = remaining === 0
+  // 본인이 만든 이벤트에는 응모할 수 없다(BE가 막지 않아 FE가 구분한다).
+  const isOwnEvent = ownCreatorId != null && event != null && Number(event.creatorId) === Number(ownCreatorId)
   // 비로그인은 응모권을 알 수 없어 보유 여부를 따지지 않는다. 버튼을 누르면 로그인으로 보내고, 보유 여부는 로그인 뒤에 따진다.
-  const canApply = isEntryOpen(event) && (anonymous || hasAnyTicket) && !deadlinePassed
+  const canApply = isEntryOpen(event) && (anonymous || hasAnyTicket) && !deadlinePassed && !isOwnEvent && !ownSpacePending
+  // 응모 버튼의 글자. 본인 이벤트이면 이유를 알 수 있게 따로 안내한다.
+  const applyLabel = canApply
+    ? anonymous ? '로그인하고 응모하기' : '응모하기'
+    : isOwnEvent && isEntryOpen(event)
+      ? '내 이벤트에는 응모할 수 없어요'
+      : '응모할 수 없는 상태예요'
   // 응모 성공으로 잔액이 줄어들 수 있으므로, 실제로 쓸 수량은 렌더 시점에 한도 범위로 맞춘다.
   const selectedCount = clampEntryCount(ticketCount, balance)
 
@@ -224,6 +237,10 @@ export default function EventDetail() {
 
   async function openConfirm() {
     if (openingRef.current) return
+    if (isOwnEvent) {
+      showToast('내가 만든 이벤트에는 응모할 수 없어요.', { icon: 'error' })
+      return
+    }
     // 응답 유실 뒤 시트를 닫았다가 다시 연 경우에는 새 요청을 만들지 않는다. 같은
     // requestId 재전송만이 서버의 멱등 처리(DUPLICATE_REPLAY)를 보장한다.
     const restored = restorePendingEntryAttempt(pendingEntry, eventId)
@@ -443,8 +460,17 @@ export default function EventDetail() {
                     ? `아직 응모가 열리지 않았어요. ${formatEventDate(event.startAt)}에 시작됩니다.`
                     : closed
                       ? '응모가 마감된 이벤트예요. 결과가 공개되면 알림으로 알려드릴게요.'
-                      : '보유한 응모권이 없어 응모할 수 없어요.'}
+                      : isOwnEvent
+                        ? '내가 만든 이벤트에는 응모할 수 없어요.'
+                        : ownSpaceLoading
+                          ? '내 이벤트인지 확인하는 중이에요.'
+                          : ownSpaceError
+                            ? '내 이벤트인지 확인하지 못했어요.'
+                            : '보유한 응모권이 없어 응모할 수 없어요.'}
                 </p>
+                {ownSpaceError && !isOwnEvent && isEntryOpen(event) && (
+                  <button type="button" onClick={reloadOwnSpace} className="self-start text-label-sm underline text-on-surface-variant">다시 확인</button>
+                )}
               </div>
             </div>
           )}
@@ -576,13 +602,13 @@ export default function EventDetail() {
         <div className="flex flex-col gap-2">
           <button
             type="button"
-            aria-label={anonymous && canApply ? '로그인하고 응모하기' : canApply ? '응모하기' : '응모할 수 없는 상태예요'}
+            aria-label={applyLabel}
             onClick={() => anonymous ? goLogin() : pendingEntry ? openConfirm() : setSelectionOpen(true)}
             disabled={(!canApply && !restorePendingEntryAttempt(pendingEntry, eventId)) || opening}
             className="w-full h-12 rounded-xl bg-gradient-to-r from-primary via-primary-container to-berry-glow text-on-primary font-title-md text-title-md font-bold flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             <MaterialIcon name="confirmation_number" filled className="text-[20px]" />
-            <span>{anonymous && canApply ? '로그인하고 응모하기' : canApply ? '응모하기' : '응모할 수 없는 상태예요'}</span>
+            <span>{applyLabel}</span>
           </button>
         </div>
         </div>

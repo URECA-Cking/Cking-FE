@@ -9,7 +9,7 @@ import UserContext from '../../src/context/userContext.js'
 createRoot(document.getElementById('root')).render(
   <MemoryRouter initialEntries={['/events/16']}>
     <ToastContext.Provider value={() => {}}>
-      <UserContext.Provider value={{status: 'authenticated'}}>
+      <UserContext.Provider value={{status: 'authenticated', isCreator: false, user: {memberId: 7}}}>
         <MyTicketsContext.Provider value={{refresh: async () => {}}}>
           <Routes><Route path="/events/:eventId" element={<EventDetail />} /></Routes>
         </MyTicketsContext.Provider>

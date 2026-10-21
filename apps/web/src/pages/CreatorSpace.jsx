@@ -779,7 +779,7 @@ export default function CreatorSpace() {
                   <MaterialIcon name="confirmation_number" className="shrink-0 text-primary text-[24px]" />
                   <div className="min-w-0">
                     <p className="truncate font-label-xs text-label-xs text-on-surface-variant">{creator.creatorName} 응모권</p>
-                    <p className="font-title-md text-title-md font-extrabold text-primary">{formatNumber(ticketBalance)}장</p>
+                    <p data-clarity-mask="True" className="font-title-md text-title-md font-extrabold text-primary">{formatNumber(ticketBalance)}장</p>
                   {balancePending?.creatorId === creator.creatorId && (
                     <span className="mt-0.5 inline-flex items-center gap-1 font-label-xs text-label-xs font-normal text-on-surface-variant">
                       {balancePending.expected === null ? '적립을 접수했어요' : '적립 반영 중'}

@@ -195,6 +195,7 @@ function PostEditorForm({ post, onClose, onSaved, registerGuard }) {
       <label className="flex flex-col gap-1">
         <span className="font-label-xs text-label-xs text-on-surface-variant">본문</span>
         <textarea
+          data-clarity-mask="True"
           value={content}
           maxLength={POST_LIMITS.maxContent}
           rows={5}

@@ -311,6 +311,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
               {editing?.commentId === comment.commentId ? (
                 <div className="flex flex-col gap-2">
                   <textarea
+                    data-clarity-mask="True"
                     value={editing.text}
                     maxLength={COMMENT_MAX_LENGTH}
                     rows={3}
@@ -417,6 +418,7 @@ export default function PostComments({ creatorId, postId, authenticated, followi
           <div className="flex flex-col gap-2">
             <div className="relative">
               <textarea
+                data-clarity-mask="True"
                 value={draft}
                 maxLength={COMMENT_MAX_LENGTH}
                 ref={draftRef}

@@ -36,7 +36,7 @@ export default function EntryTicket({ event, ticketsOwned, applied = null }) {
           <p className="font-label-md text-label-md text-on-surface line-clamp-1">{event.title}</p>
           {(typeof ticketsOwned === 'number' || typeof participants === 'number') && (
             <p className="font-label-sm text-label-sm text-on-surface-variant font-normal line-clamp-1">
-              {typeof ticketsOwned === 'number' && `보유 ${formatNumber(ticketsOwned)}장`}
+              {typeof ticketsOwned === 'number' && <span data-clarity-mask="True">보유 {formatNumber(ticketsOwned)}장</span>}
               {typeof ticketsOwned === 'number' && typeof participants === 'number' && ' · '}
               {typeof participants === 'number' && `${formatNumber(participants)}명 참여`}
             </p>

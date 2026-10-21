@@ -50,7 +50,7 @@ function QuestHero({ nickname, quest }) {
               '웰컴 퀘스트 완료!'
             ) : (
               <>
-                반가워요{nickname ? `, ${nickname}님` : ''}!
+                반가워요{nickname ? <>, <span data-clarity-mask="True">{nickname}</span>님</> : ''}!
                 <br />
                 <span className="text-amber-300">무료 응모권 4장</span>을 받아가세요
               </>

@@ -93,7 +93,7 @@ export function TopHeader({
               aria-label={ticketCount === null ? '내 응모권' : `내 응모권 ${ticketCount}장`}
             >
               <MaterialIcon name="confirmation_number" className="text-[22px]" />
-              <span className="font-label-sm text-label-sm font-semibold tabular-nums text-on-surface">
+              <span data-clarity-mask="True" className="font-label-sm text-label-sm font-semibold tabular-nums text-on-surface">
                 {ticketCount === null ? '–' : formatTicketBadge(ticketCount)}
               </span>
             </Link>

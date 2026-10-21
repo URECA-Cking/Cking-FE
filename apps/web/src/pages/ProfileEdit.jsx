@@ -286,6 +286,7 @@ function FanProfileEdit() {
           <label htmlFor="nickname" className="font-label-md text-label-md font-semibold text-on-surface">닉네임</label>
           <input
             id="nickname"
+            data-clarity-mask="True"
             type="text"
             value={nicknameLocked ? originalNickname : nickname}
             maxLength={NICKNAME_MAX_LENGTH}

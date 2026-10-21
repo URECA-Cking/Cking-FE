@@ -34,6 +34,8 @@ async function openForm(edit = false) {
     window.calls = []
     window.toasts = []
     window.failApproval = false
+    window.deferApproval = false
+    window.resolveApproval = null
     window.fetch = async (url, options = {}) => {
       const path = new URL(url).pathname
       const method = options.method ?? 'GET'
@@ -43,9 +45,14 @@ async function openForm(edit = false) {
       if (path === '/api/creator/events' && method === 'GET') return response({ items: [{ eventId: 28, title: '기존 이벤트', description: '', drawMethod: 'WEIGHTED', winnerCount: 1, startAt: '2030-01-01T01:00:00Z', endAt: '2030-02-01T01:00:00Z', prizes: [{ prizeKey: 'FIRST', displayName: '첫 상품', priority: 1, weight: 100, quantity: 1 }] }], hasNext: false })
       if (path === '/api/creator/events' && method === 'POST') return response({ eventId: 28, status: 'DRAFT' }, 201)
       if (path === '/api/creator/events/28' && method === 'PATCH') return response({ eventId: 28, status: 'DRAFT' })
-      if (path === '/api/creator/events/28/approval-request') return window.failApproval
-        ? response(null, 409, 'APPROVAL_REQUEST_TOO_LATE', '이벤트 시작 최소 48시간 전까지 개설 승인을 요청해야 합니다.')
-        : response({ eventId: 28, status: 'PENDING_APPROVAL' })
+      if (path === '/api/creator/events/28/approval-request') {
+        if (window.deferApproval) return new Promise(resolve => {
+          window.resolveApproval = () => resolve(response({ eventId: 28, status: 'PENDING_APPROVAL' }))
+        })
+        return window.failApproval
+          ? response(null, 409, 'APPROVAL_REQUEST_TOO_LATE', '이벤트 시작 최소 48시간 전까지 개설 승인을 요청해야 합니다.')
+          : response({ eventId: 28, status: 'PENDING_APPROVAL' })
+      }
       throw Error(`${method} ${path}`)
     }
   }, edit)
@@ -77,6 +84,29 @@ test('초안 생성 후 승인 요청을 선택하면 생성된 eventId로 한 �
     await page.getByText('저장 완료', { exact: true }).waitFor()
     assert.equal((await callsTo(page, 'POST', '/api/creator/events')).length, 1)
     assert.equal((await callsTo(page, 'POST', '/api/creator/events/28/approval-request')).length, 1)
+    assert.deepEqual(await page.evaluate(() => window.toasts), ['승인 요청을 보냈어요.'])
+  } finally { await page.close() }
+})
+
+test('승인 요청 중에는 확인과 나중에를 모두 막고 응답 후 승인 완료만 안내한다', async () => {
+  const page = await openForm()
+  try {
+    await page.evaluate(() => { window.deferApproval = true })
+    await page.getByRole('button', { name: '이벤트 초안 작성' }).click()
+    const dialog = page.getByRole('dialog', { name: '바로 승인 요청을 보내시겠습니까?' })
+    await dialog.getByRole('button', { name: '승인 요청' }).click()
+    await page.waitForFunction(() => typeof window.resolveApproval === 'function')
+    const confirm = dialog.getByRole('button', { name: '처리하는 중...' })
+    const later = dialog.getByRole('button', { name: '나중에' })
+    assert.equal(await confirm.isDisabled(), true)
+    assert.equal(await later.isDisabled(), true)
+    await confirm.evaluate(button => button.click())
+    await later.evaluate(button => button.click())
+    assert.equal(await dialog.isVisible(), true)
+    assert.deepEqual(await page.evaluate(() => window.toasts), [])
+    assert.equal((await callsTo(page, 'POST', '/api/creator/events/28/approval-request')).length, 1)
+    await page.evaluate(() => window.resolveApproval())
+    await page.getByText('저장 완료', { exact: true }).waitFor()
     assert.deepEqual(await page.evaluate(() => window.toasts), ['승인 요청을 보냈어요.'])
   } finally { await page.close() }
 })

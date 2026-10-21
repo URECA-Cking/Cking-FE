@@ -20,7 +20,7 @@ export default function CreatorRow({ creator, followed, disabled, onToggle, rowR
         ? 'w-full py-2.5 flex items-center justify-between gap-3'
         : 'w-full p-3 rounded-2xl bg-surface-container-lowest shadow-card flex items-center justify-between gap-3'}
     >
-      <Link to={spacePath(creator.handle)} onClick={onOpen} className={'flex flex-1 items-center gap-3 min-w-0'}>
+      <Link to={creator.handle ? spacePath(creator.handle) : `/creators/${creator.creatorId}`} onClick={onOpen} className={'flex flex-1 items-center gap-3 min-w-0'}>
         <div
           className={`rounded-full overflow-hidden flex-shrink-0 ${'w-12 h-12'} ${
             flat && highlight ? 'ring-2 ring-primary ring-offset-1 ring-offset-background' : ''
@@ -38,6 +38,15 @@ export default function CreatorRow({ creator, followed, disabled, onToggle, rowR
             : <>
                 <span className="font-body-sm text-body-sm text-outline line-clamp-1">{creator.bio}</span>
                 {reason && <span className="self-start max-w-full px-2 py-0.5 rounded-full bg-berry-tint font-label-xs text-label-xs text-primary break-words">{reason}</span>}
+                {creator.matchedTags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1" aria-label="실제 일치 태그">
+                    {creator.matchedTags.map((tag) => (
+                      <span key={`${tag.type}:${tag.code}`} className="px-2 py-0.5 rounded-full bg-berry-tint font-label-xs text-label-xs text-primary break-words">
+                        {tag.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </>}
         </div>
       </Link>

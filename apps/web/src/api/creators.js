@@ -105,6 +105,33 @@ export async function getMyCreatorRecommendations({ size = 10 } = {}) {
   };
 }
 
+/** 실제 공개 확인 태그 카탈로그. 회원 관심 분야 카탈로그와 별개다. */
+export function getRecommendationTagCatalog() {
+  return apiClient.get('/api/me/creator-recommendations/tag-catalog');
+}
+
+/** 정확 일치·OR 검색. 후보 부족/빈 목록/PENDING을 다른 추천으로 보충하지 않는다. */
+export async function getCreatorRecommendationsByTags({ taxonomyVersion, parentCodes = [], topicCodes = [], size = 20 }) {
+  const result = await apiClient.get('/api/me/creator-recommendations/by-tags', {
+    taxonomyVersion,
+    parentCodes: parentCodes.length ? parentCodes.join(',') : undefined,
+    topicCodes: topicCodes.length ? topicCodes.join(',') : undefined,
+    size,
+  });
+  return {
+    rankingStatus: result.rankingStatus,
+    requestId: result.recommendationRequestId ?? null,
+    items: (result.items ?? []).map((item) => ({
+      creatorId: item.creatorId,
+      name: item.creatorName,
+      avatar: item.profileImageUrl,
+      bio: item.introText,
+      handle: item.slug,
+      matchedTags: item.matchedTags ?? [],
+    })),
+  };
+}
+
 /** 공개 Creator 목록과 이벤트만 조합한다. 응모권 잔액은 화면에서 필요한 ID만 조회한다. */
 export async function loadCreatorDirectory({ size = 100 } = {}) {
   // 서로 의존하지 않는 두 조회라 직렬로 기다리면 탐색 진입이 두 배 느려진다.

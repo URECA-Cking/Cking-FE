@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import CreatorRow from '../components/creator/CreatorRow.jsx'
 import InterestEditor from '../components/creator/InterestEditor.jsx'
+import TagRecommendations from '../components/creator/TagRecommendations.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
@@ -24,6 +25,26 @@ const SIMILAR_SIZE = 5
  * 인기순 대체 응답은 추천 제목과 빈 결과 안내를 구분한다.
  */
 export default function ExploreRecommend() {
+  const [mode, setMode] = useState('personalized')
+  const { user } = useUser()
+  return (
+    <>
+      <div className="px-margin mt-space-md flex gap-2" role="group" aria-label="추천 방식">
+        {[['personalized', '맞춤 추천'], ['tags', '태그로 찾기']].map(([id, label]) => (
+          <button key={id} type="button" aria-pressed={mode === id} onClick={() => setMode(id)}
+            className={`px-4 py-2 rounded-full font-label-md text-label-md ${mode === id ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {mode === 'tags'
+        ? <TagRecommendations key={user?.memberId ?? 'guest'} />
+        : <PersonalizedRecommendations key={user?.memberId ?? 'guest'} />}
+    </>
+  )
+}
+
+function PersonalizedRecommendations() {
   const showToast = useToast()
   const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds } = useUser()
   const { ownCreatorId, ownSpacePending } = useOwnCreatorId()

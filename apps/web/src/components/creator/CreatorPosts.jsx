@@ -662,6 +662,8 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
   const [images, setImages] = useState(post.images ?? [])
   const [unavailable, setUnavailable] = useState(() => new Set())
   const [refreshing, setRefreshing] = useState(false)
+  // 이미지별 다시 불러오기 횟수. 주소가 같아도 <img>를 새로 만들어 다시 요청하게 하는 key에 쓴다.
+  const [reloads, setReloads] = useState({})
   const [active, setActive] = useState(0)
   // 첫 사진의 비율(4:5~1.91:1)을 칸 비율로 쓴다. 폰에서는 이 비율대로, 웹 모달에서는 모달이 같은 비율로 커진다.
   const [ratio, setRatio] = useState(1)
@@ -683,12 +685,14 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
       }
       const latestImages = latest.images ?? []
       setImages(latestImages)
-      setUnavailable(new Set(latestImages.filter((image) =>
-        !image.url || (
-          failedAttempts.current.has(image.imageKey)
-          && images.find((previous) => previous.imageKey === image.imageKey)?.url === image.url
-        )
-      ).map((image) => image.imageKey)))
+      setUnavailable(new Set(latestImages.filter((image) => !image.url).map((image) => image.imageKey)))
+      // 로드에 실패했던 이미지는 주소가 그대로여도 한 번 더 불러온다. 네트워크 순간 끊김이나 iOS의 화면 밖 요청 중단 같은
+      // 일시 실패를 바로 "표시 불가"로 굳히지 않으려는 것이다. 다시 실패하면 handleError가 그때 확정한다.
+      setReloads((current) => {
+        const next = { ...current }
+        failedAttempts.current.forEach((_, imageKey) => { next[imageKey] = (next[imageKey] ?? 0) + 1 })
+        return next
+      })
     } catch (error) {
       if (error instanceof ApiError && error.code === 'POST_FOLLOWERS_ONLY') onRestricted()
       else setUnavailable(new Set(images.map((image) => image.imageKey)))
@@ -750,6 +754,7 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
         <div key={image.imageKey} className="h-full min-w-full snap-center bg-surface-container-low overflow-hidden">
           {image.url && !unavailable.has(image.imageKey) ? (
             <img
+              key={reloads[image.imageKey] ?? 0}
               src={image.url}
               alt={`${creatorName}의 게시글 이미지 ${index + 1}`}
               className="h-full w-full object-cover"

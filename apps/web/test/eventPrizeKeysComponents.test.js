@@ -80,7 +80,9 @@ test('입력 변경·저장 실패·재시도는 기존 키와 생성 requestId�
     assert.equal(second.prizes[0].prizeKey,first.prizes[0].prizeKey);assert.equal(second.requestId,first.requestId)
     assert.deepEqual({...second.prizes[0],prizeKey:undefined},{prizeKey:undefined,displayName:'바뀐 상품',priority:8,weight:36,quantity:9})
     await failed(p,3);assert.deepEqual((await writes(p))[2].body,second)
-    await p.evaluate(()=>window.failWrites=false);await submit(p);await p.getByText('저장 완료',{exact:true}).waitFor()
+    await p.evaluate(()=>window.failWrites=false);await submit(p)
+    await p.getByRole('dialog',{name:'바로 승인 요청을 보내시겠습니까?'}).getByRole('button',{name:'나중에'}).click()
+    await p.getByText('저장 완료',{exact:true}).waitFor()
     assert.deepEqual((await writes(p))[3].body,second)
   }finally{await p.close()}
 })

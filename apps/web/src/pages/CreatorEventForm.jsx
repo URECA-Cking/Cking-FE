@@ -3,10 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock } from '../components/ui/States.jsx'
+import ConfirmSheet from '../components/ui/ConfirmSheet.jsx'
 import { useToast } from '../context/useToast.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { useAppBack } from '../hooks/useAppBack.js'
-import { createCreatorEvent, getAllMyCreatorEvents, updateCreatorEvent } from '../api/creatorEvents.js'
+import { createCreatorEvent, getAllMyCreatorEvents, requestEventApproval, updateCreatorEvent } from '../api/creatorEvents.js'
 import { getMySpace, spacePath } from '../api/creatorSpace.js'
 import { newRequestId } from '../api/client.js'
 import { describeCreatorWriteError } from '../api/creatorProfile.js'
@@ -104,6 +105,9 @@ function EventFormBody({ eventId, isEdit, target }) {
   const [requestId] = useState(() => newRequestId())
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
+  const [createdEventId, setCreatedEventId] = useState(null)
+  const [approvalBusy, setApprovalBusy] = useState(false)
+  const [approvalError, setApprovalError] = useState(null)
   const [initialPrizes] = useState(() => {
     const prizes = (target?.prizes ?? []).map(prize => ({ ...prize }))
     const reservedKeys = new Set(prizes.map(prize => prize.prizeKey.toLowerCase()))
@@ -163,6 +167,33 @@ function EventFormBody({ eventId, isEdit, target }) {
     setForm((prev) => ({ ...prev, prizes: prev.prizes.filter((_, i) => i !== index) }))
   }
 
+  /** 초안만 남기거나 승인 요청을 마친 뒤 내 스페이스 이벤트 탭으로 이동한다. */
+  function goToEvents() {
+    navigate(mySpace.data ? spacePath(mySpace.data.slug) : '/my-page', { replace: true, state: { tab: 'events' } })
+  }
+
+  /** 즉시 승인 요청을 건너뛰고 초안을 남긴 상태로 이벤트 목록에 이동한다. */
+  function finishDraft() {
+    showToast('이벤트 초안을 작성했어요.')
+    goToEvents()
+  }
+
+  /** 새로 만든 초안에 기존 승인 요청 API를 호출하고 실패하면 시트에 오류를 남긴다. */
+  async function handleApprovalRequest() {
+    if (approvalBusy || createdEventId === null) return
+    setApprovalBusy(true)
+    setApprovalError(null)
+    try {
+      await requestEventApproval(createdEventId)
+      showToast('승인 요청을 보냈어요.')
+      goToEvents()
+    } catch (err) {
+      setApprovalError(describeCreatorWriteError(err, '승인 요청에 실패했어요.'))
+    } finally {
+      setApprovalBusy(false)
+    }
+  }
+
   const totalQuantity = form.prizes.reduce((sum, prize) => sum + (Number(prize.quantity) || 0), 0)
 
   /** 백엔드와 동일한 규칙으로 미리 검증해 불필요한 400 왕복을 줄인다. */
@@ -190,8 +221,10 @@ function EventFormBody({ eventId, isEdit, target }) {
     return null
   }
 
+  /** 검증된 입력으로 이벤트를 저장하고 신규 초안이면 승인 요청 확인 시트를 연다. */
   async function handleSubmit(event) {
     event.preventDefault()
+    if (submitting || createdEventId !== null) return
     const message = validate()
     if (message) {
       setFormError(message)
@@ -222,11 +255,11 @@ function EventFormBody({ eventId, isEdit, target }) {
       if (isEdit) {
         await updateCreatorEvent(eventId, payload)
         showToast('이벤트를 수정했어요.')
+        goToEvents()
       } else {
-        await createCreatorEvent({ ...payload, requestId })
-        showToast('이벤트 초안을 작성했어요. 승인 요청을 보내면 심사가 시작돼요.')
+        const created = await createCreatorEvent({ ...payload, requestId })
+        setCreatedEventId(created.eventId)
       }
-      navigate(mySpace.data ? spacePath(mySpace.data.slug) : '/my-page', { replace: true, state: { tab: 'events' } })
     } catch (err) {
       // 활동명을 정하기 전에는 이벤트를 만들거나 고칠 수 없다(ACTIVITY_NAME_SETUP_REQUIRED). 그 밖의 오류는 기존대로 보여 준다.
       setFormError(describeCreatorWriteError(err, '저장에 실패했습니다. 입력값을 확인해주세요.'))
@@ -415,13 +448,24 @@ function EventFormBody({ eventId, isEdit, target }) {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || createdEventId !== null}
           className="w-full h-12 rounded-xl bg-primary text-on-primary font-title-md text-title-md font-bold shadow-lg active:scale-[0.98] transition-all disabled:opacity-60"
         >
           {submitting ? '저장 중...' : isEdit ? '수정 저장' : '이벤트 초안 작성'}
         </button>
         </div>
       </div>
+      <ConfirmSheet
+        open={createdEventId !== null}
+        title="바로 승인 요청을 보내시겠습니까?"
+        message={approvalError ?? '이벤트 초안을 작성했어요. 승인 요청을 보내면 심사가 시작돼요.'}
+        confirmLabel="승인 요청"
+        cancelLabel="나중에"
+        confirmTone="primary"
+        busy={approvalBusy}
+        onConfirm={handleApprovalRequest}
+        onClose={finishDraft}
+      />
     </div>
   )
 }

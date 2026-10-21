@@ -1,12 +1,13 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock } from '../components/ui/States.jsx'
+import ConfirmSheet from '../components/ui/ConfirmSheet.jsx'
 import { useToast } from '../context/useToast.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { useAppBack } from '../hooks/useAppBack.js'
-import { createCreatorEvent, getAllMyCreatorEvents, updateCreatorEvent } from '../api/creatorEvents.js'
+import { createCreatorEvent, getAllMyCreatorEvents, requestEventApproval, updateCreatorEvent } from '../api/creatorEvents.js'
 import { getMySpace, spacePath } from '../api/creatorSpace.js'
 import { newRequestId } from '../api/client.js'
 import { describeCreatorWriteError } from '../api/creatorProfile.js'
@@ -19,9 +20,9 @@ const DRAW_METHOD_LABELS = {
   UNIFORM: 'UNIFORM (후보 동일 확률 추첨)',
 }
 
-const EMPTY_PRIZE = { prizeKey: '', displayName: '', priority: 1, weight: 100, quantity: 1 }
+const EMPTY_PRIZE = { prizeKey: '', displayName: '', priority: '', weight: '', quantity: '' }
 
-/** Instant(ISO, UTC) -> datetime-local 입력값(로컬 시각). */
+/** 서버의 UTC 시각을 브라우저 로컬 날짜·시간 입력값으로 바꾼다. */
 function toLocalInput(iso) {
   if (!iso) return ''
   const date = new Date(iso)
@@ -32,15 +33,16 @@ function toLocalInput(iso) {
   )}`
 }
 
-/** datetime-local 입력값 -> Instant(ISO, UTC). */
+/** 브라우저 로컬 날짜·시간 입력값을 서버에 보낼 UTC 시각으로 바꾼다. */
 function toInstant(value) {
   if (!value) return null
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
+/** 승인 요청 최소 사전 시간(운영 48시간)에 여유를 둔 새 이벤트 기본 범위를 만든다. */
 function defaultRange() {
-  const start = new Date(Date.now() + 60 * 60 * 1000)
+  const start = new Date(Date.now() + 72 * 60 * 60 * 1000)
   const end = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   return { startAt: toLocalInput(start.toISOString()), endAt: toLocalInput(end.toISOString()) }
 }
@@ -59,6 +61,7 @@ export default function CreatorEventForm() {
   return <EventFormLoader key={eventId ? `edit:${eventId}` : 'create'} eventId={eventId} />
 }
 
+/** 수정 대상 이벤트를 불러온 뒤 생성·수정 폼을 표시한다. */
 function EventFormLoader({ eventId }) {
   const isEdit = Boolean(eventId)
   const goBack = useAppBack('/my-page')
@@ -94,6 +97,7 @@ function EventFormLoader({ eventId }) {
   return <EventFormBody eventId={eventId} isEdit={isEdit} target={target} />
 }
 
+/** 이벤트 입력 상태를 관리하고 검증된 값을 생성·수정 API에 전달한다. */
 function EventFormBody({ eventId, isEdit, target }) {
   const navigate = useNavigate()
   const goBack = useAppBack('/my-page')
@@ -104,6 +108,14 @@ function EventFormBody({ eventId, isEdit, target }) {
   const [requestId] = useState(() => newRequestId())
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
+  const [createdEventId, setCreatedEventId] = useState(null)
+  const [approvalBusy, setApprovalBusy] = useState(false)
+  const [approvalError, setApprovalError] = useState(null)
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
   const [initialPrizes] = useState(() => {
     const prizes = (target?.prizes ?? []).map(prize => ({ ...prize }))
     const reservedKeys = new Set(prizes.map(prize => prize.prizeKey.toLowerCase()))
@@ -136,10 +148,12 @@ function EventFormBody({ eventId, isEdit, target }) {
         },
   )
 
+  /** 이벤트의 일반 입력 항목 하나를 갱신한다. */
   function updateField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  /** 지정한 상품 행의 입력 항목 하나를 갱신한다. */
   function updatePrize(index, key, value) {
     setForm((prev) => ({
       ...prev,
@@ -147,20 +161,50 @@ function EventFormBody({ eventId, isEdit, target }) {
     }))
   }
 
+  /** 고유한 상품 키와 빈 숫자 입력을 가진 상품 행을 추가한다. */
   function addPrize() {
     try {
       const prizeKey = allocatePrizeKey(reservedPrizeKeys.current, newRequestId)
       setForm((prev) => ({
         ...prev,
-        prizes: [...prev.prizes, { ...EMPTY_PRIZE, prizeKey, priority: prev.prizes.length + 1 }],
+        prizes: [...prev.prizes, { ...EMPTY_PRIZE, prizeKey }],
       }))
     } catch (error) {
       setFormError(error.message)
     }
   }
 
+  /** 선택한 상품 행만 폼에서 제거한다. */
   function removePrize(index) {
     setForm((prev) => ({ ...prev, prizes: prev.prizes.filter((_, i) => i !== index) }))
+  }
+
+  /** 초안만 남기거나 승인 요청을 마친 뒤 내 스페이스 이벤트 탭으로 이동한다. */
+  function goToEvents() {
+    navigate(mySpace.data ? spacePath(mySpace.data.slug) : '/my-page', { replace: true, state: { tab: 'events' } })
+  }
+
+  /** 즉시 승인 요청을 건너뛰고 초안을 남긴 상태로 이벤트 목록에 이동한다. */
+  function finishDraft() {
+    showToast('이벤트 초안을 작성했어요.')
+    goToEvents()
+  }
+
+  /** 새 초안의 승인 요청을 처리하고, 응답 전에 화면을 떠났다면 이동·상태 갱신을 생략한다. */
+  async function handleApprovalRequest() {
+    if (approvalBusy || createdEventId === null) return
+    setApprovalBusy(true)
+    setApprovalError(null)
+    try {
+      await requestEventApproval(createdEventId)
+      if (!mounted.current) return
+      showToast('승인 요청을 보냈어요.')
+      goToEvents()
+    } catch (err) {
+      if (mounted.current) setApprovalError(describeCreatorWriteError(err, '승인 요청에 실패했어요.'))
+    } finally {
+      if (mounted.current) setApprovalBusy(false)
+    }
   }
 
   const totalQuantity = form.prizes.reduce((sum, prize) => sum + (Number(prize.quantity) || 0), 0)
@@ -180,8 +224,11 @@ function EventFormBody({ eventId, isEdit, target }) {
       if (!/^[A-Za-z0-9_-]{1,100}$/.test(prize.prizeKey ?? '')) return '상품 정보를 확인하지 못했어요. 화면을 다시 열어 주세요.'
       if (keys.has(prize.prizeKey.toLowerCase())) return '상품 식별자가 중복됐어요. 화면을 다시 열어 주세요.'
       keys.add(prize.prizeKey.toLowerCase())
-      if (Number(prize.priority) < 1 || Number(prize.weight) < 1 || Number(prize.quantity) < 1) {
-        return '상품의 순위·가중치·수량은 1 이상이어야 해요.'
+      if ([prize.priority, prize.weight, prize.quantity].some(value => value == null || String(value).trim() === '')) {
+        return '상품의 순위·가중치·수량을 모두 입력해주세요.'
+      }
+      if ([prize.priority, prize.weight, prize.quantity].some(value => !Number.isInteger(Number(value)) || Number(value) < 1)) {
+        return '상품의 순위·가중치·수량은 1 이상의 정수여야 해요.'
       }
     }
     if (form.prizes.length > 0 && totalQuantity < Number(form.winnerCount)) {
@@ -190,8 +237,10 @@ function EventFormBody({ eventId, isEdit, target }) {
     return null
   }
 
+  /** 검증된 입력으로 이벤트를 저장하고 신규 초안이면 승인 요청 확인 시트를 연다. */
   async function handleSubmit(event) {
     event.preventDefault()
+    if (submitting || createdEventId !== null) return
     const message = validate()
     if (message) {
       setFormError(message)
@@ -222,11 +271,11 @@ function EventFormBody({ eventId, isEdit, target }) {
       if (isEdit) {
         await updateCreatorEvent(eventId, payload)
         showToast('이벤트를 수정했어요.')
+        goToEvents()
       } else {
-        await createCreatorEvent({ ...payload, requestId })
-        showToast('이벤트 초안을 작성했어요. 승인 요청을 보내면 심사가 시작돼요.')
+        const created = await createCreatorEvent({ ...payload, requestId })
+        setCreatedEventId(created.eventId)
       }
-      navigate(mySpace.data ? spacePath(mySpace.data.slug) : '/my-page', { replace: true, state: { tab: 'events' } })
     } catch (err) {
       // 활동명을 정하기 전에는 이벤트를 만들거나 고칠 수 없다(ACTIVITY_NAME_SETUP_REQUIRED). 그 밖의 오류는 기존대로 보여 준다.
       setFormError(describeCreatorWriteError(err, '저장에 실패했습니다. 입력값을 확인해주세요.'))
@@ -272,7 +321,7 @@ function EventFormBody({ eventId, isEdit, target }) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-space-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-space-sm">
           <div className="flex flex-col gap-1.5">
             <label className={labelClass} htmlFor="event-start">
               시작 <span className="text-primary">*</span>
@@ -280,7 +329,7 @@ function EventFormBody({ eventId, isEdit, target }) {
             <input
               id="event-start"
               type="datetime-local"
-              className={inputClass}
+              className={`${inputClass} min-w-0`}
               value={form.startAt}
               onChange={(e) => updateField('startAt', e.target.value)}
             />
@@ -292,7 +341,7 @@ function EventFormBody({ eventId, isEdit, target }) {
             <input
               id="event-end"
               type="datetime-local"
-              className={inputClass}
+              className={`${inputClass} min-w-0`}
               value={form.endAt}
               onChange={(e) => updateField('endAt', e.target.value)}
             />
@@ -353,8 +402,12 @@ function EventFormBody({ eventId, isEdit, target }) {
                   </button>
                 )}
               </div>
-              <div>
+              <div className="flex flex-col gap-1.5">
+                <label className={labelClass} htmlFor={`event-prize-${prize.prizeKey}-name`}>
+                  상품 이름 <span className="text-primary">*</span>
+                </label>
                 <input
+                  id={`event-prize-${prize.prizeKey}-name`}
                   className={inputClass}
                   value={prize.displayName}
                   onChange={(e) => updatePrize(index, 'displayName', e.target.value)}
@@ -363,33 +416,28 @@ function EventFormBody({ eventId, isEdit, target }) {
                 />
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  className={inputClass}
-                  value={prize.priority}
-                  onChange={(e) => updatePrize(index, 'priority', e.target.value)}
-                  placeholder="순위"
-                  aria-label={`상품 ${index + 1} 순위`}
-                />
-                <input
-                  type="number"
-                  min={1}
-                  className={inputClass}
-                  value={prize.weight}
-                  onChange={(e) => updatePrize(index, 'weight', e.target.value)}
-                  placeholder="가중치"
-                  aria-label={`상품 ${index + 1} 가중치`}
-                />
-                <input
-                  type="number"
-                  min={1}
-                  className={inputClass}
-                  value={prize.quantity}
-                  onChange={(e) => updatePrize(index, 'quantity', e.target.value)}
-                  placeholder="수량"
-                  aria-label={`상품 ${index + 1} 수량`}
-                />
+                {[
+                  ['priority', '순위', '예: 1'],
+                  ['weight', '가중치', '예: 100'],
+                  ['quantity', '수량', '예: 1'],
+                ].map(([key, label, placeholder]) => (
+                  <div key={key} className="flex min-w-0 flex-col gap-1.5">
+                    <label className={labelClass} htmlFor={`event-prize-${prize.prizeKey}-${key}`}>
+                      {label} <span className="text-primary">*</span>
+                    </label>
+                    <input
+                      id={`event-prize-${prize.prizeKey}-${key}`}
+                      type="number"
+                      min={1}
+                      step={1}
+                      className={`${inputClass} min-w-0`}
+                      value={prize[key]}
+                      onChange={(e) => updatePrize(index, key, e.target.value)}
+                      placeholder={placeholder}
+                      aria-label={`상품 ${index + 1} ${label}`}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           ))}
@@ -415,13 +463,24 @@ function EventFormBody({ eventId, isEdit, target }) {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || createdEventId !== null}
           className="w-full h-12 rounded-xl bg-primary text-on-primary font-title-md text-title-md font-bold shadow-lg active:scale-[0.98] transition-all disabled:opacity-60"
         >
           {submitting ? '저장 중...' : isEdit ? '수정 저장' : '이벤트 초안 작성'}
         </button>
         </div>
       </div>
+      <ConfirmSheet
+        open={createdEventId !== null}
+        title="바로 승인 요청을 보내시겠습니까?"
+        message={approvalError ?? '이벤트 초안을 작성했어요. 승인 요청을 보내면 심사가 시작돼요.'}
+        confirmLabel="승인 요청"
+        cancelLabel="나중에"
+        confirmTone="primary"
+        busy={approvalBusy}
+        onConfirm={handleApprovalRequest}
+        onClose={finishDraft}
+      />
     </div>
   )
 }

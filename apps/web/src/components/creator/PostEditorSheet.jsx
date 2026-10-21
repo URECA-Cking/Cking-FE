@@ -64,7 +64,7 @@ export default function PostEditorSheet({ open, onClose, post, onSaved }) {
   const { registerGuard, requestClose, confirmSheetProps } = useCloseGuard(open, onClose)
   return (
     <>
-      <BottomSheet open={open} onClose={requestClose} eyebrow="Creator Post" title={post ? '게시글 수정' : '게시글 작성'}>
+      <BottomSheet open={open} onClose={requestClose} closeOnBack eyebrow="Creator Post" title={post ? '게시글 수정' : '게시글 작성'}>
         {open && <PostEditorForm post={post} onClose={onClose} onSaved={onSaved} registerGuard={registerGuard} />}
       </BottomSheet>
       <ConfirmSheet {...confirmSheetProps} />

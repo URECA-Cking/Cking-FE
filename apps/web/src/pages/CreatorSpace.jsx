@@ -238,13 +238,39 @@ export default function CreatorSpace() {
   }
   const isMine = creatorId !== null && mySpace.data?.creatorId === creatorId
   // 마이페이지·오류 안내가 "스페이스 편집을 열어 달라"고 보낸 경우(OPEN_SPACE_EDIT_STATE) 내 스페이스에서 시트를 연다.
-  // 닫을 때 이동 상태의 요청을 지워 새로고침이나 뒤로 가기에서 다시 열리지 않게 한다.
-  const editVisible = editOpen || (isMine && Boolean(location.state?.openSpaceEdit))
+  // 요청은 시트를 여는 순간 한 번 쓰고 지운다(clearOpenPostId와 같은 방식): 새로고침이나 뒤로 가기에서 다시 열리지 않고,
+  // 시트가 뒤로가기를 받으려고 쌓는 history 항목이 지워진 상태를 복사해 닫을 때 이동 상태를 다시 바꿀 필요가 없다.
+  const openSpaceEditRequested = Boolean(location.state?.openSpaceEdit)
+  useEffect(() => {
+    if (!isMine || !openSpaceEditRequested) return
+    setEditOpen(true)
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: { ...location.state, openSpaceEdit: false },
+      preventScrollReset: true,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMine, openSpaceEditRequested])
+  // 편집 시트에서 slug를 바꾸면 주소 이동은 시트를 닫은 뒤로 미룬다. 시트가 열려 있는 동안 replace하면 시트가 쌓은 history 항목이
+  // 새 주소로 바뀌어, 닫을 때 되돌린 위치(이전 slug의 항목)로 돌아가 뒤로가기에서 더는 열리지 않는 주소가 나타난다.
+  const pendingSlugRef = useRef(null)
   function closeSpaceEdit() {
     setEditOpen(false)
-    if (location.state?.openSpaceEdit) {
-      navigate(`${location.pathname}${location.search}`, { replace: true, state: { ...location.state, openSpaceEdit: false } })
+    const nextSlug = pendingSlugRef.current
+    if (!nextSlug) return
+    pendingSlugRef.current = null
+    // 들어온 경로(/{slug} 또는 /space/{slug})를 그대로 기준으로 삼는다. 닫는 순간의 경로가 시트가 쌓은 항목이 있던 경로다.
+    const enteredPath = window.location.pathname
+    let timer = null
+    const moveToNewSlug = () => {
+      window.removeEventListener('popstate', moveToNewSlug)
+      window.clearTimeout(timer)
+      // 그 사이 다른 화면으로 옮겨 갔다면 건드리지 않는다.
+      if (window.location.pathname === enteredPath) navigate(spacePath(nextSlug), { replace: true })
     }
+    // 시트가 항목을 되돌리며 popstate를 내므로 그 뒤에 옮긴다. 되돌릴 항목이 없어 popstate가 오지 않는 경우를 위해 잠시 뒤에도 옮긴다.
+    window.addEventListener('popstate', moveToNewSlug)
+    timer = window.setTimeout(moveToNewSlug, 600)
   }
   // 내 게시글의 좋아요는 보상 대상이 아니므로(BE가 자기 Space의 좋아요 미션 보상을 주지 않는다) 내 Space에서는 좋아요 미션을 숨긴다.
   const shownLikeMissions = isMine ? [] : likeMissions
@@ -297,10 +323,13 @@ export default function CreatorSpace() {
   }, [creatorName, creatorSlug])
 
 
+  // 홈 새 게시물 카드로 들어와 상세가 열리기 전까지는 스페이스 화면 대신 게시글 로딩만 보여 준다.
+  const openingPost = location.state?.openPostId != null
+
   if (loading) {
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe">
-        <LoadingBlock label="크리에이터 스페이스를 불러오는 중..." />
+        <LoadingBlock label={openingPost ? '게시글을 불러오는 중...' : '크리에이터 스페이스를 불러오는 중...'} />
       </div>
     )
   }
@@ -486,8 +515,10 @@ export default function CreatorSpace() {
     mySpace.setData((current) => ({ ...current, ...updated }))
     setCreator((current) => (current ? { ...current, ...updated } : current))
     // 공유 링크로 들어온 화면에서 slug를 바꾸면 이전 주소는 더 이상 열리지 않으므로 새 주소로 옮긴다.
-    if (slugParam && updated.slug !== undefined && updated.slug !== slugParam) {
-      navigate(spacePath(updated.slug), { replace: true })
+    if (slugParam && updated.slug !== undefined) {
+      if (updated.slug === slugParam) pendingSlugRef.current = null // 원래 주소로 되돌렸으면 예약해 둔 이동도 없앤다.
+      else if (editOpen) pendingSlugRef.current = updated.slug
+      else navigate(spacePath(updated.slug), { replace: true })
     }
   }
 
@@ -637,7 +668,6 @@ export default function CreatorSpace() {
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="font-label-md text-label-md text-on-surface font-semibold">좋아요 미션</span>
-                <span className="text-secondary font-label-xs text-label-xs">응모권 +{mission.rewardAmount}</span>
               </div>
             </div>
             <button
@@ -646,7 +676,7 @@ export default function CreatorSpace() {
               onClick={goLikePosts}
               className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 ${completed ? 'bg-surface-container-high text-outline' : 'bg-berry-tint text-primary'}`}
             >
-              {completed ? '완료' : '좋아요 하러 가기'}
+              {completed ? '완료' : `${mission.rewardAmount}장`}
             </button>
           </div>
         )
@@ -659,7 +689,7 @@ export default function CreatorSpace() {
             </div>
             <div className="flex flex-col min-w-0">
               <span className="font-label-md text-label-md text-on-surface font-semibold">공유 미션</span>
-              <span className="text-secondary font-label-xs text-label-xs">응모권 +{shownShareMission.rewardAmount} · {shareUnconfirmed ? '적립을 확인하고 있어요' : '한 번만 받을 수 있어요'}</span>
+              <span className="text-secondary font-label-xs text-label-xs">{shareUnconfirmed ? '적립을 확인하고 있어요' : '한 번만 받을 수 있어요'}</span>
             </div>
           </div>
           <button
@@ -668,7 +698,7 @@ export default function CreatorSpace() {
             onClick={shareUnconfirmed ? recheckShare : handleShare}
             className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 ${shownShareMission.completedToday ? 'bg-surface-container-high text-outline' : 'bg-berry-tint text-primary'}`}
           >
-            {shownShareMission.completedToday ? '완료' : shareRewardBusy ? '처리 중...' : shareUnconfirmed ? '다시 확인' : '공유하기'}
+            {shownShareMission.completedToday ? '완료' : shareRewardBusy ? '처리 중...' : shareUnconfirmed ? '다시 확인' : `${shownShareMission.rewardAmount}장`}
           </button>
         </div>
       )}
@@ -695,6 +725,12 @@ export default function CreatorSpace() {
 
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-24">
+      {/* 게시글 상세(z-60)는 이 덮개 위에 뜨고, 상세가 열리면 openPostId가 지워져 덮개도 사라진다. */}
+      {openingPost && tab === 'posts' && (
+        <div className="fixed inset-0 z-[55] flex flex-col bg-surface pt-safe">
+          <LoadingBlock label="게시글을 불러오는 중..." />
+        </div>
+      )}
       <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
         <div className="h-14 px-margin md:px-8 flex items-center justify-between gap-space-xs">
           <div className="flex items-center gap-space-xs min-w-0">
@@ -727,7 +763,7 @@ export default function CreatorSpace() {
         <SpaceHeaderBackdrop src={creator.bannerImageUrl} />
         <section className="relative flex flex-col gap-space-sm px-margin pb-space-sm pt-space-lg md:grid md:grid-cols-[auto_minmax(0,1fr)] md:gap-x-16 md:gap-y-4 md:px-8 md:pb-6 md:pt-10">
           <div className="flex items-center gap-space-lg md:contents">
-            <div className="h-20 w-20 shrink-0 rounded-full border border-surface-container-high bg-surface-container p-0.5 md:col-start-1 md:row-span-2 md:row-start-1 md:mx-6 md:h-36 md:w-36 md:p-1">
+            <div className="h-20 w-20 shrink-0 rounded-full border border-white p-px md:col-start-1 md:row-span-2 md:row-start-1 md:mx-6 md:h-36 md:w-36 md:p-0.5">
               <ProfilePhoto src={creator.profileImageUrl} className="h-full w-full" iconClassName="text-[40px] md:text-[72px]" />
             </div>
           </div>
@@ -817,7 +853,8 @@ export default function CreatorSpace() {
             <div className="flex flex-col gap-space-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <MaterialIcon name="bolt" className="text-primary text-[20px]" />
+                  {/* bolt는 글자 폭이 좁아 같은 20px로는 옆 헤더 아이콘보다 작고 왼쪽으로 쏠려 보여, 22px로 키우고 20px 칸 안에서 가운데로 맞춘다. */}
+                  <span className="flex h-5 w-5 items-center justify-center"><MaterialIcon name="bolt" className="text-primary text-[22px]" /></span>
                   <h2 className="font-title-md text-title-md text-on-surface">오늘의 미션</h2>
                 </div>
                 <span className="font-label-xs text-label-xs text-on-surface-variant">좋아요 미션은 매일 00:00 갱신</span>
@@ -836,8 +873,9 @@ export default function CreatorSpace() {
                 <ErrorBlock message="이벤트를 불러오지 못했어요." onRetry={reload} />
               ) : liveEvents.length > 0 ? (
                 <div className="flex gap-space-md overflow-x-auto px-margin no-scrollbar snap-x snap-mandatory py-1">
-                  {liveEvents.map((event) => (
-                    <EventCard key={event.eventId} event={event} />
+                  {liveEvents.map((event, index) => (
+                    // 앞의 두 장은 진입하자마자 보이므로 배너를 바로 받는다. 나머지는 가로로 넘길 때 받는다.
+                    <EventCard key={event.eventId} event={event} priority={index < 2} />
                   ))}
                 </div>
               ) : (
@@ -890,6 +928,7 @@ export default function CreatorSpace() {
             onLogin={goLogin}
             initialPostId={location.state?.openPostId ?? null}
             onInitialPostOpened={clearOpenPostId}
+            onLeaveToOrigin={goBack}
           />
         )}
 
@@ -923,8 +962,9 @@ export default function CreatorSpace() {
       )}
       {isMine && (
         <SpaceEditSheet
-          open={editVisible}
+          open={editOpen}
           onClose={closeSpaceEdit}
+          closeOnBack
           space={mySpace.data}
           onSaved={handleSpaceSaved}
         />

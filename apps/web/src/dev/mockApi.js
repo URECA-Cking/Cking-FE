@@ -146,7 +146,38 @@ export function installMockApiIfRequested() {
   } catch {
     // 저장소를 못 쓰면 현재 탭에서만 숨김 상태를 유지한다.
   }
-  const initialNotifications = empty ? [] : sanctionMode ? sanctionNotifications : [
+  // 알림 UI 확인 전용. 다른 Mock 시나리오의 데이터·읽음/삭제 기록은 바꾸지 않는다.
+  const previewNotifications = scenario === 'notifications' ? [
+    { notificationId: 106, type: 'COMMENT_RESTRICTION_STARTED', title: '스페이스 댓글 작성 제한 안내',
+      body: `하늘의 스페이스에서 댓글 작성이 제한되었습니다. ${endsUtc}까지 댓글을 작성하거나 수정할 수 없습니다.\n\n긴 안내도 카드를 누르면 끝까지 확인할 수 있어요.\n안내 주소: https://example.com/notifications/${'long-notice-'.repeat(12)}`,
+      event: null, drawing: null, createdAt: new Date(now - 10 * 60000).toISOString(), readAt: null },
+    { notificationId: 105, type: 'INITIAL_WINNER', title: '팬미팅 이벤트 당첨 안내',
+      body: '팬미팅 초대 이벤트에 당첨되었어요.\n이벤트 보기에서 상세 내용을 확인해 주세요.',
+      event: { eventId: 16, title: '지난 팬싸인회' }, drawing: { drawingId: 1, drawNo: 0, drawType: 'INITIAL' },
+      createdAt: new Date(now - HOUR).toISOString(), readAt: null },
+    { notificationId: 104, type: 'COMMENT_RESTRICTION_RELEASED', title: '스페이스 댓글 작성 제한 해제 안내',
+      body: '민준의 스페이스에서 댓글 작성 제한이 해제되었습니다.', event: null, drawing: null,
+      createdAt: new Date(now - 2 * HOUR).toISOString(), readAt: new Date(now - HOUR).toISOString() },
+    { notificationId: 103, type: 'INITIAL_NON_WINNER', title: '이벤트 추첨 결과가 공개되었어요',
+      body: '이번 이벤트의 추첨 결과가 공개되었습니다. 참여해 주셔서 감사합니다. 다음 이벤트에서도 만나요!',
+      event: { eventId: 16, title: '지난 팬싸인회' }, drawing: { drawingId: 1, drawNo: 0, drawType: 'INITIAL' },
+      createdAt: new Date(now - 4 * HOUR).toISOString(), readAt: null },
+    { notificationId: 102, type: 'REDRAW_WINNER', title: '아주 긴 이벤트 제목이 있는 재추첨 당첨 알림도 펼쳐서 확인해 보세요',
+      body: '추가 당첨자로 선정되었어요.\n\n참여 일정과 유의사항을 확인해 주세요.\n마지막 안내 문장까지 모두 표시됩니다.',
+      event: { eventId: 16, title: '지난 팬싸인회' }, drawing: { drawingId: 2, drawNo: 1, drawType: 'REDRAW' },
+      createdAt: new Date(now - DAY).toISOString(), readAt: null },
+    { notificationId: 101, type: 'COMMENT_RESTRICTION_RELEASED', title: '댓글 작성 제한 해제 안내',
+      body: '댓글 작성 제한이 해제되었습니다.', event: null, drawing: null,
+      createdAt: new Date(now - 2 * DAY).toISOString(), readAt: new Date(now - DAY).toISOString() },
+    // 응모권 지급 완료 알림은 BE 응답처럼 event·drawing 필드가 없다.
+    { notificationId: 100, type: 'COMMON_TICKET_REWARDED', title: '응모권 지급 완료',
+      body: '출석체크 보상으로 공용 응모권 2장이 지급됐어요.',
+      createdAt: new Date(now - 3 * DAY).toISOString(), readAt: null },
+    { notificationId: 99, type: 'CREATOR_TICKET_REWARDED', title: '응모권 지급 완료',
+      body: 'AI 퀴즈 보상으로 하늘 크리에이터 전용 응모권 4장이 지급됐어요.',
+      createdAt: new Date(now - 4 * DAY).toISOString(), readAt: null },
+  ] : []
+  const initialNotifications = empty ? [] : scenario === 'notifications' ? previewNotifications : sanctionMode ? sanctionNotifications : [
     {
       notificationId: 1, event: { eventId: 11, title: '가을 팬미팅 초대' }, drawing: { drawingId: 1, drawNo: 0, drawType: 'INITIAL' },
       type: 'INITIAL_WINNER', title: '당첨 안내', body: '가을 팬미팅에 당첨되었어요.',

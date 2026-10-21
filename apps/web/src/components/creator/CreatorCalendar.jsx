@@ -338,11 +338,12 @@ export function UpcomingSchedules({ creatorId, onShowAll }) {
                 key={schedule.scheduleId}
                 type="button"
                 onClick={onShowAll}
-                className="flex items-center gap-3 p-space-sm rounded-xl bg-surface-container-lowest shadow-card text-left active:scale-[0.99] transition-all"
+                className="flex items-center gap-3 p-space-md rounded-xl bg-surface-container-lowest shadow-card text-left active:scale-[0.99] transition-all"
               >
-                <span className="w-11 h-12 rounded-lg bg-surface-container-low flex flex-col items-center justify-center shrink-0">
-                  <span className={`font-label-xs text-label-xs font-semibold ${meta.textClass}`}>{start.getMonth() + 1}월</span>
-                  <span className={`font-title-md text-title-md font-extrabold ${meta.textClass}`}>{start.getDate()}</span>
+                {/* 오늘의 미션 카드의 아이콘 칸(40px, 둥근 모서리, 같은 배경)과 맞춘다. */}
+                <span className="w-10 h-10 rounded-xl bg-surface-container-high flex flex-col items-center justify-center shrink-0">
+                  <span className={`font-label-xs text-label-xs font-bold ${meta.textClass}`}>{start.getMonth() + 1}월</span>
+                  <span className={`font-label-xs text-label-xs font-bold ${meta.textClass}`}>{start.getDate()}일</span>
                 </span>
                 <span className="flex flex-col min-w-0">
                   <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{schedule.title}</span>

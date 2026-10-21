@@ -59,7 +59,7 @@ const inputClass =
  * - 수정: 댓글 작성자 본인만. 삭제: 댓글 작성자 본인과 게시글 작성 크리에이터.
  * - 서버 페이지가 offset 방식이라 삭제 뒤에는 서버 목록과 다시 맞춘 뒤에만 '더 보기'를 연다.
  */
-export default function PostComments({ creatorId, postId, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostRestricted, onCommentCountChange, onCommentCountSync }) {
+export default function PostComments({ creatorId, postId, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostRestricted, onCommentCountChange, onCommentCountSync, keyboardInset = 0 }) {
   const showToast = useToast()
   const { isAdmin } = useUser()
   const redirectToProfileSetup = useProfileSetupRedirect()
@@ -85,6 +85,11 @@ export default function PostComments({ creatorId, postId, authenticated, followi
     box.style.height = 'auto'
     box.style.height = `${box.scrollHeight}px`
   }, [draft])
+  // 키보드가 올라와 아래 여백이 생기면, 입력 중인 칸(새 댓글·댓글 수정)이 키보드에 가려지지 않게 보이는 곳으로 올린다.
+  useEffect(() => {
+    const active = document.activeElement
+    if (keyboardInset > 0 && active instanceof HTMLTextAreaElement) active.scrollIntoView({ block: 'nearest' })
+  }, [keyboardInset])
   const [posting, setPosting] = useState(false)
   const [postError, setPostError] = useState('')
   const [editing, setEditing] = useState(null) // { commentId, text }
@@ -333,7 +338,9 @@ export default function PostComments({ creatorId, postId, authenticated, followi
                 <>
                   {comment.filtered ? (
                     <FilteredComment
-                      revealable={comment.revealable}
+                      canReveal={isMine || isAdmin}
+                      // 관리자에게는 개인정보 차단·관리자 숨김 댓글도 열린다. 스페이스 주인에게는 BE의 revealable을 따른다.
+                      revealable={isAdmin || (isMine && comment.revealable)}
                       original={originals[comment.commentId]?.updatedAt === comment.updatedAt ? originals[comment.commentId] : undefined}
                       onReveal={() => reveal(comment)}
                     />
@@ -499,13 +506,17 @@ export default function PostComments({ creatorId, postId, authenticated, followi
 
 /**
  * 필터가 차단해 원문이 가려진 댓글(Cking-BE comment-api.md '필터링').
- * - revealable: '필터링한 댓글 보기'로 원문을 받아 펼친다. 개인정보로 막힌 댓글은 false라 안내만 보여준다.
+ * - 필터링된 댓글은 모든 조회자에게 자리 표시로 보이고(작성자 본인은 filtered=false), 원문은 스페이스 주인과 관리자만 받는다.
+ * - canReveal: 스페이스 주인·관리자. 아니면 자리 표시만 보이고 원문을 요청하지 않는다.
+ * - revealable: '필터링한 댓글 보기'로 원문을 받아 펼친다. 개인정보로 막힌 댓글은 주인에게 false라 안내만 보여준다.
  * - 판정 사유는 사용자에게 알리지 않는다.
  */
-function FilteredComment({ revealable, original, onReveal }) {
+function FilteredComment({ canReveal, revealable, original, onReveal }) {
   // 펼친 원문을 다시 가린 상태. 받아 둔 원문은 버리지 않아 다시 보면 요청 없이 펼친다.
   const [collapsed, setCollapsed] = useState(false)
   const notRevealable = !revealable || original?.code === 'COMMENT_NOT_REVEALABLE'
+  // 원문을 열 수 있는 사람(주인·관리자)에게만 '볼 수 없는 댓글'로 구분해 안내한다. 그 외에는 모두 같은 자리 표시다.
+  const unavailable = canReveal && notRevealable
   // 판정만 바뀌어 revealable이 false가 된 댓글은 updatedAt이 그대로라 캐시가 남아 있을 수 있다. 펼쳐 둔 원문도 숨긴다.
   if (revealable && original?.status === 'done' && !collapsed) {
     return (
@@ -525,9 +536,9 @@ function FilteredComment({ revealable, original, onReveal }) {
     <div className="flex flex-col items-start gap-2">
       <p className="flex items-center gap-1.5 rounded-lg bg-surface-container px-3 py-2 font-body-sm text-body-sm text-on-surface-variant">
         <MaterialIcon name="visibility_off" className="text-[16px] text-outline" />
-        {notRevealable ? '볼 수 없는 댓글이에요.' : '필터링된 댓글이에요.'}
+        {unavailable ? '볼 수 없는 댓글이에요.' : '필터링된 댓글이에요.'}
       </p>
-      {!notRevealable && (
+      {canReveal && !notRevealable && (
         <button
           type="button"
           onClick={() => {

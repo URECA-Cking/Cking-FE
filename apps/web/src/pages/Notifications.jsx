@@ -14,7 +14,7 @@ import { localizeNoticeBody } from '../utils/sanctionNotice.js'
 /**
  * 알림 목록.
  * GET /api/me/notifications 로 조회하고, 항목을 누르면
- * PATCH /api/me/notifications/{id}/read 로 읽음 처리한 뒤 관련 이벤트로 이동한다.
+ * 펼칠 때 PATCH /api/me/notifications/{id}/read 로 읽음 처리한다. 이벤트 이동은 펼친 카드의 별도 버튼으로 제공한다.
  * 전체 읽음은 서버의 일괄 읽음 API를 사용한다.
  * 제재 알림은 event·drawing이 null이라 이동 없이 읽음 처리만 한다.
  * 카드를 왼쪽으로 밀어 드러난 "삭제"를 누르면 PATCH /api/me/notifications/{id}/hide 로 알림함에서 지운다(서버는 숨김으로 기록하고 되돌릴 수 없음).
@@ -38,6 +38,7 @@ export default function Notifications() {
   const [readingId, setReadingId] = useState(null)
   const [markingAll, setMarkingAll] = useState(false)
   const [openId, setOpenId] = useState(null)
+  const [expandedId, setExpandedId] = useState(null)
   const [hidingId, setHidingId] = useState(null)
   const chunkPage = Math.floor(page / 5)
 
@@ -70,10 +71,14 @@ export default function Notifications() {
     return results.every(Boolean)
   }
 
-  /** 항목 선택 시 목록과 배지를 먼저 갱신하고 서버 결과로 확정한다. */
+  /** 한 번에 한 카드를 펼친다. 펼칠 때 읽음 처리하고, 접을 때는 요청하지 않는다. */
   async function handleOpen(notification) {
-    const eventId = notification.event?.eventId
-    if (!notification.readAt) {
+    if (expandedId === notification.notificationId) {
+      setExpandedId(null)
+      return
+    }
+    setExpandedId(notification.notificationId)
+    if (!notification.readAt && readingId !== notification.notificationId) {
       setReadingId(notification.notificationId)
       const optimisticReadAt = new Date().toISOString()
       /** 선택한 알림의 읽음 시각을 목록과 배지에 같은 값으로 반영한다. */
@@ -94,7 +99,6 @@ export default function Notifications() {
         setReadingId(null)
       }
     }
-    if (eventId) navigate(`/events/${eventId}`)
   }
 
   /** 알림을 목록과 배지에서 먼저 빼고 서버에 숨김을 요청한다. 실패하면 되돌리고, 성공하면 서버 기준으로 목록을 다시 맞춘다. */
@@ -148,7 +152,7 @@ export default function Notifications() {
   }
 
   return (
-    <div className="flex min-h-full flex-col w-full px-margin pt-space-md pb-8 gap-space-sm md:mx-auto md:max-w-4xl md:px-8">
+    <div className="flex min-h-full shrink-0 flex-col w-full px-margin pt-space-md pb-8 gap-space-sm md:mx-auto md:max-w-4xl md:px-8">
       <div className="flex items-center justify-between mb-1">
         <div>
           {totalUnreadCount > 0 && (
@@ -184,6 +188,7 @@ export default function Notifications() {
       {items.map((item) => {
         const meta = NOTIFICATION_TYPE_META[item.type] ?? { label: item.type, icon: 'notifications' }
         const unread = !item.readAt
+        const expanded = expandedId === item.notificationId
         return (
           <SwipeToHide
             key={item.notificationId}
@@ -194,13 +199,14 @@ export default function Notifications() {
             disabled={markingAll || readingId !== null || (hidingId !== null && hidingId !== item.notificationId)}
             label={`알림 삭제: ${item.title}`}
           >
+          <article className={`rounded-2xl border ${expanded ? '' : 'h-32'} ${unread ? 'bg-surface-container-lowest border-border-rose' : 'bg-surface-container-low border-transparent'}`}>
           <button
             type="button"
             onClick={() => handleOpen(item)}
-            disabled={markingAll || readingId !== null}
-            className={`w-full p-space-md rounded-2xl flex items-start gap-space-md text-left transition-all active:scale-[0.99] ${
-              unread ? 'bg-surface-container-lowest border border-border-rose' : 'bg-surface-container-low'
-            }`}
+            disabled={markingAll || (readingId !== null && readingId !== item.notificationId)}
+            aria-expanded={expanded}
+            aria-controls={item.body ? `notification-body-${item.notificationId}` : undefined}
+            className={`w-full p-3 rounded-2xl flex items-start gap-3 text-left ${expanded ? 'h-auto' : 'h-full overflow-hidden'}`}
           >
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
@@ -211,24 +217,33 @@ export default function Notifications() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className={`font-label-xs text-label-xs font-bold ${unread ? 'text-primary' : 'text-on-surface-variant'}`}>{meta.label}</span>
-                {unread && <span aria-label="읽지 않음" className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                <span className={`min-w-0 truncate font-label-xs text-label-xs font-bold ${unread ? 'text-primary' : 'text-on-surface-variant'}`}>{meta.label}</span>
+                {unread && <span aria-label="읽지 않음" className="w-1.5 h-1.5 shrink-0 rounded-full bg-primary" />}
+                <MaterialIcon name={expanded ? 'expand_less' : 'expand_more'} className="ml-auto shrink-0 text-on-surface-variant text-[20px]" />
               </div>
-              <p className={`font-label-md text-label-md mt-0.5 ${unread ? 'text-on-surface font-semibold' : 'text-on-surface-variant font-medium'}`}>{item.title}</p>
+              <p className={`font-label-md text-label-md mt-0.5 [overflow-wrap:anywhere] ${expanded ? '' : 'line-clamp-1'} ${unread ? 'text-on-surface font-semibold' : 'text-on-surface-variant font-medium'}`}>{item.title}</p>
+              <time dateTime={item.createdAt} className="block mt-1 font-label-xs text-label-xs text-outline">
+                {formatRelativeTime(item.createdAt)}
+              </time>
               {item.body && (
-                <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 leading-relaxed">{localizeNoticeBody(item.body)}</p>
-              )}
-              {item.event?.title && (
-                <p className="font-label-xs text-label-xs text-outline mt-1 truncate">
-                  {item.event.title}
-                  {item.drawing ? ` · ${item.drawing.drawNo}회차` : ''}
+                <p id={`notification-body-${item.notificationId}`} className={`font-body-sm text-body-sm text-on-surface-variant mt-2 leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] ${expanded ? '' : 'line-clamp-1'}`}>
+                  {localizeNoticeBody(item.body)}
                 </p>
               )}
             </div>
-            <span className="font-label-xs text-label-xs text-outline shrink-0">
-              {formatRelativeTime(item.createdAt)}
-            </span>
           </button>
+          {expanded && item.event?.eventId && (
+            <div className="px-space-md pb-space-md">
+              <p className="font-label-xs text-label-xs text-on-surface-variant mb-2 [overflow-wrap:anywhere]">
+                {item.event.title}{item.drawing ? ` · ${item.drawing.drawNo}회차` : ''}
+              </p>
+              <button type="button" onClick={() => navigate(`/events/${item.event.eventId}`)} disabled={markingAll || readingId !== null || !item.readAt}
+                className="rounded-xl bg-berry-tint px-4 py-2 font-label-sm text-label-sm font-semibold text-primary disabled:opacity-60">
+                이벤트 보기
+              </button>
+            </div>
+          )}
+          </article>
           </SwipeToHide>
         )
       })}

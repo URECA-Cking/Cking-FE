@@ -6,11 +6,11 @@ import { getEventBanner } from '../../data/eventBanners.js'
 import { useCreatorProfile } from '../../hooks/useCreatorProfile.js'
 import { useNow } from '../../hooks/useNow.js'
 import { formatCountdown, formatDday, formatEventDate, formatNumber, formatShortDate, totalPrizeQuantity } from '../../utils/format.js'
-import { displayStatusMeta, eventStatusMeta } from '../../utils/eventStatus.js'
+import { closedDisplayAt, displayStatusMeta, eventStatusMeta } from '../../utils/eventStatus.js'
 
 /**
  * 이벤트(래플) 요약 카드. 백엔드 EventSummary( eventId, creatorId, title, startAt,
- * endAt, status, displayStatus, winnerCount, drawMethod, prizes )를 그대로 받는다.
+ * endAt, closeRequestedAt, status, displayStatus, winnerCount, drawMethod, prizes )를 그대로 받는다.
  *
  * 응모 누적 건수는 공개 API가 제공하지 않아, 대신 실제 값이 있는 당첨 인원과
  * 상품 등급 구성을 보여준다.
@@ -18,8 +18,9 @@ import { displayStatusMeta, eventStatusMeta } from '../../utils/eventStatus.js'
  * 내 스페이스에서는 크리에이터 본인 목록의 이벤트를 같은 카드로 보여준다. 표시 상태(displayStatus)가 없으면
  * 아직 공개되지 않은 이벤트(초안·승인 대기·거절됨)라 상태 뱃지와 거절 사유를 보여주고 상세로 가지 않는다.
  * onManage를 주면 카드 왼쪽 위에 관리 메뉴(⋯) 버튼이 생긴다.
+ * priority는 화면에 처음 보이는 카드용이다. 배너를 lazy 없이 높은 우선순위로 바로 받아, 스페이스에 들어오자마자 보이게 한다.
  */
-export default function EventCard({ event, showCreatorTag = false, variant = 'carousel', onManage }) {
+export default function EventCard({ event, showCreatorTag = false, variant = 'carousel', onManage, priority = false }) {
   const navigate = useNavigate()
   const creator = useCreatorProfile(event.creatorId)
   const published = Boolean(event.displayStatus)
@@ -29,6 +30,8 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
   const urgent = published && !closed && (dday === 'D-DAY' || dday === 'D-1')
   // D-day 숫자를 보여줄 때는 상태 아이콘(번개) 없이 글자만 쓴다. 임박(D-DAY·D-1)일 때만 알람 아이콘을 붙인다.
   const badgeIcon = urgent ? 'alarm' : published && !closed && dday ? null : status.icon
+  // 수동 마감한 이벤트는 예정 종료일이 아니라 실제 마감 요청 시각을 보여준다.
+  const deadlineAt = closed ? closedDisplayAt(event) : event.endAt
   const prizeCount = totalPrizeQuantity(event.prizes)
   // 진행 중이면 마감 시각 대신 1초마다 줄어드는 카운트다운을 보여준다. 응모 가능 여부의 최종 판정은 서버가 한다.
   const live = event.displayStatus === 'IN_PROGRESS'
@@ -72,7 +75,7 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
             </span>
             {live
               ? <span className={`truncate tabular-nums font-semibold ${urgent ? 'text-error' : 'text-primary'}`}>{countdown ?? '응모 마감'}</span>
-              : <span className="truncate">{formatShortDate(event.endAt, { withTime: true })} 마감</span>}
+              : <span className="truncate">{formatShortDate(deadlineAt, { withTime: true })} 마감</span>}
           </div>
         </div>
         {/* 뽑는 인원(winnerCount)이지 지원자 수가 아니다. 지원자 수는 공개 API가 주지 않아 '당첨 인원'으로 분명히 적는다. */}
@@ -96,7 +99,8 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             src={getEventBanner(event.eventId)}
             alt=""
-            loading="lazy"
+            loading={priority ? 'eager' : 'lazy'}
+            fetchPriority={priority ? 'high' : undefined}
             decoding="async"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
@@ -146,7 +150,7 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
             ) : (
               <span className="flex items-center gap-1">
                 <MaterialIcon name="event" className="text-[14px]" />
-                {formatEventDate(event.endAt)} 마감
+                {formatEventDate(deadlineAt)} 마감
               </span>
             )}
             {prizeCount > 0 && <span>상품 {formatNumber(prizeCount)}개</span>}

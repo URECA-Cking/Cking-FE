@@ -2,6 +2,28 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { installMockApiIfRequested } from '../src/dev/mockApi.js'
 
+test('알림 미리보기에는 긴 본문·URL·여러 유형의 알림이 있고 실제 API를 호출하지 않는다', async () => {
+  const originalWindow = globalThis.window
+  const originalStorage = globalThis.sessionStorage
+  globalThis.sessionStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} }
+  globalThis.window = { location: new URL('http://localhost:5182/notifications?mock=notifications'), fetch: async () => { throw new Error('실제 API 호출 금지') } }
+  try {
+    installMockApiIfRequested()
+    const { data } = await (await window.fetch('/api/me/notifications')).json()
+    assert.equal(data.items.length, 8)
+    assert.equal(new Set(data.items.map((item) => item.notificationId)).size, 8)
+    assert.ok(data.items.some((item) => item.body.includes('\n') && item.body.includes('https://')))
+    assert.ok(data.items.some((item) => item.event))
+    assert.ok(data.items.some((item) => !item.event))
+    const rewards = data.items.filter((item) => item.type.endsWith('_TICKET_REWARDED'))
+    assert.deepEqual(rewards.map((item) => item.type), ['COMMON_TICKET_REWARDED', 'CREATOR_TICKET_REWARDED'])
+    assert.ok(rewards.every((item) => !('event' in item) && !('drawing' in item)))
+  } finally {
+    globalThis.window = originalWindow
+    globalThis.sessionStorage = originalStorage
+  }
+})
+
 test('개별·전체 읽음은 서버 모의 응답에 남고 새로고침 뒤에도 복원된다', async () => {
   const originalWindow = globalThis.window
   const originalStorage = globalThis.sessionStorage

@@ -10,6 +10,7 @@ import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError } from '../../api/client.js'
 import { POST_ERROR_MESSAGES, POST_LIKE_ERROR_MESSAGES, deletePost, getCreatorPost, getCreatorPosts, likePost, unlikePost } from '../../api/posts.js'
 import { useAsync } from '../../hooks/useAsync.js'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 import { adjustCommentCount, applyCommentCount, reconcileCommentCounts } from '../../utils/postCommentCount.js'
 
@@ -33,10 +34,11 @@ function modalSize(ratio, hasMedia) {
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 /** 크리에이터 게시물 목록과 상세, 작성·수정·삭제 및 좋아요 상태를 관리한다. */
-export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded, initialPostId = null, onInitialPostOpened }) {
+export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded, initialPostId = null, onInitialPostOpened, onLeaveToOrigin }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
+  const keyboardInset = useKeyboardInset()
   const showToast = useToast()
   // editor: null(닫힘) | { post: null }(작성) | { post }(수정)
   const [editor, setEditor] = useState(null)
@@ -67,6 +69,8 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   // 첫 페이지를 다시 읽을 때마다 올려서, 그 전에 시작한 '더 보기' 응답이 늦게 와도 버린다.
   const listGeneration = useRef(0)
   const detailSeq = useRef(0)
+  // 홈 새 게시물 카드로 들어와 연 상세인지. 이 상세를 직접 닫으면 스페이스가 아니라 온 곳(홈)으로 돌아간다.
+  const openedFromFeed = useRef(false)
   // 로그인·팔로우 권한이 바뀌면 CreatorSpace의 key가 이 컴포넌트를 다시 마운트한다.
   const first = useAsync(
     () => getCreatorPosts(creatorId),
@@ -235,6 +239,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   // 홈 새 게시물 카드처럼 특정 게시물을 가리키며 들어오면 마운트 직후 그 상세를 연다. 한 번 열면 라우터 상태에서 지운다.
   useEffect(() => {
     if (initialPostId == null) return
+    openedFromFeed.current = true
     openDetail(initialPostId)
     onInitialPostOpened?.()
     // 진입 시 한 번만 연다. openDetail은 렌더마다 새로 만들어지지만 이 효과는 initialPostId 변화에만 반응한다.
@@ -293,7 +298,17 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   const closeDetail = () => {
     detailSeq.current += 1
     detailPostId.current = null
+    openedFromFeed.current = false
     setDetail(null)
+  }
+  /** 사용자가 상세를 직접 닫는다. 홈 카드로 연 상세는 스페이스를 거치지 않고 온 곳으로 돌아가며, 이동이 끝날 때까지 상세를 그대로 둔다. */
+  const dismissDetail = () => {
+    if (openedFromFeed.current && onLeaveToOrigin) {
+      openedFromFeed.current = false
+      onLeaveToOrigin()
+      return
+    }
+    closeDetail()
   }
   /** 잠긴 게시물의 로그인·팔로우·재조회 동작을 선택한다. */
   const lockedAction = () => {
@@ -363,13 +378,13 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
         />
       )}
       {detail && (
-        <div role="dialog" aria-modal="true" aria-label="게시글 상세" className="fixed inset-0 z-[60] flex justify-center bg-surface md:items-center md:bg-black/60 md:p-6" onClick={closeDetail}>
-          <button type="button" onClick={closeDetail} aria-label="닫기" className="absolute right-4 top-4 hidden h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/15 md:flex">
+        <div role="dialog" aria-modal="true" aria-label="게시글 상세" className="fixed inset-0 z-[60] flex justify-center bg-surface md:items-center md:bg-black/60 md:p-6" style={keyboardInset > 0 ? { bottom: keyboardInset } : undefined} onClick={dismissDetail}>
+          <button type="button" onClick={(event) => { event.stopPropagation(); dismissDetail() }} aria-label="닫기" className="absolute right-4 top-4 hidden h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/15 md:flex">
             <MaterialIcon name="close" className="text-[26px]" />
           </button>
-          <div className="flex h-full w-full max-w-xl flex-col md:h-[var(--modal-h)] md:w-[var(--modal-w)] md:max-w-none md:overflow-hidden md:rounded-xl md:bg-surface" style={modalSize(mediaRatio, Boolean(detail.post && !detail.post.locked && detail.post.imageCount > 0))} onClick={(event) => event.stopPropagation()}>
+          <div className="flex h-full w-full max-w-xl flex-col md:h-[var(--modal-h)] md:max-h-full md:w-[var(--modal-w)] md:max-w-none md:overflow-hidden md:rounded-xl md:bg-surface" style={modalSize(mediaRatio, Boolean(detail.post && !detail.post.locked && detail.post.imageCount > 0))} onClick={(event) => event.stopPropagation()}>
             <header className="flex h-14 shrink-0 items-center gap-1 border-b border-surface-container-high bg-surface px-2 pt-safe md:hidden">
-              <button type="button" onClick={closeDetail} aria-label="닫기" className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface hover:bg-surface-container">
+              <button type="button" onClick={dismissDetail} aria-label="닫기" className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface hover:bg-surface-container">
                 <MaterialIcon name="arrow_back" className="text-[22px]" />
               </button>
               <h3 className="font-title-md text-title-md font-semibold text-on-surface">게시물</h3>
@@ -417,6 +432,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
                       onPostRestricted={handlePostRestricted}
                       onCommentCountChange={(delta) => handleCommentCountChange(detail.post.postId, delta)}
                       onCommentCountSync={(count) => handleCommentCountSync(detail.post.postId, count)}
+                      keyboardInset={keyboardInset}
                     />
                   )}
                 </PostDetail>
@@ -662,6 +678,8 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
   const [images, setImages] = useState(post.images ?? [])
   const [unavailable, setUnavailable] = useState(() => new Set())
   const [refreshing, setRefreshing] = useState(false)
+  // 이미지별 다시 불러오기 횟수. 주소가 같아도 <img>를 새로 만들어 다시 요청하게 하는 key에 쓴다.
+  const [reloads, setReloads] = useState({})
   const [active, setActive] = useState(0)
   // 첫 사진의 비율(4:5~1.91:1)을 칸 비율로 쓴다. 폰에서는 이 비율대로, 웹 모달에서는 모달이 같은 비율로 커진다.
   const [ratio, setRatio] = useState(1)
@@ -683,12 +701,14 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
       }
       const latestImages = latest.images ?? []
       setImages(latestImages)
-      setUnavailable(new Set(latestImages.filter((image) =>
-        !image.url || (
-          failedAttempts.current.has(image.imageKey)
-          && images.find((previous) => previous.imageKey === image.imageKey)?.url === image.url
-        )
-      ).map((image) => image.imageKey)))
+      setUnavailable(new Set(latestImages.filter((image) => !image.url).map((image) => image.imageKey)))
+      // 로드에 실패했던 이미지는 주소가 그대로여도 한 번 더 불러온다. 네트워크 순간 끊김이나 iOS의 화면 밖 요청 중단 같은
+      // 일시 실패를 바로 "표시 불가"로 굳히지 않으려는 것이다. 다시 실패하면 handleError가 그때 확정한다.
+      setReloads((current) => {
+        const next = { ...current }
+        failedAttempts.current.forEach((_, imageKey) => { next[imageKey] = (next[imageKey] ?? 0) + 1 })
+        return next
+      })
     } catch (error) {
       if (error instanceof ApiError && error.code === 'POST_FOLLOWERS_ONLY') onRestricted()
       else setUnavailable(new Set(images.map((image) => image.imageKey)))
@@ -743,27 +763,37 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
     <div className="relative md:h-full" style={{ '--media-ratio': ratio }}>
       <div
         ref={scroller}
-        className="flex aspect-[var(--media-ratio)] overflow-x-auto overscroll-x-contain snap-x snap-mandatory no-scrollbar md:aspect-auto md:h-full"
+        className="flex overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x snap-mandatory no-scrollbar md:h-full"
         onScroll={(event) => setActive(Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth))}
       >
       {images.map((image, index) => (
-        <div key={image.imageKey} className="h-full min-w-full snap-center bg-surface-container-low overflow-hidden">
+        // snap-always: 빠르게 튕겨도(안드로이드 크롬 등) 이미지를 건너뛰지 않고 다음 한 장에서 멈춘다.
+        // 칸은 자기 비율(aspect-ratio)로 높이를 정하고(self-start: 늘어나지 않게), 이미지는 absolute로 칸을 채워 칸 높이에 영향을 주지 않는다.
+        // 컨테이너의 aspect-ratio 높이를 칸이 따르게 했더니 iOS 사파리 일부 버전에서 칸이 가장 큰 이미지의 높이로 커져
+        // 컨테이너가 세로로 스크롤되고(튕김) 이미지가 확대돼 보였다. 세로 스크롤은 overflow-y-hidden으로도 막는다.
+        // md 이상에서는 모달이 높이를 정하므로 칸이 컨테이너 높이를 그대로 따른다.
+        <div key={image.imageKey} className="relative w-full shrink-0 self-start aspect-[var(--media-ratio)] snap-center snap-always bg-surface-container-low overflow-hidden md:aspect-auto md:h-full md:self-stretch">
           {image.url && !unavailable.has(image.imageKey) ? (
             <img
+              key={reloads[image.imageKey] ?? 0}
               src={image.url}
               alt={`${creatorName}의 게시글 이미지 ${index + 1}`}
-              className="h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover"
               onError={() => handleError(image)}
-              onLoad={index === 0 ? (event) => {
+              onLoad={(event) => {
+                // 화면 밖 칸의 이미지는 WebKit(iOS)이 디코딩을 미뤄, 스와이프로 넘어온 순간 비어 보일 수 있다(2·3번째 칸이 자주 그랬다).
+                // 불러오자마자 미리 디코딩해 두면 넘길 때 바로 그려진다. 실패해도 화면에는 영향이 없다.
+                event.currentTarget.decode?.().catch(() => {})
+                if (index !== 0) return
                 const { naturalWidth, naturalHeight } = event.currentTarget
                 if (!naturalWidth || !naturalHeight) return
                 const next = Math.min(MEDIA_RATIO_RANGE[1], Math.max(MEDIA_RATIO_RANGE[0], naturalWidth / naturalHeight))
                 setRatio(next)
                 onRatio?.(next)
-              } : undefined}
+              }}
             />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-on-surface-variant">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-on-surface-variant">
               <MaterialIcon name="broken_image" className="text-[24px]" />
               <button type="button" onClick={() => { attemptedNull.current = true; failedAttempts.current.delete(image.imageKey); refresh() }} disabled={refreshing} className="font-label-sm text-label-sm text-primary disabled:opacity-60">
                 이미지 다시 불러오기

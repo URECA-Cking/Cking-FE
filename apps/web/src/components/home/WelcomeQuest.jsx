@@ -99,7 +99,7 @@ function QuestHero({ nickname, quest }) {
 function QuizCard({ disabled, message, onAnswer }) {
   return (
     <div className="px-3.5 pb-3.5">
-      <div className="rounded-2xl bg-gradient-to-br from-surface-container-lowest to-secondary/30 p-4">
+      <div className="rounded-2xl bg-gradient-to-br from-surface-container-lowest to-secondary/30 p-4 light:to-surface-container-low">
         <div className="mb-3 flex items-center justify-between">
           <span className="rounded-full bg-amber-400 px-2.5 py-0.5 font-label-sm text-label-sm font-bold text-slate-900">
             5초 순삭 OX 퀴즈
@@ -190,7 +190,6 @@ export default function WelcomeQuest({ memberId, nickname, quest, claimingSteps,
         onClick={onShow}
         className="mx-margin mt-4 flex items-center justify-center gap-1 rounded-xl bg-surface-container py-2 font-label-sm text-label-sm text-on-surface-variant active:opacity-80 transition-opacity"
       >
-        <span aria-hidden="true">🚀</span>
         시작 가이드 다시 보기
       </button>
     )
@@ -202,7 +201,7 @@ export default function WelcomeQuest({ memberId, nickname, quest, claimingSteps,
 
       <section className="mt-6 px-margin">
         <div className="mb-2.5 flex items-end justify-between gap-2">
-          <h3 className="text-sm font-extrabold text-on-surface"><span aria-hidden="true">🚀</span> 1분 만에 끝내는 시작 가이드</h3>
+          <h3 className="text-sm font-extrabold text-on-surface">1분 만에 끝내는 시작 가이드</h3>
           <button
             type="button"
             onClick={onHide}
@@ -230,7 +229,7 @@ export default function WelcomeQuest({ memberId, nickname, quest, claimingSteps,
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     {done ? (
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-success/15">
                         <FilledCheck size={22} />
                       </span>
                     ) : (

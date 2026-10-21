@@ -5,7 +5,7 @@ export default function FilledCheck({ size = 20, tone = 'success', className = '
   return (
     <span
       aria-hidden="true"
-      className={`inline-flex shrink-0 items-center justify-center rounded-full ${tone === 'onPrimary' ? 'bg-white text-primary' : 'bg-emerald-500 text-white'} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full ${tone === 'onPrimary' ? 'bg-white text-primary' : 'bg-success text-white'} ${className}`}
       style={{ width: size, height: size }}
     >
       <MaterialIcon name="check" style={{ fontSize: Math.round(size * 0.72), fontWeight: 700 }} />

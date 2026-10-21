@@ -12,6 +12,7 @@ import FollowStatus from '../creator/FollowStatus.jsx'
 import { useScrollChrome } from '../../hooks/useScrollChrome.js'
 import { useAppBack } from '../../hooks/useAppBack.js'
 import { useMyTickets } from '../../context/useMyTickets.js'
+import { useUser } from '../../context/useUser.js'
 import {
   resetNavigationScroll,
   restoreNavigationScroll,
@@ -35,6 +36,13 @@ const APP_BAR_TITLES = {
 
 /** 사용자 화면의 헤더 배지와 공용 탐색 레이아웃을 관리한다. */
 export default function MainLayout() {
+  const { user, status } = useUser()
+  if (status !== 'authenticated') return null
+  // 회원이 바뀌면 예약뿐 아니라 읽음·숨김 override와 진행 중 조회도 함께 버린다.
+  return <MemberMainLayout key={user?.memberId ?? 'authenticated'} />
+}
+
+function MemberMainLayout() {
   const location = useLocation()
   const navigationType = useNavigationType()
   const { pathname } = location
@@ -72,6 +80,33 @@ export default function MainLayout() {
 
   // 헤더 응모권 버튼의 총 개수. 아직 불러오지 못했으면 null이라 자리 표시를 보여 준다.
   const { summary: ticketSummary } = useMyTickets()
+  const previousTicketTotalRef = useRef(null)
+  const notificationTimersRef = useRef([])
+
+  // 화면을 떠나면 예약을 취소한다. 회원 변경·로그아웃은 상위 key/언마운트로 같은 정리를 거친다.
+  useEffect(() => {
+    previousTicketTotalRef.current = null
+    return () => {
+      notificationTimersRef.current.forEach(window.clearTimeout)
+      notificationTimersRef.current = []
+    }
+  }, [pathname])
+
+  const ticketTotal = ticketSummary?.total ?? null
+  useEffect(() => {
+    const previous = previousTicketTotalRef.current
+    previousTicketTotalRef.current = Number.isFinite(ticketTotal) ? ticketTotal : null
+    if (!Number.isFinite(ticketTotal) || previous === null || ticketTotal <= previous) return
+    // 진행 중 추가 적립은 같은 두 예약에 합친다. 잔액 증가를 지급 알림 생성 완료로 단정하지 않는다.
+    if (notificationTimersRef.current.length > 0) return
+    notificationTimersRef.current = [
+      window.setTimeout(() => reload(), 2500),
+      window.setTimeout(() => {
+        notificationTimersRef.current = []
+        reload()
+      }, 5500),
+    ]
+  }, [ticketTotal, pathname, reload])
 
   /** 현재 history 위치에서 사용자가 읽고 있던 공용 스크롤 위치를 기록한다. */
   const handleScrollPositionSave = useCallback(() => {

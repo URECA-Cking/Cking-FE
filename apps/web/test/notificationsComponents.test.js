@@ -6,7 +6,7 @@ import { build } from 'vite'
 import react from '@vitejs/plugin-react'
 import { chromium } from '@playwright/test'
 
-let bundle, browser
+let bundle, styles, browser
 const item = (id, readAt = null) => ({ notificationId: id, type: 'EVENT_OPENED', title: `알림 ${id}`, body: '', createdAt: '2026-10-15T00:00:00Z', readAt, event: null, drawing: null })
 const list = (items, page = 0, hasNext = false) => ({ items, page, hasNext })
 
@@ -16,6 +16,8 @@ test.before(async () => {
     build: { write: false, minify: false, lib: { entry: fileURLToPath(new URL('./fixtures/notificationsBrowser.jsx', import.meta.url)), name: 'NotificationsTest', formats: ['iife'] } },
   })
   bundle = (Array.isArray(output) ? output[0] : output).output.find((part) => part.type === 'chunk').code
+  styles = (Array.isArray(output) ? output[0] : output).output
+    .filter((part) => part.type === 'asset' && part.fileName.endsWith('.css')).map((part) => part.source).join('\n')
   const paths = [process.env.NOTIFICATIONS_TEST_BROWSER, 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].filter(Boolean)
   browser = await chromium.launch({ headless: true, ...(paths.find(existsSync) ? { executablePath: paths.find(existsSync) } : {}) })
 })
@@ -29,6 +31,7 @@ async function screen() {
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
   await page.goto('http://localhost/notifications-test')
+  await page.addStyleTag({ content: styles })
   await page.evaluate(() => {
     window.toasts = []
     window.requests = []
@@ -130,7 +133,7 @@ test('전체 읽음은 한 번 호출하고 후속 조회 실패를 따로 안�
   } finally { await page.close() }
 })
 
-test('당첨·미당첨 결과 알림은 유형과 서버 문구를 표시하고 읽음 처리 후 해당 이벤트로 이동한다', async () => {
+test('결과 알림은 펼칠 때 읽고 별도 이벤트 버튼으로 이동한다', async () => {
   const cases = [
     { type: 'INITIAL_WINNER', label: '최초 당첨', icon: 'celebration' },
     { type: 'REDRAW_WINNER', label: '재추첨 당첨', icon: 'autorenew' },
@@ -163,10 +166,202 @@ test('당첨·미당첨 결과 알림은 유형과 서버 문구를 표시하고
       await requestCount(page, 3)
       assert.match(await page.evaluate(() => window.requests[2].url), new RegExp(`/api/me/notifications/${notification.notificationId}/read$`))
       await page.evaluate(() => window.respond(2, { readAt: '2026-10-15T01:00:00Z' }))
+      await card.getByText(notification.body, { exact: true }).waitFor()
+      assert.equal(await page.getByText(`이벤트 상세 ${eventId}`).count(), 0)
+      await page.getByRole('button', { name: '이벤트 보기', exact: true }).click()
       await page.getByText(`이벤트 상세 ${eventId}`).waitFor()
       assert.deepEqual(errors, [])
     } finally { await page.close() }
   }
+})
+
+test('응모권 지급 알림은 서버 제목·본문을 표시하고 펼칠 때 읽지만 이벤트 이동 버튼은 없다', async () => {
+  const cases = [
+    { type: 'COMMON_TICKET_REWARDED', label: '공용 응모권 지급', icon: 'confirmation_number',
+      body: '출석체크 보상으로 공용 응모권 2장이 지급됐어요.' },
+    { type: 'CREATOR_TICKET_REWARDED', label: '크리에이터 응모권 지급', icon: 'local_activity',
+      body: 'AI 퀴즈 보상으로 하늘 크리에이터 전용 응모권 4장이 지급됐어요.' },
+  ]
+
+  for (const [index, variant] of cases.entries()) {
+    const { page, errors } = await screen()
+    // BE는 지급 알림의 event·drawing을 응답에 넣지 않는다.
+    const { event, drawing, ...base } = item(index + 1)
+    const notification = { ...base, type: variant.type, title: '응모권 지급 완료', body: variant.body }
+    try {
+      await requestCount(page, 1)
+      await page.evaluate((data) => window.respond(0, data), list([notification]))
+      await page.getByRole('button', { name: '알림 열기' }).click()
+      await requestCount(page, 2)
+      await page.evaluate((data) => window.respond(1, data), list([notification]))
+
+      const card = page.getByRole('button', { name: /응모권 지급 완료/ })
+      await card.waitFor()
+      assert.equal(await card.getByText(variant.label, { exact: true }).count(), 1)
+      assert.equal(await card.getByText(variant.icon, { exact: true }).count(), 1)
+      assert.equal(await card.getByText('응모권 지급 완료', { exact: true }).count(), 1)
+      assert.equal(await card.getByText(variant.body, { exact: true }).count(), 1)
+      await card.click()
+
+      await requestCount(page, 3)
+      assert.match(await page.evaluate(() => window.requests[2].url), new RegExp(`/api/me/notifications/${notification.notificationId}/read$`))
+      await page.evaluate(() => window.respond(2, { readAt: '2026-10-15T01:00:00Z' }))
+      await page.getByLabel('읽지 않음').waitFor({ state: 'detached' })
+      assert.equal(await card.getAttribute('aria-expanded'), 'true')
+      assert.equal(await page.getByRole('button', { name: '이벤트 보기', exact: true }).count(), 0)
+      assert.deepEqual(errors, [])
+    } finally { await page.close() }
+  }
+})
+
+for (const theme of ['light', 'dark']) for (const width of [320, 1280]) for (const fontSize of [16, 20]) {
+  test(`${theme} ${width}px ${fontSize}px 글자: 바깥 높이 8rem으로 접고 긴 본문을 펼쳐 전체 표시하며 다시 접는다`, async () => {
+    const { page, errors } = await screen()
+    const body = '긴 알림 본문입니다. '.repeat(30) + '\nhttps://example.com/' + 'long-url-'.repeat(35) + '\n마지막 안내 문장'
+    try {
+      await page.setViewportSize({ width, height: 800 })
+      await page.evaluate(({ theme, fontSize }) => {
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.fontSize = `${fontSize}px`
+      }, { theme, fontSize })
+      await openNotifications(page, [
+        { ...item(1, '2026-10-15T01:00:00Z'), body },
+        { ...item(2), body: '짧은 안내' },
+      ])
+      const first = card(page, '알림 1'), second = card(page, '알림 2')
+      await first.waitFor()
+      assert.equal(await first.getAttribute('aria-expanded'), 'false')
+      const closedHeight = (await first.boundingBox()).height
+      assert.equal(closedHeight, (await second.boundingBox()).height)
+      assert.equal((await first.locator('..').boundingBox()).height, fontSize * 8, 'border를 포함한 카드 전체 높이')
+      assert.equal((await first.locator('..').boundingBox()).height, (await second.locator('..').boundingBox()).height)
+      const paragraph = first.getByText(body, { exact: true })
+      assert.equal(await paragraph.evaluate((el) => getComputedStyle(el).webkitLineClamp), '1')
+      assert.equal(await first.evaluate((el) => {
+        const title = el.querySelector('p').getBoundingClientRect()
+        const date = el.querySelector('time').getBoundingClientRect()
+        const body = el.querySelector('p:last-child').getBoundingClientRect()
+        return title.bottom <= date.top && date.bottom <= body.top && body.bottom <= el.getBoundingClientRect().bottom
+      }), true, '접힌 상태의 제목·날짜·본문 미리보기가 겹치거나 카드 아래로 잘리지 않는다')
+      await first.click()
+      assert.equal(await first.getAttribute('aria-expanded'), 'true')
+      await page.waitForFunction(() => {
+        const el = document.querySelector('[aria-expanded="true"] p:last-child')
+        return el && el.clientHeight >= el.scrollHeight
+      })
+      assert.ok((await first.boundingBox()).height > closedHeight)
+      assert.equal(await paragraph.evaluate((el) => getComputedStyle(el).whiteSpace), 'pre-wrap')
+      assert.equal(await paragraph.evaluate((el) => el.scrollWidth <= el.clientWidth), true)
+      assert.equal(await page.getByRole('button', { name: '이벤트 보기', exact: true }).count(), 0)
+      await first.click()
+      assert.equal(await first.getAttribute('aria-expanded'), 'false')
+      assert.equal((await first.boundingBox()).height, closedHeight)
+      assert.equal((await first.locator('..').boundingBox()).height, fontSize * 8)
+      await first.click()
+      await second.click()
+      assert.equal(await first.getAttribute('aria-expanded'), 'false')
+      assert.equal(await second.getAttribute('aria-expanded'), 'true')
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+      assert.deepEqual(errors, [])
+    } finally { await page.close() }
+  })
+}
+
+test('읽지 않은 카드는 펼칠 때 한 번 읽고 접기·재펼치기로 읽음 요청을 중복하지 않는다', async () => {
+  const { page, errors } = await screen()
+  try {
+    await openNotifications(page, [item(1)])
+    const first = card(page, '알림 1')
+    await first.click()
+    await requestCount(page, 3)
+    assert.equal(await first.getAttribute('aria-expanded'), 'true')
+    await page.evaluate(() => window.respond(2, { readAt: '2026-10-15T01:00:00Z' }))
+    await page.getByLabel('읽지 않음').waitFor({ state: 'detached' })
+    await first.click()
+    await first.click()
+    assert.equal(await page.evaluate(() => window.requests.filter((r) => r.url.endsWith('/read')).length), 1)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('이벤트 알림 읽음 실패 시 펼친 본문은 유지하고 이동을 막으며 다시 펼쳐 읽음 처리 후 이동한다', async () => {
+  const { page, errors } = await screen()
+  const notice = { ...item(1), body: '전체 안내', event: { eventId: 41, title: '관련 이벤트' } }
+  try {
+    await openNotifications(page, [notice])
+    const first = card(page, '알림 1')
+    await first.click()
+    await requestCount(page, 3)
+    await page.evaluate(() => window.respond(2, null, 500))
+    await requestCount(page, 4)
+    await page.evaluate((data) => window.respond(3, data), list([notice]))
+    await page.getByLabel('읽지 않음').waitFor()
+    assert.equal(await first.getAttribute('aria-expanded'), 'true')
+    assert.equal(await page.getByRole('button', { name: '이벤트 보기', exact: true }).isDisabled(), true)
+    assert.equal(await page.getByText('이벤트 상세 41', { exact: true }).count(), 0)
+    await first.click()
+    await first.click()
+    await requestCount(page, 5)
+    await page.evaluate(() => window.respond(4, { readAt: '2026-10-15T01:00:00Z' }))
+    await page.getByLabel('읽지 않음').waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: '이벤트 보기', exact: true }).click()
+    await page.getByText('이벤트 상세 41', { exact: true }).waitFor()
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('펼친 카드의 삭제 실패 시 전체 본문과 펼침 상태를 복구한다', async () => {
+  const { page, errors } = await screen()
+  const notice = { ...item(1, '2026-10-15T01:00:00Z'), body: '첫 줄\n마지막 줄' }
+  try {
+    await openNotifications(page, [notice, item(2)])
+    await card(page, '알림 1').click()
+    await swipeFar(page, '알림 1')
+    await requestCount(page, 3)
+    await card(page, '알림 1').waitFor({ state: 'detached' })
+    await page.evaluate(() => window.respond(2, null, 500))
+    await requestCount(page, 4)
+    await page.evaluate((data) => window.respond(3, data), list([notice, item(2)]))
+    await card(page, '알림 1').waitFor()
+    assert.equal(await card(page, '알림 1').getAttribute('aria-expanded'), 'true')
+    await card(page, '알림 1').getByText(notice.body, { exact: true }).waitFor()
+    assert.equal(await page.evaluate(() => window.requests.filter((r) => r.url.endsWith('/read')).length), 0)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+for (const theme of ['light', 'dark']) test(`${theme}: 삭제 영역은 닫히면 숨고 드래그·고정 상태별 고정색을 불투명하게 표시한다`, async () => {
+  const { page, errors } = await screen()
+  try {
+    await page.evaluate((value) => { document.documentElement.dataset.theme = value }, theme)
+    // 최신 develop의 공통 탭 규칙을 결합해도 가로 스와이프 영역의 pan-y는 유지돼야 한다.
+    await page.addStyleTag({ content: "button, [role='button'], a { touch-action: manipulation; }" })
+    await page.setViewportSize({ width: 375, height: 800 })
+    await openNotifications(page, [item(1)])
+    const first = card(page, '알림 1')
+    await first.waitFor()
+    const deletion = page.locator('button[aria-label="알림 삭제: 알림 1"]')
+    assert.equal(await deletion.evaluate((el) => getComputedStyle(el).visibility), 'hidden')
+    const box = await first.boundingBox()
+    const x = box.x + box.width - 10, y = box.y + box.height / 2
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x - 100, y + 2, { steps: 4 })
+    assert.equal(await first.evaluate((el) => getComputedStyle(el).touchAction), 'manipulation')
+    assert.equal(await first.locator('../..').evaluate((el) => getComputedStyle(el).touchAction), 'pan-y')
+    const dragging = await deletion.evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el).opacity, getComputedStyle(el).color])
+    assert.equal(dragging[0], 'rgb(121, 25, 27)')
+    assert.equal(dragging[1], '1')
+    assert.equal(dragging[2], 'rgb(255, 255, 255)')
+    await page.mouse.up()
+    await deletion.waitFor({ state: 'visible' })
+    assert.deepEqual(await deletion.evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el).opacity, getComputedStyle(el).color]), ['rgb(186, 26, 26)', '1', 'rgb(255, 255, 255)'])
+    assert.equal(await first.getAttribute('aria-expanded'), 'false')
+    assert.equal(await page.evaluate(() => window.requests.length), 2)
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('button[aria-label="알림 삭제: 알림 1"]')).visibility === 'hidden')
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
 })
 
 /** 제목이 같은 알림 카드 버튼. 삭제 버튼은 글자가 "삭제"뿐이라 섞이지 않는다. */

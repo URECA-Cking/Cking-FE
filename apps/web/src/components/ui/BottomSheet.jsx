@@ -85,11 +85,61 @@ function collapsedHeightOf(element) {
 const sheets = []
 let originalOverflow
 
+// `closeOnBack` 시트는 뒤로가기도 닫기 버튼과 같은 경로(onClose → 부모의 닫기 가드)로 처리하려고, 열려 있는 동안 history 항목을 하나씩 쌓는다.
+// 작성 내용을 폐기 확인으로 지키는 시트용이다. 시트 동작이 화면 이동(navigate)으로 이어지는 시트는 항목이 이동 거리를 바꾸므로 쓰지 않는다.
+// 항목이 없으면 뒤로가기가 시트가 아니라 화면 전체를 이탈시켜 폐기 확인 없이 작성 내용이 사라진다.
+// 뒤로가기로 항목이 빠져도 시트가 계속 열려 있을 수 있어(저장 중·폐기 확인) 그때는 항목을 다시 쌓고 닫기만 요청한다.
+const historyEntries = [] // 쌓은 순서대로 { id, live }. 끝이 history의 현재 위치다.
+const entryOwners = new WeakMap() // 패널 요소 → 그 시트의 항목
+let entrySeq = 0
+// 시트를 닫으며 우리가 되돌린(history.go) popstate를 기다리는 시각들. 닫기 요청으로 다시 해석하면 안 된다.
+// popstate가 끝내 오지 않아도 이후의 뒤로가기를 삼키지 않도록, 일정 시간이 지난 것은 버린다.
+const SILENT_POP_TTL_MS = 1000
+let silentPops = []
+
+/** 우리가 되돌린 popstate면 하나 소비하고 true. 오래 기다려도 오지 않은 것은 버린다. */
+function consumeSilentPop() {
+  const now = performance.now()
+  silentPops = silentPops.filter((at) => now - at < SILENT_POP_TTL_MS)
+  return silentPops.shift() !== undefined
+}
+
+function pushEntry(entry) {
+  entry.baseKey = window.history.state?.key
+  window.history.pushState({ ...window.history.state, sheet: entry.id }, '') // react-router의 idx·key를 그대로 둬 앱 안 뒤로가기 판단이 변하지 않게 한다.
+  historyEntries.push(entry)
+}
+
+function onHistoryPop() {
+  if (consumeSilentPop()) return
+  const entry = entryOwners.get(sheets.at(-1))
+  if (!entry || historyEntries.at(-1) !== entry) return
+  // 시트 아래 화면으로 돌아온 경우만 뒤로가기로 본다. 다른 화면으로 이동했으면(키가 다름) 시트는 화면과 함께 사라진다.
+  if (window.history.state?.key !== entry.baseKey) return
+  window.history.pushState({ ...window.history.state, sheet: entry.id }, '')
+  entry.close()
+}
+
+/** 닫힌 시트의 항목이 history 끝에 남아 있으면 되돌려 지운다. 화면 이동으로 이미 지나간 항목은 건드리지 않는다. */
+function trimEntries() {
+  // 끝 항목이 현재 위치일 때만, 그 아래로 이어진 닫힌 항목들도 연속해서 쌓여 있다고 보고 한 번에 되돌린다.
+  const atTop = window.history.state?.sheet === historyEntries.at(-1)?.id
+  let back = 0
+  while (historyEntries.length > 0 && !historyEntries.at(-1).live) {
+    if (atTop) back += 1
+    historyEntries.pop()
+  }
+  if (back > 0) {
+    silentPops.push(performance.now())
+    window.history.go(-back)
+  }
+}
+
 export default function BottomSheet({ open, ...props }) {
   return open ? <OpenBottomSheet {...props} /> : null
 }
 
-function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, children }) {
+function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, closeOnBack = false, children }) {
   const [expanded, setExpanded] = useState(false)
   const panel = useRef(null)
   const backdrop = useRef(null)
@@ -117,6 +167,8 @@ function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, childr
 
   function startDrag(event) {
     if (!event.isPrimary || event.button !== 0) return
+    const button = event.target.closest('button')
+    if (button && button !== event.currentTarget) return // 제목 줄의 닫기 버튼 등은 끌기로 보지 않는다.
     const element = panel.current
     window.clearTimeout(settleTimer.current)
     dragged.current = false
@@ -134,6 +186,12 @@ function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, childr
     drag.current.height = drag.current.startHeight
     element.style.transition = 'none'
     event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  /** 브라우저가 터치를 가져가 드래그가 끊기면 진행 중이던 끌기를 버리고 시트를 제자리로 돌린다. */
+  function cancelDrag() {
+    drag.current = null
+    resetInline()
   }
 
   function moveDrag(event) {
@@ -189,6 +247,21 @@ function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, childr
     setExpanded(next)
     settleTimer.current = window.setTimeout(resetInline, SNAP_MS + 40)
   }
+
+  useEffect(() => {
+    if (!closeOnBack) return undefined
+    const entry = { id: ++entrySeq, live: true, close: () => close.current?.() }
+    entryOwners.set(panel.current, entry)
+    window.addEventListener('popstate', onHistoryPop) // 같은 함수는 한 번만 등록된다. 시트를 닫으며 되돌린 popstate(silentPops)도 받아야 해서 떼지 않는다.
+    // StrictMode(개발 환경)는 효과를 한 번 정리했다 다시 돌리므로, 한 틱 미뤄 항목이 두 번 쌓이지 않게 한다.
+    const timer = window.setTimeout(() => pushEntry(entry), 0)
+    return () => {
+      window.clearTimeout(timer)
+      entry.live = false
+      // 같은 커밋에서 겹친 시트(폐기 확인 시트와 작성 시트)가 함께 닫힐 수 있어, 모두 정리된 뒤 한 번에 되돌린다.
+      window.setTimeout(trimEntries, 0)
+    }
+  }, [closeOnBack])
 
   useEffect(() => {
     const element = panel.current
@@ -254,13 +327,19 @@ function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, childr
           onPointerDown={startDrag}
           onPointerMove={moveDrag}
           onPointerUp={endDrag}
-          onPointerCancel={() => { drag.current = null; resetInline() }}
+          onPointerCancel={cancelDrag}
         >
           <span className="w-10 h-1 rounded-full bg-surface-container-highest" />
         </button>
         <div className="min-h-0 overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)]">
           {(title || onClose) && (
-            <div className={`flex items-start justify-between ${compactTitle ? 'mb-1' : 'mb-space-md'}`}>
+            <div
+              className={`flex items-start justify-between touch-none ${compactTitle ? 'mb-1' : 'mb-space-md'}`}
+              onPointerDown={startDrag}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={cancelDrag}
+            >
               <div>
                 {eyebrow && (
                   <div className="inline-flex items-center gap-space-xs mb-1">

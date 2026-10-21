@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
-import { getInterests, getMyInterests, saveMyInterests } from '../../api/interests.js'
+import { saveMyInterests } from '../../api/interests.js'
 import { describeError } from '../../api/client.js'
-import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 
@@ -9,39 +8,32 @@ const sameSet = (a, b) => a.length === b.length && a.every((code) => b.includes(
 
 /**
  * 탐색 추천 위에서 관심 분야(태그)를 다시 고른다. 온보딩 1단계와 같은 API·규칙을 쓴다.
- * 상한은 응답의 maxSelection으로 먼저 막고, 저장할 taxonomyVersion은 GET /api/interests 값을 쓴다.
- * 저장이 끝나면 onSaved로 알려 추천을 다시 받게 한다. 분류체계를 못 불러오면(준비 전·오류) 아무것도 그리지 않는다.
+ * 부모가 조회한 활성 카탈로그와 회원 선택을 추천 카드와 공유한다.
+ * 상한은 카탈로그의 maxSelection으로 먼저 막고, 저장할 taxonomyVersion도 카탈로그 값을 쓴다.
+ * 저장이 끝나면 onSaved로 알려 추천을 다시 받게 한다.
  */
-export default function InterestEditor({ onSaved }) {
+export default function InterestEditor({ catalog, catalogError, onRetryCatalog, mine, mineError, mineLoading, onReloadMine, onSaved }) {
   const showToast = useToast()
-  const { data, error, reload } = useAsync(
-    async () => {
-      const [catalog, mine] = await Promise.all([getInterests(), getMyInterests()])
-      return { catalog, mine }
-    },
-    [],
-    { fallbackMessage: '관심 분야를 불러오지 못했어요.' },
-  )
   const [editing, setEditing] = useState(false)
   // null이면 아직 건드리지 않은 것이라 서버에 저장된 선택을 그대로 보여준다.
   const [picked, setPicked] = useState(null)
   const [saving, setSaving] = useState(false)
 
-  const catalog = data?.catalog
   const items = useMemo(() => catalog?.items ?? [], [catalog])
-  const saved = useMemo(() => data?.mine?.interestCodes ?? [], [data])
+  const saved = useMemo(() => mine?.interestCodes ?? [], [mine])
   const current = picked ?? saved
   const max = catalog?.maxSelection ?? 3
   const changed = picked !== null && !sameSet(picked, saved)
   const names = new Map(items.map((item) => [item.interestCode, item.name]))
 
-  if (error) {
+  if (catalogError || mineError) {
     return (
-      <button type="button" onClick={reload} className="mx-margin mb-2 self-start font-label-sm text-label-sm text-primary">
+      <button type="button" onClick={catalogError ? onRetryCatalog : onReloadMine} className="mx-margin mb-2 self-start font-label-sm text-label-sm text-primary">
         관심 분야 다시 불러오기
       </button>
     )
   }
+  if (mineLoading) return null
   if (!catalog?.taxonomyVersion || items.length === 0) return null
 
   // 렌더 시점의 값이 아니라 직전 상태를 기준으로 바꿔, 빠르게 연달아 눌러도 앞선 선택을 잃지 않는다.
@@ -62,7 +54,7 @@ export default function InterestEditor({ onSaved }) {
     try {
       await saveMyInterests({ taxonomyVersion: catalog.taxonomyVersion, interestCodes: picked })
       // 서버 값을 다시 받지 않고 방금 저장한 값을 기준으로 삼는다. 다음 편집은 이 값에서 시작한다.
-      reload()
+      onReloadMine()
       setPicked(null)
       setEditing(false)
       showToast('관심 분야를 저장했어요. 추천을 새로 불러올게요.')

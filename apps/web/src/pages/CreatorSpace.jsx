@@ -251,7 +251,26 @@ export default function CreatorSpace() {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMine, openSpaceEditRequested])
-  const closeSpaceEdit = () => setEditOpen(false)
+  // 편집 시트에서 slug를 바꾸면 주소 이동은 시트를 닫은 뒤로 미룬다. 시트가 열려 있는 동안 replace하면 시트가 쌓은 history 항목이
+  // 새 주소로 바뀌어, 닫을 때 되돌린 위치(이전 slug의 항목)로 돌아가 뒤로가기에서 더는 열리지 않는 주소가 나타난다.
+  const pendingSlugRef = useRef(null)
+  function closeSpaceEdit() {
+    setEditOpen(false)
+    const nextSlug = pendingSlugRef.current
+    if (!nextSlug) return
+    pendingSlugRef.current = null
+    const oldPath = spacePath(slugParam)
+    let timer = null
+    const moveToNewSlug = () => {
+      window.removeEventListener('popstate', moveToNewSlug)
+      window.clearTimeout(timer)
+      // 그 사이 다른 화면으로 옮겨 갔다면 건드리지 않는다.
+      if (window.location.pathname === oldPath) navigate(spacePath(nextSlug), { replace: true })
+    }
+    // 시트가 항목을 되돌리며 popstate를 내므로 그 뒤에 옮긴다. 되돌릴 항목이 없어 popstate가 오지 않는 경우를 위해 잠시 뒤에도 옮긴다.
+    window.addEventListener('popstate', moveToNewSlug)
+    timer = window.setTimeout(moveToNewSlug, 600)
+  }
   // 내 게시글의 좋아요는 보상 대상이 아니므로(BE가 자기 Space의 좋아요 미션 보상을 주지 않는다) 내 Space에서는 좋아요 미션을 숨긴다.
   const shownLikeMissions = isMine ? [] : likeMissions
   // BE는 본인 Space 공유도 막지 않으므로 FE가 구분한다. 크리에이터는 내 Space 조회가 끝나야 본인 여부를 알 수 있다.
@@ -496,7 +515,8 @@ export default function CreatorSpace() {
     setCreator((current) => (current ? { ...current, ...updated } : current))
     // 공유 링크로 들어온 화면에서 slug를 바꾸면 이전 주소는 더 이상 열리지 않으므로 새 주소로 옮긴다.
     if (slugParam && updated.slug !== undefined && updated.slug !== slugParam) {
-      navigate(spacePath(updated.slug), { replace: true })
+      if (editOpen) pendingSlugRef.current = updated.slug
+      else navigate(spacePath(updated.slug), { replace: true })
     }
   }
 

@@ -31,11 +31,19 @@ async function screen() {
   await page.addStyleTag({ content: css })
   await page.evaluate(() => {
     const envelope = (data, status = 200, code = 'SUCCESS') => new Response(JSON.stringify({ code, data, message: null }), { status })
-    const mine = { creatorId: 11, creatorName: '테스트 크리에이터', slug: 'test', introText: '기존 소개', profileImageUrl: 'https://images.test/p.png', bannerImageUrl: 'https://images.test/b.png', slugChangeableAt: null }
-    window.fetch = async (url) => {
+    // 공유 주소(slug)를 바꾸면 이전 주소는 더 이상 열리지 않는다(404).
+    window.slug = 'test'
+    const record = () => ({ creatorId: 11, creatorName: '테스트 크리에이터', slug: window.slug, introText: '기존 소개', profileImageUrl: 'https://images.test/p.png', bannerImageUrl: 'https://images.test/b.png', slugChangeableAt: null })
+    window.fetch = async (url, options = {}) => {
       const path = new URL(String(url), location.href).pathname
-      if (path === '/api/creator-spaces/test') return envelope({ ...mine, followerCount: 3 })
-      if (path === '/api/creator/space') return envelope(mine)
+      if (path.startsWith('/api/creator-spaces/')) {
+        return path.endsWith(`/${window.slug}`) ? envelope({ ...record(), followerCount: 3 }) : envelope(null, 404, 'CREATOR_SPACE_NOT_FOUND')
+      }
+      if (path === '/api/creator/space/slug') {
+        window.slug = JSON.parse(options.body).slug
+        return envelope(record())
+      }
+      if (path === '/api/creator/space') return envelope(record())
       if (path === '/api/creator/profile') return envelope(null)
       if (path === '/api/creators/11/tickets') return envelope({ creatorId: 11, balance: 0 })
       if (path.includes('/missions')) return envelope([])
@@ -64,7 +72,7 @@ test('자동으로 열린 시트에서 소개를 고치고 뒤로가기를 누�
     await page.goBack()
     const confirm = page.getByRole('dialog', { name: CONFIRM_TITLE })
     await confirm.waitFor()
-    assert.equal(await path(page), '/space/test')
+    assert.equal(await path(page), '/test')
     await confirm.getByRole('button', { name: '취소' }).click()
     await confirm.waitFor({ state: 'detached' })
     assert.equal(await intro(page).inputValue(), '고친 소개')
@@ -73,7 +81,7 @@ test('자동으로 열린 시트에서 소개를 고치고 뒤로가기를 누�
     await page.getByRole('dialog').waitFor({ state: 'detached' })
     await page.waitForTimeout(400)
     assert.equal(await page.getByRole('dialog').count(), 0)
-    assert.equal(await path(page), '/space/test')
+    assert.equal(await path(page), '/test')
   } finally { await page.close() }
 })
 
@@ -84,7 +92,7 @@ test('변경이 없으면 뒤로가기로 시트만 닫히고, 한 번 더 뒤�
     await page.goBack()
     await page.getByRole('dialog').waitFor({ state: 'detached' })
     await page.waitForFunction(() => window.history.state?.sheet === undefined)
-    assert.equal(await path(page), '/space/test')
+    assert.equal(await path(page), '/test')
     assert.equal(await page.getByRole('dialog').count(), 0)
     await page.goBack()
     await page.getByRole('button', { name: '스페이스 편집으로 이동' }).waitFor()
@@ -99,6 +107,45 @@ test('닫기 버튼으로 닫아도 남는 history 항목 없이 한 번 뒤로�
     await page.getByRole('button', { name: '닫기', exact: true }).first().click()
     await page.getByRole('dialog').waitFor({ state: 'detached' })
     await page.waitForFunction(() => window.history.state?.sheet === undefined)
+    await page.goBack()
+    await page.getByRole('button', { name: '스페이스 편집으로 이동' }).waitFor()
+    assert.equal(await path(page), '/my')
+  } finally { await page.close() }
+})
+
+// 시트에서 공유 주소를 바꾼 뒤 닫고 뒤로가기를 눌러도, 더는 열리지 않는 이전 주소가 아니라 마이페이지로 돌아간다.
+async function changeSlug(page, next) {
+  await page.getByPlaceholder('iu-official').fill(next)
+  await page.getByRole('button', { name: '공유 주소 바꾸기' }).click()
+  await page.waitForFunction(() => window.toasts.includes('공유 주소를 바꿨어요.'))
+  await page.waitForFunction((slug) => window.slug === slug, next)
+}
+
+test('공유 주소를 바꾸고 시트를 닫으면 새 주소로 옮기고, 뒤로가기는 마이페이지로 돌아간다', async () => {
+  const page = await screen()
+  try {
+    await entryReady(page)
+    await changeSlug(page, 'changed')
+    // 시트가 열려 있는 동안에는 주소를 옮기지 않는다.
+    assert.equal(await path(page), '/test')
+    await page.getByRole('button', { name: '닫기', exact: true }).first().click()
+    await page.getByRole('dialog').waitFor({ state: 'detached' })
+    await page.waitForFunction(() => location.pathname === '/changed')
+    await page.getByRole('button', { name: '스페이스 편집' }).first().waitFor()
+    await page.goBack()
+    await page.getByRole('button', { name: '스페이스 편집으로 이동' }).waitFor()
+    assert.equal(await path(page), '/my')
+  } finally { await page.close() }
+})
+
+test('공유 주소를 바꾼 뒤 뒤로가기로 시트를 닫아도 새 주소로 옮기고, 한 번 더 뒤로가면 마이페이지로 돌아간다', async () => {
+  const page = await screen()
+  try {
+    await entryReady(page)
+    await changeSlug(page, 'changed')
+    await page.goBack()
+    await page.getByRole('dialog').waitFor({ state: 'detached' })
+    await page.waitForFunction(() => location.pathname === '/changed')
     await page.goBack()
     await page.getByRole('button', { name: '스페이스 편집으로 이동' }).waitFor()
     assert.equal(await path(page), '/my')

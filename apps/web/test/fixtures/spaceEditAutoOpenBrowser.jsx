@@ -11,7 +11,7 @@ import { OPEN_SPACE_EDIT_STATE } from '../../src/utils/publicProfile.js'
 // 마이페이지에서 "스페이스 편집"으로 들어와 시트가 자동으로 열리는 경로를 실제 BrowserRouter(window.history)로 검증하는 화면.
 function MyPage() {
   const navigate = useNavigate()
-  return <button onClick={() => navigate('/space/test', { state: OPEN_SPACE_EDIT_STATE })}>스페이스 편집으로 이동</button>
+  return <button onClick={() => navigate('/test', { state: OPEN_SPACE_EDIT_STATE })}>스페이스 편집으로 이동</button>
 }
 
 const value = {
@@ -33,7 +33,7 @@ createRoot(document.getElementById('root')).render(
         <UserContext.Provider value={value}>
           <Routes>
             <Route path="/my" element={<MyPage />} />
-            <Route path="/space/:slug" element={<CreatorSpace />} />
+            <Route path="/:slug" element={<CreatorSpace />} />
           </Routes>
         </UserContext.Provider>
       </MyTicketsContext.Provider>

@@ -1,6 +1,6 @@
 import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import BottomSheet from '../components/ui/BottomSheet.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
@@ -45,7 +45,6 @@ const COUPON_LABEL = { [COUPON_TYPE.CREATOR]: '크리에이터 응모권', [COUP
  */
 export default function EventDetail() {
   const { eventId } = useParams()
-  const navigate = useNavigate()
   const showToast = useToast()
   const redirectToProfileSetup = useProfileSetupRedirect()
   const { refresh: refreshMyTickets } = useMyTickets() // 응모하면 헤더의 총 응모권 개수도 바뀌어야 한다
@@ -152,7 +151,7 @@ export default function EventDetail() {
   if (loading) {
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe">
-        <BackHeader title="" onBack={() => navigate(-1)} />
+        <BackHeader title="" />
         <LoadingBlock label="이벤트를 불러오는 중..." />
       </div>
     )
@@ -318,7 +317,7 @@ export default function EventDetail() {
 
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-32">
-      <BackHeader title="" onBack={() => navigate(-1)} />
+      <BackHeader title="" />
       <div className="pt-14 flex flex-col w-full">
         <div className="relative w-full aspect-[16/9] overflow-hidden bg-surface-container">
           <img className="w-full h-full object-cover" src={getEventBanner(event.eventId)} alt="" />

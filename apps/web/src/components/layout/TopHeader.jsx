@@ -3,6 +3,7 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 import ThemedImage from '../ui/ThemedImage.jsx'
 import BackButton from '../ui/BackButton.jsx'
 import { useToast } from '../../context/useToast.js'
+import { useAppBack } from '../../hooks/useAppBack.js'
 import { formatTicketBadge } from '../../utils/myTickets.js'
 
 /** 현재 화면 주소를 공유한다. Web Share API가 없으면 클립보드로 복사한다. */
@@ -124,12 +125,14 @@ export function TopHeader({
 /** Header with a back button, used on detail / sub screens. */
 export function BackHeader({ title, badge, onBack, right, showShare = true }) {
   const share = useShare()
+  // 주소로 바로 들어온 경우 브라우저 뒤로가기는 앱 밖으로 나가거나 아무 반응이 없어서, 앱 안 기록이 없으면 홈으로 보낸다.
+  const goBack = useAppBack('/')
 
   return (
     <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
       <div className="h-14 px-margin md:px-8 flex items-center justify-between gap-space-sm">
         <div className="flex items-center gap-space-xs min-w-0">
-          <BackButton onClick={onBack ?? (() => window.history.back())} />
+          <BackButton onClick={onBack ?? goBack} />
           <h1 className="font-title-md text-title-md text-on-surface font-semibold truncate">{title}</h1>
         </div>
         {badge ? (

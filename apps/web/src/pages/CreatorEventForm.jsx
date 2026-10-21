@@ -19,9 +19,9 @@ const DRAW_METHOD_LABELS = {
   UNIFORM: 'UNIFORM (후보 동일 확률 추첨)',
 }
 
-const EMPTY_PRIZE = { prizeKey: '', displayName: '', priority: 1, weight: 100, quantity: 1 }
+const EMPTY_PRIZE = { prizeKey: '', displayName: '', priority: '', weight: '', quantity: '' }
 
-/** Instant(ISO, UTC) -> datetime-local 입력값(로컬 시각). */
+/** 서버의 UTC 시각을 브라우저 로컬 날짜·시간 입력값으로 바꾼다. */
 function toLocalInput(iso) {
   if (!iso) return ''
   const date = new Date(iso)
@@ -32,13 +32,14 @@ function toLocalInput(iso) {
   )}`
 }
 
-/** datetime-local 입력값 -> Instant(ISO, UTC). */
+/** 브라우저 로컬 날짜·시간 입력값을 서버에 보낼 UTC 시각으로 바꾼다. */
 function toInstant(value) {
   if (!value) return null
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
+/** 새 이벤트의 시작·종료 시각 기본 범위를 만든다. */
 function defaultRange() {
   const start = new Date(Date.now() + 60 * 60 * 1000)
   const end = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -59,6 +60,7 @@ export default function CreatorEventForm() {
   return <EventFormLoader key={eventId ? `edit:${eventId}` : 'create'} eventId={eventId} />
 }
 
+/** 수정 대상 이벤트를 불러온 뒤 생성·수정 폼을 표시한다. */
 function EventFormLoader({ eventId }) {
   const isEdit = Boolean(eventId)
   const goBack = useAppBack('/my-page')
@@ -94,6 +96,7 @@ function EventFormLoader({ eventId }) {
   return <EventFormBody eventId={eventId} isEdit={isEdit} target={target} />
 }
 
+/** 이벤트 입력 상태를 관리하고 검증된 값을 생성·수정 API에 전달한다. */
 function EventFormBody({ eventId, isEdit, target }) {
   const navigate = useNavigate()
   const goBack = useAppBack('/my-page')
@@ -136,10 +139,12 @@ function EventFormBody({ eventId, isEdit, target }) {
         },
   )
 
+  /** 이벤트의 일반 입력 항목 하나를 갱신한다. */
   function updateField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  /** 지정한 상품 행의 입력 항목 하나를 갱신한다. */
   function updatePrize(index, key, value) {
     setForm((prev) => ({
       ...prev,
@@ -147,18 +152,20 @@ function EventFormBody({ eventId, isEdit, target }) {
     }))
   }
 
+  /** 고유한 상품 키와 빈 숫자 입력을 가진 상품 행을 추가한다. */
   function addPrize() {
     try {
       const prizeKey = allocatePrizeKey(reservedPrizeKeys.current, newRequestId)
       setForm((prev) => ({
         ...prev,
-        prizes: [...prev.prizes, { ...EMPTY_PRIZE, prizeKey, priority: prev.prizes.length + 1 }],
+        prizes: [...prev.prizes, { ...EMPTY_PRIZE, prizeKey }],
       }))
     } catch (error) {
       setFormError(error.message)
     }
   }
 
+  /** 선택한 상품 행만 폼에서 제거한다. */
   function removePrize(index) {
     setForm((prev) => ({ ...prev, prizes: prev.prizes.filter((_, i) => i !== index) }))
   }
@@ -180,8 +187,11 @@ function EventFormBody({ eventId, isEdit, target }) {
       if (!/^[A-Za-z0-9_-]{1,100}$/.test(prize.prizeKey ?? '')) return '상품 정보를 확인하지 못했어요. 화면을 다시 열어 주세요.'
       if (keys.has(prize.prizeKey.toLowerCase())) return '상품 식별자가 중복됐어요. 화면을 다시 열어 주세요.'
       keys.add(prize.prizeKey.toLowerCase())
-      if (Number(prize.priority) < 1 || Number(prize.weight) < 1 || Number(prize.quantity) < 1) {
-        return '상품의 순위·가중치·수량은 1 이상이어야 해요.'
+      if ([prize.priority, prize.weight, prize.quantity].some(value => value === '')) {
+        return '상품의 순위·가중치·수량을 모두 입력해주세요.'
+      }
+      if ([prize.priority, prize.weight, prize.quantity].some(value => !Number.isInteger(Number(value)) || Number(value) < 1)) {
+        return '상품의 순위·가중치·수량은 1 이상의 정수여야 해요.'
       }
     }
     if (form.prizes.length > 0 && totalQuantity < Number(form.winnerCount)) {
@@ -190,6 +200,7 @@ function EventFormBody({ eventId, isEdit, target }) {
     return null
   }
 
+  /** 입력값을 검증한 뒤 기존 생성·수정 API로 저장한다. */
   async function handleSubmit(event) {
     event.preventDefault()
     const message = validate()
@@ -272,7 +283,7 @@ function EventFormBody({ eventId, isEdit, target }) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-space-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-space-sm">
           <div className="flex flex-col gap-1.5">
             <label className={labelClass} htmlFor="event-start">
               시작 <span className="text-primary">*</span>
@@ -280,7 +291,7 @@ function EventFormBody({ eventId, isEdit, target }) {
             <input
               id="event-start"
               type="datetime-local"
-              className={inputClass}
+              className={`${inputClass} min-w-0`}
               value={form.startAt}
               onChange={(e) => updateField('startAt', e.target.value)}
             />
@@ -292,7 +303,7 @@ function EventFormBody({ eventId, isEdit, target }) {
             <input
               id="event-end"
               type="datetime-local"
-              className={inputClass}
+              className={`${inputClass} min-w-0`}
               value={form.endAt}
               onChange={(e) => updateField('endAt', e.target.value)}
             />
@@ -363,33 +374,26 @@ function EventFormBody({ eventId, isEdit, target }) {
                 />
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  className={inputClass}
-                  value={prize.priority}
-                  onChange={(e) => updatePrize(index, 'priority', e.target.value)}
-                  placeholder="순위"
-                  aria-label={`상품 ${index + 1} 순위`}
-                />
-                <input
-                  type="number"
-                  min={1}
-                  className={inputClass}
-                  value={prize.weight}
-                  onChange={(e) => updatePrize(index, 'weight', e.target.value)}
-                  placeholder="가중치"
-                  aria-label={`상품 ${index + 1} 가중치`}
-                />
-                <input
-                  type="number"
-                  min={1}
-                  className={inputClass}
-                  value={prize.quantity}
-                  onChange={(e) => updatePrize(index, 'quantity', e.target.value)}
-                  placeholder="수량"
-                  aria-label={`상품 ${index + 1} 수량`}
-                />
+                {[
+                  ['priority', '순위', '예: 1'],
+                  ['weight', '가중치', '예: 100'],
+                  ['quantity', '수량', '예: 1'],
+                ].map(([key, label, placeholder]) => (
+                  <div key={key} className="flex min-w-0 flex-col gap-1.5">
+                    <label className={labelClass} htmlFor={`event-prize-${prize.prizeKey}-${key}`}>{label}</label>
+                    <input
+                      id={`event-prize-${prize.prizeKey}-${key}`}
+                      type="number"
+                      min={1}
+                      step={1}
+                      className={`${inputClass} min-w-0`}
+                      value={prize[key]}
+                      onChange={(e) => updatePrize(index, key, e.target.value)}
+                      placeholder={placeholder}
+                      aria-label={`상품 ${index + 1} ${label}`}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           ))}

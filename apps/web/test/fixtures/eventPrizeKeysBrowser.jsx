@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useNavigate, useLocation } from 'react-router-dom'
 import CreatorEventForm from '../../src/pages/CreatorEventForm.jsx'
 import ToastContext from '../../src/context/toastContext.js'
+import '../../src/index.css'
 function NavigationProbe() {
   const navigate = useNavigate()
   const { pathname } = useLocation()

@@ -1,13 +1,16 @@
 import { useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import InterestStep from '../components/onboarding/InterestStep.jsx'
 import CreatorStep from '../components/onboarding/CreatorStep.jsx'
 import ConfirmSheet from '../components/ui/ConfirmSheet.jsx'
+import { LoadingBlock } from '../components/ui/States.jsx'
 import { completeOnboarding } from '../api/auth.js'
 import { describeError } from '../api/client.js'
 import { useToast } from '../context/useToast.js'
 import { canGoBackInApp } from '../hooks/useAppBack.js'
+import { useBackGuard } from '../hooks/useBackGuard.js'
 import { useUser } from '../context/useUser.js'
 
 /**
@@ -34,12 +37,25 @@ export default function Onboarding({ manage = false }) {
   const [finishing, setFinishing] = useState(false)
   // 같은 틱에 연달아 눌러도 한 번만 처리한다(state는 다음 렌더에야 바뀐다).
   const finishingRef = useRef(false)
+  // 1단계에서 2단계로 넘어가는 중인지(가드를 걷는 비동기 구간).
+  const advancingRef = useRef(false)
   // 가입 직후 1단계에서 뒤로가기를 눌렀을 때 온보딩을 건너뛸지 묻는 확인 시트가 열려 있는지.
   const [confirmingSkip, setConfirmingSkip] = useState(false)
+  // 완료 후 쌓인 기록을 되감는 동안 단계 화면 대신 이동 중 화면을 보여주는지.
+  const [leaving, setLeaving] = useState(false)
   // 단계를 주소(?step=creators)에 둔다. 크리에이터 스페이스를 둘러보고 뒤로 돌아와도 1단계로 되돌아가지 않는다.
   const [params, setParams] = useSearchParams()
   const step = manage || params.get('step') === 'creators' ? 'creators' : 'interests'
   const destination = location.state?.from ?? '/'
+
+  // 가입 직후 1단계에서는 브라우저·기기 뒤로가기도 헤더 뒤로가기처럼 확인 시트로 받는다.
+  // 이미 시트가 열려 있을 때 누르면 시트를 닫는다(취소). 완료 처리 중에는 입력을 무시한다.
+  const { release: releaseBackGuard, leave: leaveWithBackGuard } = useBackGuard(!manage && step === 'interests', () => {
+    if (finishingRef.current) return
+    setConfirmingSkip((open) => !open)
+  })
+  // 온보딩을 연 시점의 history 위치. 완료할 때 온보딩이 쌓은 항목(2단계 등)이 몇 개인지 세는 기준이다.
+  const startIdx = useRef(window.history.state?.idx ?? 0)
 
   async function finish() {
     if (finishingRef.current) return
@@ -55,6 +71,13 @@ export default function Onboarding({ manage = false }) {
         showToast(describeError(err, '온보딩 완료를 저장하지 못했어요. 다음에 다시 보일 수 있어요.'), { icon: 'error' })
       }
     }
+    // 온보딩이 쌓은 항목(가드 항목, "다음"으로 쌓은 2단계 항목)을 모두 되감은 뒤 처음 열린 항목을 교체해야,
+    // 이동한 화면에서 뒤로가기를 눌렀을 때 온보딩이 되살아나지 않는다.
+    const pushed = Math.max(0, (window.history.state?.idx ?? 0) - startIdx.current)
+    // 되감으면 라우터가 먼저 1단계 화면을 그리므로, 되감기 전에 이동 중 화면으로 바꿔 1단계가 잠깐 비치지 않게 한다.
+    // 렌더가 되감기보다 먼저 끝나도록 즉시 반영한다.
+    if (pushed > 0) flushSync(() => setLeaving(true))
+    await leaveWithBackGuard(pushed)
     navigate(destination, { replace: true })
   }
 
@@ -77,6 +100,8 @@ export default function Onboarding({ manage = false }) {
     setConfirmingSkip(true)
   }
 
+  if (leaving) return <LoadingBlock label="이동하는 중..." />
+
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-36">
       <BackHeader
@@ -87,7 +112,20 @@ export default function Onboarding({ manage = false }) {
         onBack={handleBack}
       />
       {step === 'interests' ? (
-        <InterestStep onDone={() => setParams((prev) => withStep(prev, 'creators'), { state: location.state })} />
+        <InterestStep
+          onDone={async () => {
+            // 가드를 걷는 동안 연달아 눌려도 2단계 항목이 두 번 쌓이지 않게 한 번만 처리한다.
+            if (advancingRef.current) return
+            advancingRef.current = true
+            try {
+              // 2단계 항목을 가드 항목 위에 쌓지 않도록 가드를 먼저 걷는다. 그래야 완료할 때 되감을 항목 수가 맞다.
+              await releaseBackGuard()
+              setParams((prev) => withStep(prev, 'creators'), { state: location.state })
+            } finally {
+              advancingRef.current = false
+            }
+          }}
+        />
       ) : (
         <CreatorStep
           onFinish={manage ? () => navigate(-1) : finish}

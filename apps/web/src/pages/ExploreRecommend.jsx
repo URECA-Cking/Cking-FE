@@ -9,7 +9,7 @@ import { useMyCreatorRecommendations } from '../hooks/useMyCreatorRecommendation
 import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
 import { useRecommendationEvents } from '../hooks/useRecommendationEvents.js'
 import { getSimilarCreators } from '../api/creators.js'
-import { getInterests } from '../api/interests.js'
+import { getInterests, getMyInterests } from '../api/interests.js'
 import { describeError } from '../api/client.js'
 import { recommendationReason } from '../utils/recommendationReason.js'
 
@@ -30,12 +30,18 @@ export default function ExploreRecommend() {
   const { impressionRef, trackClick } = useRecommendationEvents(requestId)
   const [limit, setLimit] = useState(RECOMMEND_PAGE_SIZE)
   const shown = recommended.slice(0, limit)
-  // 분야명 조회가 실패해도 추천 목록은 그대로 보여 준다.
-  const interests = useAsync(() => getInterests().catch(() => null), [])
+  // 카탈로그는 편집기와 추천 이유에서 함께 쓰며, 조회 실패 뒤에도 추천 목록은 표시한다.
+  const interests = useAsync(getInterests, [], { fallbackMessage: '관심 분야를 불러오지 못했어요.' })
+  const selectedInterests = useAsync(() => getMyInterests().then((result) => ({ owner: user.memberId, result })), [user?.memberId], {
+    enabled: user?.memberId != null,
+    fallbackMessage: '관심 분야를 불러오지 못했어요.',
+  })
   const interestNames = useMemo(
     () => new Map((interests.data?.items ?? []).map((item) => [item.interestCode, item.name])),
     [interests.data],
   )
+  const mine = selectedInterests.data?.owner === user?.memberId ? selectedInterests.data.result : null
+  const recommendationsLoading = loading || interests.loading || selectedInterests.loading
 
   // 유사 크리에이터는 기준이 필요해서 가장 최근에 관심 등록한 크리에이터를 기준으로 삼는다(followedCreators는 최근 팔로우 순). 관심이 없으면 숨긴다.
   const similarBaseId = followsReady ? (followedCreators[0] ?? null) : null
@@ -81,13 +87,22 @@ export default function ExploreRecommend() {
         <div className="px-margin">
           <SectionHeader icon="auto_awesome" title="나를 위한 추천" action="도킹 관리" actionTo="/onboarding/creators" />
         </div>
-        <InterestEditor onSaved={() => { setLimit(RECOMMEND_PAGE_SIZE); reloadRecommendations() }} />
-        {loading && <LoadingBlock label="추천 크리에이터를 찾는 중..." />}
-        {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
-        {!loading && !error && shown.length === 0 && (
+        <InterestEditor
+          catalog={interests.data}
+          catalogError={interests.error}
+          onRetryCatalog={interests.reload}
+          mine={mine}
+          mineError={selectedInterests.error}
+          mineLoading={selectedInterests.loading || (user?.memberId != null && !mine && !selectedInterests.error)}
+          onReloadMine={selectedInterests.reload}
+          onSaved={() => { setLimit(RECOMMEND_PAGE_SIZE); reloadRecommendations() }}
+        />
+        {recommendationsLoading && <LoadingBlock label="추천 크리에이터를 찾는 중..." />}
+        {!recommendationsLoading && error && <ErrorBlock message={error} onRetry={reload} />}
+        {!recommendationsLoading && !error && shown.length === 0 && (
           <EmptyBlock icon="auto_awesome" message="아직 보여드릴 추천이 없어요. 관심 분야를 골라 보세요." />
         )}
-        {!loading && !error && shown.length > 0 && (
+        {!recommendationsLoading && !error && shown.length > 0 && (
           <div className="px-margin flex flex-col gap-2.5">
             {shown.map((creator) => renderRow(creator, { tracked: true }))}
             {recommended.length > RECOMMEND_PAGE_SIZE && (

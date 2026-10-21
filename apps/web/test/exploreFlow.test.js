@@ -344,7 +344,10 @@ for(const nested of [false,true])test(`크리에이터 접기는 10명으로 줄
  const page=await screen('/explore',{creators,events:[]})
  try{
   await page.setViewportSize({width:430,height:900})
-  if(nested)await page.locator('main').evaluate(el=>{el.style.height='600px';el.style.overflowY='auto'})
+  if(nested)await page.locator('main').evaluate(el=>{
+   el.style.height='600px';el.style.overflowY='auto';el.style.paddingTop='56px'
+   const notice=document.createElement('div');notice.style.minHeight='80px';notice.textContent='상단 상태 안내';el.prepend(notice)
+  })
   await page.getByRole('button',{name:'전체 25',exact:true}).waitFor()
   await page.getByRole('button',{name:'더 보기',exact:true}).click()
   await page.getByRole('button',{name:'더 보기',exact:true}).click()

@@ -231,7 +231,8 @@ export default function Explore() {
             type="button"
             onClick={() => {
               setCreatorSize(CREATOR_PREVIEW)
-              exploreTopRef.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
+              exploreTopRef.current?.closest('main')?.scrollTo({ top: 0, behavior: 'instant' })
+              window.scrollTo({ top: 0, behavior: 'instant' })
             }}
             className="mx-margin mt-space-md h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
           >

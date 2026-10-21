@@ -44,6 +44,7 @@
     --color-success: 16 185 129; /* #10b981 */
     /* 아래는 원래 두 모드가 같은 고정색으로 쓰던 토큰이다. 다크 값은 예전 그대로다. */
     --color-primary: 219 39 119; /* #db2777 */
+    --color-primary-text: 219 39 119; /* #db2777, 다크는 primary와 같은 값 */
     --color-outline: 141 111 119; /* #8d6f77 */
     --color-disabled: 141 111 119; /* #8d6f77, 다크는 outline과 같은 값 */
     --color-outline-variant: 225 190 198; /* #e1bec6 */
@@ -82,6 +83,8 @@
     --color-success: 34 197 94; /* #22c55e */
     /* 시안 #e61e78은 흰 글씨 대비가 4.36이라 기준(4.5)을 넘기도록 살짝 진하게 둔다. */
     --color-primary: 225 29 118; /* #e11d76 */
+    /* 핑크 글씨(text-primary)는 연핑크(berry-tint)·primary/15 칸·회색 배경 위에서도 대비 4.5가 되도록 더 진하게 둔다. 버튼 면은 primary 그대로다. */
+    --color-primary-text: 187 24 98; /* #bb1862 */
     /*
      * outline은 날짜·개수·안내 문구처럼 읽어야 하는 보조 정보에 쓰여 대비 4.5를 맞춘다(보조 텍스트와 같은 값).
      * 시안의 비활성 텍스트 #a0a7b4는 실제로 누를 수 없는 요소에만 disabled로 쓴다.

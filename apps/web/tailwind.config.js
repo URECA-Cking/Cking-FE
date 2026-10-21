@@ -87,6 +87,10 @@ export default {
         'gold-point': '#d89b1d',
         'gold-soft': '#fff3c4',
       },
+      // text-primary만 글씨용 진한 핑크를 쓴다. bg·border·ring의 primary는 colors.primary 그대로다.
+      textColor: {
+        primary: themeColor('primary-text'),
+      },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
       },

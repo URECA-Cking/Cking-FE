@@ -62,6 +62,23 @@ for (const [themeName, tokens] of Object.entries(THEMES)) {
     }
   }
 
+  // 라이트의 핑크 글씨(text-primary)는 회색 배경, 연핑크 강조 배경, primary를 옅게 깐 칸(도장·배지) 위에 놓인다.
+  if (themeName === '라이트') {
+    const backgrounds = {
+      surface: tokens.surface,
+      'surface-container': tokens['surface-container'],
+      'surface-container-low': tokens['surface-container-low'],
+      'berry-tint': tokens['berry-tint'],
+      'primary/15 on surface': blend(tokens.primary, tokens.surface, 0.15),
+      'primary/15 on surface-container-lowest': blend(tokens.primary, tokens['surface-container-lowest'], 0.15),
+    }
+    for (const [name, background] of Object.entries(backgrounds)) {
+      test(`라이트 모드에서 primary-text 글씨는 ${name} 위에서 대비 4.5 이상이다`, () => {
+        assert.ok(contrast(tokens['primary-text'], background) >= 4.5, `라이트 primary-text/${name} = ${contrast(tokens['primary-text'], background).toFixed(2)}`)
+      })
+    }
+  }
+
   test(`${themeName} 모드에서 warm-accent 글씨는 10% 옅은 배경 위에서도 대비 4.5 이상이고, 아이콘은 20% 배경 위에서 대비 3 이상이다`, () => {
     for (const surfaceName of SURFACES) {
       const textBackground = blend(tokens['warm-accent'], tokens[surfaceName], TEXT_TINT_ALPHA)

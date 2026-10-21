@@ -763,18 +763,21 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
     <div className="relative md:h-full" style={{ '--media-ratio': ratio }}>
       <div
         ref={scroller}
-        className="flex aspect-[var(--media-ratio)] overflow-x-auto overscroll-x-contain snap-x snap-mandatory no-scrollbar md:aspect-auto md:h-full"
+        className="flex aspect-[var(--media-ratio)] overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x snap-mandatory no-scrollbar md:aspect-auto md:h-full"
         onScroll={(event) => setActive(Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth))}
       >
       {images.map((image, index) => (
         // snap-always: 빠르게 튕겨도(안드로이드 크롬 등) 이미지를 건너뛰지 않고 다음 한 장에서 멈춘다.
-        <div key={image.imageKey} className="h-full min-w-full snap-center snap-always bg-surface-container-low overflow-hidden">
+        // 칸의 높이는 컨테이너(aspect-ratio)에 맞춰 늘어나고(stretch), 이미지는 absolute로 칸을 채워 칸 높이에 영향을 주지 않는다.
+        // 이미지 높이를 퍼센트(h-full)로 정하면 iOS 사파리 일부 버전이 부모의 aspect-ratio 높이를 풀지 못해 칸이 이미지 원래 비율만큼 커지고,
+        // 컨테이너가 세로로도 스크롤됐다. 세로 스크롤은 overflow-y-hidden으로 막는다.
+        <div key={image.imageKey} className="relative min-w-full snap-center snap-always bg-surface-container-low overflow-hidden">
           {image.url && !unavailable.has(image.imageKey) ? (
             <img
               key={reloads[image.imageKey] ?? 0}
               src={image.url}
               alt={`${creatorName}의 게시글 이미지 ${index + 1}`}
-              className="h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover"
               onError={() => handleError(image)}
               onLoad={(event) => {
                 // 화면 밖 칸의 이미지는 WebKit(iOS)이 디코딩을 미뤄, 스와이프로 넘어온 순간 비어 보일 수 있다(2·3번째 칸이 자주 그랬다).
@@ -789,7 +792,7 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
               }}
             />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-on-surface-variant">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-on-surface-variant">
               <MaterialIcon name="broken_image" className="text-[24px]" />
               <button type="button" onClick={() => { attemptedNull.current = true; failedAttempts.current.delete(image.imageKey); refresh() }} disabled={refreshing} className="font-label-sm text-label-sm text-primary disabled:opacity-60">
                 이미지 다시 불러오기

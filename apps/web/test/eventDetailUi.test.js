@@ -332,10 +332,11 @@ test('재추첨이 있으면 당첨 결과를 회차별로 나누고, 포기한 
  try{
   const first=p.getByRole('region',{name:'최초 추첨',exact:true}),redraw=p.getByRole('region',{name:'재추첨',exact:true})
   await first.waitFor();await redraw.waitFor()
-  // 테스트에는 아이콘 폰트가 없어 아이콘 이름(block)이 글자로 섞이므로 비교에서 뺀다.
-  const rows=loc=>loc.getByRole('listitem').allInnerTexts().then(t=>t.map(x=>x.replace(/\s+/g,' ').replace('block','').trim()))
-  assert.deepEqual(await rows(first),['1 테*트 Grand prize 당첨 포기','2 김*수 Grand prize'])
-  assert.deepEqual(await rows(redraw),['1 이*진 Grand prize'])
+  // 행 순서는 그대로 검증하고 순위·이름·상품·상태는 각각 따로 본다. 행 전체 문자열로 비교하면 브라우저마다 달라지는 공백과,
+  // 아이콘 폰트가 없을 때 글자로 보이는 아이콘 이름(block)에 기대게 된다.
+  const rows=async loc=>{const items=loc.getByRole('listitem'),out=[];for(let i=0;i<await items.count();i++){const li=items.nth(i);out.push({rank:(await li.locator('span').first().innerText()).trim(),name:(await li.locator('p').nth(0).innerText()).trim(),prize:(await li.locator('p').nth(1).innerText()).trim(),declined:await li.getByText('당첨 포기').count()>0})}return out}
+  assert.deepEqual(await rows(first),[{rank:'1',name:'테*트',prize:'Grand prize',declined:true},{rank:'2',name:'김*수',prize:'Grand prize',declined:false}])
+  assert.deepEqual(await rows(redraw),[{rank:'1',name:'이*진',prize:'Grand prize',declined:false}])
   assert.equal(await redraw.getByText('결원이 생겨 다시 추첨했어요.').count(),1)
   // 포기한 내 행은 "나의 당첨" 강조가 아니라 상태 표시다.
   assert.equal(await p.getByText('나의 당첨',{exact:false}).count(),0)

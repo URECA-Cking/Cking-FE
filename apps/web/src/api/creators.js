@@ -64,7 +64,6 @@ export async function getCreatorProfileById(creatorId) {
 }
 
 const KEYWORD_MAX_LENGTH = 50;
-const POPULAR_FALLBACK = 'POPULAR_FALLBACK_V1';
 
 /**
  * GET /api/creators?keyword&page&size - 공개 Creator 목록을 서버에서 검색·페이징한다(인증 불필요).
@@ -81,39 +80,20 @@ export async function searchCreators({ keyword = '', page = 0, size = 20 } = {})
   return { ...result, items: (result.items ?? []).map(toProfile) };
 }
 
-/**
- * GET /api/me/creator-recommendations?size - 관심 분야·팔로우 기반 추천(size 1~20, 기본 10).
- * 개인화 결과가 없으면 BE가 팔로워 수 순 인기 크리에이터로 대체하고 policyVersion을 POPULAR_FALLBACK_V1로 준다.
- * 이미 팔로우한 크리에이터와 본인은 BE가 제외한다. aggregateScore는 정렬용이라 화면에 넘기지 않는다.
- * @returns {Promise<{ personalized: boolean, items: object[] }>} personalized가 false면 인기순 대체
- */
+/** 가입/분야 편집에서 저장한 관심 분야의 실제 확인 태그 후보만 받는다. 부족 후보 보충 없음. */
 export async function getMyCreatorRecommendations({ size = 10 } = {}) {
-  const result = await apiClient.get('/api/me/creator-recommendations', { size });
-  return {
-    personalized: result.policyVersion !== POPULAR_FALLBACK,
-    // 노출·클릭 수집(sendRecommendationEvents)에 쓰는 응답 ID. 스냅샷 저장에 실패하면 null이고 이때는 수집하지 않는다.
-    requestId: result.recommendationRequestId ?? null,
-    items: (result.items ?? []).map((item) => ({
-      creatorId: item.creatorId,
-      name: item.creatorName,
-      avatar: item.profileImageUrl,
-      bio: item.introText,
-      // 추천 이유 표시에 쓴다. 인기순 대체에서는 빈 배열이다.
-      interestCodes: item.interestCodes ?? [],
-      seedCreatorIds: item.seedCreatorIds ?? [],
-    })),
-  };
+  return { ...await getCreatorRecommendationsByTags({ source: 'INTEREST', size }), personalized: true };
 }
 
-/** 실제 공개 확인 태그 카탈로그. 회원 관심 분야 카탈로그와 별개다. */
-export function getRecommendationTagCatalog() {
-  return apiClient.get('/api/me/creator-recommendations/tag-catalog');
+/** 전체 팔로우의 현재 확인 태그와 같거나 같은 상위 분야인 후보. 개인화 ID 재사용 없음. */
+export function getFollowTagRecommendations({ size = 5 } = {}) {
+  return getCreatorRecommendationsByTags({ source: 'FOLLOW', size });
 }
 
-/** 정확 일치·OR 검색. 후보 부족/빈 목록/PENDING을 다른 추천으로 보충하지 않는다. */
-export async function getCreatorRecommendationsByTags({ taxonomyVersion, parentCodes = [], topicCodes = [], size = 20 }) {
+/** 코드가 명시된 검색과 회원 저장 신호 조회 모두 BE가 자격 검증 뒤 Top-N을 적용한다. */
+export async function getCreatorRecommendationsByTags({ taxonomyVersion, parentCodes = [], topicCodes = [], source = 'EXPLICIT', size = 20 }) {
   const result = await apiClient.get('/api/me/creator-recommendations/by-tags', {
-    taxonomyVersion,
+    taxonomyVersion, source,
     parentCodes: parentCodes.length ? parentCodes.join(',') : undefined,
     topicCodes: topicCodes.length ? topicCodes.join(',') : undefined,
     size,
@@ -121,13 +101,14 @@ export async function getCreatorRecommendationsByTags({ taxonomyVersion, parentC
   return {
     rankingStatus: result.rankingStatus,
     requestId: result.recommendationRequestId ?? null,
-    items: (result.items ?? []).map((item) => ({
+    items: (result.rankingStatus === 'PENDING' ? [] : result.items ?? []).map((item) => ({
       creatorId: item.creatorId,
       name: item.creatorName,
       avatar: item.profileImageUrl,
       bio: item.introText,
       handle: item.slug,
-      matchedTags: item.matchedTags ?? [],
+      interestCodes: item.interestCodes ?? [],
+      seedCreatorIds: item.seedCreatorIds ?? [],
     })),
   };
 }

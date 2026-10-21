@@ -65,8 +65,9 @@ export function useMyCreatorRecommendations(memberId) {
   return {
     items,
     creatorsById,
-    requestId: mine?.requestId ?? null,
+    requestId: !loading && !error ? mine?.requestId ?? null : null,
     personalized: mine?.personalized ?? null,
+    rankingStatus: mine?.rankingStatus ?? null,
     loading,
     error,
     // 실패한 쪽만 다시 받는다. 둘 다 성공 상태였다면 추천을 새로 받는다.
@@ -77,6 +78,6 @@ export function useMyCreatorRecommendations(memberId) {
       }
       if (failed || !(catalog.error || joinFailed)) recommendation.reload()
     },
-    reloadRecommendations: recommendation.reload,
+    reloadRecommendations: () => { recommendation.setData(null); return recommendation.reload() },
   }
 }

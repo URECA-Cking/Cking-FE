@@ -7,7 +7,7 @@ import MaterialIcon from '../ui/MaterialIcon.jsx'
 const sameSet = (a, b) => a.length === b.length && a.every((code) => b.includes(code))
 
 /**
- * 개인화 추천의 회원 관심 분야를 편집한다. 실제 저장 태그 검색과 별개다.
+ * 탐색 추천 위에서 관심 분야(태그)를 다시 고른다. 온보딩 1단계와 같은 API·규칙을 쓴다.
  * 부모가 조회한 활성 카탈로그와 회원 선택을 추천 카드와 공유한다.
  * 상한은 카탈로그의 maxSelection으로 먼저 막고, 저장할 taxonomyVersion도 카탈로그 값을 쓴다.
  * 저장이 끝나면 onSaved로 알려 추천을 다시 받게 한다.

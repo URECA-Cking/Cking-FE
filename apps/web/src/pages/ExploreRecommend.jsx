@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import CreatorRow from '../components/creator/CreatorRow.jsx'
 import InterestEditor from '../components/creator/InterestEditor.jsx'
-import TagRecommendations from '../components/creator/TagRecommendations.jsx'
 import { LoadingBlock, ErrorBlock, EmptyBlock, SectionHeader } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
@@ -9,7 +8,7 @@ import { useAsync } from '../hooks/useAsync.js'
 import { useMyCreatorRecommendations } from '../hooks/useMyCreatorRecommendations.js'
 import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
 import { useRecommendationEvents } from '../hooks/useRecommendationEvents.js'
-import { getSimilarCreators } from '../api/creators.js'
+import { getFollowTagRecommendations } from '../api/creators.js'
 import { getInterests, getMyInterests } from '../api/interests.js'
 import { describeError } from '../api/client.js'
 import { recommendationReason } from '../utils/recommendationReason.js'
@@ -25,30 +24,10 @@ const SIMILAR_SIZE = 5
  * 인기순 대체 응답은 추천 제목과 빈 결과 안내를 구분한다.
  */
 export default function ExploreRecommend() {
-  const [mode, setMode] = useState('personalized')
-  const { user } = useUser()
-  return (
-    <>
-      <div className="px-margin mt-space-md flex gap-2" role="group" aria-label="추천 방식">
-        {[['personalized', '맞춤 추천'], ['tags', '태그로 찾기']].map(([id, label]) => (
-          <button key={id} type="button" aria-pressed={mode === id} onClick={() => setMode(id)}
-            className={`px-4 py-2 rounded-full font-label-md text-label-md ${mode === id ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>
-            {label}
-          </button>
-        ))}
-      </div>
-      {mode === 'tags'
-        ? <TagRecommendations key={user?.memberId ?? 'guest'} />
-        : <PersonalizedRecommendations key={user?.memberId ?? 'guest'} />}
-    </>
-  )
-}
-
-function PersonalizedRecommendations() {
   const showToast = useToast()
   const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds } = useUser()
   const { ownCreatorId, ownSpacePending } = useOwnCreatorId()
-  const { items: recommended, creatorsById, requestId, personalized, loading, error, reload, reloadRecommendations } = useMyCreatorRecommendations(user?.memberId ?? null)
+  const { items: recommended, creatorsById, requestId, personalized, rankingStatus, loading, error, reload, reloadRecommendations } = useMyCreatorRecommendations(user?.memberId ?? null)
   const { impressionRef, trackClick } = useRecommendationEvents(requestId)
   const [limit, setLimit] = useState(RECOMMEND_PAGE_SIZE)
   const shown = recommended.slice(0, limit)
@@ -65,16 +44,17 @@ function PersonalizedRecommendations() {
   const mine = selectedInterests.data?.owner === user?.memberId ? selectedInterests.data.result : null
   const recommendationsLoading = loading || interests.loading || selectedInterests.loading
 
-  // 유사 크리에이터는 기준이 필요해서 가장 최근에 관심 등록한 크리에이터를 기준으로 삼는다(followedCreators는 최근 팔로우 순). 관심이 없으면 숨긴다.
+  // 제목은 최근 도킹한 크리에이터를 대표로 쓰고, 후보는 전체 팔로우의 확인 태그로 조회한다.
   const similarBaseId = followsReady ? (followedCreators[0] ?? null) : null
   const similar = useAsync(
-    () => getSimilarCreators(similarBaseId, { size: SIMILAR_SIZE }),
-    [similarBaseId],
+    () => getFollowTagRecommendations({ size: SIMILAR_SIZE }).then((result) => ({ owner: user?.memberId, seeds: followedCreators.join(','), result })),
+    [user?.memberId, similarBaseId, followedCreators.join(',')],
     { enabled: similarBaseId !== null },
   )
   const similarCreators = useMemo(
-    () => (similar.data ?? []).map((candidate) => creatorsById.get(candidate.similarCreatorId)).filter(Boolean),
-    [similar.data, creatorsById],
+    () => similar.data?.owner === user?.memberId && similar.data?.seeds === followedCreators.join(',') && !similar.loading && !similar.error
+      ? (similar.data.result.items ?? []).map((candidate) => ({ ...creatorsById.get(candidate.creatorId), ...Object.fromEntries(Object.entries(candidate).filter(([, value]) => value !== undefined)) })) : [],
+    [similar.data, similar.loading, similar.error, creatorsById, user?.memberId, followedCreators],
   )
   const similarBase = creatorsById.get(similarBaseId)
 
@@ -122,7 +102,7 @@ function PersonalizedRecommendations() {
         {recommendationsLoading && <LoadingBlock label="추천 크리에이터를 찾는 중..." />}
         {!recommendationsLoading && error && <ErrorBlock message={error} onRetry={reload} />}
         {!recommendationsLoading && !error && shown.length === 0 && (
-          <EmptyBlock icon="auto_awesome" message={personalized === false ? '지금 보여드릴 크리에이터가 없어요.' : '아직 보여드릴 추천이 없어요. 관심 분야를 골라 보세요.'} />
+          <EmptyBlock icon="auto_awesome" message={rankingStatus === 'PENDING' ? '추천 순위를 갱신하고 있어요. 잠시 후 다시 확인해 주세요.' : personalized === false ? '지금 보여드릴 크리에이터가 없어요.' : '아직 보여드릴 추천이 없어요. 관심 분야를 골라 보세요.'} />
         )}
         {!recommendationsLoading && !error && shown.length > 0 && (
           <div className="px-margin flex flex-col gap-2.5">
@@ -142,7 +122,7 @@ function PersonalizedRecommendations() {
 
       {similarBase && similarCreators.length > 0 && (
         <section className="mt-space-lg px-margin flex flex-col">
-          <SectionHeader icon="group" title={`${similarBase.name}와 비슷한 크리에이터`} />
+          <SectionHeader icon="group" title={followedCreators.length > 1 ? `${similarBase.name} 외 ${followedCreators.length - 1}명과 비슷한 크리에이터` : `${similarBase.name}와 비슷한 크리에이터`} />
           <div className="flex flex-col gap-2.5">{similarCreators.map((creator) => renderRow(creator))}</div>
         </section>
       )}

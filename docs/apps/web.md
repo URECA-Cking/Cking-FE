@@ -32,6 +32,8 @@ Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서
 
 홈·탐색 표시 규칙: 이벤트의 정방형 미리보기(홈 응모 티켓 88×88, 탐색 이벤트 카드·내 응모 64×64)는 이벤트 배너 대신 Creator 프로필 사진을 쓴다. 탐색 Creator 카드는 응모권 잔액을 조회·표시하지 않고 `진행 중 n` 태그만 둔다. 탐색의 `더 보기` 목록(검색 결과·맞춤 추천·이벤트 둘러보기)은 끝까지 펼치면 같은 자리의 `접기`로 처음 개수로 되돌린다. Creator 콘텐츠 태그 공개 API는 BE 문서상 FE 범위 밖이라 연동하지 않는다. 홈의 새 게시물처럼 `overflow-x-auto` 가로 스크롤 영역 안에 `sr-only`(absolute) 요소를 두면 스크롤 컨테이너에 `relative`를 지정한다. 지정하지 않으면 라벨이 컨테이너 밖 기준으로 배치되어 모바일에서 페이지 전체가 가로로 스크롤되며, `apps/web/test/newsFeedLayout.test.js`가 360~430px에서 문서 폭과 뷰포트 폭이 같은지 검증한다.
 
+당첨 표시 규칙: 당첨 포기(`DECLINED`)·자격 박탈(`DISQUALIFIED`) 상태의 당첨은 더 이상 당첨으로 강조하지 않는다. 내 응모 카드는 `당첨!` 대신 `당첨 포기`·`자격 박탈`로 표시하고, 이벤트 상세 당첨 결과의 내 행은 `나의 당첨` 강조 없이 상태만 붙인다. 공개 당첨자 API는 운영 상태를 내려주지 않으므로 다른 사람의 포기 여부는 표시하지 않는다. 이벤트 상세 당첨 결과는 `drawNo`로 묶어, 회차가 둘 이상이면 `최초 추첨`·`재추첨` 제목으로 나눠 보여 주고 순위는 회차 안에서 구분한다. 판정과 묶기는 `utils/winnerPresentation.js`의 `isActiveWin`·`groupWinnersByDraw`가 맡는다.
+
 ### 상태와 인증
 
 `UserContext`가 `/api/me`, 세션 상태, 역할, 팔로우 상태를 관리한다. Access JWT는 `sessionStorage`에 두며, `apps/web/src/api/client.js`가 Web 전용 refresh와 401 동작을 처리한다. 공통 HTTP 전송과 토큰 저장소의 저수준 로직은 `packages/shared`를 사용한다. Toast는 `ToastContext`가 담당한다. Web 전용 상태·Context·페이지는 Admin과 공유하지 않는다.

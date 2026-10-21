@@ -5,12 +5,12 @@ import BottomSheet from './BottomSheet.jsx'
  * 인앱 브라우저나 "대화상자 더 이상 만들지 않음" 설정에서 막혀 동작하지 않을 수 있어 이 시트를 쓴다.
  * 처리 중(busy)에는 닫기와 중복 확인을 막는다.
  *
- * @param {{ open: boolean, title: string, message?: string, confirmLabel?: string, busy?: boolean,
+ * @param {{ open: boolean, title: string, message?: string, confirmLabel?: string, busy?: boolean, closeOnBack?: boolean,
  *   onConfirm: () => void, onClose: () => void }} props
  */
-export default function ConfirmSheet({ open, title, message, confirmLabel = '삭제', busy = false, onConfirm, onClose }) {
+export default function ConfirmSheet({ open, title, message, confirmLabel = '삭제', busy = false, closeOnBack = false, onConfirm, onClose }) {
   return (
-    <BottomSheet open={open} onClose={busy ? undefined : onClose} title={title} compactTitle>
+    <BottomSheet open={open} onClose={busy ? undefined : onClose} title={title} compactTitle closeOnBack={closeOnBack}>
       {message && <p className="mb-space-md font-body-sm text-body-sm text-on-surface-variant">{message}</p>}
       <div className="grid grid-cols-2 gap-2">
         <button

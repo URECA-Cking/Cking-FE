@@ -51,6 +51,22 @@ test('새 게시물 카드를 누르면 그 크리에이터 스페이스로 post
   } finally { await page.close() }
 })
 
+// 홈 소식 행: NEW가 있으면 그 크리에이터의 새 게시물로, 없으면 스페이스 홈으로 이동한다(#354).
+for (const [name, expected] of [
+  ['새글 크리에이터', { path: '/dock', state: { tab: 'posts', openPostId: 3 } }],
+  ['조용한 크리에이터', { path: '/calm', state: null }],
+  ['목록밖 크리에이터', { path: '/late', state: null }],
+]) {
+  test(`소식 행에서 ${name}를 누르면 ${expected.state ? '새 게시물로' : '스페이스 홈으로'} 이동한다`, async () => {
+    const page = await screen()
+    try {
+      await page.evaluate(() => window.renderNewsRow())
+      await page.getByRole('link', { name: new RegExp(`^${name}`) }).click()
+      assert.deepEqual(JSON.parse(await page.getByTestId('arrived').textContent()), expected)
+    } finally { await page.close() }
+  })
+}
+
 test('initialPostId가 있으면 목록을 누르지 않아도 그 게시글 상세를 한 번 열고 알린다', async () => {
   const page = await screen()
   try {

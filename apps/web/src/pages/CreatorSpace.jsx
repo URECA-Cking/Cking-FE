@@ -845,8 +845,9 @@ export default function CreatorSpace() {
                 <ErrorBlock message="이벤트를 불러오지 못했어요." onRetry={reload} />
               ) : liveEvents.length > 0 ? (
                 <div className="flex gap-space-md overflow-x-auto px-margin no-scrollbar snap-x snap-mandatory py-1">
-                  {liveEvents.map((event) => (
-                    <EventCard key={event.eventId} event={event} />
+                  {liveEvents.map((event, index) => (
+                    // 앞의 두 장은 진입하자마자 보이므로 배너를 바로 받는다. 나머지는 가로로 넘길 때 받는다.
+                    <EventCard key={event.eventId} event={event} priority={index < 2} />
                   ))}
                 </div>
               ) : (

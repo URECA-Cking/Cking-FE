@@ -44,10 +44,7 @@ export default function WelcomeCreators({ sectionRef, onFollowed }) {
   return (
     <section ref={sectionRef} className="mt-6">
       <div className="mb-3 px-margin">
-        <h3 className="flex items-center gap-1 text-sm font-extrabold text-on-surface">
-          <span aria-hidden="true">🔥</span>
-          지금 팬들이 가장 많이 모이는 곳
-        </h3>
+        <h3 className="text-sm font-extrabold text-on-surface">지금 팬들이 가장 많이 모이는 곳</h3>
         <p className="font-label-sm text-label-sm text-primary font-normal">도킹하면 STEP 2 응모권을 받을 수 있어요</p>
       </div>
 

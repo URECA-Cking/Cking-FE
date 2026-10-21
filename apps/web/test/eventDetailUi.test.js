@@ -15,15 +15,15 @@ test.before(async()=>{
  browser=await chromium.launch({headless:true,...executablePath?{executablePath}:{}})
 })
 test.after(async()=>{await browser?.close();assert.deepEqual(errors,[])})
-async function screen({holdSpace=false,spaceFail=false,ownCreatorId=null,balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,width=375,endAt='2099-01-01T00:00:00Z',clockTime=null,myTicketCount=5,failStatus=false,prizes=[{prizeKey:'GRAND',displayName:'Grand prize',priority:1,quantity:2,weight:99}]}={}){
+async function screen({guest=false,holdSpace=false,spaceFail=false,ownCreatorId=null,balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,width=375,endAt='2099-01-01T00:00:00Z',clockTime=null,myTicketCount=5,failStatus=false,prizes=[{prizeKey:'GRAND',displayName:'Grand prize',priority:1,quantity:2,weight:99}],winners=null,myWinners=[]}={}){
  const p=await browser.newPage({viewport:{width,height:1000}})
  p.on('pageerror',e=>errors.push(e.message))
  if(clockTime)await p.clock.install({time:new Date(clockTime)})
  await p.route('**/*',r=>r.request().isNavigationRequest()?r.fulfill({contentType:'text/html',body:'<div id="root"></div>'}):r.abort())
  await p.goto('http://localhost/event-test')
- await p.evaluate(({holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes})=>{
-  window.holdSpace=holdSpace;window.spaceFail=spaceFail;window.ownCreatorId=ownCreatorId;window.calls=[];window.toasts=[];window.entryCode='SUCCESS';window.holdEntry=false
-  const record={eventId:16,creatorId:1,title:'Event title',description,status,displayStatus,startAt:'2026-01-01T00:00:00Z',endAt,winnerCount:1,drawMethod:'WEIGHTED',myTicketBalance:balance,myCommonTicketBalance:0,prizes}
+ await p.evaluate(({guest,holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes,winners,myWinners})=>{
+  window.guest=guest;window.holdSpace=holdSpace;window.spaceFail=spaceFail;window.ownCreatorId=ownCreatorId;window.calls=[];window.toasts=[];window.entryCode='SUCCESS';window.holdEntry=false
+  const record={eventId:16,creatorId:1,title:'Event title',description,status,displayStatus,startAt:'2026-01-01T00:00:00Z',endAt,winnerCount:1,drawMethod:'WEIGHTED',myTicketBalance:guest?null:balance,myCommonTicketBalance:guest?null:0,prizes}
   const acceptedRequests=new Set()
   window.fetch=async(url,options={})=>{
    const path=new URL(String(url),location.href).pathname,method=options.method??'GET'
@@ -42,17 +42,19 @@ async function screen({holdSpace=false,spaceFail=false,ownCreatorId=null,balance
    }
    if(path==='/api/events/16'){
     if(window.holdBalance)await new Promise(resolve=>window.releaseBalance=resolve)
-    return failDetail?reply(null,'SYSTEM_ERROR',500):reply({...record,myTicketBalance:window.nextBalance??record.myTicketBalance})
+    return failDetail?(guest?reply(null,'UNAUTHORIZED',401):reply(null,'SYSTEM_ERROR',500)):reply({...record,myTicketBalance:window.nextBalance??record.myTicketBalance})
    }
    if(path==='/api/events/16/entry-status')return failStatus&&!window.retryStatus?reply(null,'SYSTEM_ERROR',500):reply({eventId:16,participantCount:7,totalTicketCount:20,myTicketCount,realtime:true})
    if(path==='/api/creator/space'){
     if(window.holdSpace)await new Promise(resolve=>window.releaseSpace=resolve)
     return window.spaceFail?reply(null,'SYSTEM_ERROR',500):reply({creatorId:window.ownCreatorId})
    }
+   if(path==='/api/events/16/winners')return reply(winners)
+   if(path==='/api/me/winners')return reply(myWinners)
    if(path==='/api/creators')return reply({items:[{creatorId:1,creatorName:'Creator',slug:'creator',profileImageUrl:null}],totalPages:1})
    return reply(null)
   }
- },{holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes})
+ },{guest,holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes,winners,myWinners})
  await p.addStyleTag({content:styles});await p.addScriptTag({content:bundle})
  await p.getByRole('button',{name:failDetail?'다시 시도':'뒤로가기',exact:true}).waitFor()
  return p
@@ -365,5 +367,63 @@ test('failed own space check explains the failure and allows retry instead of st
   await p.evaluate(()=>{window.spaceFail=false})
   await p.getByRole('button',{name:'다시 확인',exact:true}).click()
   await p.getByRole('button',{name:'응모하기',exact:true}).waitFor()
+ }finally{await p.close()}
+})
+
+test('guest can read the event detail, and applying sends them to login without personal API calls',async()=>{
+ const p=await screen({guest:true})
+ try{
+  await p.getByText('Event title',{exact:true}).waitFor()
+  assert.equal(await p.getByText('로그인하면 확인할 수 있어요',{exact:true}).count(),1)
+  assert.equal(await p.getByText('보유한 응모권이 없어 응모할 수 없어요.').count(),0)
+  const paths=await p.evaluate(()=>window.calls.map(x=>x.path))
+  assert.equal(paths.includes('/api/events/16/entry-status'),false)
+  assert.equal(paths.includes('/api/me/winners'),false)
+  await p.getByRole('button',{name:'로그인하고 응모하기',exact:true}).click()
+  await p.getByText('Login page',{exact:true}).waitFor()
+  assert.deepEqual(await posts(p),[])
+ }finally{await p.close()}
+})
+
+test('guest whose event detail request is rejected gets a login path instead of a dead end',async()=>{
+ const p=await screen({guest:true,failDetail:true})
+ try{
+  await p.getByRole('button',{name:'로그인하고 확인하기',exact:true}).click()
+  await p.getByText('Login page',{exact:true}).waitFor()
+ }finally{await p.close()}
+})
+
+const drawWinner=(winnerId,drawNo,rank,name)=>({winnerId,drawNo,drawType:drawNo===0?'INITIAL':'REDRAW',rankInDrawing:rank,name,prizeDisplayName:'Grand prize'})
+const myWinner=(winnerId,status)=>({winnerId,eventId:16,drawNo:0,drawType:'INITIAL',rankInDrawing:1,winnerManagementStatus:status})
+
+test('재추첨이 있으면 당첨 결과를 회차별로 나누고, 포기한 내 행은 강조하지 않고 상태만 붙인다',async()=>{
+ const winners={eventId:16,winners:[drawWinner(100,0,1,'테*트'),drawWinner(101,0,2,'김*수'),drawWinner(200,1,1,'이*진')]}
+ const p=await screen({status:'PUBLISHED',displayStatus:'CLOSED',winners,myWinners:[myWinner(100,'DECLINED')]})
+ try{
+  const first=p.getByRole('region',{name:'최초 추첨',exact:true}),redraw=p.getByRole('region',{name:'재추첨',exact:true})
+  await first.waitFor();await redraw.waitFor()
+  // 행 순서는 그대로 검증하고 순위·이름·상품·상태는 각각 따로 본다. 행 전체 문자열로 비교하면 브라우저마다 달라지는 공백과,
+  // 아이콘 폰트가 없을 때 글자로 보이는 아이콘 이름(block)에 기대게 된다.
+  const rows=async loc=>{const items=loc.getByRole('listitem'),out=[];for(let i=0;i<await items.count();i++){const li=items.nth(i);out.push({rank:(await li.locator('span').first().innerText()).trim(),name:(await li.locator('p').nth(0).innerText()).trim(),prize:(await li.locator('p').nth(1).innerText()).trim(),declined:await li.getByText('당첨 포기').count()>0})}return out}
+  assert.deepEqual(await rows(first),[{rank:'1',name:'테*트',prize:'Grand prize',declined:true},{rank:'2',name:'김*수',prize:'Grand prize',declined:false}])
+  assert.deepEqual(await rows(redraw),[{rank:'1',name:'이*진',prize:'Grand prize',declined:false}])
+  assert.equal(await redraw.getByText('결원이 생겨 다시 추첨했어요.').count(),1)
+  // 포기한 내 행은 "나의 당첨" 강조가 아니라 상태 표시다.
+  assert.equal(await p.getByText('나의 당첨',{exact:false}).count(),0)
+  assert.doesNotMatch(await first.getByRole('listitem').first().getAttribute('class'),/border-primary/)
+ }finally{await p.close()}
+})
+
+test('회차가 하나뿐이면 제목 없이 보여주고, 유효한 내 당첨은 계속 강조한다',async()=>{
+ const winners={eventId:16,winners:[drawWinner(100,0,1,'테*트'),drawWinner(101,0,2,'김*수')]}
+ const p=await screen({status:'PUBLISHED',displayStatus:'CLOSED',winners,myWinners:[myWinner(100,'SELECTED')]})
+ try{
+  const list=p.getByRole('region',{name:'당첨자',exact:true})
+  await list.waitFor()
+  assert.equal(await p.getByRole('heading',{name:/최초 추첨|재추첨/}).count(),0)
+  assert.equal(await list.getByRole('listitem').count(),2)
+  assert.match(await list.getByRole('listitem').first().innerText(),/나의 당첨/)
+  assert.match(await list.getByRole('listitem').first().getAttribute('class'),/border-primary/)
+  assert.equal(await p.getByText('당첨 포기').count(),0)
  }finally{await p.close()}
 })

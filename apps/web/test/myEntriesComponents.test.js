@@ -32,14 +32,14 @@ test.before(async () => {
 test.after(async () => { await browser?.close() })
 
 /** 외부 요청을 막고, 이벤트 목록·이벤트별 내 응모·당첨·크리에이터 목록을 경로별로 바로 응답한다. */
-async function screen() {
+async function screen(winners = [], eventList = events) {
   const page = await browser.newPage()
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
   await page.goto('http://localhost/my-entries-test')
-  await page.evaluate((events) => {
+  await page.evaluate(({ events, winners }) => {
     const ok = (data) => new Response(JSON.stringify({ code: 'SUCCESS', data, message: '' }), { status: 200, headers: { 'content-type': 'application/json' } })
     window.fetch = async (url) => {
       const path = new URL(String(url), window.location.origin).pathname
@@ -47,11 +47,11 @@ async function screen() {
       if (/^\/api\/events\/\d+\/entries\/me$/.test(path)) {
         return ok({ items: [{ usedTicketCount: 1, appliedAt: '2026-10-15T00:00:00Z' }], nextCursor: null, hasNext: false })
       }
-      if (path === '/api/me/winners') return ok([])
+      if (path === '/api/me/winners') return ok(winners)
       if (path === '/api/creators') return ok({ items: [], page: 0, size: 100, totalElements: 0, totalPages: 1, hasNext: false })
       throw new Error(`예상하지 못한 요청: ${path}`)
     }
-  }, events)
+  }, { events: eventList, winners })
   await page.addScriptTag({ content: bundle })
   await page.getByRole('button', { name: /^전체/ }).waitFor()
   return { page, errors }
@@ -94,6 +94,29 @@ test('더보기는 5개씩 늘리고 끝까지 펼치면 접기로 처음 5개�
     await page.getByRole('button', { name: '더보기 (7개)' }).click()
     await page.getByRole('button', { name: '응모 중 7' }).click()
     assert.equal(await cards(page).count(), 5)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('당첨을 포기하거나 자격이 박탈된 이벤트는 "당첨!" 대신 상태로 보여 주고 강조하지 않는다', async () => {
+  // 종료 이벤트 200~202만 결과가 공개된 상태로 만든다(공개돼야 당첨 여부를 보여 준다).
+  const published = events.map((item) => (item.eventId >= 200 && item.eventId <= 202 ? { ...item, status: 'PUBLISHED' } : item))
+  const win = (eventId, winnerManagementStatus) => ({ winnerId: eventId, eventId, drawNo: 0, drawType: 'INITIAL', rankInDrawing: 1, prizeDisplayName: 'Grand prize', winnerManagementStatus })
+  const { page, errors } = await screen([win(200, 'SELECTED'), win(201, 'DECLINED'), win(202, 'DISQUALIFIED')], published)
+  try {
+    await page.getByRole('button', { name: '종료 5' }).click()
+    const card = (eventId) => page.locator(`a[href="/events/${eventId}"]`)
+
+    assert.match(await card(200).innerText(), /당첨!/)
+    assert.match(await card(200).getAttribute('class'), /border-primary/)
+
+    assert.match(await card(201).innerText(), /당첨 포기/)
+    assert.doesNotMatch(await card(201).innerText(), /당첨!/)
+    assert.doesNotMatch(await card(201).getAttribute('class'), /border-primary/)
+
+    assert.match(await card(202).innerText(), /자격 박탈/)
+    assert.doesNotMatch(await card(202).innerText(), /당첨!/)
+    assert.doesNotMatch(await card(202).getAttribute('class'), /border-primary/)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

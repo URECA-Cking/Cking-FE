@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { getMyEventEntries } from '../api/myEntries.js'
 import { useAsync } from './useAsync.js'
 
@@ -12,12 +13,19 @@ const noneKnown = new Set()
  */
 export function useAppliedEvents(eventIds, memberId) {
   const idsKey = eventIds.join(',')
+  // 목록이 늘어날 때 이미 확인한 이벤트를 다시 조회하지 않도록 성공한 결과만 회원별로 들고 있는다. 실패한 이벤트는 재시도 때 다시 조회한다.
+  const settled = useRef({ memberId: null, results: new Map() })
   const { data, reload } = useAsync(async () => {
+    if (settled.current.memberId !== memberId) settled.current = { memberId, results: new Map() }
+    const cache = settled.current.results
     const results = await Promise.all(idsKey.split(',').map(async (value) => {
       const id = Number(value)
+      if (cache.has(id)) return cache.get(id)
       try {
         const page = await getMyEventEntries(id, { size: 1 })
-        return { id, applied: page?.items?.length > 0, failed: false }
+        const result = { id, applied: page?.items?.length > 0, failed: false }
+        cache.set(id, result)
+        return result
       } catch {
         return { id, applied: false, failed: true }
       }

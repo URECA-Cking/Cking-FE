@@ -40,6 +40,7 @@ export function useCloseGuard(open, onClose) {
     title: '작성 중인 내용이 사라져요',
     message: '닫으면 작성한 내용이 저장되지 않아요.',
     confirmLabel: '버리고 닫기',
+    closeOnBack: true, // 작성 시트와 같이 뒤로가기로도 취소(확인 시트만 닫기)할 수 있게 한다.
     /** 확인하면 가드를 거치지 않고 시트를 닫는다. */
     onConfirm: () => {
       setConfirming(false)

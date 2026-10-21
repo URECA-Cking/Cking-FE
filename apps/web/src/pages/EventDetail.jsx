@@ -1,11 +1,12 @@
 import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import BottomSheet from '../components/ui/BottomSheet.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock, StatusPill, Spinner } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
+import { useUser } from '../context/useUser.js'
 import { useMyTickets } from '../context/useMyTickets.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { useEntryStatus } from '../hooks/useEntryStatus.js'
@@ -21,6 +22,7 @@ import { getEventBanner } from '../data/eventBanners.js'
 import { useCreatorProfile } from '../hooks/useCreatorProfile.js'
 import { formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '../utils/format.js'
 import { displayStatusMeta, eventStatusMeta, isEntryOpen } from '../utils/eventStatus.js'
+import { groupWinnersByDraw, isActiveWin, winnerStatusMeta } from '../utils/winnerPresentation.js'
 import {
   COUPON_TYPE,
   EXPECTED_SYNC_MS,
@@ -47,6 +49,13 @@ const COUPON_LABEL = { [COUPON_TYPE.CREATOR]: '크리에이터 응모권', [COUP
 export default function EventDetail() {
   const { eventId } = useParams()
   const showToast = useToast()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { status: userStatus } = useUser()
+  // 로그인 상태를 복원하는 동안에는 이벤트를 불러오지 않는다. 토큰 없이 먼저 받으면 로그인 사용자도 응모권 잔액이 빠진 응답을 받을 수 있다.
+  const sessionLoading = userStatus === 'loading'
+  const authenticated = userStatus === 'authenticated'
+  const anonymous = userStatus === 'anonymous'
   const redirectToProfileSetup = useProfileSetupRedirect()
   const { refresh: refreshMyTickets } = useMyTickets() // 응모하면 헤더의 총 응모권 개수도 바뀌어야 한다
   // 크리에이터는 내 스페이스를 불러와야 이 이벤트가 내 것인지 안다. 알 수 없는 동안에는 응모를 막는다.
@@ -67,8 +76,11 @@ export default function EventDetail() {
   const prizeDragRef = useRef(null)
   useEffect(() => {
     const dialog = confirmationRef.current
-    if (sheetOpen) dialog?.showModal()
-    else dialog?.close()
+    if (sheetOpen) {
+      dialog?.showModal()
+      // showModal이 첫 버튼(취소)에 초점을 주면 iOS가 파란 초점 테두리를 그려서, 대화상자 자체에 초점을 둔다.
+      dialog?.focus()
+    } else dialog?.close()
   }, [sheetOpen])
   const [selectionOpen, setSelectionOpen] = useState(false)
   const [now, setNow] = useState(() => Date.now())
@@ -85,15 +97,15 @@ export default function EventDetail() {
 
   const { data: event, loading, error, reload, setData: setEvent } = useAsync(
     () => getEvent(eventId),
-    [eventId],
-    { fallbackMessage: '이벤트 상세를 불러오지 못했습니다.' },
+    [eventId, authenticated],
+    { enabled: !sessionLoading, fallbackMessage: '이벤트 상세를 불러오지 못했습니다.' },
   )
 
   // 예정 이벤트는 응모가 없어 조회하지 않는다. 진행 중이면 주기적으로 다시 받는다. 응모는 submitEntry가
   // beginEntry·acceptEntry로 알리고, 수락된 응모가 현황에 반영될 때까지 현황을 숨기고 다시 조회한다.
   // 이벤트 상세를 조용히 다시 받는 것(syncBalances)은 시트를 열 때나 지연 재조회에서도 일어나 응모와 무관하다.
   const entryStatus = useEntryStatus(eventId, {
-    enabled: Boolean(event) && event.displayStatus !== 'UPCOMING',
+    enabled: authenticated && Boolean(event) && event.displayStatus !== 'UPCOMING',
     live: event?.displayStatus === 'IN_PROGRESS',
   })
 
@@ -124,15 +136,18 @@ export default function EventDetail() {
     fallbackMessage: '당첨자 목록을 불러오지 못했습니다.',
   })
   // 공개 당첨자 목록에는 회원 식별자가 없어(마스킹된 이름·전화번호만), 내 당첨 목록의 winnerId로 "나의 당첨"을 판별한다.
-  const myWinners = useAsync(() => getMyWinners(), [published], {
-    enabled: Boolean(published),
+  const myWinners = useAsync(() => getMyWinners(), [published, authenticated], {
+    enabled: Boolean(published) && authenticated,
     fallbackMessage: '내 당첨 정보를 불러오지 못했습니다.',
   })
   // 조회 중이거나 실패하면 null(판별 불가)로 두어, 본인 당첨을 다른 당첨자로 확정해 보여주지 않는다.
-  const myWinnerIds = useMemo(() => {
+  // 포기·자격 박탈된 당첨도 내 행이라 상태와 함께 담는다(강조 여부는 목록에서 상태로 정한다).
+  const myWinnerById = useMemo(() => {
     if (myWinners.loading || myWinners.error || !Array.isArray(myWinners.data)) return null
-    return new Set(myWinners.data.map((winner) => winner.winnerId))
+    return new Map(myWinners.data.map((winner) => [winner.winnerId, winner]))
   }, [myWinners.loading, myWinners.error, myWinners.data])
+  // 재추첨이 있으면 최초 추첨과 재추첨 당첨자를 회차별로 나눠 보여준다.
+  const winnerGroups = useMemo(() => groupWinnersByDraw(winners.data?.winners), [winners.data])
 
   // 응모권은 크리에이터 전용과 공용 두 종류다. 이벤트 상세 응답이 두 잔액을 함께 내려준다.
   // 크리에이터 응모권은 이벤트(크리에이터)마다 달라서 예상 잔액은 같은 이벤트에서만 쓴다.
@@ -151,17 +166,18 @@ export default function EventDetail() {
   const deadlinePassed = remaining === 0
   // 본인이 만든 이벤트에는 응모할 수 없다(BE가 막지 않아 FE가 구분한다).
   const isOwnEvent = ownCreatorId != null && event != null && Number(event.creatorId) === Number(ownCreatorId)
-  const canApply = isEntryOpen(event) && hasAnyTicket && !deadlinePassed && !isOwnEvent && !ownSpacePending
+  // 비로그인은 응모권을 알 수 없어 보유 여부를 따지지 않는다. 버튼을 누르면 로그인으로 보내고, 보유 여부는 로그인 뒤에 따진다.
+  const canApply = isEntryOpen(event) && (anonymous || hasAnyTicket) && !deadlinePassed && !isOwnEvent && !ownSpacePending
   // 응모 버튼의 글자. 본인 이벤트이면 이유를 알 수 있게 따로 안내한다.
   const applyLabel = canApply
-    ? '응모하기'
+    ? anonymous ? '로그인하고 응모하기' : '응모하기'
     : isOwnEvent && isEntryOpen(event)
       ? '내 이벤트에는 응모할 수 없어요'
       : '응모할 수 없는 상태예요'
   // 응모 성공으로 잔액이 줄어들 수 있으므로, 실제로 쓸 수량은 렌더 시점에 한도 범위로 맞춘다.
   const selectedCount = clampEntryCount(ticketCount, balance)
 
-  if (loading) {
+  if (loading || sessionLoading) {
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe">
         <BackHeader title="" />
@@ -174,6 +190,12 @@ export default function EventDetail() {
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe justify-center gap-3">
         <ErrorBlock message={error ?? '이벤트를 찾을 수 없어요.'} onRetry={reload} />
+        {/* 비로그인이 조회에 실패했다면 로그인이 필요한 상태일 수 있다(BE가 상세 조회를 아직 로그인 필수로 둔 동안). 막다른 화면이 되지 않게 로그인 길을 연다. */}
+        {anonymous && (
+          <button type="button" onClick={goLogin} className="self-center px-4 py-2 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-semibold active:scale-95 transition-all">
+            로그인하고 확인하기
+          </button>
+        )}
         <Link to="/" className="text-center text-primary font-label-md text-label-md font-semibold">
           홈으로 돌아가기
         </Link>
@@ -191,6 +213,11 @@ export default function EventDetail() {
     prizeDragRef.current = null
     event.currentTarget.style.scrollSnapType = ''
     event.currentTarget.style.cursor = ''
+  }
+
+  /** 비로그인 사용자를 로그인 화면으로 보낸다. 로그인하면 보던 이벤트 상세로 돌아온다. */
+  function goLogin() {
+    navigate('/login', { state: { from: location.pathname + location.search } })
   }
 
   function adjust(delta) {
@@ -381,7 +408,9 @@ export default function EventDetail() {
 
           <section aria-label="내 응모" className="flex flex-wrap items-center justify-center gap-2 self-center w-fit max-w-full px-6 py-3 rounded-xl bg-surface-container-low text-primary font-title-md text-title-md font-bold">
             <span>내 응모</span>
-            {entryStatus.status?.myTicketCount != null ? (
+            {anonymous ? (
+              <span className="text-on-surface-variant text-body-sm">로그인하면 확인할 수 있어요</span>
+            ) : entryStatus.status?.myTicketCount != null ? (
               <span>{formatNumber(entryStatus.status.myTicketCount)}장</span>
             ) : event.displayStatus === 'UPCOMING' ? (
               <span className="text-on-surface-variant text-body-sm">응모 시작 전</span>
@@ -513,32 +542,55 @@ export default function EventDetail() {
                   </button>
                 </div>
               )}
-              {!winners.loading && (winners.data?.winners ?? []).length > 0 && (
-                <ul className="flex flex-col gap-2">
-                  {winners.data.winners.map((winner) => {
-                    const mine = myWinnerIds?.has(winner.winnerId) ?? false
-                    return (
-                      <li
-                        key={winner.winnerId}
-                        className={`flex items-center gap-space-sm p-space-sm rounded-xl ${
-                          mine ? 'bg-berry-tint border border-primary' : 'bg-surface-container-low'
-                        }`}
-                      >
-                        <span className="w-8 h-8 rounded-full bg-surface-container-lowest flex items-center justify-center font-label-sm text-label-sm font-bold text-primary shrink-0">
-                          {winner.rankInDrawing}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className={`font-label-md text-label-md font-semibold ${mine ? 'text-on-primary-fixed' : 'text-on-surface'} truncate`}>
-                            {mine ? '나의 당첨 🎉' : winner.name}
-                          </p>
-                          <p className={`font-label-xs text-label-xs ${mine ? 'text-on-primary-fixed-variant' : 'text-on-surface-variant'} truncate`}>
-                            {winner.prizeDisplayName ?? '상품 미지정'}
-                          </p>
+              {!winners.loading && winnerGroups.length > 0 && (
+                <div className="flex flex-col gap-space-md">
+                  {winnerGroups.map((group) => (
+                    <section key={group.drawNo} aria-label={group.title ?? '당첨자'} className="flex flex-col gap-2">
+                      {group.title && (
+                        <div className="flex flex-col gap-0.5">
+                          <h4 className="font-label-md text-label-md font-bold text-on-surface">{group.title}</h4>
+                          {group.caption && (
+                            <p className="font-label-xs text-label-xs text-on-surface-variant">{group.caption}</p>
+                          )}
                         </div>
-                      </li>
-                    )
-                  })}
-                </ul>
+                      )}
+                      <ul className="flex flex-col gap-2">
+                        {group.winners.map((winner) => {
+                          const myWinner = myWinnerById?.get(winner.winnerId)
+                          // 포기·자격 박탈된 내 행은 강조하지 않고 상태만 붙인다.
+                          const mine = isActiveWin(myWinner)
+                          const myStatus = myWinner && !mine ? winnerStatusMeta(myWinner.winnerManagementStatus) : null
+                          return (
+                            <li
+                              key={winner.winnerId}
+                              className={`flex items-center gap-space-sm p-space-sm rounded-xl ${
+                                mine ? 'bg-berry-tint border border-primary' : 'bg-surface-container-low'
+                              }`}
+                            >
+                              <span className="w-8 h-8 rounded-full bg-surface-container-lowest flex items-center justify-center font-label-sm text-label-sm font-bold text-primary shrink-0">
+                                {winner.rankInDrawing}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className={`font-label-md text-label-md font-semibold ${mine ? 'text-on-primary-fixed' : 'text-on-surface'} truncate`}>
+                                  {mine ? '나의 당첨 🎉' : winner.name}
+                                </p>
+                                <p className={`font-label-xs text-label-xs ${mine ? 'text-on-primary-fixed-variant' : 'text-on-surface-variant'} truncate`}>
+                                  {winner.prizeDisplayName ?? '상품 미지정'}
+                                </p>
+                              </div>
+                              {myStatus && (
+                                <span className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-label-xs text-label-xs font-semibold ${myStatus.tone}`}>
+                                  <MaterialIcon name={myStatus.icon} className="text-[14px]" />
+                                  {myStatus.label}
+                                </span>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -551,13 +603,13 @@ export default function EventDetail() {
           <button
             type="button"
             aria-label={applyLabel}
-            onClick={() => pendingEntry ? openConfirm() : setSelectionOpen(true)}
+            onClick={() => anonymous ? goLogin() : pendingEntry ? openConfirm() : setSelectionOpen(true)}
             disabled={(!canApply && !restorePendingEntryAttempt(pendingEntry, eventId)) || opening}
             className="w-full h-12 rounded-xl bg-gradient-to-r from-primary via-primary-container to-berry-glow text-on-primary font-title-md text-title-md font-bold flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             <MaterialIcon name="confirmation_number" filled className="text-[20px]" />
             <span>{applyLabel}</span>
-        </button>
+          </button>
         </div>
         </div>
       </div>
@@ -634,21 +686,21 @@ export default function EventDetail() {
                 <button
                   type="button"
                   onClick={() => quickAdd(1)}
-                  className="py-2.5 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
+                  className="h-12 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
                 >
                   +1장
                 </button>
                 <button
                   type="button"
                   onClick={() => quickAdd(5)}
-                  className="py-2.5 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
+                  className="h-12 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
                 >
                   +5장
                 </button>
                 <button
                   type="button"
                   onClick={() => setTicketCount(limit)}
-                  className="py-2.5 rounded-xl bg-primary/10 text-primary font-label-md text-label-md font-bold active:scale-95 hover:bg-primary hover:text-on-primary transition-all"
+                  className="h-12 rounded-xl bg-primary/10 text-primary font-label-md text-label-md font-bold active:scale-95 hover:bg-primary hover:text-on-primary transition-all"
                 >
                   일괄 사용
                 </button>
@@ -680,6 +732,7 @@ export default function EventDetail() {
         ref={confirmationRef}
         aria-label="응모 확인"
         aria-describedby="entry-confirm-message"
+        tabIndex={-1}
         onCancel={(event) => {
           event.preventDefault()
           if (phase !== 'submitting') {
@@ -687,7 +740,7 @@ export default function EventDetail() {
             if (phase === 'idle') setSelectionOpen(true)
           }
         }}
-        className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border-0 bg-surface-container-lowest p-6 text-on-surface shadow-2xl backdrop:bg-black/60"
+        className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border-0 outline-none bg-surface-container-lowest p-6 text-on-surface shadow-2xl backdrop:bg-black/60"
       >
         <p id="entry-confirm-message" className="font-body-md text-body-md text-on-surface leading-relaxed mb-6">
           응모 완료 시 사용된 응모권은 취소 또는 환불이 불가합니다. 응모하시겠습니까?

@@ -37,14 +37,17 @@ const RECOMMENDATION = { recommendationRequestId: 'rid-1', policyVersion: 'INTER
  * window.requests에 호출한 경로를 쌓고, window.failures[경로]가 양수면 그 횟수만큼 먼저 오류를 돌려준다.
  * 목에 없는 경로(관심 분야·응모권 잔액 등)는 404라 해당 영역은 조용히 비거나 실패로 그려진다.
  */
-async function screen(initial = '/explore', { events = EVENTS, creators = CREATORS, counts = null, failures = {} } = {}) {
+async function screen(initial = '/explore', { events = EVENTS, creators = CREATORS, counts = null, failures = {}, recommendation = RECOMMENDATION, recommendationAfterSave = null, delayCatalog = false } = {}) {
   const page = await browser.newPage()
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
   await page.goto('http://localhost/explore-test')
-  await page.evaluate(({ creators, events, recommendation, counts, failures }) => {
+  await page.evaluate(({ creators, events, recommendation, recommendationAfterSave, counts, failures, delayCatalog }) => {
     window.requests = []
+    window.requestDetails = []
     window.failures = { ...failures }
+    window.savedInterestCodes = ['FOOD']
+    window.didSaveInterests = false
     const reply = (status, code, data, message = null) => Promise.resolve(new Response(JSON.stringify({ code, data, message }), { status }))
     const pageOf = (items, params) => {
       const size = Number(params.get('size') ?? 20)
@@ -52,10 +55,13 @@ async function screen(initial = '/explore', { events = EVENTS, creators = CREATO
       const slice = items.slice(number * size, (number + 1) * size)
       return { items: slice, page: number, size, totalElements: items.length, totalPages: Math.max(Math.ceil(items.length / size), 1), hasNext: (number + 1) * size < items.length }
     }
-    window.fetch = (url) => {
+    window.fetch = (url, options = {}) => {
       const target = new URL(String(url), location.href)
       const path = target.pathname
       window.requests.push(path)
+      const method = options.method ?? 'GET'
+      const body = options.body ? JSON.parse(options.body) : null
+      window.requestDetails.push({ path, method, body })
       if ((window.failures[path] ?? 0) > 0) {
         window.failures[path] -= 1
         return reply(500, 'SYSTEM_ERROR', null, '일시적인 오류')
@@ -66,10 +72,23 @@ async function screen(initial = '/explore', { events = EVENTS, creators = CREATO
         const status = target.searchParams.get('status')
         return reply(200, 'SUCCESS', pageOf(status ? events.filter((item) => item.displayStatus === status) : events, target.searchParams))
       }
-      if (path === '/api/me/creator-recommendations') return reply(200, 'SUCCESS', recommendation)
+      if (path === '/api/me/creator-recommendations') return reply(200, 'SUCCESS', window.didSaveInterests && recommendationAfterSave ? recommendationAfterSave : recommendation)
+      if (path === '/api/interests') {
+        const catalog = { taxonomyVersion: 'v1', maxSelection: 3, items: [
+          { interestCode: 'FOOD', name: '요리·푸드' }, { interestCode: 'FITNESS', name: '운동·건강' },
+        ] }
+        if (delayCatalog) return new Promise((resolve) => { window.releaseCatalog = () => resolve(reply(200, 'SUCCESS', catalog)) })
+        return reply(200, 'SUCCESS', catalog)
+      }
+      if (path === '/api/me/interests' && method === 'PUT') {
+        window.savedInterestCodes = body.interestCodes
+        window.didSaveInterests = true
+        return reply(200, 'SUCCESS', { taxonomyVersion: 'v1', interestCodes: window.savedInterestCodes })
+      }
+      if (path === '/api/me/interests') return reply(200, 'SUCCESS', { taxonomyVersion: 'v1', interestCodes: window.savedInterestCodes })
       return reply(404, 'RESOURCE_NOT_FOUND', null, '없음')
     }
-  }, { creators, events, recommendation: RECOMMENDATION, counts, failures })
+  }, { creators, events, recommendation, recommendationAfterSave, counts, failures, delayCatalog })
   await page.addStyleTag({ content: styles })
   await page.addScriptTag({ content: bundle })
   await page.evaluate((path) => window.renderExplore(path), initial)
@@ -134,6 +153,75 @@ test('탐색에 들어와도 맞춤 추천 API는 부르지 않고, 추천 화�
   await waitWhere(page, '/explore/recommend')
   await page.getByText('하늘').first().waitFor()
   assert.equal(await count(page, '/api/me/creator-recommendations'), 1)
+  await page.close()
+})
+
+test('분야 카탈로그를 한 번만 요청하고 응답 전에는 추천 카드를 표시하지 않는다', async () => {
+  const recommendation = { recommendationRequestId: 'rid-2', policyVersion: 'INTEREST_PERSONALIZED_V1', items: [
+    { creatorId: 4, creatorName: '하늘', interestCodes: ['FOOD', 'FITNESS'], seedCreatorIds: [1] },
+  ] }
+  const page = await screen('/explore/recommend', { recommendation, delayCatalog: true })
+  await page.setViewportSize({ width: 360, height: 800 })
+  await page.waitForFunction(() => window.requests.includes('/api/interests') && window.requests.includes('/api/me/creator-recommendations'))
+  assert.equal(await count(page, '/api/interests'), 1)
+  assert.equal(await page.getByText('하늘', { exact: true }).count(), 0)
+  assert.equal(await page.getByText('내가 도킹한 크리에이터와 비슷해요').count(), 0)
+
+  await page.evaluate(() => window.releaseCatalog())
+  await page.getByText('관심 분야 · 요리·푸드, 운동·건강').waitFor()
+  assert.equal(await count(page, '/api/interests'), 1)
+  assert.equal(await page.getByText('내가 도킹한 크리에이터와 비슷해요').count(), 0)
+  const badgeFits = await page.getByText('관심 분야 · 요리·푸드, 운동·건강').evaluate(
+    (element) => element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
+  )
+  assert.equal(badgeFits, true)
+  await page.close()
+})
+
+test('카탈로그 조회 실패에도 추천을 표시하고 편집기에서 카탈로그를 다시 받는다', async () => {
+  const page = await screen('/explore/recommend', { failures: { '/api/interests': 1 } })
+  await page.getByText('하늘', { exact: true }).waitFor()
+  assert.equal(await count(page, '/api/interests'), 1)
+  await page.getByRole('button', { name: '관심 분야 다시 불러오기' }).click()
+  await page.getByRole('button', { name: '분야 편집' }).waitFor()
+  assert.equal(await count(page, '/api/interests'), 2)
+  await page.close()
+})
+
+test('인기순 대체 추천은 개인화 제목 대신 인기 크리에이터 제목을 표시한다', async () => {
+  const recommendation = { recommendationRequestId: 'rid-popular', policyVersion: 'POPULAR_FALLBACK_V1', items: [
+    { creatorId: 4, creatorName: '하늘', interestCodes: [], seedCreatorIds: [] },
+  ] }
+  const page = await screen('/explore/recommend', { recommendation })
+  await page.getByText('하늘', { exact: true }).waitFor()
+  assert.equal(await page.getByText('지금 인기 있는 크리에이터').count(), 1)
+  assert.equal(await page.getByText('나를 위한 추천').count(), 0)
+  await page.close()
+})
+
+test('관심 분야 저장 성공 후 추천을 다시 조회해 변경된 카드와 이유를 표시한다', async () => {
+  const recommendation = { recommendationRequestId: 'rid-before', policyVersion: 'INTEREST_PERSONALIZED_V1', items: [
+    { creatorId: 4, creatorName: '하늘', interestCodes: ['FOOD'], seedCreatorIds: [] },
+  ] }
+  const recommendationAfterSave = { recommendationRequestId: 'rid-after', policyVersion: 'INTEREST_PERSONALIZED_V1', items: [
+    { creatorId: 3, creatorName: '가을', interestCodes: ['FITNESS'], seedCreatorIds: [] },
+  ] }
+  const page = await screen('/explore/recommend', { recommendation, recommendationAfterSave })
+  await page.getByText('관심 분야 · 요리·푸드').waitFor()
+  await page.getByRole('button', { name: '분야 편집' }).click()
+  const interests = page.getByRole('group', { name: '관심 분야' })
+  await interests.getByRole('button', { name: '요리·푸드' }).click()
+  await interests.getByRole('button', { name: '운동·건강' }).click()
+  await page.getByRole('button', { name: '저장', exact: true }).click()
+
+  await page.getByText('관심 분야 · 운동·건강').waitFor()
+  assert.equal(await page.getByText('가을', { exact: true }).count(), 1)
+  assert.equal(await page.getByText('하늘', { exact: true }).count(), 0)
+  const requests = await page.evaluate(() => window.requestDetails)
+  const saveIndex = requests.findIndex((item) => item.path === '/api/me/interests' && item.method === 'PUT')
+  assert.ok(saveIndex > 0)
+  assert.deepEqual(requests[saveIndex].body, { taxonomyVersion: 'v1', interestCodes: ['FITNESS'] })
+  assert.ok(requests.slice(saveIndex + 1).some((item) => item.path === '/api/me/creator-recommendations' && item.method === 'GET'))
   await page.close()
 })
 

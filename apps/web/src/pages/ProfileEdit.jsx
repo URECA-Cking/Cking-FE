@@ -63,8 +63,9 @@ function CreatorProfileNotice() {
   )
 }
 
+/** 팬 프로필을 편집하고, 최초 닉네임 설정 전에는 앱 진입과 설정 건너뛰기를 막는다. */
 function FanProfileEdit() {
-  const { user, applyUser } = useUser()
+  const { user, applyUser, clearUser } = useUser()
   const navigate = useNavigate()
   const location = useLocation()
   const showToast = useToast()
@@ -90,6 +91,8 @@ function FanProfileEdit() {
   const photoSeq = useRef(0)
   const [imageError, setImageError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const leavingRef = useRef(false)
   const [formError, setFormError] = useState('')
   const fileInput = useRef(null)
   const alive = useRef(true)
@@ -117,13 +120,14 @@ function FanProfileEdit() {
   const shownImage = pendingKey === null ? null : (previewUrl ?? toSafeHttpUrl(user?.profileImageUrl))
   // 오류 문구는 입력을 건드린 뒤에만 보이지만, 저장 가능 여부는 닉네임이 규칙을 지키는지로 항상 따진다(사진만 고른 설정 모드 방지).
   const nicknameInvalid = !nicknameLocked && validateNickname(normalized) !== null
-  const canSave = !saving && !photoBusy && dirty && !nicknameInvalid
+  const canSave = !saving && !photoBusy && !leaving && dirty && !nicknameInvalid
 
+  /** 사진을 검사하고 업로드한 뒤 가장 최근 선택의 결과만 미리보기에 반영한다. */
   async function handleFile(event) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    if (photoBusy) return
+    if (photoBusy || leavingRef.current) return
     const seq = ++photoSeq.current
     const isLatest = () => alive.current && seq === photoSeq.current
     setImageError('')
@@ -146,14 +150,17 @@ function FanProfileEdit() {
     }
   }
 
+  /** 아직 저장하지 않은 사진 변경을 기본 이미지 선택으로 바꾼다. */
   function removeImage() {
+    if (leavingRef.current) return
     setImageError('')
     setPreviewUrl(null)
     setPendingKey(null)
   }
 
+  /** 닉네임과 사진을 저장하고 서버의 최신 프로필을 로그인 상태에 반영한다. */
   async function save(nextNickname) {
-    if (savingRef.current) return
+    if (savingRef.current || leavingRef.current) return
     savingRef.current = true
     setSaving(true)
     setFormError('')
@@ -178,32 +185,58 @@ function FanProfileEdit() {
     else navigate(from, { replace: true })
   }
 
+  /** 입력값이 유효할 때만 프로필 저장을 시작한다. */
   function handleSubmit(event) {
     event.preventDefault()
+    if (leavingRef.current) return
     setTouched(true)
     if (!canSave) return
     save(nicknameLocked ? originalNickname : normalized)
   }
 
+  /** 사용 가능한 이전 닉네임을 선택해 곧바로 복원한다. */
   function handleRestore() {
-    if (saving || photoBusy || !restorable) return
+    if (saving || photoBusy || leavingRef.current || !restorable) return
     setNickname(restorable)
     save(restorable)
   }
 
-  /** 뒤로가기: 수정한 내용이 있으면 확인 시트를 열고, 없으면 바로 나간다. */
+  /** 뒤로가기: 최초 설정은 로그아웃 확인을, 일반 편집은 변경 내용 폐기 확인을 거친다. */
   function handleBack() {
     // 저장·사진 업로드 중에 나가면 결과를 화면에 반영하지 못한다. 끝날 때까지 기다리게 한다.
-    if (saving || photoBusy) return
-    if (dirty) setConfirmingLeave(true)
+    if (saving || photoBusy || leavingRef.current) return
+    if (setup || dirty) setConfirmingLeave(true)
     else leave()
   }
 
-  /** 이전 화면(기록이 없으면 진입 경로)으로 나간다. */
-  function leave() {
+  /** 최초 설정에서 나가면 로그아웃하고, 일반 편집이면 이전 화면으로 돌아간다. */
+  async function leave() {
+    if (setup) {
+      if (leavingRef.current) return
+      leavingRef.current = true
+      setLeaving(true)
+      try {
+        await clearUser()
+      } catch {
+        // 서버 로그아웃이 실패해도 clearUser가 로컬 인증 상태와 토큰을 지운다.
+      }
+      navigate('/login', { replace: true })
+      return
+    }
     const canGoBack = (window.history.state?.idx ?? 0) > 0
     if (canGoBack) navigate(-1)
     else navigate(from, { replace: true })
+  }
+
+  /** 최초 설정은 확인 시트를 유지한 채 로그아웃하고, 일반 편집은 시트를 닫고 돌아간다. */
+  function confirmLeave() {
+    if (!setup) setConfirmingLeave(false)
+    leave()
+  }
+
+  /** 로그아웃 시작 전의 취소 요청만 받아 확인 시트를 닫는다. */
+  function cancelLeave() {
+    if (!leavingRef.current) setConfirmingLeave(false)
   }
 
   if (!user) return null
@@ -236,7 +269,7 @@ function FanProfileEdit() {
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              disabled={photoBusy || saving}
+              disabled={photoBusy || saving || leaving}
               aria-label="프로필 사진 변경"
               className="h-full w-full overflow-hidden rounded-full bg-surface-container active:scale-95 transition-transform disabled:opacity-70"
             >
@@ -252,7 +285,7 @@ function FanProfileEdit() {
               tabIndex={-1}
               aria-hidden="true"
               onClick={() => fileInput.current?.click()}
-              disabled={photoBusy || saving}
+              disabled={photoBusy || saving || leaving}
               className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full border-2 border-surface bg-primary text-on-primary shadow-md active:scale-95 transition-transform disabled:opacity-70"
             >
               <MaterialIcon name="photo_camera" className="text-[18px]" />
@@ -263,7 +296,7 @@ function FanProfileEdit() {
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              disabled={photoBusy || saving}
+              disabled={photoBusy || saving || leaving}
               className="font-label-md text-label-md font-semibold text-primary disabled:opacity-50"
             >
               사진 변경
@@ -272,7 +305,7 @@ function FanProfileEdit() {
               <button
                 type="button"
                 onClick={removeImage}
-                disabled={photoBusy || saving}
+                disabled={photoBusy || saving || leaving}
                 className="font-label-md text-label-md text-on-surface-variant disabled:opacity-50"
               >
                 사진 삭제
@@ -289,7 +322,7 @@ function FanProfileEdit() {
             type="text"
             value={nicknameLocked ? originalNickname : nickname}
             maxLength={NICKNAME_MAX_LENGTH}
-            disabled={nicknameLocked || saving}
+            disabled={nicknameLocked || saving || leaving}
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
@@ -317,7 +350,7 @@ function FanProfileEdit() {
             <button
               type="button"
               onClick={handleRestore}
-              disabled={saving || photoBusy}
+              disabled={saving || photoBusy || leaving}
               className="flex items-center gap-1.5 self-start font-label-md text-label-md font-semibold text-primary disabled:opacity-50"
             >
               <MaterialIcon name="undo" className="text-[18px]" />
@@ -340,28 +373,17 @@ function FanProfileEdit() {
           >
             {saving ? '저장하는 중...' : setup ? '시작하기' : '저장'}
           </button>
-          {setup && (
-            <button
-              type="button"
-              onClick={() => goNext(user)}
-              disabled={saving || photoBusy}
-              className="py-2 font-label-md text-label-md text-on-surface-variant disabled:opacity-50"
-            >
-              나중에 할게요
-            </button>
-          )}
         </div>
       </form>
       <ConfirmSheet
         open={confirmingLeave}
-        title="수정한 내용이 사라져요"
-        message="저장하지 않고 나가면 수정한 내용이 사라져요."
-        confirmLabel="나가기"
-        onConfirm={() => {
-          setConfirmingLeave(false)
-          leave()
-        }}
-        onClose={() => setConfirmingLeave(false)}
+        title={setup ? '닉네임 설정을 종료할까요?' : '수정한 내용이 사라져요'}
+        message={setup ? '닉네임을 설정하기 전에는 서비스를 이용할 수 없어요. 나가면 로그아웃돼요.' : '저장하지 않고 나가면 수정한 내용이 사라져요.'}
+        confirmLabel={setup ? '로그아웃' : '나가기'}
+        busy={leaving}
+        closeOnBack={setup}
+        onConfirm={confirmLeave}
+        onClose={cancelLeave}
       />
     </div>
   )

@@ -15,14 +15,14 @@ test.before(async()=>{
  browser=await chromium.launch({headless:true,...executablePath?{executablePath}:{}})
 })
 test.after(async()=>{await browser?.close();assert.deepEqual(errors,[])})
-async function screen({balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,width=375,endAt='2099-01-01T00:00:00Z',clockTime=null,myTicketCount=5,failStatus=false,prizes=[{prizeKey:'GRAND',displayName:'Grand prize',priority:1,quantity:2,weight:99}]}={}){
+async function screen({ownCreatorId=null,balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,width=375,endAt='2099-01-01T00:00:00Z',clockTime=null,myTicketCount=5,failStatus=false,prizes=[{prizeKey:'GRAND',displayName:'Grand prize',priority:1,quantity:2,weight:99}]}={}){
  const p=await browser.newPage({viewport:{width,height:1000}})
  p.on('pageerror',e=>errors.push(e.message))
  if(clockTime)await p.clock.install({time:new Date(clockTime)})
  await p.route('**/*',r=>r.request().isNavigationRequest()?r.fulfill({contentType:'text/html',body:'<div id="root"></div>'}):r.abort())
  await p.goto('http://localhost/event-test')
- await p.evaluate(({balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes})=>{
-  window.calls=[];window.toasts=[];window.entryCode='SUCCESS';window.holdEntry=false
+ await p.evaluate(({ownCreatorId,balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes})=>{
+  window.ownCreatorId=ownCreatorId;window.calls=[];window.toasts=[];window.entryCode='SUCCESS';window.holdEntry=false
   const record={eventId:16,creatorId:1,title:'Event title',description,status,displayStatus,startAt:'2026-01-01T00:00:00Z',endAt,winnerCount:1,drawMethod:'WEIGHTED',myTicketBalance:balance,myCommonTicketBalance:0,prizes}
   const acceptedRequests=new Set()
   window.fetch=async(url,options={})=>{
@@ -45,10 +45,11 @@ async function screen({balance=5,description='Event introduction',status='OPEN',
     return failDetail?reply(null,'SYSTEM_ERROR',500):reply({...record,myTicketBalance:window.nextBalance??record.myTicketBalance})
    }
    if(path==='/api/events/16/entry-status')return failStatus&&!window.retryStatus?reply(null,'SYSTEM_ERROR',500):reply({eventId:16,participantCount:7,totalTicketCount:20,myTicketCount,realtime:true})
+   if(path==='/api/creator/space')return reply({creatorId:window.ownCreatorId})
    if(path==='/api/creators')return reply({items:[{creatorId:1,creatorName:'Creator',slug:'creator',profileImageUrl:null}],totalPages:1})
    return reply(null)
   }
- },{balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes})
+ },{ownCreatorId,balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes})
  await p.addStyleTag({content:styles});await p.addScriptTag({content:bundle})
  await p.getByRole('button',{name:failDetail?'다시 시도':'뒤로가기',exact:true}).waitFor()
  return p
@@ -319,4 +320,23 @@ test('result-published event hides the closed-entry notice, closed event keeps i
   await published.getByRole('heading',{name:'당첨 결과',exact:true}).waitFor()
   assert.equal(await published.getByText(notice).count(),0)
  }finally{await published.close()}
+})
+
+test('creator cannot apply to their own event and the entry API is never called',async()=>{
+ const p=await screen({ownCreatorId:1})
+ try{
+  const button=p.getByRole('button',{name:'내 이벤트에는 응모할 수 없어요',exact:true})
+  await button.waitFor()
+  assert.equal(await button.isDisabled(),true)
+  assert.equal(await p.getByText('내가 만든 이벤트에는 응모할 수 없어요.',{exact:true}).count(),1)
+  assert.deepEqual(await posts(p),[])
+ }finally{await p.close()}
+})
+test('creator can still apply to another creator event',async()=>{
+ const p=await screen({ownCreatorId:2})
+ try{
+  const button=p.getByRole('button',{name:'응모하기',exact:true})
+  await button.waitFor()
+  assert.equal(await button.isEnabled(),true)
+ }finally{await p.close()}
 })

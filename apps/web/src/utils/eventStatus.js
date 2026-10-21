@@ -30,6 +30,8 @@ export const NOTIFICATION_TYPE_META = {
   INITIAL_NON_WINNER: { label: '이벤트 결과 발표', icon: 'campaign' },
   COMMENT_RESTRICTION_STARTED: { label: '댓글 작성 제한', icon: 'comments_disabled' },
   COMMENT_RESTRICTION_RELEASED: { label: '댓글 작성 제한 해제', icon: 'forum' },
+  COMMON_TICKET_REWARDED: { label: '공용 응모권 지급', icon: 'confirmation_number' },
+  CREATOR_TICKET_REWARDED: { label: '크리에이터 응모권 지급', icon: 'local_activity' },
 }
 
 export const TICKET_LEDGER_TYPE_META = {

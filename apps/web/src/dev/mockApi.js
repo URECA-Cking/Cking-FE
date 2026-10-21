@@ -169,6 +169,13 @@ export function installMockApiIfRequested() {
     { notificationId: 101, type: 'COMMENT_RESTRICTION_RELEASED', title: '댓글 작성 제한 해제 안내',
       body: '댓글 작성 제한이 해제되었습니다.', event: null, drawing: null,
       createdAt: new Date(now - 2 * DAY).toISOString(), readAt: new Date(now - DAY).toISOString() },
+    // 응모권 지급 완료 알림은 BE 응답처럼 event·drawing 필드가 없다.
+    { notificationId: 100, type: 'COMMON_TICKET_REWARDED', title: '응모권 지급 완료',
+      body: '출석체크 보상으로 공용 응모권 2장이 지급됐어요.',
+      createdAt: new Date(now - 3 * DAY).toISOString(), readAt: null },
+    { notificationId: 99, type: 'CREATOR_TICKET_REWARDED', title: '응모권 지급 완료',
+      body: 'AI 퀴즈 보상으로 하늘 크리에이터 전용 응모권 4장이 지급됐어요.',
+      createdAt: new Date(now - 4 * DAY).toISOString(), readAt: null },
   ] : []
   const initialNotifications = empty ? [] : scenario === 'notifications' ? previewNotifications : sanctionMode ? sanctionNotifications : [
     {

@@ -113,6 +113,7 @@ function ActivityNameForm({ profile, showToast, onSaved }) {
         </label>
         <input
           id="activity-name"
+          data-clarity-mask="True"
           type="text"
           value={locked ? original : name}
           maxLength={NICKNAME_MAX_LENGTH}

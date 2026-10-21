@@ -42,7 +42,7 @@ export default function TicketLedgerSheet({ open, onClose, creatorId, creatorNam
       <div className="flex items-center justify-between p-space-md rounded-xl bg-berry-tint mb-space-md">
         <div className="min-w-0">
           <p className="font-label-xs text-label-xs text-berry-deep font-semibold">{creatorName} 전용 응모권</p>
-          <p className="font-metric-display text-metric-display text-primary font-extrabold">
+          <p data-clarity-mask="True" className="font-metric-display text-metric-display text-primary font-extrabold">
             {formatNumber(balance)}장
           </p>
         </div>

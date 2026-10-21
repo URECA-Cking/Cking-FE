@@ -144,7 +144,7 @@ export default function MyPage() {
 
       {/* 이메일은 공개 이름이 아니라 로그인 수단이라 프로필 카드 바로 아래, 사진 쪽에 작게 보여준다. */}
       {user?.email && (
-        <p className="-mt-space-md truncate px-space-md font-label-xs text-label-xs text-outline">로그인 계정 {user.email}</p>
+        <p data-clarity-mask="True" className="-mt-space-md truncate px-space-md font-label-xs text-label-xs text-outline">로그인 계정 {user.email}</p>
       )}
 
       {needsNicknameSetup(user) && (

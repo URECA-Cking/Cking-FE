@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
@@ -40,9 +40,9 @@ function toInstant(value) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
-/** 새 이벤트의 시작·종료 시각 기본 범위를 만든다. */
+/** 승인 요청 최소 사전 시간(운영 48시간)에 여유를 둔 새 이벤트 기본 범위를 만든다. */
 function defaultRange() {
-  const start = new Date(Date.now() + 60 * 60 * 1000)
+  const start = new Date(Date.now() + 72 * 60 * 60 * 1000)
   const end = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   return { startAt: toLocalInput(start.toISOString()), endAt: toLocalInput(end.toISOString()) }
 }
@@ -111,6 +111,11 @@ function EventFormBody({ eventId, isEdit, target }) {
   const [createdEventId, setCreatedEventId] = useState(null)
   const [approvalBusy, setApprovalBusy] = useState(false)
   const [approvalError, setApprovalError] = useState(null)
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
   const [initialPrizes] = useState(() => {
     const prizes = (target?.prizes ?? []).map(prize => ({ ...prize }))
     const reservedKeys = new Set(prizes.map(prize => prize.prizeKey.toLowerCase()))
@@ -185,19 +190,20 @@ function EventFormBody({ eventId, isEdit, target }) {
     goToEvents()
   }
 
-  /** 새로 만든 초안에 기존 승인 요청 API를 호출하고 실패하면 시트에 오류를 남긴다. */
+  /** 새 초안의 승인 요청을 처리하고, 응답 전에 화면을 떠났다면 이동·상태 갱신을 생략한다. */
   async function handleApprovalRequest() {
     if (approvalBusy || createdEventId === null) return
     setApprovalBusy(true)
     setApprovalError(null)
     try {
       await requestEventApproval(createdEventId)
+      if (!mounted.current) return
       showToast('승인 요청을 보냈어요.')
       goToEvents()
     } catch (err) {
-      setApprovalError(describeCreatorWriteError(err, '승인 요청에 실패했어요.'))
+      if (mounted.current) setApprovalError(describeCreatorWriteError(err, '승인 요청에 실패했어요.'))
     } finally {
-      setApprovalBusy(false)
+      if (mounted.current) setApprovalBusy(false)
     }
   }
 

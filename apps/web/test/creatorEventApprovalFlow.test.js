@@ -36,6 +36,7 @@ async function openForm(edit = false) {
     window.failApproval = false
     window.deferApproval = false
     window.resolveApproval = null
+    window.approvalSettled = false
     window.fetch = async (url, options = {}) => {
       const path = new URL(url).pathname
       const method = options.method ?? 'GET'
@@ -47,7 +48,10 @@ async function openForm(edit = false) {
       if (path === '/api/creator/events/28' && method === 'PATCH') return response({ eventId: 28, status: 'DRAFT' })
       if (path === '/api/creator/events/28/approval-request') {
         if (window.deferApproval) return new Promise(resolve => {
-          window.resolveApproval = () => resolve(response({ eventId: 28, status: 'PENDING_APPROVAL' }))
+          window.resolveApproval = () => {
+            resolve(response({ eventId: 28, status: 'PENDING_APPROVAL' }))
+            setTimeout(() => { window.approvalSettled = true }, 0)
+          }
         })
         return window.failApproval
           ? response(null, 409, 'APPROVAL_REQUEST_TOO_LATE', '이벤트 시작 최소 48시간 전까지 개설 승인을 요청해야 합니다.')
@@ -71,6 +75,16 @@ async function openForm(edit = false) {
 function callsTo(page, method, path) {
   return page.evaluate(({ method, path }) => window.calls.filter(call => call.method === method && call.path === path), { method, path })
 }
+
+test('신규 이벤트 기본 시작 시각은 운영 승인 요청 기한보다 충분히 뒤다', async () => {
+  const before = Date.now()
+  const page = await openForm()
+  try {
+    const startAt = await page.locator('#event-start').inputValue()
+    const hoursAhead = (new Date(startAt).getTime() - before) / 3600000
+    assert.ok(hoursAhead > 48 && hoursAhead <= 72, `기본 시작 시각: ${hoursAhead}시간 뒤`)
+  } finally { await page.close() }
+})
 
 test('초안 생성 후 승인 요청을 선택하면 생성된 eventId로 한 번 요청한다', async () => {
   const page = await openForm()
@@ -108,6 +122,23 @@ test('승인 요청 중에는 확인과 나중에를 모두 막고 응답 후 �
     await page.evaluate(() => window.resolveApproval())
     await page.getByText('저장 완료', { exact: true }).waitFor()
     assert.deepEqual(await page.evaluate(() => window.toasts), ['승인 요청을 보냈어요.'])
+  } finally { await page.close() }
+})
+
+test('승인 요청 중 이전 화면으로 이동하면 늦은 응답이 다시 화면을 이동시키지 않는다', async () => {
+  const page = await openForm()
+  try {
+    await page.evaluate(() => { window.deferApproval = true })
+    await page.getByRole('button', { name: '이벤트 초안 작성' }).click()
+    await page.getByRole('dialog', { name: '바로 승인 요청을 보내시겠습니까?' })
+      .getByRole('button', { name: '승인 요청' }).click()
+    await page.waitForFunction(() => typeof window.resolveApproval === 'function')
+    await page.evaluate(() => window.navigateEvent(-1))
+    await page.getByText('이전 화면', { exact: true }).waitFor()
+    await page.evaluate(() => window.resolveApproval())
+    await page.waitForFunction(() => window.approvalSettled)
+    assert.equal(await page.getByText('이전 화면', { exact: true }).isVisible(), true)
+    assert.deepEqual(await page.evaluate(() => window.toasts), [])
   } finally { await page.close() }
 })
 

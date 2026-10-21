@@ -20,6 +20,7 @@ import { getEventBanner } from '../data/eventBanners.js'
 import { useCreatorProfile } from '../hooks/useCreatorProfile.js'
 import { formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '../utils/format.js'
 import { displayStatusMeta, eventStatusMeta, isEntryOpen } from '../utils/eventStatus.js'
+import { groupWinnersByDraw, isActiveWin, winnerStatusMeta } from '../utils/winnerPresentation.js'
 import {
   COUPON_TYPE,
   EXPECTED_SYNC_MS,
@@ -127,10 +128,13 @@ export default function EventDetail() {
     fallbackMessage: '내 당첨 정보를 불러오지 못했습니다.',
   })
   // 조회 중이거나 실패하면 null(판별 불가)로 두어, 본인 당첨을 다른 당첨자로 확정해 보여주지 않는다.
-  const myWinnerIds = useMemo(() => {
+  // 포기·자격 박탈된 당첨도 내 행이라 상태와 함께 담는다(강조 여부는 목록에서 상태로 정한다).
+  const myWinnerById = useMemo(() => {
     if (myWinners.loading || myWinners.error || !Array.isArray(myWinners.data)) return null
-    return new Set(myWinners.data.map((winner) => winner.winnerId))
+    return new Map(myWinners.data.map((winner) => [winner.winnerId, winner]))
   }, [myWinners.loading, myWinners.error, myWinners.data])
+  // 재추첨이 있으면 최초 추첨과 재추첨 당첨자를 회차별로 나눠 보여준다.
+  const winnerGroups = useMemo(() => groupWinnersByDraw(winners.data?.winners), [winners.data])
 
   // 응모권은 크리에이터 전용과 공용 두 종류다. 이벤트 상세 응답이 두 잔액을 함께 내려준다.
   // 크리에이터 응모권은 이벤트(크리에이터)마다 달라서 예상 잔액은 같은 이벤트에서만 쓴다.
@@ -490,32 +494,55 @@ export default function EventDetail() {
                   </button>
                 </div>
               )}
-              {!winners.loading && (winners.data?.winners ?? []).length > 0 && (
-                <ul className="flex flex-col gap-2">
-                  {winners.data.winners.map((winner) => {
-                    const mine = myWinnerIds?.has(winner.winnerId) ?? false
-                    return (
-                      <li
-                        key={winner.winnerId}
-                        className={`flex items-center gap-space-sm p-space-sm rounded-xl ${
-                          mine ? 'bg-berry-tint border border-primary' : 'bg-surface-container-low'
-                        }`}
-                      >
-                        <span className="w-8 h-8 rounded-full bg-surface-container-lowest flex items-center justify-center font-label-sm text-label-sm font-bold text-primary shrink-0">
-                          {winner.rankInDrawing}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className={`font-label-md text-label-md font-semibold ${mine ? 'text-on-primary-fixed' : 'text-on-surface'} truncate`}>
-                            {mine ? '나의 당첨 🎉' : winner.name}
-                          </p>
-                          <p className={`font-label-xs text-label-xs ${mine ? 'text-on-primary-fixed-variant' : 'text-on-surface-variant'} truncate`}>
-                            {winner.prizeDisplayName ?? '상품 미지정'}
-                          </p>
+              {!winners.loading && winnerGroups.length > 0 && (
+                <div className="flex flex-col gap-space-md">
+                  {winnerGroups.map((group) => (
+                    <section key={group.drawNo} aria-label={group.title ?? '당첨자'} className="flex flex-col gap-2">
+                      {group.title && (
+                        <div className="flex flex-col gap-0.5">
+                          <h4 className="font-label-md text-label-md font-bold text-on-surface">{group.title}</h4>
+                          {group.caption && (
+                            <p className="font-label-xs text-label-xs text-on-surface-variant">{group.caption}</p>
+                          )}
                         </div>
-                      </li>
-                    )
-                  })}
-                </ul>
+                      )}
+                      <ul className="flex flex-col gap-2">
+                        {group.winners.map((winner) => {
+                          const myWinner = myWinnerById?.get(winner.winnerId)
+                          // 포기·자격 박탈된 내 행은 강조하지 않고 상태만 붙인다.
+                          const mine = isActiveWin(myWinner)
+                          const myStatus = myWinner && !mine ? winnerStatusMeta(myWinner.winnerManagementStatus) : null
+                          return (
+                            <li
+                              key={winner.winnerId}
+                              className={`flex items-center gap-space-sm p-space-sm rounded-xl ${
+                                mine ? 'bg-berry-tint border border-primary' : 'bg-surface-container-low'
+                              }`}
+                            >
+                              <span className="w-8 h-8 rounded-full bg-surface-container-lowest flex items-center justify-center font-label-sm text-label-sm font-bold text-primary shrink-0">
+                                {winner.rankInDrawing}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className={`font-label-md text-label-md font-semibold ${mine ? 'text-on-primary-fixed' : 'text-on-surface'} truncate`}>
+                                  {mine ? '나의 당첨 🎉' : winner.name}
+                                </p>
+                                <p className={`font-label-xs text-label-xs ${mine ? 'text-on-primary-fixed-variant' : 'text-on-surface-variant'} truncate`}>
+                                  {winner.prizeDisplayName ?? '상품 미지정'}
+                                </p>
+                              </div>
+                              {myStatus && (
+                                <span className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-label-xs text-label-xs font-semibold ${myStatus.tone}`}>
+                                  <MaterialIcon name={myStatus.icon} className="text-[14px]" />
+                                  {myStatus.label}
+                                </span>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
               )}
             </div>
           )}

@@ -187,7 +187,7 @@ function EventFormBody({ eventId, isEdit, target }) {
       if (!/^[A-Za-z0-9_-]{1,100}$/.test(prize.prizeKey ?? '')) return '상품 정보를 확인하지 못했어요. 화면을 다시 열어 주세요.'
       if (keys.has(prize.prizeKey.toLowerCase())) return '상품 식별자가 중복됐어요. 화면을 다시 열어 주세요.'
       keys.add(prize.prizeKey.toLowerCase())
-      if ([prize.priority, prize.weight, prize.quantity].some(value => value === '')) {
+      if ([prize.priority, prize.weight, prize.quantity].some(value => value == null || String(value).trim() === '')) {
         return '상품의 순위·가중치·수량을 모두 입력해주세요.'
       }
       if ([prize.priority, prize.weight, prize.quantity].some(value => !Number.isInteger(Number(value)) || Number(value) < 1)) {
@@ -364,8 +364,12 @@ function EventFormBody({ eventId, isEdit, target }) {
                   </button>
                 )}
               </div>
-              <div>
+              <div className="flex flex-col gap-1.5">
+                <label className={labelClass} htmlFor={`event-prize-${prize.prizeKey}-name`}>
+                  상품 이름 <span className="text-primary">*</span>
+                </label>
                 <input
+                  id={`event-prize-${prize.prizeKey}-name`}
                   className={inputClass}
                   value={prize.displayName}
                   onChange={(e) => updatePrize(index, 'displayName', e.target.value)}
@@ -380,7 +384,9 @@ function EventFormBody({ eventId, isEdit, target }) {
                   ['quantity', '수량', '예: 1'],
                 ].map(([key, label, placeholder]) => (
                   <div key={key} className="flex min-w-0 flex-col gap-1.5">
-                    <label className={labelClass} htmlFor={`event-prize-${prize.prizeKey}-${key}`}>{label}</label>
+                    <label className={labelClass} htmlFor={`event-prize-${prize.prizeKey}-${key}`}>
+                      {label} <span className="text-primary">*</span>
+                    </label>
                     <input
                       id={`event-prize-${prize.prizeKey}-${key}`}
                       type="number"

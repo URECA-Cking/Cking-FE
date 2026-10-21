@@ -67,6 +67,10 @@ const original=[{prizeKey:'GRAND',displayName:'대상',priority:3,weight:15,quan
 
 test('신규 첫 상품은 자동 UUID 키를 보내며 키 입력만 제거하고 기존 네 필드를 유지한다',async()=>{
   const p=await screen();try{
+    for(const [name,label] of [['이름','상품 이름'],['순위','순위'],['가중치','가중치'],['수량','수량']]){
+      const text=await field(p,1,name).evaluate(el=>el.labels?.[0]?.textContent)
+      assert.equal(text.replace(/\s+/g,' ').trim(),`${label} *`)
+    }
     for(const name of ['순위','가중치','수량'])assert.equal(await field(p,1,name).inputValue(),'')
     await fillPrizeNumbers(p,1)
     await failed(p,1)
@@ -194,6 +198,16 @@ test('신규 상품의 빈 숫자·소수 입력은 API 요청 전에 막고 수
     assert.equal(await field(edit,1,'가중치').inputValue(),'15')
     assert.equal(await field(edit,1,'수량').inputValue(),'2')
   }finally{await edit.close()}
+})
+
+test('기존 상품 숫자에 null 또는 undefined가 들어와도 빈 값 안내를 우선한다',async()=>{
+  for(const value of [null,undefined]){
+    const p=await screen([{...original[0],priority:value}]);try{
+      await submit(p,true)
+      await p.getByText('상품의 순위·가중치·수량을 모두 입력해주세요.',{exact:true}).waitFor()
+      assert.equal((await writes(p)).length,0)
+    }finally{await p.close()}
+  }
 })
 
 test('좁은 화면에서 시작·종료의 날짜와 시간을 각 한 줄에 표시한다',async()=>{

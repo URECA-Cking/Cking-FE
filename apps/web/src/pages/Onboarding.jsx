@@ -54,8 +54,6 @@ export default function Onboarding({ manage = false }) {
     if (finishingRef.current) return
     setConfirmingSkip((open) => !open)
   })
-  // 온보딩을 연 시점의 history 위치. 완료할 때 온보딩이 쌓은 항목(2단계 등)이 몇 개인지 세는 기준이다.
-  const startIdx = useRef(window.history.state?.idx ?? 0)
 
   async function finish() {
     if (finishingRef.current) return
@@ -73,7 +71,10 @@ export default function Onboarding({ manage = false }) {
     }
     // 온보딩이 쌓은 항목(가드 항목, "다음"으로 쌓은 2단계 항목)을 모두 되감은 뒤 처음 열린 항목을 교체해야,
     // 이동한 화면에서 뒤로가기를 눌렀을 때 온보딩이 되살아나지 않는다.
-    const pushed = Math.max(0, (window.history.state?.idx ?? 0) - startIdx.current)
+    // 온보딩을 연 history 위치는 2단계 항목의 state에 실어 두었다. 크리에이터 스페이스 등을 둘러보고 돌아와 이 화면이 새로 마운트돼도 잃지 않는다.
+    // state가 없으면(1단계이거나 2단계에서 새로고침한 경우) 지금 위치가 곧 온보딩을 연 위치다.
+    const currentIdx = window.history.state?.idx ?? 0
+    const pushed = Math.max(0, currentIdx - (location.state?.onboardingStartIdx ?? currentIdx))
     // 되감으면 라우터가 먼저 1단계 화면을 그리므로, 되감기 전에 이동 중 화면으로 바꿔 1단계가 잠깐 비치지 않게 한다.
     // 렌더가 되감기보다 먼저 끝나도록 즉시 반영한다.
     if (pushed > 0) flushSync(() => setLeaving(true))
@@ -120,7 +121,10 @@ export default function Onboarding({ manage = false }) {
             try {
               // 2단계 항목을 가드 항목 위에 쌓지 않도록 가드를 먼저 걷는다. 그래야 완료할 때 되감을 항목 수가 맞다.
               await releaseBackGuard()
-              setParams((prev) => withStep(prev, 'creators'), { state: location.state })
+              // 지금 위치(온보딩을 연 위치)를 2단계 항목에 실어 둔다. 완료할 때 되감을 항목 수의 기준이다.
+              setParams((prev) => withStep(prev, 'creators'), {
+                state: { ...location.state, onboardingStartIdx: window.history.state?.idx ?? 0 },
+              })
             } finally {
               advancingRef.current = false
             }

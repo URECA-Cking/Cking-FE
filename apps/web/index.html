@@ -43,7 +43,7 @@
         var theme = localStorage.getItem('cking.theme') === 'light' ? 'light' : 'dark'
         document.documentElement.setAttribute('data-theme', theme)
         document.querySelector('meta[name="color-scheme"]').setAttribute('content', theme)
-        document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'light' ? '#faf8ff' : '#1a1a1e')
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'light' ? '#f5f6f8' : '#1a1a1e')
       } catch (e) {}
     </script>
     <!-- 아이콘 폰트가 늦게 오면 display=block의 차단 시간(약 3초)이 지나 아이콘 이름 글자가 다시 보인다. 폰트가 실제로 받아질 때까지 src/index.css가 아이콘을 숨기도록 받아진 폰트의 클래스를 붙인다. -->
@@ -69,7 +69,7 @@
     </script>
     <title>Cking</title>
     <!-- CSS가 오기 전 새로고침 순간에 흰 화면이 번쩍이지 않게 앱 배경색(surface)을 먼저 깐다. 일반 모드는 위 스크립트가 붙인 data-theme으로 밝은 배경을 깐다. -->
-    <style>html{background:#1a1a1e}html[data-theme='light']{background:#faf8ff}</style>
+    <style>html{background:#1a1a1e}html[data-theme='light']{background:#f5f6f8}</style>
   </head>
   <body>
     <div id="root"></div>

@@ -19,12 +19,13 @@ const STAMP_WINDOW_MS = 8 * 24 * 60 * 60 * 1000
  * 출석 도장 칸 하나의 배경·테두리·글자 스타일을 정한다.
  * 아직 안 찍은 칸은 입체 그림자가 있는 3D 캡슐, 찍은 칸은 연한 핑크 채움이다.
  * 오늘 찍을 칸은 링으로 강조하고, 마지막 칸은 모드별 대비를 맞춘 보상 색(warm-accent)으로 구분한다.
+ * 일반 모드는 핑크 그라데이션 대신 단색을 쓰고, 마지막 칸 테두리·배경은 다크처럼 골드로 둔다.
  */
 function stampTileClass(slot, isLast) {
   const base = 'flex flex-col items-center rounded-2xl border-2 py-2.5'
   if (slot.stamped) return `${base} border-primary/40 bg-primary/15 text-primary`
-  if (slot.next) return `${base} -translate-y-0.5 border-transparent bg-gradient-to-b from-primary/35 to-primary/10 text-primary shadow-md shadow-primary/20 ring-2 ring-primary`
-  if (isLast) return `${base} border-warm-accent/50 bg-gradient-to-b from-warm-accent/25 to-warm-accent/5 text-warm-accent shadow-[0_4px_0_rgb(var(--color-warm-accent)/0.55)]`
+  if (slot.next) return `${base} -translate-y-0.5 border-transparent bg-gradient-to-b from-primary/35 to-primary/10 text-primary shadow-md shadow-primary/20 ring-2 ring-primary light:bg-none light:bg-berry-tint`
+  if (isLast) return `${base} border-warm-accent/50 bg-gradient-to-b from-warm-accent/25 to-warm-accent/5 text-warm-accent shadow-[0_4px_0_rgb(var(--color-warm-accent)/0.55)] light:border-gold-point light:bg-none light:bg-gold-soft light:shadow-[0_4px_0_theme(colors.gold-point/55%)]`
   return `${base} border-on-surface/15 bg-on-surface/5 text-outline shadow-[0_4px_0_rgb(var(--color-on-surface)/0.15)]`
 }
 
@@ -183,7 +184,7 @@ export default function MissionSection({ memberId, welcomeBonus = null }) {
         const isJustStamped = (index) => justStamped && index === stampedCount - 1
         const stampButtonLabel = busy ? '처리 중' : done ? (bonusPending ? '보너스 받기' : '출석 완료') : '도장 찍기'
         return (
-          <div key={mission.missionId} className="rounded-3xl border border-primary/30 bg-gradient-to-b from-primary/15 to-surface-container p-4">
+          <div key={mission.missionId} className="rounded-3xl border border-primary/30 bg-gradient-to-b from-primary/15 to-surface-container p-4 light:border-outline-variant light:bg-none light:bg-surface-container-lowest">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 {stamps && <span className="rounded-md bg-primary/15 px-2 py-0.5 font-label-sm text-label-sm font-semibold text-primary">DAILY CHECK-IN</span>}

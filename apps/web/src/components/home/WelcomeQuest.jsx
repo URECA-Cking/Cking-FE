@@ -99,7 +99,7 @@ function QuestHero({ nickname, quest }) {
 function QuizCard({ disabled, message, onAnswer }) {
   return (
     <div className="px-3.5 pb-3.5">
-      <div className="rounded-2xl bg-gradient-to-br from-surface-container-lowest to-secondary/30 p-4">
+      <div className="rounded-2xl bg-gradient-to-br from-surface-container-lowest to-secondary/30 p-4 light:to-surface-container-low">
         <div className="mb-3 flex items-center justify-between">
           <span className="rounded-full bg-amber-400 px-2.5 py-0.5 font-label-sm text-label-sm font-bold text-slate-900">
             5초 순삭 OX 퀴즈
@@ -230,7 +230,7 @@ export default function WelcomeQuest({ memberId, nickname, quest, claimingSteps,
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     {done ? (
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-success/15">
                         <FilledCheck size={22} />
                       </span>
                     ) : (

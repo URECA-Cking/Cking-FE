@@ -1,11 +1,12 @@
 import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import BottomSheet from '../components/ui/BottomSheet.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock, StatusPill, Spinner } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
+import { useUser } from '../context/useUser.js'
 import { useMyTickets } from '../context/useMyTickets.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { useEntryStatus } from '../hooks/useEntryStatus.js'
@@ -46,6 +47,13 @@ const COUPON_LABEL = { [COUPON_TYPE.CREATOR]: '크리에이터 응모권', [COUP
 export default function EventDetail() {
   const { eventId } = useParams()
   const showToast = useToast()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { status: userStatus } = useUser()
+  // 로그인 상태를 복원하는 동안에는 이벤트를 불러오지 않는다. 토큰 없이 먼저 받으면 로그인 사용자도 응모권 잔액이 빠진 응답을 받을 수 있다.
+  const sessionLoading = userStatus === 'loading'
+  const authenticated = userStatus === 'authenticated'
+  const anonymous = userStatus === 'anonymous'
   const redirectToProfileSetup = useProfileSetupRedirect()
   const { refresh: refreshMyTickets } = useMyTickets() // 응모하면 헤더의 총 응모권 개수도 바뀌어야 한다
 
@@ -80,15 +88,15 @@ export default function EventDetail() {
 
   const { data: event, loading, error, reload, setData: setEvent } = useAsync(
     () => getEvent(eventId),
-    [eventId],
-    { fallbackMessage: '이벤트 상세를 불러오지 못했습니다.' },
+    [eventId, authenticated],
+    { enabled: !sessionLoading, fallbackMessage: '이벤트 상세를 불러오지 못했습니다.' },
   )
 
   // 예정 이벤트는 응모가 없어 조회하지 않는다. 진행 중이면 주기적으로 다시 받는다. 응모는 submitEntry가
   // beginEntry·acceptEntry로 알리고, 수락된 응모가 현황에 반영될 때까지 현황을 숨기고 다시 조회한다.
   // 이벤트 상세를 조용히 다시 받는 것(syncBalances)은 시트를 열 때나 지연 재조회에서도 일어나 응모와 무관하다.
   const entryStatus = useEntryStatus(eventId, {
-    enabled: Boolean(event) && event.displayStatus !== 'UPCOMING',
+    enabled: authenticated && Boolean(event) && event.displayStatus !== 'UPCOMING',
     live: event?.displayStatus === 'IN_PROGRESS',
   })
 
@@ -119,8 +127,8 @@ export default function EventDetail() {
     fallbackMessage: '당첨자 목록을 불러오지 못했습니다.',
   })
   // 공개 당첨자 목록에는 회원 식별자가 없어(마스킹된 이름·전화번호만), 내 당첨 목록의 winnerId로 "나의 당첨"을 판별한다.
-  const myWinners = useAsync(() => getMyWinners(), [published], {
-    enabled: Boolean(published),
+  const myWinners = useAsync(() => getMyWinners(), [published, authenticated], {
+    enabled: Boolean(published) && authenticated,
     fallbackMessage: '내 당첨 정보를 불러오지 못했습니다.',
   })
   // 조회 중이거나 실패하면 null(판별 불가)로 두어, 본인 당첨을 다른 당첨자로 확정해 보여주지 않는다.
@@ -144,11 +152,12 @@ export default function EventDetail() {
   const endTime = new Date(event?.endAt).getTime()
   const remaining = Number.isFinite(endTime) ? Math.max(0, Math.ceil((endTime - now) / 1000)) : null
   const deadlinePassed = remaining === 0
-  const canApply = isEntryOpen(event) && hasAnyTicket && !deadlinePassed
+  // 비로그인은 응모권을 알 수 없어 보유 여부를 따지지 않는다. 버튼을 누르면 로그인으로 보내고, 보유 여부는 로그인 뒤에 따진다.
+  const canApply = isEntryOpen(event) && (anonymous || hasAnyTicket) && !deadlinePassed
   // 응모 성공으로 잔액이 줄어들 수 있으므로, 실제로 쓸 수량은 렌더 시점에 한도 범위로 맞춘다.
   const selectedCount = clampEntryCount(ticketCount, balance)
 
-  if (loading) {
+  if (loading || sessionLoading) {
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe">
         <BackHeader title="" />
@@ -178,6 +187,11 @@ export default function EventDetail() {
     prizeDragRef.current = null
     event.currentTarget.style.scrollSnapType = ''
     event.currentTarget.style.cursor = ''
+  }
+
+  /** 비로그인 사용자를 로그인 화면으로 보낸다. 로그인하면 보던 이벤트 상세로 돌아온다. */
+  function goLogin() {
+    navigate('/login', { state: { from: location.pathname + location.search } })
   }
 
   function adjust(delta) {
@@ -364,7 +378,9 @@ export default function EventDetail() {
 
           <section aria-label="내 응모" className="flex flex-wrap items-center justify-center gap-2 self-center w-fit max-w-full px-6 py-3 rounded-xl bg-surface-container-low text-primary font-title-md text-title-md font-bold">
             <span>내 응모</span>
-            {entryStatus.status?.myTicketCount != null ? (
+            {anonymous ? (
+              <span className="text-on-surface-variant text-body-sm">로그인하면 확인할 수 있어요</span>
+            ) : entryStatus.status?.myTicketCount != null ? (
               <span>{formatNumber(entryStatus.status.myTicketCount)}장</span>
             ) : event.displayStatus === 'UPCOMING' ? (
               <span className="text-on-surface-variant text-body-sm">응모 시작 전</span>
@@ -524,13 +540,13 @@ export default function EventDetail() {
         <div className="flex flex-col gap-2">
           <button
             type="button"
-            aria-label={canApply ? '응모하기' : '응모할 수 없는 상태예요'}
-            onClick={() => pendingEntry ? openConfirm() : setSelectionOpen(true)}
+            aria-label={anonymous && canApply ? '로그인하고 응모하기' : canApply ? '응모하기' : '응모할 수 없는 상태예요'}
+            onClick={() => anonymous ? goLogin() : pendingEntry ? openConfirm() : setSelectionOpen(true)}
             disabled={(!canApply && !restorePendingEntryAttempt(pendingEntry, eventId)) || opening}
             className="w-full h-12 rounded-xl bg-gradient-to-r from-primary via-primary-container to-berry-glow text-on-primary font-title-md text-title-md font-bold flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             <MaterialIcon name="confirmation_number" filled className="text-[20px]" />
-            <span>{canApply ? '응모하기' : '응모할 수 없는 상태예요'}</span>
+            <span>{anonymous && canApply ? '로그인하고 응모하기' : canApply ? '응모하기' : '응모할 수 없는 상태예요'}</span>
         </button>
         </div>
         </div>

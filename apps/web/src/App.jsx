@@ -91,13 +91,10 @@ function App() {
         path="/space/:slug"
         element={<CreatorSpace />}
       />
+      {/* 이벤트 상세. 공유 링크에서 들어온 비로그인 사용자도 열람할 수 있고, 응모할 때 로그인으로 보낸다(EventDetail). */}
       <Route
         path="/events/:eventId"
-        element={
-          <RequireUser>
-            <EventDetail />
-          </RequireUser>
-        }
+        element={<EventDetail />}
       />
       <Route
         path="/my-calendar"

@@ -9,6 +9,7 @@ import {
   submitSubscriptionVerification,
   validateSubscriptionVerificationImage,
 } from '../../api/subscriptionVerification.js'
+import { toSafeImageUrl } from '../../utils/safeUrl.js'
 import {
   canResubmitSubscriptionVerification,
   isSubscriptionRewardRecovery,
@@ -175,6 +176,8 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
     ? FAILED_STATUS
     : status ? STATUS[status] : null
   const canSubmit = canResubmitSubscriptionVerification(verification)
+  // 미리보기는 브라우저가 만든 blob: 주소만 이미지로 그린다(다른 스킴은 허용하지 않는 공통 검사).
+  const safePreviewUrl = toSafeImageUrl(previewUrl)
 
   return (
     <article className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-card">
@@ -221,14 +224,14 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
                   {submitting ? '제출 중...' : '인증 제출'}
                 </button>
               </div>
-              {selectedFile && previewUrl && (
-                failedPreviewUrl === previewUrl ? (
+              {selectedFile && safePreviewUrl && (
+                failedPreviewUrl === safePreviewUrl ? (
                   <p className="font-label-xs text-label-xs text-on-surface-variant">미리보기를 표시하지 못했어요. 이미지가 맞다면 그대로 제출할 수 있어요.</p>
                 ) : (
                   <img
-                    src={previewUrl}
+                    src={safePreviewUrl}
                     alt="선택한 인증 이미지 미리보기"
-                    onError={() => setFailedPreviewUrl(previewUrl)}
+                    onError={() => setFailedPreviewUrl(safePreviewUrl)}
                     className="max-h-64 w-full rounded-lg bg-surface-container object-contain"
                   />
                 )

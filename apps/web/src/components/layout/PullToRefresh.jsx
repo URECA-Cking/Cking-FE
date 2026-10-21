@@ -19,9 +19,9 @@ function isInsideScrolled(el) {
   return false
 }
 
-/** 터치 지점이 바텀시트·대화상자 안이면 true. 시트를 끌어 내리는 동작을 새로고침으로 오인하지 않는다. */
+/** 터치 지점이 바텀시트(딤 배경 포함)·대화상자 안이면 true. 시트를 끌어 내리는 동작을 새로고침으로 오인하지 않는다. */
 function isInsideDialog(el) {
-  return Boolean(el?.closest?.('[role="dialog"], dialog'))
+  return Boolean(el?.closest?.('[role="dialog"], dialog, .bottom-sheet-backdrop'))
 }
 
 /**

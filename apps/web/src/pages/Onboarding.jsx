@@ -58,24 +58,22 @@ export default function Onboarding({ manage = false }) {
     navigate(destination, { replace: true })
   }
 
-  /** 뒤로가기: 되돌아갈 단계가 있으면 되돌리고, 가입 직후 1단계처럼 갈 곳이 없으면 온보딩을 건너뛸지 묻는다. */
+  /** 뒤로가기: 단계에 따라 되돌린다. 가입 직후 1단계는 되돌아갈 단계가 없어 기록 유무와 관계없이 건너뛸지 먼저 묻는다. */
   function handleBack() {
-    if (canGoBackInApp()) {
-      // 1단계에서 "다음"으로 쌓은 기록을 그대로 되돌린다. 덮어쓰면 1단계 항목이 중복으로 남아 다시 뒤로가도 변화가 없다.
-      navigate(-1)
-      return
-    }
-    // 새로고침 등으로 2단계에서 시작했다면 기록을 늘리지 않고 1단계로 바꾼다.
-    if (step === 'creators' && !manage) {
-      setParams((prev) => withStep(prev, null), { replace: true, state: location.state })
-      return
-    }
-    // 도킹 관리는 돌아갈 곳이 없으면 홈으로 보낸다.
+    // 도킹 관리는 되돌아갈 기록이 없으면(주소로 직접 연 경우) 홈으로 보낸다.
     if (manage) {
-      navigate('/', { replace: true })
+      if (canGoBackInApp()) navigate(-1)
+      else navigate('/', { replace: true })
       return
     }
-    // 가입 직후에는 마이페이지 등 관계없는 화면으로 조용히 보내지 않고, 건너뛸지 먼저 확인한다.
+    if (step === 'creators') {
+      // 1단계에서 "다음"으로 쌓은 기록을 그대로 되돌린다. 덮어쓰면 1단계 항목이 중복으로 남아 다시 뒤로가도 변화가 없다.
+      if (canGoBackInApp()) navigate(-1)
+      // 새로고침 등으로 2단계에서 시작했다면 기록을 늘리지 않고 1단계로 바꾼다.
+      else setParams((prev) => withStep(prev, null), { replace: true, state: location.state })
+      return
+    }
+    // 가입 직후 1단계는 마이페이지 등 관계없는 화면으로 조용히 보내지 않고, 건너뛸지 먼저 확인한다.
     setConfirmingSkip(true)
   }
 

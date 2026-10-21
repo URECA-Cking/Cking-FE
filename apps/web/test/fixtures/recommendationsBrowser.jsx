@@ -6,8 +6,9 @@ const root = createRoot(document.getElementById('root'))
 
 /** 훅이 돌려주는 상태를 화면에 문자열로 드러내 테스트가 읽을 수 있게 하는 확인용 컴포넌트. */
 function Probe({ memberId }) {
-  const { items, requestId, loading, error, reload } = useMyCreatorRecommendations(memberId)
+  const { items, requestId, loading, error, reload, reloadRecommendations } = useMyCreatorRecommendations(memberId)
   window.reloadRecommendations = reload
+  window.reloadAfterInterests = reloadRecommendations
   return (
     <div>
       <p data-testid="loading">{String(loading)}</p>

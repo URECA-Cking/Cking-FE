@@ -76,7 +76,7 @@ async function boot(page, initialQuest) {
     Element.prototype.scrollIntoView = () => { window.scrolled += 1 }
     const envelope = (status, code, data, message = null) => new Response(JSON.stringify({ code, data, message }), { status })
     const recommendations = {
-      policyVersion: 'POPULAR_FALLBACK_V1',
+      policyVersion: 'INTEREST_PERSONALIZED_V1',
       recommendationRequestId: 'rec-1',
       items: [11, 12].map((id) => ({ creatorId: id, creatorName: `크리에이터${id}`, profileImageUrl: null, introText: '', interestCodes: [], seedCreatorIds: [] })),
     }
@@ -183,7 +183,7 @@ test('STEP 1은 처음 표시될 때 한 번 자동으로 지급되고 응모권
   } finally { await page.close() }
 })
 
-test('STEP 2는 팔로우 전에는 인기 크리에이터로 이동시키고, 팔로우하면 받을 수 있다', async () => {
+test('STEP 2는 팔로우 전에는 추천 크리에이터로 이동시키고, 팔로우하면 받을 수 있다', async () => {
   const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
   try {
     await page.evaluate(() => window.renderHome([]))

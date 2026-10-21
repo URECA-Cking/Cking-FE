@@ -6,7 +6,7 @@ test('추천 응답에 기여한 관심 분야만 이름으로 표시한다', ()
   const names = new Map([['FOOD', '요리·푸드'], ['FITNESS', '운동·건강']])
   assert.equal(
     recommendationReason({ interestCodes: ['FOOD', 'FITNESS'], seedCreatorIds: [2] }, names),
-    '관심 분야 · 요리·푸드, 운동·건강',
+    '선택한 요리·푸드, 운동·건강 관심사 기반 추천',
   )
 })
 

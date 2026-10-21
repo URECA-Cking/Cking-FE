@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import BottomSheet from '../ui/BottomSheet.jsx'
+import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { Spinner } from '../ui/States.jsx'
 import ActivityNameSection from './ActivityNameSection.jsx'
 import CreatorBanner from './CreatorBanner.jsx'
 import { useToast } from '../../context/useToast.js'
+import { CLOSE_ALLOW, CLOSE_BLOCK, CLOSE_CONFIRM, useCloseGuard } from '../../hooks/useCloseGuard.js'
 import { ApiError, describeError } from '../../api/client.js'
 import {
   SLUG_ERROR_MESSAGES,
@@ -129,15 +131,21 @@ function useSpaceImagePick({ validate, upload, failMessage }) {
  *   14일 변경 제한이 있어도 본인이 버린 이전 slug로 되돌리는 것은 허용되므로, 버튼은 막지 않고 백엔드 판단을 따른다.
  */
 export default function SpaceEditSheet({ open, onClose, space, onSaved }) {
+  // 폼이 "지금 닫아도 되는지"(저장 중이면 막고, 저장하지 않은 변경이 있으면 확인 시트)를 등록한다.
+  const { registerGuard, requestClose, confirmSheetProps } = useCloseGuard(open, onClose)
+  // closeOnBack은 켜지 않는다: 이 시트를 닫을 때 부모가 navigate(replace)로 이동 상태를 지우는 경우가 있어, 시트가 쌓은 history 항목과 어긋난다.
   return (
-    <BottomSheet open={open} onClose={onClose} eyebrow="Creator Space" title="스페이스 편집">
-      {open && space && <SpaceEditForm space={space} onSaved={onSaved} />}
-    </BottomSheet>
+    <>
+      <BottomSheet open={open} onClose={requestClose} eyebrow="Creator Space" title="스페이스 편집">
+        {open && space && <SpaceEditForm space={space} onSaved={onSaved} registerGuard={registerGuard} />}
+      </BottomSheet>
+      <ConfirmSheet {...confirmSheetProps} closeOnBack={false} />
+    </>
   )
 }
 
 /** 열린 스페이스 편집 시트의 프로필 사진·소개·주소 입력과 저장 상태를 관리한다. */
-function SpaceEditForm({ space, onSaved }) {
+function SpaceEditForm({ space, onSaved, registerGuard }) {
   const showToast = useToast()
   const [profile, setProfile] = useState({
     introText: space.introText ?? '',
@@ -165,6 +173,20 @@ function SpaceEditForm({ space, onSaved }) {
   // 방금 올린 사진은 미리보기(blob:) 주소로, 저장돼 있는 사진은 서버 주소가 http(s)일 때만 보여준다.
   const shownImage = photo.pendingKey === null ? null : (photo.previewUrl ?? toSafeHttpUrl(space.profileImageUrl))
   const imageBusy = photo.busy || banner.busy
+
+  // 저장하지 않은 변경: 소개, 고른(올리는 중 포함) 프로필 사진·배너, 입력한 주소. 저장하면 space가 갱신돼 다시 같아진다.
+  // 활동명은 자체 저장 버튼이 있는 별도 입력이라 여기에 넣지 않는다.
+  const dirty = profile.introText !== (space.introText ?? '')
+    || photo.pendingKey !== undefined || photo.busy
+    || banner.pendingKey !== undefined || banner.busy
+    || slug.trim() !== (space.slug ?? '')
+  useEffect(() => {
+    registerGuard(() => {
+      if (savingProfile || savingSlug) return CLOSE_BLOCK
+      return dirty ? CLOSE_CONFIRM : CLOSE_ALLOW
+    })
+    return () => registerGuard(() => CLOSE_ALLOW)
+  }, [registerGuard, savingProfile, savingSlug, dirty])
 
   async function saveProfile() {
     setSavingProfile(true)

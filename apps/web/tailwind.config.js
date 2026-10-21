@@ -20,12 +20,15 @@ export default {
         'on-surface-variant': themeColor('on-surface-variant'),
         'inverse-surface': '#283044',
         'inverse-on-surface': '#eef0ff',
-        outline: '#8d6f77',
-        'outline-variant': '#e1bec6',
+        // outline·outline-variant·primary·berry-tint·secondary-fixed는 다크 값은 그대로 두고 일반 모드만 쿨 그레이·브랜드 핑크로 바꾸려고 변수로 뺐다.
+        outline: themeColor('outline'),
+        'outline-variant': themeColor('outline-variant'),
+        // 비활성(disabled:) 글씨 전용. 정보 글씨는 대비를 맞춘 outline을 쓴다.
+        disabled: themeColor('disabled'),
         'surface-tint': '#ba0060',
-        primary: '#db2777',
+        primary: themeColor('primary'),
         'on-primary': '#ffffff',
-        'primary-container': '#db2777',
+        'primary-container': themeColor('primary'),
         'on-primary-container': '#fffdff',
         'inverse-primary': '#ffb1c7',
         secondary: '#7c3aed',
@@ -44,9 +47,9 @@ export default {
         'primary-fixed-dim': '#ffb1c7',
         'on-primary-fixed': '#3f001c',
         'on-primary-fixed-variant': '#8e0048',
-        'secondary-fixed': '#eaddff',
+        'secondary-fixed': themeColor('secondary-fixed'),
         'secondary-fixed-dim': '#d2bbff',
-        'on-secondary-fixed': '#25005a',
+        'on-secondary-fixed': themeColor('on-secondary-fixed'),
         'on-secondary-fixed-variant': '#5a00c6',
         'tertiary-fixed': '#ffddb8',
         'tertiary-fixed-dim': '#ffb95f',
@@ -66,18 +69,27 @@ export default {
         // 웰컴 퀘스트의 강조(앰버)·성공(초록) 글씨 색. 밝은 배경에서도 읽히도록 index.css가 모드별 값을 준다.
         'warm-accent': themeColor('warm-accent'),
         'success-text': themeColor('success-text'),
+        // 성공·완료 아이콘 배경(체크 원 등). 글씨용은 대비를 맞춘 success-text를 쓴다.
+        success: themeColor('success'),
         // 유리 질감 배경. 투명도(0.78)는 고정이고, 색만 모드에 따라 바뀐다(다크는 어두운 유리, 일반은 흰 유리).
         'surface-glass': 'rgb(var(--color-surface-glass) / 0.78)',
         'surface-glass-dark': 'rgba(15, 23, 42, 0.75)',
         'berry-deep': '#9d174d',
         'berry-glow': '#f472b6',
-        'berry-tint': '#fdf2f8',
+        'berry-tint': themeColor('berry-tint'),
         'slate-surface': '#1e293b',
         'slate-muted': '#64748b',
         'border-rose': '#fce7f3',
         'border-neutral': '#f1f5f9',
         'gold-badge': '#d97706',
         'gold-badge-bg': '#fffbeb',
+        // 일반 모드 출석체크 DAY 7 보상 칸의 골드 테두리·배경. 다크 모드는 warm-accent 그라데이션을 그대로 쓴다.
+        'gold-point': '#d89b1d',
+        'gold-soft': '#fff3c4',
+      },
+      // text-primary만 글씨용 진한 핑크를 쓴다. bg·border·ring의 primary는 colors.primary 그대로다.
+      textColor: {
+        primary: themeColor('primary-text'),
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
@@ -124,5 +136,8 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // 일반 모드에만 덧씌울 스타일(light:bg-none 등). 다크 모드에는 영향이 없다.
+    ({ addVariant }) => addVariant('light', ":root[data-theme='light'] &"),
+  ],
 }

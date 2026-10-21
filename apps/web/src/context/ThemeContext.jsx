@@ -14,7 +14,7 @@ function readStoredTheme() {
 }
 
 // 브라우저 주소창·상태바 색. 각 모드의 surface 배경색과 맞춘다(index.css의 --color-surface).
-const THEME_COLORS = { dark: '#1a1a1e', light: '#faf8ff' }
+const THEME_COLORS = { dark: '#1a1a1e', light: '#f5f6f8' }
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme)

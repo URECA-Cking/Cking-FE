@@ -5,7 +5,7 @@
 /*
  * 화면 모드(다크/일반)에 따라 바뀌는 배경·카드·글씨 색 토큰. 값은 "R G B" 채널이라
  * tailwind.config.js에서 rgb(var(--color-*) / <alpha-value>)로 감싸 bg-surface/80 같은 투명도도 쓸 수 있다.
- * 기본은 다크이고, <html data-theme="light">이면 #44 이전의 밝은 값으로 바뀐다.
+ * 기본은 다크이고, <html data-theme="light">이면 쿨 그레이 기반의 밝은 값으로 바뀐다.
  */
 @layer base {
   :root {
@@ -41,32 +41,60 @@
      */
     --color-warm-accent: 251 191 36; /* #fbbf24 */
     --color-success-text: 52 211 153; /* #34d399 */
+    --color-success: 16 185 129; /* #10b981 */
+    /* 아래는 원래 두 모드가 같은 고정색으로 쓰던 토큰이다. 다크 값은 예전 그대로다. */
+    --color-primary: 219 39 119; /* #db2777 */
+    --color-primary-text: 219 39 119; /* #db2777, 다크는 primary와 같은 값 */
+    --color-outline: 141 111 119; /* #8d6f77 */
+    --color-disabled: 141 111 119; /* #8d6f77, 다크는 outline과 같은 값 */
+    --color-outline-variant: 225 190 198; /* #e1bec6 */
+    --color-berry-tint: 253 242 248; /* #fdf2f8 */
+    --color-secondary-fixed: 234 221 255; /* #eaddff */
+    --color-on-secondary-fixed: 37 0 90; /* #25005a */
   }
 
+  /* 일반 모드: 쿨 그레이 배경에 브랜드 핑크(#e11d76)만 포인트로 쓴다. 배경·카드에 핑크·보라 기운을 두지 않는다. */
   :root[data-theme='light'] {
     color-scheme: light;
-    --color-surface: 250 248 255; /* #faf8ff */
-    --color-surface-dim: 210 217 244; /* #d2d9f4 */
-    --color-surface-bright: 250 248 255; /* #faf8ff */
-    --color-surface-container-lowest: 255 255 255; /* #ffffff */
-    --color-surface-container-low: 242 243 255; /* #f2f3ff */
-    --color-surface-container: 234 237 255; /* #eaedff */
-    --color-surface-container-high: 226 231 255; /* #e2e7ff */
-    --color-surface-container-highest: 218 226 253; /* #dae2fd */
-    --color-on-surface: 19 27 46; /* #131b2e */
-    --color-on-surface-variant: 89 64 71; /* #594047 */
-    --color-background: 250 248 255; /* #faf8ff */
-    --color-on-background: 19 27 46; /* #131b2e */
-    --color-surface-variant: 218 226 253; /* #dae2fd */
+    --color-surface: 245 246 248; /* #f5f6f8 앱 전체 배경 */
+    --color-surface-dim: 221 225 230; /* #dde1e6 */
+    --color-surface-bright: 245 246 248; /* #f5f6f8 */
+    --color-surface-container-lowest: 255 255 255; /* #ffffff 기본 카드 */
+    --color-surface-container-low: 241 243 246; /* #f1f3f6 서브 카드 */
+    --color-surface-container: 238 241 244; /* #eef1f4 검색창·입력 영역 */
+    --color-surface-container-high: 232 235 239; /* #e8ebef */
+    --color-surface-container-highest: 226 230 235; /* #e2e6eb */
+    --color-on-surface: 29 36 51; /* #1d2433 메인 텍스트 */
+    /* 시안 #6f7785는 회색 칩·입력 영역 위 대비가 4.5에 못 미쳐 한 단계 진하게 둔다. */
+    --color-on-surface-variant: 102 109 122; /* #666d7a 보조 텍스트 */
+    --color-background: 245 246 248; /* #f5f6f8 */
+    --color-on-background: 29 36 51; /* #1d2433 */
+    --color-surface-variant: 226 230 235; /* #e2e6eb */
     --color-surface-glass: 255 255 255; /* #ffffff */
-    --color-surface-rose-muted: 253 242 246; /* #fdf2f6 */
+    --color-surface-rose-muted: 252 234 242; /* #fceaf2 */
     --color-schedule-birthday: 219 39 119; /* #db2777 */
     --color-schedule-fan-sign: 157 23 77; /* #9d174d */
     --color-schedule-broadcast: 124 58 237; /* #7c3aed */
     --color-schedule-content-release: 131 82 0; /* #835200 */
     --color-schedule-other: 89 64 71; /* #594047 */
     --color-warm-accent: 146 64 14; /* #92400e */
-    --color-success-text: 4 120 87; /* #047857 */
+    /* #22c55e 계열. 글씨는 회색 카드(surface-container) 위에서도 대비 4.5 이상이 되도록 진하게 둔다. */
+    --color-success-text: 22 101 52; /* #166534 */
+    --color-success: 34 197 94; /* #22c55e */
+    /* 시안 #e61e78은 흰 글씨 대비가 4.36이라 기준(4.5)을 넘기도록 살짝 진하게 둔다. */
+    --color-primary: 225 29 118; /* #e11d76 */
+    /* 핑크 글씨(text-primary)는 연핑크(berry-tint)·primary/15 칸·회색 배경 위에서도 대비 4.5가 되도록 더 진하게 둔다. 버튼 면은 primary 그대로다. */
+    --color-primary-text: 187 24 98; /* #bb1862 */
+    /*
+     * outline은 날짜·개수·안내 문구처럼 읽어야 하는 보조 정보에 쓰여 대비 4.5를 맞춘다(보조 텍스트와 같은 값).
+     * 시안의 비활성 텍스트 #a0a7b4는 실제로 누를 수 없는 요소에만 disabled로 쓴다.
+     */
+    --color-outline: 102 109 122; /* #666d7a */
+    --color-disabled: 160 167 180; /* #a0a7b4 비활성 텍스트 */
+    --color-outline-variant: 226 230 235; /* #e2e6eb 구분선·테두리 */
+    --color-berry-tint: 252 234 242; /* #fceaf2 핑크 강조 영역 배경 */
+    --color-secondary-fixed: 241 243 246; /* #f1f3f6 예전 연보라 배지 → 쿨 그레이 */
+    --color-on-secondary-fixed: 29 36 51; /* #1d2433 */
   }
 
   /* 브라우저 기본 당겨서 새로고침·바운스를 끄고 PullToRefresh.jsx의 CKing 로고 연출로 대신한다. */

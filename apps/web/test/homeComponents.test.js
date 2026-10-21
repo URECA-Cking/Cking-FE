@@ -74,7 +74,7 @@ test('완료 체크는 톤에 따라 색이 바뀌고 크기를 따른다', asyn
     const mark = page.locator('#root > span')
     await page.evaluate(() => window.renderFilledCheck(undefined, 20))
     await mark.waitFor()
-    assert.match(await mark.getAttribute('class'), /bg-emerald-500 text-white/)
+    assert.match(await mark.getAttribute('class'), /bg-success text-white/)
     assert.equal(await mark.evaluate((node) => node.style.width), '20px')
 
     await page.evaluate(() => window.renderFilledCheck('onPrimary', 18))

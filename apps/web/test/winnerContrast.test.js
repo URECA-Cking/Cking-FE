@@ -55,8 +55,11 @@ for(const theme of ['dark','light'])for(const width of [375,1280])test(`winner c
     assert.equal(await p.getByText('First prize',{exact:true}).count(),1)
     assert.equal(await p.getByText('Other winner',{exact:true}).count(),1)
     assert.equal(await p.getByText('Second prize',{exact:true}).count(),1)
-    assert.equal(measurements.background,'rgb(253, 242, 248)')
-    assert.equal(measurements.border,measurements.primary)
+    // 내 당첨 카드는 berry-tint 배경이다. 다크는 예전 연분홍 그대로, 라이트는 쿨 그레이 개편의 #fceaf2다.
+    assert.equal(measurements.background,theme==='dark'?'rgb(253, 242, 248)':'rgb(252, 234, 242)')
+    // 테두리는 primary 면 색, 순위 숫자는 text-primary 글씨 색이다. 라이트는 글씨만 대비를 위해 더 진한 핑크를 쓴다.
+    assert.equal(measurements.border,theme==='dark'?'rgb(219, 39, 119)':'rgb(225, 29, 118)')
+    assert.equal(measurements.primary,theme==='dark'?'rgb(219, 39, 119)':'rgb(187, 24, 98)')
     assert.deepEqual(measurements.ranks,['1','2'])
     assert.equal(measurements.overflow,false)
     assert.equal(measurements.otherBackground,measurements.expectedOtherBackground)

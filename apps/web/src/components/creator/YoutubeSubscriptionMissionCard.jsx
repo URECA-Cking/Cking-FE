@@ -93,6 +93,9 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
   const [fileError, setFileError] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // 고른 이미지의 미리보기 주소(blob:). 브라우저 안에서만 만들고 서버로는 보내지 않으며, 바뀌거나 사라지면 해제한다.
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const [failedPreviewUrl, setFailedPreviewUrl] = useState(null)
   const requestIdRef = useRef(null)
   const fileInput = useRef(null)
   const rewardedRef = useRef(false)
@@ -106,6 +109,10 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
     rewardedRef.current = true
     onRewarded?.()
   }, [verification?.status, onRewarded])
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
 
   useEffect(() => {
     if (!shouldPollSubscriptionVerification(verification)) return undefined
@@ -122,12 +129,14 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
     setSubmitError('')
     if (error) {
       setSelectedFile(null)
+      setPreviewUrl(null)
       return
     }
     // 네트워크 오류 뒤 같은 파일은 선택 상태를 유지해 같은 requestId로 재시도한다.
     // 사용자가 파일 선택을 다시 하면 새 요청으로 간주해 멱등성 충돌을 막는다.
     requestIdRef.current = null
     setSelectedFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
   }
 
   async function submit() {
@@ -146,6 +155,7 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
       })
       requestIdRef.current = null
       setSelectedFile(null)
+      setPreviewUrl(null)
       setVerification(submitted)
       await reloadLatest()
     } catch (error) {
@@ -211,6 +221,18 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
                   {submitting ? '제출 중...' : '인증 제출'}
                 </button>
               </div>
+              {selectedFile && previewUrl && (
+                failedPreviewUrl === previewUrl ? (
+                  <p className="font-label-xs text-label-xs text-on-surface-variant">미리보기를 표시하지 못했어요. 이미지가 맞다면 그대로 제출할 수 있어요.</p>
+                ) : (
+                  <img
+                    src={previewUrl}
+                    alt="선택한 인증 이미지 미리보기"
+                    onError={() => setFailedPreviewUrl(previewUrl)}
+                    className="max-h-64 w-full rounded-lg bg-surface-container object-contain"
+                  />
+                )
+              )}
               {selectedFile && <p className="truncate font-label-xs text-label-xs text-on-surface-variant">선택됨: {selectedFile.name}</p>}
               {(fileError || submitError) && <p className="font-label-xs text-label-xs text-error" role="alert">{fileError || submitError}</p>}
             </div>

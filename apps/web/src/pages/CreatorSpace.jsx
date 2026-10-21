@@ -238,13 +238,39 @@ export default function CreatorSpace() {
   }
   const isMine = creatorId !== null && mySpace.data?.creatorId === creatorId
   // 마이페이지·오류 안내가 "스페이스 편집을 열어 달라"고 보낸 경우(OPEN_SPACE_EDIT_STATE) 내 스페이스에서 시트를 연다.
-  // 닫을 때 이동 상태의 요청을 지워 새로고침이나 뒤로 가기에서 다시 열리지 않게 한다.
-  const editVisible = editOpen || (isMine && Boolean(location.state?.openSpaceEdit))
+  // 요청은 시트를 여는 순간 한 번 쓰고 지운다(clearOpenPostId와 같은 방식): 새로고침이나 뒤로 가기에서 다시 열리지 않고,
+  // 시트가 뒤로가기를 받으려고 쌓는 history 항목이 지워진 상태를 복사해 닫을 때 이동 상태를 다시 바꿀 필요가 없다.
+  const openSpaceEditRequested = Boolean(location.state?.openSpaceEdit)
+  useEffect(() => {
+    if (!isMine || !openSpaceEditRequested) return
+    setEditOpen(true)
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: { ...location.state, openSpaceEdit: false },
+      preventScrollReset: true,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMine, openSpaceEditRequested])
+  // 편집 시트에서 slug를 바꾸면 주소 이동은 시트를 닫은 뒤로 미룬다. 시트가 열려 있는 동안 replace하면 시트가 쌓은 history 항목이
+  // 새 주소로 바뀌어, 닫을 때 되돌린 위치(이전 slug의 항목)로 돌아가 뒤로가기에서 더는 열리지 않는 주소가 나타난다.
+  const pendingSlugRef = useRef(null)
   function closeSpaceEdit() {
     setEditOpen(false)
-    if (location.state?.openSpaceEdit) {
-      navigate(`${location.pathname}${location.search}`, { replace: true, state: { ...location.state, openSpaceEdit: false } })
+    const nextSlug = pendingSlugRef.current
+    if (!nextSlug) return
+    pendingSlugRef.current = null
+    // 들어온 경로(/{slug} 또는 /space/{slug})를 그대로 기준으로 삼는다. 닫는 순간의 경로가 시트가 쌓은 항목이 있던 경로다.
+    const enteredPath = window.location.pathname
+    let timer = null
+    const moveToNewSlug = () => {
+      window.removeEventListener('popstate', moveToNewSlug)
+      window.clearTimeout(timer)
+      // 그 사이 다른 화면으로 옮겨 갔다면 건드리지 않는다.
+      if (window.location.pathname === enteredPath) navigate(spacePath(nextSlug), { replace: true })
     }
+    // 시트가 항목을 되돌리며 popstate를 내므로 그 뒤에 옮긴다. 되돌릴 항목이 없어 popstate가 오지 않는 경우를 위해 잠시 뒤에도 옮긴다.
+    window.addEventListener('popstate', moveToNewSlug)
+    timer = window.setTimeout(moveToNewSlug, 600)
   }
   // 내 게시글의 좋아요는 보상 대상이 아니므로(BE가 자기 Space의 좋아요 미션 보상을 주지 않는다) 내 Space에서는 좋아요 미션을 숨긴다.
   const shownLikeMissions = isMine ? [] : likeMissions
@@ -489,8 +515,10 @@ export default function CreatorSpace() {
     mySpace.setData((current) => ({ ...current, ...updated }))
     setCreator((current) => (current ? { ...current, ...updated } : current))
     // 공유 링크로 들어온 화면에서 slug를 바꾸면 이전 주소는 더 이상 열리지 않으므로 새 주소로 옮긴다.
-    if (slugParam && updated.slug !== undefined && updated.slug !== slugParam) {
-      navigate(spacePath(updated.slug), { replace: true })
+    if (slugParam && updated.slug !== undefined) {
+      if (updated.slug === slugParam) pendingSlugRef.current = null // 원래 주소로 되돌렸으면 예약해 둔 이동도 없앤다.
+      else if (editOpen) pendingSlugRef.current = updated.slug
+      else navigate(spacePath(updated.slug), { replace: true })
     }
   }
 
@@ -934,9 +962,9 @@ export default function CreatorSpace() {
       )}
       {isMine && (
         <SpaceEditSheet
-          open={editVisible}
+          open={editOpen}
           onClose={closeSpaceEdit}
-          closeOnBack={editOpen}
+          closeOnBack
           space={mySpace.data}
           onSaved={handleSpaceSaved}
         />

@@ -133,8 +133,8 @@ function useSpaceImagePick({ validate, upload, failMessage }) {
 export default function SpaceEditSheet({ open, onClose, space, onSaved, closeOnBack = false }) {
   // 폼이 "지금 닫아도 되는지"(저장 중이면 막고, 저장하지 않은 변경이 있으면 확인 시트)를 등록한다.
   const { registerGuard, requestClose, confirmSheetProps } = useCloseGuard(open, onClose)
-  // closeOnBack: 뒤로가기도 같은 가드를 거치게 한다. 시트를 닫을 때 부모가 navigate(replace)로 이동 상태를 지우는 경우(다른 화면에서
-  // openSpaceEdit 상태로 들어온 경우)에는 시트가 쌓은 history 항목과 어긋나므로 부모가 그때는 켜지 않는다.
+  // closeOnBack: 뒤로가기도 같은 가드를 거치게 한다. 시트를 닫을 때 부모가 navigate로 history를 바꾸는 경우에는
+  // 시트가 쌓은 항목과 어긋나므로 켜지 않는다.
   return (
     <>
       <BottomSheet open={open} onClose={requestClose} closeOnBack={closeOnBack} eyebrow="Creator Space" title="스페이스 편집">

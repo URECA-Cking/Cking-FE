@@ -10,6 +10,7 @@ import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError } from '../../api/client.js'
 import { POST_ERROR_MESSAGES, POST_LIKE_ERROR_MESSAGES, deletePost, getCreatorPost, getCreatorPosts, likePost, unlikePost } from '../../api/posts.js'
 import { useAsync } from '../../hooks/useAsync.js'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 import { adjustCommentCount, applyCommentCount, reconcileCommentCounts } from '../../utils/postCommentCount.js'
 
@@ -37,6 +38,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
+  const keyboardInset = useKeyboardInset()
   const showToast = useToast()
   // editor: null(닫힘) | { post: null }(작성) | { post }(수정)
   const [editor, setEditor] = useState(null)
@@ -376,11 +378,11 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
         />
       )}
       {detail && (
-        <div role="dialog" aria-modal="true" aria-label="게시글 상세" className="fixed inset-0 z-[60] flex justify-center bg-surface md:items-center md:bg-black/60 md:p-6" onClick={dismissDetail}>
+        <div role="dialog" aria-modal="true" aria-label="게시글 상세" className="fixed inset-0 z-[60] flex justify-center bg-surface md:items-center md:bg-black/60 md:p-6" style={keyboardInset > 0 ? { bottom: keyboardInset } : undefined} onClick={dismissDetail}>
           <button type="button" onClick={(event) => { event.stopPropagation(); dismissDetail() }} aria-label="닫기" className="absolute right-4 top-4 hidden h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/15 md:flex">
             <MaterialIcon name="close" className="text-[26px]" />
           </button>
-          <div className="flex h-full w-full max-w-xl flex-col md:h-[var(--modal-h)] md:w-[var(--modal-w)] md:max-w-none md:overflow-hidden md:rounded-xl md:bg-surface" style={modalSize(mediaRatio, Boolean(detail.post && !detail.post.locked && detail.post.imageCount > 0))} onClick={(event) => event.stopPropagation()}>
+          <div className="flex h-full w-full max-w-xl flex-col md:h-[var(--modal-h)] md:max-h-full md:w-[var(--modal-w)] md:max-w-none md:overflow-hidden md:rounded-xl md:bg-surface" style={modalSize(mediaRatio, Boolean(detail.post && !detail.post.locked && detail.post.imageCount > 0))} onClick={(event) => event.stopPropagation()}>
             <header className="flex h-14 shrink-0 items-center gap-1 border-b border-surface-container-high bg-surface px-2 pt-safe md:hidden">
               <button type="button" onClick={dismissDetail} aria-label="닫기" className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface hover:bg-surface-container">
                 <MaterialIcon name="arrow_back" className="text-[22px]" />
@@ -430,6 +432,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
                       onPostRestricted={handlePostRestricted}
                       onCommentCountChange={(delta) => handleCommentCountChange(detail.post.postId, delta)}
                       onCommentCountSync={(count) => handleCommentCountSync(detail.post.postId, count)}
+                      keyboardInset={keyboardInset}
                     />
                   )}
                 </PostDetail>

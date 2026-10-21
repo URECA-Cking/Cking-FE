@@ -31,6 +31,11 @@ export function sortExploreCreators(creators, sortId) {
   return [...creators].sort(compare)
 }
 
+/** 로그인한 크리에이터 본인은 탐색 목록에서 뺀다. 본인 ID를 아직 모르면(null) 목록을 그대로 둔다. */
+export function excludeOwnCreator(creators, ownCreatorId) {
+  return ownCreatorId == null ? creators : creators.filter((creator) => creator.creatorId !== ownCreatorId)
+}
+
 /** 탐색 Creator 필터는 이미 받은 목록과 UserContext의 관심 Creator ID만으로 처리한다. */
 export function filterExploreCreators(creators, followedCreatorIds, filter, query) {
   const keyword = query.trim().toLowerCase()

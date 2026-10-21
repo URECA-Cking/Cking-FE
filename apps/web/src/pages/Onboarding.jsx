@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
 import InterestStep from '../components/onboarding/InterestStep.jsx'
 import CreatorStep from '../components/onboarding/CreatorStep.jsx'
+import ConfirmSheet from '../components/ui/ConfirmSheet.jsx'
 import { completeOnboarding } from '../api/auth.js'
 import { describeError } from '../api/client.js'
 import { useToast } from '../context/useToast.js'
@@ -33,6 +34,8 @@ export default function Onboarding({ manage = false }) {
   const [finishing, setFinishing] = useState(false)
   // 같은 틱에 연달아 눌러도 한 번만 처리한다(state는 다음 렌더에야 바뀐다).
   const finishingRef = useRef(false)
+  // 가입 직후 1단계에서 뒤로가기를 눌렀을 때 온보딩을 건너뛸지 묻는 확인 시트가 열려 있는지.
+  const [confirmingSkip, setConfirmingSkip] = useState(false)
   // 단계를 주소(?step=creators)에 둔다. 크리에이터 스페이스를 둘러보고 뒤로 돌아와도 1단계로 되돌아가지 않는다.
   const [params, setParams] = useSearchParams()
   const step = manage || params.get('step') === 'creators' ? 'creators' : 'interests'
@@ -55,19 +58,23 @@ export default function Onboarding({ manage = false }) {
     navigate(destination, { replace: true })
   }
 
+  /** 뒤로가기: 단계에 따라 되돌린다. 가입 직후 1단계는 되돌아갈 단계가 없어 기록 유무와 관계없이 건너뛸지 먼저 묻는다. */
   function handleBack() {
-    if (canGoBackInApp()) {
+    // 도킹 관리는 되돌아갈 기록이 없으면(주소로 직접 연 경우) 홈으로 보낸다.
+    if (manage) {
+      if (canGoBackInApp()) navigate(-1)
+      else navigate('/', { replace: true })
+      return
+    }
+    if (step === 'creators') {
       // 1단계에서 "다음"으로 쌓은 기록을 그대로 되돌린다. 덮어쓰면 1단계 항목이 중복으로 남아 다시 뒤로가도 변화가 없다.
-      navigate(-1)
+      if (canGoBackInApp()) navigate(-1)
+      // 새로고침 등으로 2단계에서 시작했다면 기록을 늘리지 않고 1단계로 바꾼다.
+      else setParams((prev) => withStep(prev, null), { replace: true, state: location.state })
       return
     }
-    // 새로고침 등으로 2단계에서 시작했다면 기록을 늘리지 않고 1단계로 바꾼다.
-    if (step === 'creators' && !manage) {
-      setParams((prev) => withStep(prev, null), { replace: true, state: location.state })
-      return
-    }
-    // 돌아갈 곳이 없으면(가입 직후 등) 로그인 전에 가려던 화면, 없으면 홈으로 보낸다.
-    navigate(manage ? '/' : destination, { replace: true })
+    // 가입 직후 1단계는 마이페이지 등 관계없는 화면으로 조용히 보내지 않고, 건너뛸지 먼저 확인한다.
+    setConfirmingSkip(true)
   }
 
   return (
@@ -89,6 +96,16 @@ export default function Onboarding({ manage = false }) {
           showSkip={!manage}
         />
       )}
+      <ConfirmSheet
+        open={confirmingSkip}
+        title="온보딩을 건너뛸까요?"
+        message="지금 나가면 관심 분야와 크리에이터 선택을 건너뛴 것으로 처리해요."
+        confirmLabel="건너뛰기"
+        confirmTone="primary"
+        busy={finishing}
+        onConfirm={finish}
+        onClose={() => setConfirmingSkip(false)}
+      />
     </div>
   )
 }

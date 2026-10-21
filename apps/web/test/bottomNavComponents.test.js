@@ -61,37 +61,43 @@ for (const compact of [false, true]) {
   })
 }
 
-/** 클릭한 뒤 활성 탭이 바뀐 시각과 펄스(is-pulsing)가 시작된 시각의 차(ms)를 잰다. 펄스가 없으면 null. */
-async function pulseDelay(page, name) {
+/**
+ * 클릭한 뒤 활성 탭이 바뀐 시점과 펄스(is-pulsing)가 시작된 시점을 "그려진 프레임 수"로 잰다.
+ * 시간(ms)으로 재면 느린 환경(CI)에서 값이 흔들려, 프레임 수로 센다. 펄스가 없으면 pulse는 null.
+ */
+async function pulseFrames(page, name) {
   await page.evaluate(() => {
+    window.frameCount = 0
+    const count = () => { window.frameCount += 1; requestAnimationFrame(count) }
+    requestAnimationFrame(count)
     window.timeline = { active: null, pulse: null }
-    const nav = document.querySelector('nav')
+    window.startTab = document.querySelector('nav a[aria-current="page"]')?.getAttribute('aria-label')
     new MutationObserver(() => {
       const dock = document.querySelector('.liquid-nav-dock')
-      if (window.timeline.active === null && document.querySelector('nav a[aria-current="page"]')?.getAttribute('aria-label') !== window.startTab) window.timeline.active = performance.now()
-      if (window.timeline.pulse === null && dock.classList.contains('is-pulsing')) window.timeline.pulse = performance.now()
-    }).observe(nav, { attributes: true, subtree: true, attributeFilter: ['class', 'aria-current'] })
-    window.startTab = document.querySelector('nav a[aria-current="page"]')?.getAttribute('aria-label')
+      if (window.timeline.active === null && document.querySelector('nav a[aria-current="page"]')?.getAttribute('aria-label') !== window.startTab) window.timeline.active = window.frameCount
+      if (window.timeline.pulse === null && dock.classList.contains('is-pulsing')) window.timeline.pulse = window.frameCount
+    }).observe(document.querySelector('nav'), { attributes: true, subtree: true, attributeFilter: ['class', 'aria-current'] })
+    window.clickFrame = null
+    document.addEventListener('click', () => { window.clickFrame = window.frameCount }, { capture: true, once: true })
   })
-  const clickedAt = await page.evaluate(() => performance.now())
   await tab(page, name).click()
   await page.waitForTimeout(1200)
-  return page.evaluate((clicked) => ({ active: window.timeline.active - clicked, pulse: window.timeline.pulse === null ? null : window.timeline.pulse - clicked }), clickedAt)
+  return page.evaluate(() => ({ click: window.clickFrame, active: window.timeline.active, pulse: window.timeline.pulse }))
 }
 
-test('다른 탭을 누르면 펄스는 화면 전환 직후가 아니라 프레임이 안정된 뒤에 시작한다', async () => {
+test('다른 탭을 누르면 펄스는 화면 전환 직후가 아니라 프레임이 안정된 뒤(활성 탭이 바뀐 뒤 3프레임 이상)에 시작한다', async () => {
   const page = await screen()
   try {
-    const { active, pulse } = await pulseDelay(page, '탐색')
-    assert.ok(pulse !== null, '펄스가 시작되어야 한다')
-    assert.ok(pulse - active >= 30, `활성 탭이 바뀐 뒤 최소 몇 프레임 지나 시작해야 한다: ${pulse - active}ms`)
+    const { active, pulse } = await pulseFrames(page, '탐색')
+    assert.ok(pulse !== null && active !== null, '활성 탭이 바뀌고 펄스가 시작되어야 한다')
+    assert.ok(pulse - active >= 3, `활성 탭이 바뀐 뒤 최소 3프레임 지나 시작해야 한다: ${pulse - active}프레임`)
   } finally { await page.close() }
 })
 
-test('이미 선택한 탭을 다시 누르면 펄스를 바로 시작한다', async () => {
+test('이미 선택한 탭을 다시 누르면 펄스를 바로(2프레임 안에) 시작한다', async () => {
   const page = await screen()
   try {
-    const { pulse } = await pulseDelay(page, '홈')
-    assert.ok(pulse !== null && pulse < 60, `재선택은 바로 펄스: ${pulse}ms`)
+    const { click, pulse } = await pulseFrames(page, '홈')
+    assert.ok(pulse !== null && pulse - click <= 2, `재선택은 바로 펄스: ${pulse - click}프레임`)
   } finally { await page.close() }
 })

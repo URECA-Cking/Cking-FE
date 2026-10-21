@@ -21,12 +21,13 @@ const SIMILAR_SIZE = 5
  *
  * 탐색 첫 화면에서 자동으로 받던 추천을 사용자가 들어왔을 때만 받도록 분리했다.
  * 조회와 회원별 결과 격리는 useMyCreatorRecommendations가 맡고, 응답의 기여 분야를 기존 온보딩 규칙으로 표시한다.
+ * 인기순 대체 응답은 추천 제목과 빈 결과 안내를 구분한다.
  */
 export default function ExploreRecommend() {
   const showToast = useToast()
   const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds } = useUser()
   const { ownCreatorId, ownSpacePending } = useOwnCreatorId()
-  const { items: recommended, creatorsById, requestId, loading, error, reload, reloadRecommendations } = useMyCreatorRecommendations(user?.memberId ?? null)
+  const { items: recommended, creatorsById, requestId, personalized, loading, error, reload, reloadRecommendations } = useMyCreatorRecommendations(user?.memberId ?? null)
   const { impressionRef, trackClick } = useRecommendationEvents(requestId)
   const [limit, setLimit] = useState(RECOMMEND_PAGE_SIZE)
   const shown = recommended.slice(0, limit)
@@ -85,7 +86,7 @@ export default function ExploreRecommend() {
     <div className="page-enter flex flex-col w-full pb-8">
       <section className="mt-space-md flex flex-col">
         <div className="px-margin">
-          <SectionHeader icon="auto_awesome" title="나를 위한 추천" action="도킹 관리" actionTo="/onboarding/creators" />
+          <SectionHeader icon="auto_awesome" title={personalized === false ? '지금 인기 있는 크리에이터' : '나를 위한 추천'} action="도킹 관리" actionTo="/onboarding/creators" />
         </div>
         <InterestEditor
           catalog={interests.data}
@@ -100,7 +101,7 @@ export default function ExploreRecommend() {
         {recommendationsLoading && <LoadingBlock label="추천 크리에이터를 찾는 중..." />}
         {!recommendationsLoading && error && <ErrorBlock message={error} onRetry={reload} />}
         {!recommendationsLoading && !error && shown.length === 0 && (
-          <EmptyBlock icon="auto_awesome" message="아직 보여드릴 추천이 없어요. 관심 분야를 골라 보세요." />
+          <EmptyBlock icon="auto_awesome" message={personalized === false ? '지금 보여드릴 크리에이터가 없어요.' : '아직 보여드릴 추천이 없어요. 관심 분야를 골라 보세요.'} />
         )}
         {!recommendationsLoading && !error && shown.length > 0 && (
           <div className="px-margin flex flex-col gap-2.5">

@@ -15,8 +15,9 @@ const RECOMMEND_MAX = 20
  * - 추천 응답에는 항목이 있는데 프로필 목록에서 하나도 찾지 못하면(목록 캐시가 오래돼 새 크리에이터가 빠진 경우 등) 빈 추천이 아니라
  *   오류로 보고, 다시 시도에서 프로필 목록을 캐시 없이 새로 받는다. 일부만 못 찾으면 찾은 항목만 보여 준다.
  * - 추천 응답의 기여 관심 분야·팔로우 seed는 프로필과 결합한 뒤에도 보존해 카드의 추천 이유에 쓴다.
+ * - 인기순 대체 여부도 현재 회원의 응답에서만 꺼내 화면 제목에 전달한다.
  *
- * @returns {{ items: object[], creatorsById: Map<number, object>, requestId: number|string|null, loading: boolean, error: string|null, reload: () => void, reloadRecommendations: () => void }}
+ * @returns {{ items: object[], creatorsById: Map<number, object>, requestId: number|string|null, personalized: boolean|null, loading: boolean, error: string|null, reload: () => void, reloadRecommendations: () => void }}
  *   items는 현재 회원의 추천을 프로필과 결합한 목록이다. 아직 준비되지 않았거나 실패했으면 빈 배열이다.
  */
 export function useMyCreatorRecommendations(memberId) {
@@ -63,6 +64,7 @@ export function useMyCreatorRecommendations(memberId) {
     items,
     creatorsById,
     requestId: mine?.requestId ?? null,
+    personalized: mine?.personalized ?? null,
     loading,
     error,
     // 실패한 쪽만 다시 받는다. 둘 다 성공 상태였다면 추천을 새로 받는다.

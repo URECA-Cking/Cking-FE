@@ -58,9 +58,6 @@
             if (family === 'Material Symbols Rounded') root.classList.add('icons-rounded-ready')
           })
         }
-        function showAllIcons() {
-          root.classList.add('icons-outlined-ready', 'icons-rounded-ready')
-        }
         try {
           markLoadedIcons()
           document.fonts.addEventListener('loadingdone', markLoadedIcons)
@@ -69,10 +66,10 @@
           document.fonts.load('24px "Material Symbols Rounded"', 'star').then(markLoadedIcons, function () {})
           document.fonts.ready.then(markLoadedIcons)
           var timer = setInterval(markLoadedIcons, 300)
-          // 감지가 끝내 어긋나도 아이콘이 영영 숨겨져 있지 않게, 일정 시간 뒤에는 그대로 보여준다.
+          // 주기 확인은 10초 뒤 마지막으로 상태만 다시 보고 멈춘다. 폰트가 아직 안 왔으면 숨김을 유지하고(이름 글자 노출 방지), 뒤늦게 오면 loadingdone이 클래스를 붙인다.
           setTimeout(function () {
             clearInterval(timer)
-            showAllIcons()
+            markLoadedIcons()
           }, 10000)
         } catch (e) {
           // 폰트 로딩 상태를 알 수 없는 브라우저에서는 아이콘을 숨기지 않는다.

@@ -42,7 +42,7 @@ export default function MyEntries() {
   const hiddenCount = filteredEntries.length - visibleEntries.length
 
   return (
-    <div className="flex min-h-full flex-col w-full px-margin pt-space-md pb-8 gap-space-md md:mx-auto md:max-w-5xl md:px-8">
+    <div className="flex min-h-full shrink-0 flex-col w-full px-margin pt-space-md pb-8 gap-space-md md:mx-auto md:max-w-5xl md:px-8">
       {!loading && !error && (data?.failedEventCount > 0 || data?.winnersFailed) && (
         <div className="flex items-center gap-2 p-space-sm rounded-xl bg-surface-container-lowest text-on-surface-variant">
           <MaterialIcon name="warning" className="text-[18px] text-primary shrink-0" />

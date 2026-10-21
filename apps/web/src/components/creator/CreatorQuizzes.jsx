@@ -215,13 +215,12 @@ function QuizSheet({ creatorId, memberId, quizId, authenticated, sessionLoading,
     const next = { ...answers, [selectedQuestion.questionNo]: optionNo }
     setAnswers(next)
     if (progressKey) saveQuizProgress(storage, progressKey, detail.data.revisionId, next)
+    // 마지막 문항은 고르기만 하고 제출 버튼으로 보낸다(고른 뒤 답을 바꿀 수 있게 하려는 것이다).
     if (!view.isLast) {
       advanceTimer.current = setTimeout(() => {
         advanceTimer.current = null
         setStep((current) => current + 1)
       }, ADVANCE_DELAY_MS)
-    } else if (authenticated) {
-      handleSubmit(next)
     }
   }
 
@@ -384,7 +383,7 @@ function QuizSheet({ creatorId, memberId, quizId, authenticated, sessionLoading,
               내 스페이스의 Quiz는 응시할 수 없어요.
             </p>
           )}
-          {/* 로그인한 사용자는 마지막 보기를 고르면 바로 제출된다. 이 버튼은 로그인이 필요하거나 제출에 실패해 다시 보낼 때 쓴다. */}
+          {/* 마지막 보기를 고른 뒤 이 버튼으로 제출한다. 비로그인은 로그인으로 보내고, 제출에 실패하면 같은 답안으로 다시 보낸다. */}
           {!isMine && view.isLast && question && answers[question.questionNo] !== undefined && (
             <button
               type="button"
@@ -392,7 +391,7 @@ function QuizSheet({ creatorId, memberId, quizId, authenticated, sessionLoading,
               disabled={authenticated && submitting}
               className="w-full rounded-xl bg-primary py-3 text-on-primary font-label-md text-label-md font-semibold active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {!authenticated ? '로그인하고 제출하기' : submitting ? '채점하는 중...' : '제출하기'}
+              {!authenticated ? '로그인하고 제출' : submitting ? '채점하는 중...' : '제출'}
             </button>
           )}
         </div>

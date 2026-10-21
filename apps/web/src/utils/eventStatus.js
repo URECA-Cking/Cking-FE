@@ -68,6 +68,14 @@ export function toDisplayStatus(event, now = Date.now()) {
   }
 }
 
+/**
+ * 마감된 이벤트의 마감 시각. 자동·수동 마감 모두 마감 요청 시각(closeRequestedAt)을 쓰고,
+ * 값이 없으면(마감 전 상태나 필드 도입 전에 마감된 이벤트) 예정 종료일(endAt)로 대체한다.
+ */
+export function closedDisplayAt(event) {
+  return event?.closeRequestedAt ?? event?.endAt
+}
+
 /** 응모 가능 여부: 백엔드는 OPEN 상태이고 종료 전인 이벤트에만 응모를 허용한다. */
 export function isEntryOpen(event) {
   if (!event) return false

@@ -107,7 +107,7 @@ export function TopHeader({
               <MaterialIcon name="notifications" className="text-[22px]" />
               {unreadCount > 0 && (
                 <span
-                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-error text-on-error font-label-xs text-[10px] leading-4 text-center font-bold"
+                  className="absolute top-0.5 left-1/2 ml-0.5 min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-on-primary font-label-xs text-[11px] leading-5 text-center font-bold tabular-nums"
                   aria-label={`${unreadCountPartial ? '최근 100건 중 ' : ''}읽지 않은 알림 ${unreadCount}개${unreadCountPartial ? ' 이상' : ''}`}
                 >
                   {unreadCount > 99 ? '99+' : unreadCountPartial ? `${unreadCount}+` : unreadCount}

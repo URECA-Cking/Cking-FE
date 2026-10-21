@@ -8,9 +8,10 @@ import { spacePath } from '../../api/creatorSpace.js'
  * 아바타·이름·소개와 관심 버튼이 있는 크리에이터 한 줄. rowRef·onOpen은 추천 노출·클릭 수집용이다.
  *
  * variant="card"는 카드 배경에 소개문을 보여주고, variant="flat"은 배경 없이 큰 아바타와 이름, 오른쪽 테두리 버튼만 둔다.
- * flat에서는 소개문 자리에 meta(예: 진행 중 뱃지·응모권)를 넣고, highlight이면 아바타에 강조 링을 두른다.
+ * flat에서는 소개문 자리에 meta(예: 진행 중 뱃지·응모권)를 넣고, 카드에서는 추천 이유가 있을 때만 표시한다.
+ * highlight이면 아바타에 강조 링을 두른다.
  */
-export default function CreatorRow({ creator, followed, disabled, onToggle, rowRef, onOpen, variant = 'card', meta, highlight = false }) {
+export default function CreatorRow({ creator, followed, disabled, onToggle, rowRef, onOpen, variant = 'card', meta, reason, highlight = false }) {
   const flat = variant === 'flat'
   return (
     <div
@@ -34,7 +35,10 @@ export default function CreatorRow({ creator, followed, disabled, onToggle, rowR
           </span>
           {flat
             ? meta
-            : <span className="font-body-sm text-body-sm text-outline line-clamp-1">{creator.bio}</span>}
+            : <>
+                <span className="font-body-sm text-body-sm text-outline line-clamp-1">{creator.bio}</span>
+                {reason && <span className="font-label-xs text-label-xs text-primary line-clamp-1">{reason}</span>}
+              </>}
         </div>
       </Link>
       <button

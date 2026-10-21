@@ -9,7 +9,9 @@ import { useMyCreatorRecommendations } from '../hooks/useMyCreatorRecommendation
 import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
 import { useRecommendationEvents } from '../hooks/useRecommendationEvents.js'
 import { getSimilarCreators } from '../api/creators.js'
+import { getInterests } from '../api/interests.js'
 import { describeError } from '../api/client.js'
+import { recommendationReason } from '../utils/recommendationReason.js'
 
 const RECOMMEND_PAGE_SIZE = 10
 const SIMILAR_SIZE = 5
@@ -18,7 +20,7 @@ const SIMILAR_SIZE = 5
  * 맞춤 추천 화면.
  *
  * 탐색 첫 화면에서 자동으로 받던 추천을 사용자가 들어왔을 때만 받도록 분리했다.
- * 조회와 회원별 결과 격리는 useMyCreatorRecommendations가 맡는다.
+ * 조회와 회원별 결과 격리는 useMyCreatorRecommendations가 맡고, 응답의 기여 분야를 기존 온보딩 규칙으로 표시한다.
  */
 export default function ExploreRecommend() {
   const showToast = useToast()
@@ -28,6 +30,12 @@ export default function ExploreRecommend() {
   const { impressionRef, trackClick } = useRecommendationEvents(requestId)
   const [limit, setLimit] = useState(RECOMMEND_PAGE_SIZE)
   const shown = recommended.slice(0, limit)
+  // 분야명 조회가 실패해도 추천 목록은 그대로 보여 준다.
+  const interests = useAsync(() => getInterests().catch(() => null), [])
+  const interestNames = useMemo(
+    () => new Map((interests.data?.items ?? []).map((item) => [item.interestCode, item.name])),
+    [interests.data],
+  )
 
   // 유사 크리에이터는 기준이 필요해서 가장 최근에 관심 등록한 크리에이터를 기준으로 삼는다(followedCreators는 최근 팔로우 순). 관심이 없으면 숨긴다.
   const similarBaseId = followsReady ? (followedCreators[0] ?? null) : null
@@ -51,6 +59,7 @@ export default function ExploreRecommend() {
     }
   }
 
+  /** 추천 카드에서만 노출·클릭과 추천 이유를 연결하고 유사 크리에이터 카드는 그대로 그린다. */
   function renderRow(creator, { tracked = false } = {}) {
     return (
       <CreatorRow
@@ -61,6 +70,7 @@ export default function ExploreRecommend() {
         onToggle={handleToggleFollow}
         rowRef={tracked ? impressionRef(creator.creatorId) : undefined}
         onOpen={tracked ? () => trackClick(creator.creatorId) : undefined}
+        reason={tracked ? recommendationReason(creator, interestNames) : undefined}
       />
     )
   }

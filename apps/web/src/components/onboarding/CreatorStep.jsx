@@ -14,18 +14,12 @@ import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import { useUser } from '../../context/useUser.js'
 import { spacePath } from '../../api/creatorSpace.js'
+import { recommendationReason } from '../../utils/recommendationReason.js'
 
 const PAGE_SIZE = 20
 const SEARCH_DEBOUNCE_MS = 300
 
-/** 추천 이유 문구. 인기순 대체에서는 이유가 없다. */
-function reasonOf(item, interestNames) {
-  const names = item.interestCodes.map((code) => interestNames.get(code)).filter(Boolean)
-  if (names.length > 0) return `관심 분야 · ${names.join(', ')}`
-  if (item.seedCreatorIds.length > 0) return '내가 도킹한 크리에이터와 비슷해요'
-  return null
-}
-
+/** 추천 결과와 관심 분야 이름을 함께 받아 카드의 추천 이유를 구성한다. */
 async function loadRecommendations() {
   const [recommendation, interests] = await Promise.all([
     getMyCreatorRecommendations({ size: 20 }),
@@ -222,7 +216,7 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
           {!recommended.loading && !recommended.error && (recommended.data?.items.length ?? 0) > 0 && (
             <ul className="flex flex-col gap-2.5">
               {recommended.data.items.map((item) => (
-                <CreatorRow key={item.creatorId} {...rowProps(item)} reason={reasonOf(item, interestNames)} />
+                <CreatorRow key={item.creatorId} {...rowProps(item)} reason={recommendationReason(item, interestNames)} />
               ))}
             </ul>
           )}

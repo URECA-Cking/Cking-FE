@@ -117,6 +117,8 @@ function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, childr
 
   function startDrag(event) {
     if (!event.isPrimary || event.button !== 0) return
+    const button = event.target.closest('button')
+    if (button && button !== event.currentTarget) return // 제목 줄의 닫기 버튼 등은 끌기로 보지 않는다.
     const element = panel.current
     window.clearTimeout(settleTimer.current)
     dragged.current = false
@@ -134,6 +136,12 @@ function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, childr
     drag.current.height = drag.current.startHeight
     element.style.transition = 'none'
     event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  /** 브라우저가 터치를 가져가 드래그가 끊기면 진행 중이던 끌기를 버리고 시트를 제자리로 돌린다. */
+  function cancelDrag() {
+    drag.current = null
+    resetInline()
   }
 
   function moveDrag(event) {
@@ -254,13 +262,19 @@ function OpenBottomSheet({ onClose, title, eyebrow, compactTitle = false, childr
           onPointerDown={startDrag}
           onPointerMove={moveDrag}
           onPointerUp={endDrag}
-          onPointerCancel={() => { drag.current = null; resetInline() }}
+          onPointerCancel={cancelDrag}
         >
           <span className="w-10 h-1 rounded-full bg-surface-container-highest" />
         </button>
         <div className="min-h-0 overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)]">
           {(title || onClose) && (
-            <div className={`flex items-start justify-between ${compactTitle ? 'mb-1' : 'mb-space-md'}`}>
+            <div
+              className={`flex items-start justify-between touch-none ${compactTitle ? 'mb-1' : 'mb-space-md'}`}
+              onPointerDown={startDrag}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={cancelDrag}
+            >
               <div>
                 {eyebrow && (
                   <div className="inline-flex items-center gap-space-xs mb-1">

@@ -19,6 +19,11 @@ function isInsideScrolled(el) {
   return false
 }
 
+/** 터치 지점이 바텀시트(딤 배경 포함)·대화상자 안이면 true. 시트를 끌어 내리는 동작을 새로고침으로 오인하지 않는다. */
+function isInsideDialog(el) {
+  return Boolean(el?.closest?.('[role="dialog"], dialog, .bottom-sheet-backdrop'))
+}
+
 /**
  * 화면 맨 위에서 아래로 당기면 앱 화면 전체(#root)가 손가락을 따라 내려오고, 비워진 윗자리에 CKing 로고가 나온다.
  * 당기는 동안은 몸통만 보이고, 기준 이상 당겼다 놓으면 스플래시와 같은 왕관 낙하 연출(index.css의 splash-crown-drop)이 나온 뒤 새로고침한다.
@@ -55,7 +60,8 @@ export default function PullToRefresh() {
         e.touches.length !== 1 ||
         window.scrollY > 0 ||
         document.documentElement.classList.contains('splash-active') ||
-        isInsideScrolled(e.target)
+        isInsideScrolled(e.target) ||
+        isInsideDialog(e.target)
       startY.current = blocked ? null : e.touches[0].clientY
       startX.current = e.touches[0].clientX
       axisLocked.current = false

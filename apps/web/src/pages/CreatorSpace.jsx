@@ -297,10 +297,13 @@ export default function CreatorSpace() {
   }, [creatorName, creatorSlug])
 
 
+  // 홈 새 게시물 카드로 들어와 상세가 열리기 전까지는 스페이스 화면 대신 게시글 로딩만 보여 준다.
+  const openingPost = location.state?.openPostId != null
+
   if (loading) {
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe">
-        <LoadingBlock label="크리에이터 스페이스를 불러오는 중..." />
+        <LoadingBlock label={openingPost ? '게시글을 불러오는 중...' : '크리에이터 스페이스를 불러오는 중...'} />
       </div>
     )
   }
@@ -694,6 +697,12 @@ export default function CreatorSpace() {
 
   return (
     <div className="flex flex-col w-full min-h-screen pt-safe pb-24">
+      {/* 게시글 상세(z-60)는 이 덮개 위에 뜨고, 상세가 열리면 openPostId가 지워져 덮개도 사라진다. */}
+      {openingPost && tab === 'posts' && (
+        <div className="fixed inset-0 z-[55] flex flex-col bg-surface pt-safe">
+          <LoadingBlock label="게시글을 불러오는 중..." />
+        </div>
+      )}
       <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-none z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
         <div className="h-14 px-margin md:px-8 flex items-center justify-between gap-space-xs">
           <div className="flex items-center gap-space-xs min-w-0">
@@ -890,6 +899,7 @@ export default function CreatorSpace() {
             onLogin={goLogin}
             initialPostId={location.state?.openPostId ?? null}
             onInitialPostOpened={clearOpenPostId}
+            onLeaveToOrigin={goBack}
           />
         )}
 

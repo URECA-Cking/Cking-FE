@@ -33,7 +33,7 @@ function modalSize(ratio, hasMedia) {
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 /** 크리에이터 게시물 목록과 상세, 작성·수정·삭제 및 좋아요 상태를 관리한다. */
-export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded, initialPostId = null, onInitialPostOpened }) {
+export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded, initialPostId = null, onInitialPostOpened, onLeaveToOrigin }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
@@ -67,6 +67,8 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   // 첫 페이지를 다시 읽을 때마다 올려서, 그 전에 시작한 '더 보기' 응답이 늦게 와도 버린다.
   const listGeneration = useRef(0)
   const detailSeq = useRef(0)
+  // 홈 새 게시물 카드로 들어와 연 상세인지. 이 상세를 직접 닫으면 스페이스가 아니라 온 곳(홈)으로 돌아간다.
+  const openedFromFeed = useRef(false)
   // 로그인·팔로우 권한이 바뀌면 CreatorSpace의 key가 이 컴포넌트를 다시 마운트한다.
   const first = useAsync(
     () => getCreatorPosts(creatorId),
@@ -235,6 +237,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   // 홈 새 게시물 카드처럼 특정 게시물을 가리키며 들어오면 마운트 직후 그 상세를 연다. 한 번 열면 라우터 상태에서 지운다.
   useEffect(() => {
     if (initialPostId == null) return
+    openedFromFeed.current = true
     openDetail(initialPostId)
     onInitialPostOpened?.()
     // 진입 시 한 번만 연다. openDetail은 렌더마다 새로 만들어지지만 이 효과는 initialPostId 변화에만 반응한다.
@@ -293,7 +296,17 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   const closeDetail = () => {
     detailSeq.current += 1
     detailPostId.current = null
+    openedFromFeed.current = false
     setDetail(null)
+  }
+  /** 사용자가 상세를 직접 닫는다. 홈 카드로 연 상세는 스페이스를 거치지 않고 온 곳으로 돌아가며, 이동이 끝날 때까지 상세를 그대로 둔다. */
+  const dismissDetail = () => {
+    if (openedFromFeed.current && onLeaveToOrigin) {
+      openedFromFeed.current = false
+      onLeaveToOrigin()
+      return
+    }
+    closeDetail()
   }
   /** 잠긴 게시물의 로그인·팔로우·재조회 동작을 선택한다. */
   const lockedAction = () => {
@@ -363,13 +376,13 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
         />
       )}
       {detail && (
-        <div role="dialog" aria-modal="true" aria-label="게시글 상세" className="fixed inset-0 z-[60] flex justify-center bg-surface md:items-center md:bg-black/60 md:p-6" onClick={closeDetail}>
-          <button type="button" onClick={closeDetail} aria-label="닫기" className="absolute right-4 top-4 hidden h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/15 md:flex">
+        <div role="dialog" aria-modal="true" aria-label="게시글 상세" className="fixed inset-0 z-[60] flex justify-center bg-surface md:items-center md:bg-black/60 md:p-6" onClick={dismissDetail}>
+          <button type="button" onClick={(event) => { event.stopPropagation(); dismissDetail() }} aria-label="닫기" className="absolute right-4 top-4 hidden h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/15 md:flex">
             <MaterialIcon name="close" className="text-[26px]" />
           </button>
           <div className="flex h-full w-full max-w-xl flex-col md:h-[var(--modal-h)] md:w-[var(--modal-w)] md:max-w-none md:overflow-hidden md:rounded-xl md:bg-surface" style={modalSize(mediaRatio, Boolean(detail.post && !detail.post.locked && detail.post.imageCount > 0))} onClick={(event) => event.stopPropagation()}>
             <header className="flex h-14 shrink-0 items-center gap-1 border-b border-surface-container-high bg-surface px-2 pt-safe md:hidden">
-              <button type="button" onClick={closeDetail} aria-label="닫기" className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface hover:bg-surface-container">
+              <button type="button" onClick={dismissDetail} aria-label="닫기" className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface hover:bg-surface-container">
                 <MaterialIcon name="arrow_back" className="text-[22px]" />
               </button>
               <h3 className="font-title-md text-title-md font-semibold text-on-surface">게시물</h3>

@@ -62,8 +62,11 @@ export default function EventDetail() {
   const prizeDragRef = useRef(null)
   useEffect(() => {
     const dialog = confirmationRef.current
-    if (sheetOpen) dialog?.showModal()
-    else dialog?.close()
+    if (sheetOpen) {
+      dialog?.showModal()
+      // showModal이 첫 버튼(취소)에 초점을 주면 iOS가 파란 초점 테두리를 그려서, 대화상자 자체에 초점을 둔다.
+      dialog?.focus()
+    } else dialog?.close()
   }, [sheetOpen])
   const [selectionOpen, setSelectionOpen] = useState(false)
   const [now, setNow] = useState(() => Date.now())
@@ -608,21 +611,21 @@ export default function EventDetail() {
                 <button
                   type="button"
                   onClick={() => quickAdd(1)}
-                  className="py-2.5 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
+                  className="h-12 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
                 >
                   +1장
                 </button>
                 <button
                   type="button"
                   onClick={() => quickAdd(5)}
-                  className="py-2.5 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
+                  className="h-12 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold active:scale-95 hover:bg-berry-tint hover:text-primary transition-all"
                 >
                   +5장
                 </button>
                 <button
                   type="button"
                   onClick={() => setTicketCount(limit)}
-                  className="py-2.5 rounded-xl bg-primary/10 text-primary font-label-md text-label-md font-bold active:scale-95 hover:bg-primary hover:text-on-primary transition-all"
+                  className="h-12 rounded-xl bg-primary/10 text-primary font-label-md text-label-md font-bold active:scale-95 hover:bg-primary hover:text-on-primary transition-all"
                 >
                   일괄 사용
                 </button>
@@ -654,6 +657,7 @@ export default function EventDetail() {
         ref={confirmationRef}
         aria-label="응모 확인"
         aria-describedby="entry-confirm-message"
+        tabIndex={-1}
         onCancel={(event) => {
           event.preventDefault()
           if (phase !== 'submitting') {
@@ -661,7 +665,7 @@ export default function EventDetail() {
             if (phase === 'idle') setSelectionOpen(true)
           }
         }}
-        className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border-0 bg-surface-container-lowest p-6 text-on-surface shadow-2xl backdrop:bg-black/60"
+        className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border-0 outline-none bg-surface-container-lowest p-6 text-on-surface shadow-2xl backdrop:bg-black/60"
       >
         <p id="entry-confirm-message" className="font-body-md text-body-md text-on-surface leading-relaxed mb-6">
           응모 완료 시 사용된 응모권은 취소 또는 환불이 불가합니다. 응모하시겠습니까?

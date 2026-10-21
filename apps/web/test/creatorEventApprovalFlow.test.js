@@ -51,7 +51,12 @@ async function openForm(edit = false) {
   }, edit)
   await page.addScriptTag({ content: bundle })
   await page.getByRole('textbox', { name: '제목', exact: false }).waitFor()
-  if (!edit) await page.getByRole('textbox', { name: '제목', exact: false }).fill('새 이벤트')
+  if (!edit) {
+    await page.getByRole('textbox', { name: '제목', exact: false }).fill('새 이벤트')
+    await page.getByRole('spinbutton', { name: '상품 1 순위' }).fill('1')
+    await page.getByRole('spinbutton', { name: '상품 1 가중치' }).fill('100')
+    await page.getByRole('spinbutton', { name: '상품 1 수량' }).fill('1')
+  }
   return page
 }
 

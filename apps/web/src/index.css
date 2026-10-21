@@ -220,6 +220,13 @@
   * {
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* 모바일에서 버튼을 빠르게 누를 때 더블탭 확대 판정을 기다리다 탭이 씹히지 않게 한다. */
+  button,
+  [role='button'],
+  a {
+    touch-action: manipulation;
+  }
 }
 
 /* 임시 첫 화면(Splash.jsx). intro: 몸통 280ms + 로딩 대기 + 왕관 620ms → dock(로고 자리로 이동) 또는 out(사라짐) ~440ms, 총 1초 미만. */

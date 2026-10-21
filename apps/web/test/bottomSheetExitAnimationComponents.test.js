@@ -88,3 +88,13 @@ test('중첩 시트를 닫은 직후에도 아래 시트를 바로 조작할 수
     await ghosts(page).first().waitFor({ state: 'detached' })
   } finally { await page.close() }
 })
+
+test('closeOnBack이 아닌 시트는 history 항목을 쌓지 않는다', async () => {
+  const page = await screen()
+  try {
+    await page.getByRole('button', { name: '시트 열기' }).click()
+    await page.getByRole('dialog', { name: '부모 시트' }).waitFor()
+    await page.waitForTimeout(100)
+    assert.equal(await page.evaluate(() => window.history.state?.sheet), undefined)
+  } finally { await page.close() }
+})

@@ -363,7 +363,7 @@ export default function EventDetail() {
             )}
           </div>
 
-          <section aria-label="내 응모" className="flex items-center justify-center gap-2 text-primary font-title-md text-title-md font-bold">
+          <section aria-label="내 응모" className="flex flex-wrap items-center justify-center gap-2 self-center w-fit max-w-full px-6 py-3 rounded-xl bg-surface-container-low text-primary font-title-md text-title-md font-bold">
             <span>내 응모</span>
             {entryStatus.status?.myTicketCount != null ? (
               <span>{formatNumber(entryStatus.status.myTicketCount)}장</span>

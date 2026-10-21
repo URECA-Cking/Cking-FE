@@ -238,14 +238,20 @@ export default function CreatorSpace() {
   }
   const isMine = creatorId !== null && mySpace.data?.creatorId === creatorId
   // 마이페이지·오류 안내가 "스페이스 편집을 열어 달라"고 보낸 경우(OPEN_SPACE_EDIT_STATE) 내 스페이스에서 시트를 연다.
-  // 닫을 때 이동 상태의 요청을 지워 새로고침이나 뒤로 가기에서 다시 열리지 않게 한다.
-  const editVisible = editOpen || (isMine && Boolean(location.state?.openSpaceEdit))
-  function closeSpaceEdit() {
-    setEditOpen(false)
-    if (location.state?.openSpaceEdit) {
-      navigate(`${location.pathname}${location.search}`, { replace: true, state: { ...location.state, openSpaceEdit: false } })
-    }
-  }
+  // 요청은 시트를 여는 순간 한 번 쓰고 지운다(clearOpenPostId와 같은 방식): 새로고침이나 뒤로 가기에서 다시 열리지 않고,
+  // 시트가 뒤로가기를 받으려고 쌓는 history 항목이 지워진 상태를 복사해 닫을 때 이동 상태를 다시 바꿀 필요가 없다.
+  const openSpaceEditRequested = Boolean(location.state?.openSpaceEdit)
+  useEffect(() => {
+    if (!isMine || !openSpaceEditRequested) return
+    setEditOpen(true)
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: { ...location.state, openSpaceEdit: false },
+      preventScrollReset: true,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMine, openSpaceEditRequested])
+  const closeSpaceEdit = () => setEditOpen(false)
   // 내 게시글의 좋아요는 보상 대상이 아니므로(BE가 자기 Space의 좋아요 미션 보상을 주지 않는다) 내 Space에서는 좋아요 미션을 숨긴다.
   const shownLikeMissions = isMine ? [] : likeMissions
   // BE는 본인 Space 공유도 막지 않으므로 FE가 구분한다. 크리에이터는 내 Space 조회가 끝나야 본인 여부를 알 수 있다.
@@ -934,9 +940,9 @@ export default function CreatorSpace() {
       )}
       {isMine && (
         <SpaceEditSheet
-          open={editVisible}
+          open={editOpen}
           onClose={closeSpaceEdit}
-          closeOnBack={editOpen}
+          closeOnBack
           space={mySpace.data}
           onSaved={handleSpaceSaved}
         />

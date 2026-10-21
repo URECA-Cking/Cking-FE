@@ -121,6 +121,7 @@ export default function ScheduleEditorSheet({ open, onClose, schedule, onSaved }
       <BottomSheet
         open={open}
         onClose={requestClose}
+        closeOnBack
         eyebrow="Creator Calendar"
         title={schedule ? '일정 수정' : '일정 등록'}
       >

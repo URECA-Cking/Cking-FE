@@ -59,7 +59,7 @@ export const SUBSCRIPTION_VERIFICATION_ERROR_MESSAGES = {
   MISSION_INACTIVE: '현재 활성 상태가 아닌 미션이에요.',
   IDEMPOTENCY_CONFLICT: '같은 제출 요청에 다른 이미지가 사용됐어요. 새로 시도해주세요.',
   INVALID_STATE: '처리 중인 구독 인증이 있어 현재 YouTube 채널을 변경할 수 없어요.',
-  CHANNEL_HANDLE_CONFLICT: '다른 크리에이터가 이미 사용하는 채널 handle이에요.',
+  CHANNEL_HANDLE_CONFLICT: '이미 사용 중인 채널 아이디예요.',
   VALIDATION_FAILED: '입력값 또는 파일 형식을 확인해주세요.',
 }
 

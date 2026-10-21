@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client'
+import '../../src/index.css'
 import { MemoryRouter, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import MainLayout from '../../src/components/layout/MainLayout.jsx'
 import Notifications from '../../src/pages/Notifications.jsx'

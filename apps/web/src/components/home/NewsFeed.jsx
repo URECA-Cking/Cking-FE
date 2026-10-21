@@ -30,8 +30,8 @@ export default function NewsFeed({ creators, posts }) {
       <div className="px-margin">
         <SectionTitle title="새 게시물" subtitle="도킹한 크리에이터" />
       </div>
-      {/* 카드 안 sr-only 라벨(absolute)이 이 컨테이너 안에 갇히도록 relative를 둔다. 없으면 문서 폭이 늘어 페이지가 가로로 스크롤된다. */}
-      <div className="relative flex gap-3 overflow-x-auto overscroll-x-contain px-margin no-scrollbar">
+      {/* 카드 안 sr-only 라벨(absolute)은 각 카드(relative)에 가둔다. 없으면 문서 폭이 늘어 페이지가 가로로 스크롤된다. 컨테이너에 relative를 두면 iOS에서 페이지 세로 스크롤바가 이 행에 가려진다. */}
+      <div className="flex gap-3 overflow-x-auto overscroll-x-contain px-margin no-scrollbar">
         {cards.map((post) => {
           const creator = creatorById.get(post.creatorId)
           const thumb = toSafeImageUrl(post.images?.[0]?.url)
@@ -44,7 +44,7 @@ export default function NewsFeed({ creators, posts }) {
               key={post.postId}
               to={spacePath(creator.handle)}
               state={{ tab: 'posts', openPostId: post.postId }}
-              className="flex min-h-[7.5rem] w-52 flex-shrink-0 flex-col rounded-2xl border border-on-surface/10 bg-surface-container p-3.5 active:opacity-80 transition-opacity"
+              className="relative flex min-h-[7.5rem] w-52 flex-shrink-0 flex-col rounded-2xl border border-on-surface/10 bg-surface-container p-3.5 active:opacity-80 transition-opacity"
             >
               <span className="mb-2.5 flex items-center gap-1.5 min-w-0">
                 <span className="block h-5 w-5 flex-shrink-0 rounded-full overflow-hidden">

@@ -190,7 +190,6 @@ export default function WelcomeQuest({ memberId, nickname, quest, claimingSteps,
         onClick={onShow}
         className="mx-margin mt-4 flex items-center justify-center gap-1 rounded-xl bg-surface-container py-2 font-label-sm text-label-sm text-on-surface-variant active:opacity-80 transition-opacity"
       >
-        <span aria-hidden="true">🚀</span>
         시작 가이드 다시 보기
       </button>
     )
@@ -202,7 +201,7 @@ export default function WelcomeQuest({ memberId, nickname, quest, claimingSteps,
 
       <section className="mt-6 px-margin">
         <div className="mb-2.5 flex items-end justify-between gap-2">
-          <h3 className="text-sm font-extrabold text-on-surface"><span aria-hidden="true">🚀</span> 1분 만에 끝내는 시작 가이드</h3>
+          <h3 className="text-sm font-extrabold text-on-surface">1분 만에 끝내는 시작 가이드</h3>
           <button
             type="button"
             onClick={onHide}

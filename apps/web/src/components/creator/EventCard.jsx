@@ -18,8 +18,9 @@ import { displayStatusMeta, eventStatusMeta } from '../../utils/eventStatus.js'
  * 내 스페이스에서는 크리에이터 본인 목록의 이벤트를 같은 카드로 보여준다. 표시 상태(displayStatus)가 없으면
  * 아직 공개되지 않은 이벤트(초안·승인 대기·거절됨)라 상태 뱃지와 거절 사유를 보여주고 상세로 가지 않는다.
  * onManage를 주면 카드 왼쪽 위에 관리 메뉴(⋯) 버튼이 생긴다.
+ * priority는 화면에 처음 보이는 카드용이다. 배너를 lazy 없이 높은 우선순위로 바로 받아, 스페이스에 들어오자마자 보이게 한다.
  */
-export default function EventCard({ event, showCreatorTag = false, variant = 'carousel', onManage }) {
+export default function EventCard({ event, showCreatorTag = false, variant = 'carousel', onManage, priority = false }) {
   const navigate = useNavigate()
   const creator = useCreatorProfile(event.creatorId)
   const published = Boolean(event.displayStatus)
@@ -96,7 +97,8 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             src={getEventBanner(event.eventId)}
             alt=""
-            loading="lazy"
+            loading={priority ? 'eager' : 'lazy'}
+            fetchPriority={priority ? 'high' : undefined}
             decoding="async"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />

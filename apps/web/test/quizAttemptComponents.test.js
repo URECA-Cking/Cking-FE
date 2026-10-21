@@ -83,12 +83,13 @@ const openQuiz = async (page) => {
   await listItem(page).click()
   await heading(page, '질문 1').waitFor()
 }
+const submit = (page) => page.getByRole('button', { name: '제출', exact: true })
 const pick = async (page, no, optionNo, next) => {
   await option(page, `보기 ${no}-${optionNo}`).click()
   if (next) await heading(page, next).waitFor()
 }
 
-test('보기를 고르면 다음 문항으로 넘어가고, 이전 문항의 답을 바꿔 제출할 수 있다', async () => {
+test('보기를 고르면 다음 문항으로 넘어가고, 마지막 문항은 제출 버튼을 눌러야 제출된다', async () => {
   const p = await screen()
   try {
     await openQuiz(p)
@@ -102,7 +103,13 @@ test('보기를 고르면 다음 문항으로 넘어가고, 이전 문항의 답
     await pick(p, 1, 2, '질문 2')
     await pick(p, 2, 0, '질문 3')
     assert.equal((await attempts(p)).length, 0)
+    // 마지막 문항은 보기를 골라도 제출되지 않고, 제출 버튼을 눌러야 제출된다. 그 전에는 답을 바꿀 수 있다.
+    await pick(p, 3, 1)
+    await submit(p).waitFor()
     await pick(p, 3, 3)
+    assert.equal((await attempts(p)).length, 0)
+    await p.getByText('내 점수', { exact: true }).waitFor({ state: 'detached' })
+    await submit(p).click()
     await p.getByText('내 점수', { exact: true }).waitFor()
     const posts = await attempts(p)
     assert.equal(posts.length, 1)
@@ -115,13 +122,14 @@ test('보기를 고르면 다음 문항으로 넘어가고, 이전 문항의 답
   } finally { await p.close() }
 })
 
-test('마지막 문항을 연타해도 제출 요청은 한 번만 나간다', async () => {
+test('제출 버튼을 연타해도 제출 요청은 한 번만 나간다', async () => {
   const p = await screen()
   try {
     await openQuiz(p)
     await pick(p, 1, 0, '질문 2')
     await pick(p, 2, 0, '질문 3')
-    await option(p, '보기 3-1').evaluate((el) => { el.click(); el.click() })
+    await pick(p, 3, 1)
+    await submit(p).evaluate((el) => { el.click(); el.click() })
     await p.getByText('내 점수', { exact: true }).waitFor()
     assert.equal((await attempts(p)).length, 1)
   } finally { await p.close() }
@@ -136,7 +144,7 @@ test('비로그인은 마지막 문항을 골라도 제출하지 않고 로그�
     await pick(p, 3, 0)
     assert.equal((await attempts(p)).length, 0)
     assert.equal(await p.evaluate(() => window.logins), 0)
-    await p.getByRole('button', { name: '로그인하고 제출하기', exact: true }).click()
+    await p.getByRole('button', { name: '로그인하고 제출', exact: true }).click()
     assert.equal(await p.evaluate(() => window.logins), 1)
     assert.equal((await attempts(p)).length, 0)
   } finally { await p.close() }
@@ -150,8 +158,9 @@ test('네트워크 오류 뒤 같은 답안은 같은 requestId로 다시 보내
     await pick(p, 1, 0, '질문 2')
     await pick(p, 2, 0, '질문 3')
     await pick(p, 3, 0)
+    await submit(p).click()
     await p.waitForFunction(() => window.toasts.length === 1)
-    await p.getByRole('button', { name: '제출하기', exact: true }).click()
+    await submit(p).click()
     await p.waitForFunction(() => window.toasts.length === 2)
     let posts = await attempts(p)
     assert.equal(posts.length, 2)
@@ -162,14 +171,14 @@ test('네트워크 오류 뒤 같은 답안은 같은 requestId로 다시 보내
     await back(p).click()
     await pick(p, 1, 3, '질문 2')
     await pick(p, 2, 0, '질문 3')
-    await p.getByRole('button', { name: '제출하기', exact: true }).click()
+    await p.getByRole('button', { name: '제출', exact: true }).click()
     await p.waitForFunction(() => window.toasts.length === 3)
     posts = await attempts(p)
     assert.equal(posts.length, 3)
     assert.notEqual(posts[2].requestId, posts[0].requestId)
 
     await p.evaluate(() => { window.submitMode = 'ok' })
-    await p.getByRole('button', { name: '제출하기', exact: true }).click()
+    await p.getByRole('button', { name: '제출', exact: true }).click()
     await p.getByText('내 점수', { exact: true }).waitFor()
     posts = await attempts(p)
     assert.equal(posts[3].requestId, posts[2].requestId)
@@ -205,6 +214,7 @@ test('닫았다 다시 열면 푼 답을 이어서 보여주고 회원이 바뀌
     await listItem(p).click()
     await heading(p, '질문 3').waitFor()
     await pick(p, 3, 0)
+    await submit(p).click()
     await p.getByText('내 점수', { exact: true }).waitFor()
     assert.equal(await p.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('cking.quizProgress')).length), 0)
   } finally { await p.close() }

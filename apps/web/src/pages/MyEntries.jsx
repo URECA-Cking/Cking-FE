@@ -8,6 +8,7 @@ import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import { useCreatorCatalog } from '../hooks/useCreatorProfile.js'
 import { formatDday, formatNumber } from '../utils/format.js'
 import { eventStatusMeta } from '../utils/eventStatus.js'
+import { isActiveWin, winnerStatusMeta } from '../utils/winnerPresentation.js'
 
 // 응모 이력이 쌓이면 지금 응모할 수 있는 이벤트와 끝난 이벤트를 나눠 본다. 기준은 BE가 내려준 displayStatus다.
 const ENTRY_FILTERS = [
@@ -114,7 +115,10 @@ export default function MyEntries() {
           const event = entry.event
           const creator = creatorCatalog.get(event?.creatorId) ?? { name: '크리에이터' }
           const statusMeta = event ? eventStatusMeta(event.status) : null
-          const won = Boolean(entry.myWin)
+          const myWin = entry.myWin
+          // 당첨을 포기했거나 자격이 박탈됐으면 더 이상 당첨이 아니라서 강조하지 않고 상태만 알린다.
+          const won = isActiveWin(myWin)
+          const myWinMeta = myWin && !won ? winnerStatusMeta(myWin.winnerManagementStatus) : null
           // 응모 중인 이벤트만 마감까지 남은 날을 힌트로 보여 준다. 클라이언트 시각 기준이라 이미 지났으면(서버 캐시로 아직 진행 중) 숨긴다.
           const dday = event?.displayStatus === 'IN_PROGRESS' ? formatDday(event.endAt) : ''
           const showDday = dday.startsWith('D-')
@@ -165,6 +169,11 @@ export default function MyEntries() {
                     <span className="flex items-center gap-1 font-label-xs text-label-xs text-primary font-bold">
                       <MaterialIcon name="celebration" filled className="text-[16px]" />
                       당첨! {entry.myWin.prizeDisplayName ?? ''}
+                    </span>
+                  ) : myWinMeta ? (
+                    <span className="flex items-center gap-1 font-label-xs text-label-xs text-on-surface-variant font-semibold">
+                      <MaterialIcon name={myWinMeta.icon} className="text-[16px]" />
+                      {myWinMeta.label}
                     </span>
                   ) : (
                     <span className="font-label-xs text-label-xs text-on-surface-variant">아쉽게 미당첨</span>

@@ -69,3 +69,63 @@ for (const [kind, sheetName, field] of [['post', '게시글 작성', '내용'], 
     } finally { await page.close() }
   })
 }
+
+// 뒤로가기는 닫기 버튼과 같은 가드를 거쳐야 한다. 시트가 열려 있는 동안 쌓은 history 항목이 뒤로가기를 받는다.
+const sheetEntryReady = (page) => page.waitForFunction(() => window.history.state?.sheet !== undefined)
+// 겹친 시트는 항목을 한 틱 늦게 쌓으므로, 현재 항목이 `previous`와 달라지길(새 시트의 항목이 쌓이길) 기다린다.
+const sheetEntryChanged = (page, previous) => page.waitForFunction((id) => window.history.state?.sheet !== id, previous)
+const sheetEntryGone = (page) => page.waitForFunction(() => window.history.state?.sheet === undefined)
+
+test('게시글 작성: 내용이 없으면 뒤로가기로 바로 닫히고 쌓은 history 항목도 정리된다', async () => {
+  const page = await screen('post')
+  try {
+    await page.getByRole('dialog', { name: '게시글 작성' }).waitFor()
+    await sheetEntryReady(page)
+    await page.goBack()
+    await page.getByRole('dialog').waitFor({ state: 'detached' })
+    assert.equal(await page.evaluate(() => window.closeCount), 1)
+    await sheetEntryGone(page)
+  } finally { await page.close() }
+})
+
+test('게시글 작성: 작성 중 뒤로가기는 확인 시트를 열고, 취소하면 남고, 다시 뒤로가기해 확인하면 닫힌다', async () => {
+  const page = await screen('post')
+  try {
+    const editor = page.getByRole('dialog', { name: '게시글 작성' })
+    await editor.waitFor()
+    await editor.locator('textarea').first().fill('작성 중인 글')
+    await sheetEntryReady(page)
+    const editorEntry = await page.evaluate(() => window.history.state.sheet)
+    await page.goBack()
+    const confirm = page.getByRole('dialog', { name: CONFIRM_TITLE })
+    await confirm.waitFor()
+    assert.equal(await page.evaluate(() => window.closeCount), 0)
+    // 확인 시트가 떠 있을 때의 뒤로가기는 확인 시트만 닫고 작성 시트는 남긴다.
+    await sheetEntryChanged(page, editorEntry)
+    await page.goBack()
+    await confirm.waitFor({ state: 'detached' })
+    await editor.waitFor()
+    assert.equal(await page.evaluate(() => window.closeCount), 0)
+    // 작성 시트의 항목이 남아 있어 다시 뒤로가기해도 같은 확인을 받는다.
+    await page.waitForFunction(() => window.history.state?.sheet !== undefined)
+    await page.goBack()
+    await confirm.waitFor()
+    await confirm.getByRole('button', { name: '버리고 닫기', exact: true }).click()
+    await page.getByRole('dialog').waitFor({ state: 'detached' })
+    assert.equal(await page.evaluate(() => window.closeCount), 1)
+    await sheetEntryGone(page)
+  } finally { await page.close() }
+})
+
+test('일정 등록: 작성 중 뒤로가기도 확인 시트를 거친다', async () => {
+  const page = await screen('schedule')
+  try {
+    const editor = page.getByRole('dialog', { name: '일정 등록' })
+    await editor.waitFor()
+    await editor.locator('input[type="text"]').first().fill('작성 중인 일정')
+    await sheetEntryReady(page)
+    await page.goBack()
+    await page.getByRole('dialog', { name: CONFIRM_TITLE }).waitFor()
+    assert.equal(await page.evaluate(() => window.closeCount), 0)
+  } finally { await page.close() }
+})

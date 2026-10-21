@@ -24,7 +24,8 @@ export default function NewsRow({ creators, latestByCreator, unreadCreatorIds = 
     <div className="mt-3">
       <div className="flex gap-3 overflow-x-auto overscroll-x-contain touch-pan-x px-margin pt-3 no-scrollbar">
         {sortCreatorsByLatestPost(creators, latestByCreator, latestPostAt).map((creator) => {
-          return <CreatorAvatarItem key={creator.creatorId} creator={creator} isNew={unreadCreatorIds.has(creator.creatorId)} />
+          const isNew = unreadCreatorIds.has(creator.creatorId)
+          return <CreatorAvatarItem key={creator.creatorId} creator={creator} isNew={isNew} latestPostId={isNew ? latestByCreator.get(creator.creatorId)?.postId : null} />
         })}
         <Link
           to="/onboarding/creators"

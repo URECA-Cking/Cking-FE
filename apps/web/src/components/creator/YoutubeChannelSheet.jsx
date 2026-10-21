@@ -47,7 +47,7 @@ export default function YoutubeChannelSheet({ open, onClose }) {
   )
 }
 
-/** 채널명과 handle을 입력받아 구독 인증 대상 채널을 저장하는 폼을 표시한다. */
+/** 채널명과 채널 아이디(@handle)를 입력받아 구독 인증 대상 채널을 저장하는 폼을 표시한다. */
 function YoutubeChannelForm({ initialChannel, onSaved }) {
   const showToast = useToast()
   const [channelName, setChannelName] = useState(initialChannel?.channelName ?? '')
@@ -61,7 +61,7 @@ function YoutubeChannelForm({ initialChannel, onSaved }) {
     const name = channelName.trim()
     const handle = channelHandle.trim()
     if (!name || !handle) {
-      setFormError('채널명과 채널 handle을 모두 입력해주세요.')
+      setFormError('채널명과 채널 아이디를 모두 입력해주세요.')
       return
     }
     setSaving(true)
@@ -74,7 +74,10 @@ function YoutubeChannelForm({ initialChannel, onSaved }) {
       setChannelHandle(updated.channelHandle)
       showToast(firstSetup ? 'YouTube 채널을 설정했어요. 구독 인증 미션이 생성되었어요.' : 'YouTube 채널 설정을 저장했어요.')
     } catch (error) {
-      setFormError(describeSubscriptionVerificationError(error, 'YouTube 채널을 저장하지 못했어요.'))
+      const message = describeSubscriptionVerificationError(error, 'YouTube 채널을 저장하지 못했어요.')
+      // 다른 크리에이터가 이미 쓰는 채널 아이디는 저장되지 않으므로 토스트로만 알리고, 입력값은 그대로 둬 고쳐서 다시 시도하게 한다.
+      if (error instanceof ApiError && error.code === 'CHANNEL_HANDLE_CONFLICT') showToast(message, { icon: 'error' })
+      else setFormError(message)
     } finally {
       setSaving(false)
     }
@@ -90,19 +93,19 @@ function YoutubeChannelForm({ initialChannel, onSaved }) {
         <input value={channelName} maxLength={MAX_LENGTH} onChange={(event) => setChannelName(event.target.value)} placeholder="채널명을 입력해주세요" className={inputClass} disabled={saving} />
       </label>
       <label className="flex flex-col gap-1">
-        <span className="font-label-xs text-label-xs text-on-surface-variant">채널 handle</span>
+        <span className="font-label-xs text-label-xs text-on-surface-variant">채널 아이디</span>
         <input
           value={channelHandle}
           maxLength={MAX_LENGTH}
           onChange={(event) => setChannelHandle(event.target.value)}
-          placeholder="핸들명을 입력해주세요. (예: @example)"
+          placeholder="유튜브 채널 아이디를 입력해주세요. (예: @example)"
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
           className={inputClass}
           disabled={saving}
         />
-        <span className="font-label-xs text-label-xs text-outline">@는 입력하지 않아도 자동으로 붙어요.</span>
+        <span className="font-label-xs text-label-xs text-outline">채널 이름 아래에 보이는 @로 시작하는 이름이에요. @는 입력하지 않아도 자동으로 붙어요.</span>
       </label>
       {formError && <p className="font-label-xs text-label-xs text-error" role="alert">{formError}</p>}
       <button type="submit" disabled={saving} className="h-11 rounded-xl bg-primary font-label-md text-label-md font-bold text-on-primary transition-all active:scale-[0.98] disabled:opacity-50">

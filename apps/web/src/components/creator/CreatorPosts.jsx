@@ -382,7 +382,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
           <button type="button" onClick={(event) => { event.stopPropagation(); dismissDetail() }} aria-label="닫기" className="absolute right-4 top-4 hidden h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/15 md:flex">
             <MaterialIcon name="close" className="text-[26px]" />
           </button>
-          <div className="flex h-full w-full max-w-xl flex-col md:h-[var(--modal-h)] md:w-[var(--modal-w)] md:max-w-none md:overflow-hidden md:rounded-xl md:bg-surface" style={modalSize(mediaRatio, Boolean(detail.post && !detail.post.locked && detail.post.imageCount > 0))} onClick={(event) => event.stopPropagation()}>
+          <div className="flex h-full w-full max-w-xl flex-col md:h-[var(--modal-h)] md:max-h-full md:w-[var(--modal-w)] md:max-w-none md:overflow-hidden md:rounded-xl md:bg-surface" style={modalSize(mediaRatio, Boolean(detail.post && !detail.post.locked && detail.post.imageCount > 0))} onClick={(event) => event.stopPropagation()}>
             <header className="flex h-14 shrink-0 items-center gap-1 border-b border-surface-container-high bg-surface px-2 pt-safe md:hidden">
               <button type="button" onClick={dismissDetail} aria-label="닫기" className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface hover:bg-surface-container">
                 <MaterialIcon name="arrow_back" className="text-[22px]" />

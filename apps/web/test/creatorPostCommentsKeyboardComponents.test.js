@@ -25,8 +25,8 @@ test.after(async () => { await browser?.close() })
 const post = { postId: 5, creatorId: 13, content: '게시글', visibility: 'PUBLIC', locked: false, imageCount: 0, images: [], likeCount: 0, liked: false, commentCount: 12, createdAt: '2026-10-20T01:00:00Z', updatedAt: '2026-10-20T01:00:00Z' }
 const comments = Array.from({ length: 12 }, (_, index) => ({ commentId: index + 1, authorMemberId: 8, authorName: '다른 회원', content: `댓글 ${index + 1}`, createdAt: '2026-10-20T02:00:00Z', updatedAt: '2026-10-20T02:00:00Z' }))
 
-async function screen() {
-  const page = await browser.newPage({ viewport: { width: 390, height: 700 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' })
+async function screen({ width = 390, mobile = true } = {}) {
+  const page = await browser.newPage({ viewport: { width, height: 700 }, hasTouch: mobile, isMobile: mobile, reducedMotion: 'reduce' })
   await page.addInitScript(() => {
     const viewport = new EventTarget()
     Object.assign(viewport, { height: window.innerHeight, offsetTop: 0 })
@@ -54,21 +54,34 @@ async function screen() {
   return page
 }
 
-test('키보드가 보이는 영역만 줄여도 댓글 입력창이 키보드 위에 보인다', async () => {
-  const page = await screen()
-  try {
-    const input = page.getByLabel('댓글 입력')
-    await input.scrollIntoViewIfNeeded()
-    await input.focus()
-    await page.evaluate(() => window.openKeyboard(320))
-    await page.waitForFunction(() => {
-      const box = document.querySelector('textarea[aria-label="댓글 입력"]').getBoundingClientRect()
-      return box.bottom <= window.innerHeight - 320 + 1
-    })
-    const keyboardTop = await page.evaluate(() => window.innerHeight - 320)
-    assert.ok((await input.boundingBox()).y + (await input.boundingBox()).height <= keyboardTop + 1)
-    // 키보드를 내리면 오버레이가 화면 끝까지 돌아온다.
-    await page.evaluate(() => window.openKeyboard(0))
-    await page.waitForFunction(() => getComputedStyle(document.querySelector('[role="dialog"]')).bottom === '0px')
-  } finally { await page.close() }
-})
+// 좁은 화면(모바일)과 md(768px 이상) 레이아웃 모두에서 확인한다. md에서는 안쪽 모달이 고정 높이(--modal-h)라 바깥 오버레이가 줄어도 함께 줄어야 한다.
+for (const [label, options] of [['모바일 폭', { width: 390, mobile: true }], ['md 폭(800px)', { width: 800, mobile: false }]]) {
+  test(`${label}: 키보드가 보이는 영역만 줄여도 댓글 입력창이 키보드 위에 보이고 모달이 화면 밖으로 밀리지 않는다`, async () => {
+    const page = await screen(options)
+    try {
+      const input = page.getByLabel('댓글 입력')
+      await input.scrollIntoViewIfNeeded()
+      await input.focus()
+      await page.evaluate(() => window.openKeyboard(320))
+      await page.waitForFunction(() => {
+        const box = document.querySelector('textarea[aria-label="댓글 입력"]').getBoundingClientRect()
+        return box.bottom <= window.innerHeight - 320 + 1
+      })
+      const keyboardTop = await page.evaluate(() => window.innerHeight - 320)
+      const box = await input.boundingBox()
+      assert.ok(box.y + box.height <= keyboardTop + 1)
+      // 안쪽 모달이 줄어든 오버레이(키보드 위쪽 영역) 안에 들어와야 한다.
+      const modal = await page.evaluate(() => {
+        const overlay = document.querySelector('[role="dialog"]')
+        const inner = overlay.firstElementChild.nextElementSibling ?? overlay.lastElementChild
+        const rect = inner.getBoundingClientRect()
+        return { top: rect.top, bottom: rect.bottom }
+      })
+      assert.ok(modal.top >= 0, `모달 상단이 화면 밖으로 밀림: ${modal.top}`)
+      assert.ok(modal.bottom <= keyboardTop + 1, `모달 하단이 키보드 영역에 걸침: ${modal.bottom}`)
+      // 키보드를 내리면 오버레이가 화면 끝까지 돌아온다.
+      await page.evaluate(() => window.openKeyboard(0))
+      await page.waitForFunction(() => getComputedStyle(document.querySelector('[role="dialog"]')).bottom === '0px')
+    } finally { await page.close() }
+  })
+}

@@ -24,7 +24,7 @@ const CATALOG = ['가', '나', '다'].map((name, index) => ({
 }))
 const recommendation = (requestId, ...creatorIds) => ({
   status: 200, code: 'SUCCESS',
-  data: { recommendationRequestId: requestId, policyVersion: 'INTEREST_PERSONALIZED_V1', items: creatorIds.map((creatorId) => ({ creatorId, creatorName: `크리${creatorId}`, interestCodes: [], seedCreatorIds: [] })) },
+  data: { recommendationRequestId: requestId, policyVersion: 'INTEREST_PERSONALIZED_V1', items: creatorIds.map((creatorId) => ({ creatorId, creatorName: CATALOG.find((item) => item.creatorId === creatorId)?.creatorName ?? `크리${creatorId}`, interestCodes: [], seedCreatorIds: [] })) },
 })
 const catalog = { status: 200, code: 'SUCCESS', data: { items: CATALOG, page: 0, size: 100, totalElements: 3, totalPages: 1, hasNext: false } }
 const failure = { status: 500, code: 'SYSTEM_ERROR', message: '일시적인 오류' }
@@ -121,7 +121,7 @@ test('추천은 있는데 프로필 목록에서 하나도 찾지 못하면 빈 
   assert.equal(await read(page, 'loading'), 'false')
 
   await page.evaluate(() => window.reloadRecommendations())
-  await waitText(page, 'items', '신규7,신규8')
+  await waitText(page, 'items', '크리7,크리8')
   assert.equal(await read(page, 'error'), '')
   await page.close()
 })
@@ -133,5 +133,28 @@ test('추천 일부만 프로필 목록에 없으면 찾은 항목만 보여 주
   await page.evaluate(() => window.renderRecommendations(1))
   await waitText(page, 'items', '크리가')
   assert.equal(await read(page, 'error'), '')
+  await page.close()
+})
+
+test('카탈로그 캐시보다 추천 응답의 최신 소개·이름·이미지를 우선하며 null과 빈 소개는 삭제로 보존한다', async () => {
+  const page = await screen()
+  const current = recommendation('rid-fresh', 1, 2, 3)
+  current.data.items[0] = { ...current.data.items[0], creatorName: '새 활동명', introText: '', profileImageUrl: null, interestCodes: ['FOOD'] }
+  current.data.items[1] = { ...current.data.items[1], introText: null, profileImageUrl: 'https://example.com/new.png' }
+  current.data.items[2] = { ...current.data.items[2], introText: '수정한 소개' }
+  const stale = { ...catalog, data: { ...catalog.data, items: CATALOG.map((item) => ({ ...item, introText: '삭제 전 소개', profileImageUrl: 'https://example.com/old.png' })) } }
+  await enqueue(page, 'recommendation', current)
+  await enqueue(page, 'catalog', stale)
+  await page.evaluate(() => window.renderRecommendations(1))
+  await waitText(page, 'items', '새 활동명,크리나,크리다')
+  const profiles = JSON.parse(await read(page, 'profiles'))
+  assert.equal(profiles[0].bio, '')
+  assert.equal(profiles[0].avatar, null)
+  assert.equal(profiles[0].handle, 'c1')
+  assert.deepEqual(profiles[0].interestCodes, ['FOOD'])
+  assert.equal(profiles[1].bio, null)
+  assert.equal(profiles[1].avatar, 'https://example.com/new.png')
+  assert.equal(profiles[2].bio, '수정한 소개')
+  assert.equal(await read(page, 'request'), 'rid-fresh')
   await page.close()
 })

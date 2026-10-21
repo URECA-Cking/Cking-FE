@@ -92,7 +92,17 @@ let originalOverflow
 const historyEntries = [] // 쌓은 순서대로 { id, live }. 끝이 history의 현재 위치다.
 const entryOwners = new WeakMap() // 패널 요소 → 그 시트의 항목
 let entrySeq = 0
-let silentPops = 0 // 시트를 닫으며 우리가 되돌린 popstate. 닫기 요청으로 다시 해석하면 안 된다.
+// 시트를 닫으며 우리가 되돌린(history.go) popstate를 기다리는 시각들. 닫기 요청으로 다시 해석하면 안 된다.
+// popstate가 끝내 오지 않아도 이후의 뒤로가기를 삼키지 않도록, 일정 시간이 지난 것은 버린다.
+const SILENT_POP_TTL_MS = 1000
+let silentPops = []
+
+/** 우리가 되돌린 popstate면 하나 소비하고 true. 오래 기다려도 오지 않은 것은 버린다. */
+function consumeSilentPop() {
+  const now = performance.now()
+  silentPops = silentPops.filter((at) => now - at < SILENT_POP_TTL_MS)
+  return silentPops.shift() !== undefined
+}
 
 function pushEntry(entry) {
   entry.baseKey = window.history.state?.key
@@ -101,7 +111,7 @@ function pushEntry(entry) {
 }
 
 function onHistoryPop() {
-  if (silentPops > 0) { silentPops -= 1; return }
+  if (consumeSilentPop()) return
   const entry = entryOwners.get(sheets.at(-1))
   if (!entry || historyEntries.at(-1) !== entry) return
   // 시트 아래 화면으로 돌아온 경우만 뒤로가기로 본다. 다른 화면으로 이동했으면(키가 다름) 시트는 화면과 함께 사라진다.
@@ -120,7 +130,7 @@ function trimEntries() {
     historyEntries.pop()
   }
   if (back > 0) {
-    silentPops += 1
+    silentPops.push(performance.now())
     window.history.go(-back)
   }
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import CreatorRow from '../components/creator/CreatorRow.jsx'
@@ -15,8 +15,8 @@ import { creatorFilterCounts, filterExploreCreators, sortExploreCreators } from 
 import { formatNumber } from '../utils/format.js'
 import { describeError } from '../api/client.js'
 
-// 목록에는 앞 7명만 보여주고, 그 뒤는 검색이나 맞춤 추천으로 찾는다.
-const CREATOR_PREVIEW = 7
+// 처음에는 10명만 보여주고, 이벤트 탭처럼 더 보기로 10명씩 늘린 뒤 마지막에 접는다.
+const CREATOR_PREVIEW = 10
 // 이벤트는 5개씩 늘려 가며 다시 받는다. BE 페이지 상한(100)을 넘기면 더 받을 수 없다.
 const EVENT_PAGE_SIZE = 5
 const EVENT_MAX_SIZE = 100
@@ -45,6 +45,8 @@ export default function Explore() {
   const [query, setQuery] = useState(params.get('q') ?? '')
   const [creatorFilter, setCreatorFilter] = useState('전체')
   const [creatorSort, setCreatorSort] = useState('name-asc')
+  const [creatorSize, setCreatorSize] = useState(CREATOR_PREVIEW)
+  const exploreTopRef = useRef(null)
   const [eventFilter, setEventFilter] = useState('IN_PROGRESS')
   const [eventSize, setEventSize] = useState(EVENT_PAGE_SIZE)
 
@@ -69,7 +71,7 @@ export default function Explore() {
   // 필터를 바꿔 처음부터 다시 받는 동안에는 이전 필터의 목록을 보여주지 않는다. '더 보기'로 늘리는 중에는 목록을 유지한다.
   const eventsFirstLoad = eventList.loading && eventSize === EVENT_PAGE_SIZE
   const events = eventsFirstLoad ? [] : (eventList.data?.items ?? [])
-  const shownCreators = useMemo(() => filteredCreators.slice(0, CREATOR_PREVIEW), [filteredCreators])
+  const shownCreators = useMemo(() => filteredCreators.slice(0, creatorSize), [filteredCreators, creatorSize])
   async function handleToggleFollow(creator) {
     try {
       const result = await toggleFollow(creator.creatorId)
@@ -95,6 +97,7 @@ export default function Explore() {
 
   function changeCreatorFilter(nextFilter) {
     setCreatorFilter(nextFilter)
+    setCreatorSize(CREATOR_PREVIEW)
   }
 
   // 진행 중 이벤트가 있는 크리에이터에게는 이름 아래에 진행 중 태그를 작게 보여 준다.
@@ -105,7 +108,7 @@ export default function Explore() {
   }
 
   return (
-    <div className="flex flex-col w-full pb-8">
+    <div ref={exploreTopRef} className="flex flex-col w-full pb-8">
       <div className="px-margin pt-space-md pb-space-sm flex flex-col gap-space-sm">
         <form
           className="relative w-full"
@@ -215,6 +218,26 @@ export default function Explore() {
             ))}
           </div>
         )}
+        {!directory.loading && !directory.error && (shownCreators.length < filteredCreators.length ? (
+          <button
+            type="button"
+            onClick={() => setCreatorSize((size) => size + CREATOR_PREVIEW)}
+            className="mx-margin mt-space-md h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
+          >
+            더 보기
+          </button>
+        ) : creatorSize > CREATOR_PREVIEW && (
+          <button
+            type="button"
+            onClick={() => {
+              setCreatorSize(CREATOR_PREVIEW)
+              exploreTopRef.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
+            }}
+            className="mx-margin mt-space-md h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
+          >
+            접기
+          </button>
+        ))}
       </section>
 
       </>)}

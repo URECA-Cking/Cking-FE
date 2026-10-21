@@ -282,3 +282,78 @@ test('크리에이터 필터 칩에 전체·도킹 개수가 붙고 진행 중 �
   assert.equal(await page.getByRole('button', { name: /^진행 중/ }).count(), 0)
   await page.close()
 })
+
+
+for(const total of [10,11,25])test(`탐색 크리에이터 ${total}명은 10명씩 더 보기 후 마지막에 접기`,async()=>{
+ const creators=Array.from({length:total},(_,i)=>creator(i+1,`테스트${i+1}`))
+ const page=await screen('/explore',{creators,events:[]})
+ try{
+  await page.getByRole('button',{name:`전체 ${total}`,exact:true}).waitFor()
+  const rows=()=>page.locator('a').getByText(/^테스트\d+$/).count()
+  assert.equal(await rows(),10)
+  const more=page.getByRole('button',{name:'더 보기',exact:true})
+  if(total===10){assert.equal(await more.count(),0);return}
+  for(let shown=10;shown<total;shown+=10){
+   await more.click()
+   assert.equal(await rows(),Math.min(shown+10,total))
+  }
+  assert.equal(await more.count(),0)
+  await page.getByRole('button',{name:'접기',exact:true}).click()
+  assert.equal(await rows(),10)
+  assert.equal(await more.count(),1)
+  assert.equal(await page.getByRole('button',{name:'접기',exact:true}).count(),0)
+  for(let shown=10;shown<total;shown+=10){
+   await more.click()
+   assert.equal(await rows(),Math.min(shown+10,total))
+  }
+  assert.equal(await page.getByRole('button',{name:`전체 ${total}`,exact:true}).count(),1)
+  await page.getByRole('button',{name:'도킹',exact:true}).first().click()
+  await page.getByRole('button',{name:'도킹 1',exact:true}).click()
+  assert.equal(await rows(),1)
+  assert.equal(await more.count(),0)
+  await page.getByRole('button',{name:`전체 ${total}`,exact:true}).click()
+  assert.equal(await rows(),10)
+  assert.equal(await more.count(),1)
+ }finally{await page.close()}
+})
+
+
+
+test('이벤트 탭의 더 보기·접기 동작은 기존 5개 단위를 유지한다',async()=>{
+ const events=Array.from({length:13},(_,i)=>event(3000+i,1,`확장 이벤트 ${i+1}`))
+ const page=await screen('/explore?tab=event',{events})
+ try{
+  const titles=()=>page.getByText(/^확장 이벤트 \d+$/).count()
+  await page.getByText('확장 이벤트 1',{exact:true}).waitFor()
+  assert.equal(await titles(),5)
+  await page.getByRole('button',{name:'더 보기',exact:true}).click()
+  await page.getByText('확장 이벤트 10',{exact:true}).waitFor()
+  assert.equal(await titles(),10)
+  await page.getByRole('button',{name:'더 보기',exact:true}).click()
+  await page.getByText('확장 이벤트 13',{exact:true}).waitFor()
+  assert.equal(await titles(),13)
+  await page.getByRole('button',{name:'접기',exact:true}).click()
+  await page.getByRole('button',{name:'더 보기',exact:true}).waitFor()
+  assert.equal(await titles(),5)
+ }finally{await page.close()}
+})
+
+
+for(const nested of [false,true])test(`크리에이터 접기는 10명으로 줄이고 탐색 맨 위로 이동한다 (nested=${nested})`,async()=>{
+ const creators=Array.from({length:25},(_,i)=>creator(i+1,`위치${i+1}`))
+ const page=await screen('/explore',{creators,events:[]})
+ try{
+  await page.setViewportSize({width:430,height:900})
+  if(nested)await page.locator('main').evaluate(el=>{el.style.height='600px';el.style.overflowY='auto'})
+  await page.getByRole('button',{name:'전체 25',exact:true}).waitFor()
+  await page.getByRole('button',{name:'더 보기',exact:true}).click()
+  await page.getByRole('button',{name:'더 보기',exact:true}).click()
+  const collapse=page.getByRole('button',{name:'접기',exact:true})
+  await collapse.scrollIntoViewIfNeeded()
+  assert.ok(await page.evaluate(nested=>nested?document.querySelector('main').scrollTop:document.scrollingElement.scrollTop,nested)>0)
+  await collapse.click()
+  await page.evaluate(()=>new Promise(requestAnimationFrame))
+  assert.equal(await page.locator('a').getByText(/^위치\d+$/).count(),10)
+  assert.equal(await page.evaluate(nested=>nested?document.querySelector('main').scrollTop:document.scrollingElement.scrollTop,nested),0)
+ }finally{await page.close()}
+})

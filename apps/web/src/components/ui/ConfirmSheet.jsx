@@ -7,11 +7,12 @@ import BottomSheet from './BottomSheet.jsx'
  *
  * @param {{ open: boolean, title: string, message?: string, confirmLabel?: string,
  *   cancelLabel?: string, confirmTone?: 'danger' | 'primary', busy?: boolean,
+ *   closeOnBack?: boolean,
  *   onConfirm: () => void, onClose: () => void }} props
  */
-export default function ConfirmSheet({ open, title, message, confirmLabel = '삭제', cancelLabel = '취소', confirmTone = 'danger', busy = false, onConfirm, onClose }) {
+export default function ConfirmSheet({ open, title, message, confirmLabel = '삭제', cancelLabel = '취소', confirmTone = 'danger', busy = false, closeOnBack = false, onConfirm, onClose }) {
   return (
-    <BottomSheet open={open} onClose={busy ? undefined : onClose} title={title} compactTitle>
+    <BottomSheet open={open} onClose={busy ? undefined : onClose} title={title} compactTitle closeOnBack={closeOnBack}>
       {message && <p className="mb-space-md font-body-sm text-body-sm text-on-surface-variant">{message}</p>}
       <div className="grid grid-cols-2 gap-2">
         <button

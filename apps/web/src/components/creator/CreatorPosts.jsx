@@ -776,13 +776,17 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
               alt={`${creatorName}의 게시글 이미지 ${index + 1}`}
               className="h-full w-full object-cover"
               onError={() => handleError(image)}
-              onLoad={index === 0 ? (event) => {
+              onLoad={(event) => {
+                // 화면 밖 칸의 이미지는 WebKit(iOS)이 디코딩을 미뤄, 스와이프로 넘어온 순간 비어 보일 수 있다(2·3번째 칸이 자주 그랬다).
+                // 불러오자마자 미리 디코딩해 두면 넘길 때 바로 그려진다. 실패해도 화면에는 영향이 없다.
+                event.currentTarget.decode?.().catch(() => {})
+                if (index !== 0) return
                 const { naturalWidth, naturalHeight } = event.currentTarget
                 if (!naturalWidth || !naturalHeight) return
                 const next = Math.min(MEDIA_RATIO_RANGE[1], Math.max(MEDIA_RATIO_RANGE[0], naturalWidth / naturalHeight))
                 setRatio(next)
                 onRatio?.(next)
-              } : undefined}
+              }}
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-on-surface-variant">

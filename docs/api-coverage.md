@@ -67,7 +67,7 @@
 | GET/PUT | `/api/creator/profile` | Creator 활동명 조회·설정·변경(스페이스 편집). 14일 변경 제한·이전 활동명 복귀, `ACTIVITY_NAME_SETUP_REQUIRED`(409): 활동명을 정하기 전에는 댓글·응모·게시글·이벤트를 막으므로 이 코드를 받으면 스페이스 편집(활동명)으로 안내하고, 마이페이지는 "활동명을 설정해주세요" 배너를 보여 준다 | 연동 | [Creator Space](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/creator/space-api.md) |
 | GET/PUT | `/api/creator/youtube-channel` | Space의 YouTube 구독 인증 대상 채널 최초 설정·수정 | 연동 | [Subscription Verification](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/subscription-verification/api.md) |
 | GET/POST/PATCH/DELETE | `/api/creator/events`, `/api/creator/events/{eventId}` | Creator 이벤트 CRUD(스페이스 이벤트 탭) | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
-| POST | `/api/creator/events/{eventId}/approval-request` | 이벤트 승인 요청 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
+| POST | `/api/creator/events/{eventId}/approval-request` | 이벤트 초안 생성 직후 확인 시트와 내 스페이스 이벤트 목록에서 승인 요청 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | POST | `/api/events/{eventId}/close` | 이벤트 수동 마감 | 연동 | [Event](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/event/api.md) |
 | POST/PATCH/DELETE | `/api/creator/calendar/schedules`, `/api/creator/calendar/schedules/{scheduleId}` | Creator 일정 관리(스페이스 캘린더 탭). 목록은 공개 조회를 쓰고 `GET /api/creator/calendar/schedules`는 쓰지 않는다 | 연동 | [Calendar](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/calendar/api.md) |
 | POST | `/api/creator/posts/images` | 게시물 이미지 업로드 | 연동 | [Post](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/post/api.md) |

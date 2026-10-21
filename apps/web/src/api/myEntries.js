@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import { getEvents } from './events';
 import { getMyWinners } from './myWinners';
+import { pickWinnerPerEvent } from '../utils/winnerPresentation.js';
 
 const ENTRY_PAGE_SIZE = 100;
 // 이벤트 수가 늘어나도 한 번에 수백 개 요청이 동시에 나가지 않도록 동시 조회 개수를 제한한다.
@@ -60,7 +61,7 @@ export async function loadMyEntries() {
   ]);
 
   const winners = winnerResult?.items ?? winnerResult ?? [];
-  const winnerByEventId = new Map(winners.map((winner) => [winner.eventId, winner]));
+  const winnerByEventId = pickWinnerPerEvent(winners);
   const failedEventCount = entryGroups.filter((group) => group.failed).length;
 
   const entries = entryGroups

@@ -11,7 +11,7 @@ import { loadCreatorDirectory } from '../api/creators.js'
 import { getEventCounts, getEvents } from '../api/events.js'
 import { CreatorFilterChips, CreatorSortMenu } from '../components/creator/CreatorListControls.jsx'
 import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
-import { creatorFilterCounts, filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
+import { creatorFilterCounts, excludeOwnCreator, filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
 import { formatNumber } from '../utils/format.js'
 import { describeError } from '../api/client.js'
 
@@ -61,7 +61,7 @@ export default function Explore() {
     { fallbackMessage: '이벤트를 불러오지 못했습니다.' },
   )
 
-  const creators = useMemo(() => directory.data?.creators ?? [], [directory.data])
+  const creators = useMemo(() => excludeOwnCreator(directory.data?.creators ?? [], ownCreatorId), [directory.data, ownCreatorId])
 
   const filteredCreators = useMemo(
     () => sortExploreCreators(filterExploreCreators(creators, followedCreators, creatorFilter, ''), creatorSort),

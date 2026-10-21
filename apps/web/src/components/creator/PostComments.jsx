@@ -59,7 +59,7 @@ const inputClass =
  * - 수정: 댓글 작성자 본인만. 삭제: 댓글 작성자 본인과 게시글 작성 크리에이터.
  * - 서버 페이지가 offset 방식이라 삭제 뒤에는 서버 목록과 다시 맞춘 뒤에만 '더 보기'를 연다.
  */
-export default function PostComments({ creatorId, postId, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostRestricted, onCommentCountChange, onCommentCountSync }) {
+export default function PostComments({ creatorId, postId, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onPostRestricted, onCommentCountChange, onCommentCountSync, keyboardInset = 0 }) {
   const showToast = useToast()
   const { isAdmin } = useUser()
   const redirectToProfileSetup = useProfileSetupRedirect()
@@ -85,6 +85,11 @@ export default function PostComments({ creatorId, postId, authenticated, followi
     box.style.height = 'auto'
     box.style.height = `${box.scrollHeight}px`
   }, [draft])
+  // 키보드가 올라와 아래 여백이 생기면, 입력 중인 칸(새 댓글·댓글 수정)이 키보드에 가려지지 않게 보이는 곳으로 올린다.
+  useEffect(() => {
+    const active = document.activeElement
+    if (keyboardInset > 0 && active instanceof HTMLTextAreaElement) active.scrollIntoView({ block: 'nearest' })
+  }, [keyboardInset])
   const [posting, setPosting] = useState(false)
   const [postError, setPostError] = useState('')
   const [editing, setEditing] = useState(null) // { commentId, text }

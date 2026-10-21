@@ -10,6 +10,7 @@ import { useToast } from '../../context/useToast.js'
 import { ApiError, describeError } from '../../api/client.js'
 import { POST_ERROR_MESSAGES, POST_LIKE_ERROR_MESSAGES, deletePost, getCreatorPost, getCreatorPosts, likePost, unlikePost } from '../../api/posts.js'
 import { useAsync } from '../../hooks/useAsync.js'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
 import { adjustCommentCount, applyCommentCount, reconcileCommentCounts } from '../../utils/postCommentCount.js'
 
@@ -37,6 +38,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
+  const keyboardInset = useKeyboardInset()
   const showToast = useToast()
   // editor: null(닫힘) | { post: null }(작성) | { post }(수정)
   const [editor, setEditor] = useState(null)
@@ -376,11 +378,11 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
         />
       )}
       {detail && (
-        <div role="dialog" aria-modal="true" aria-label="게시글 상세" className="fixed inset-0 z-[60] flex justify-center bg-surface md:items-center md:bg-black/60 md:p-6" onClick={dismissDetail}>
+        <div role="dialog" aria-modal="true" aria-label="게시글 상세" className="fixed inset-0 z-[60] flex justify-center bg-surface md:items-center md:bg-black/60 md:p-6" style={keyboardInset > 0 ? { bottom: keyboardInset } : undefined} onClick={dismissDetail}>
           <button type="button" onClick={(event) => { event.stopPropagation(); dismissDetail() }} aria-label="닫기" className="absolute right-4 top-4 hidden h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/15 md:flex">
             <MaterialIcon name="close" className="text-[26px]" />
           </button>
-          <div className="flex h-full w-full max-w-xl flex-col md:h-[var(--modal-h)] md:w-[var(--modal-w)] md:max-w-none md:overflow-hidden md:rounded-xl md:bg-surface" style={modalSize(mediaRatio, Boolean(detail.post && !detail.post.locked && detail.post.imageCount > 0))} onClick={(event) => event.stopPropagation()}>
+          <div className="flex h-full w-full max-w-xl flex-col md:h-[var(--modal-h)] md:max-h-full md:w-[var(--modal-w)] md:max-w-none md:overflow-hidden md:rounded-xl md:bg-surface" style={modalSize(mediaRatio, Boolean(detail.post && !detail.post.locked && detail.post.imageCount > 0))} onClick={(event) => event.stopPropagation()}>
             <header className="flex h-14 shrink-0 items-center gap-1 border-b border-surface-container-high bg-surface px-2 pt-safe md:hidden">
               <button type="button" onClick={dismissDetail} aria-label="닫기" className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface hover:bg-surface-container">
                 <MaterialIcon name="arrow_back" className="text-[22px]" />
@@ -430,6 +432,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
                       onPostRestricted={handlePostRestricted}
                       onCommentCountChange={(delta) => handleCommentCountChange(detail.post.postId, delta)}
                       onCommentCountSync={(count) => handleCommentCountSync(detail.post.postId, count)}
+                      keyboardInset={keyboardInset}
                     />
                   )}
                 </PostDetail>
@@ -675,6 +678,8 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
   const [images, setImages] = useState(post.images ?? [])
   const [unavailable, setUnavailable] = useState(() => new Set())
   const [refreshing, setRefreshing] = useState(false)
+  // 이미지별 다시 불러오기 횟수. 주소가 같아도 <img>를 새로 만들어 다시 요청하게 하는 key에 쓴다.
+  const [reloads, setReloads] = useState({})
   const [active, setActive] = useState(0)
   // 첫 사진의 비율(4:5~1.91:1)을 칸 비율로 쓴다. 폰에서는 이 비율대로, 웹 모달에서는 모달이 같은 비율로 커진다.
   const [ratio, setRatio] = useState(1)
@@ -696,12 +701,14 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
       }
       const latestImages = latest.images ?? []
       setImages(latestImages)
-      setUnavailable(new Set(latestImages.filter((image) =>
-        !image.url || (
-          failedAttempts.current.has(image.imageKey)
-          && images.find((previous) => previous.imageKey === image.imageKey)?.url === image.url
-        )
-      ).map((image) => image.imageKey)))
+      setUnavailable(new Set(latestImages.filter((image) => !image.url).map((image) => image.imageKey)))
+      // 로드에 실패했던 이미지는 주소가 그대로여도 한 번 더 불러온다. 네트워크 순간 끊김이나 iOS의 화면 밖 요청 중단 같은
+      // 일시 실패를 바로 "표시 불가"로 굳히지 않으려는 것이다. 다시 실패하면 handleError가 그때 확정한다.
+      setReloads((current) => {
+        const next = { ...current }
+        failedAttempts.current.forEach((_, imageKey) => { next[imageKey] = (next[imageKey] ?? 0) + 1 })
+        return next
+      })
     } catch (error) {
       if (error instanceof ApiError && error.code === 'POST_FOLLOWERS_ONLY') onRestricted()
       else setUnavailable(new Set(images.map((image) => image.imageKey)))
@@ -760,9 +767,11 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
         onScroll={(event) => setActive(Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth))}
       >
       {images.map((image, index) => (
-        <div key={image.imageKey} className="h-full min-w-full snap-center bg-surface-container-low overflow-hidden">
+        // snap-always: 빠르게 튕겨도(안드로이드 크롬 등) 이미지를 건너뛰지 않고 다음 한 장에서 멈춘다.
+        <div key={image.imageKey} className="h-full min-w-full snap-center snap-always bg-surface-container-low overflow-hidden">
           {image.url && !unavailable.has(image.imageKey) ? (
             <img
+              key={reloads[image.imageKey] ?? 0}
               src={image.url}
               alt={`${creatorName}의 게시글 이미지 ${index + 1}`}
               className="h-full w-full object-cover"

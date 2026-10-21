@@ -8,6 +8,8 @@ import RequireRole from './components/auth/RequireRole.jsx'
 import StudioRedirect from './components/creator/StudioRedirect.jsx'
 import { LoadingBlock } from './components/ui/States.jsx'
 import ChunkErrorBoundary from './components/ui/ChunkErrorBoundary.jsx'
+import { useUser } from './context/useUser.js'
+import { needsNicknameSetup } from './utils/publicProfile.js'
 
 // 첫 화면(홈·로그인)만 처음부터 불러오고, 나머지 화면은 처음 열 때 내려받아 첫 진입의 JS 크기를 줄인다.
 const Explore = lazy(() => import('./pages/Explore.jsx'))
@@ -26,9 +28,17 @@ const EventDetail = lazy(() => import('./pages/EventDetail.jsx'))
 const CreatorEventForm = lazy(() => import('./pages/CreatorEventForm.jsx'))
 const MyCalendar = lazy(() => import('./pages/MyCalendar.jsx'))
 
-/** 화면 경로를 정의한다. 지연 로딩 화면은 Suspense 안에서 불러오는 동안 로딩 표시를 보여준다. */
+/** 화면 경로를 정의하고, 닉네임을 설정하지 않은 팬의 앱 진입을 모든 경로에서 막는다. */
 function App() {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
+  const { status, user } = useUser()
+  if (status === 'loading' && !['/login', '/oauth/callback', '/profile/edit'].includes(pathname)) {
+    return <LoadingBlock label="로그인 상태를 확인하는 중..." />
+  }
+  if (status === 'authenticated' && needsNicknameSetup(user)
+    && !['/login', '/oauth/callback', '/profile/edit'].includes(pathname)) {
+    return <Navigate to="/profile/edit" replace state={{ from: pathname + search }} />
+  }
   return (
     <ChunkErrorBoundary resetKey={pathname}>
     <Suspense fallback={<LoadingBlock />}>

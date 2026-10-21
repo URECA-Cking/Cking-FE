@@ -72,7 +72,7 @@ npm run test:e2e:admin
 | 화면 | 경로 | 사용하는 백엔드 API |
 | --- | --- | --- |
 | 로그인 | `/login` | `GET /oauth2/authorization/{google\|kakao}` (페이지 이동) |
-| 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`(신규 가입자 `onboardingCompleted=false`면 `/onboarding`으로 이동), `GET /api/me/follows` (모든 페이지) |
+| 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`(닉네임 미설정 팬은 `/profile/edit`, 설정 후 신규 가입자 `onboardingCompleted=false`면 `/onboarding`으로 이동), `GET /api/me/follows` (모든 페이지) |
 | 온보딩(관심 분야 → 크리에이터 추천) | `/onboarding` | `GET /api/interests`, `GET·PUT /api/me/interests`, `GET /api/me/creator-recommendations`, `GET /api/creators?keyword`, `GET /api/me/follows`, `PUT·DELETE /api/creators/{id}/follow`, `PUT /api/me/onboarding/complete`(시작하기·나중에 할게) |
 | 관심 크리에이터 관리 | `/onboarding/creators` | 위 온보딩의 크리에이터 단계만 다시 연다 |
 | 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/creators/{id}/posts`(팔로우한 크리에이터별 최근 3건, 최대 10명), `GET /api/missions`, `POST /api/missions/{missionId}/complete`, `GET /api/tickets/common/history`(출석 도장 7칸), `GET /api/me/winners`(수령 대기 건수 배너), `GET /api/events/{id}/entries/me`(보이는 응모 티켓 3장의 응모 여부), `GET /api/events/{id}/entry-status`(티켓의 참여자 수) |

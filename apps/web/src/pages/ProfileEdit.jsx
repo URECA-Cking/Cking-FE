@@ -63,8 +63,9 @@ function CreatorProfileNotice() {
   )
 }
 
+/** 팬 프로필을 편집하고, 최초 닉네임 설정 전에는 앱 진입과 설정 건너뛰기를 막는다. */
 function FanProfileEdit() {
-  const { user, applyUser } = useUser()
+  const { user, applyUser, clearUser } = useUser()
   const navigate = useNavigate()
   const location = useLocation()
   const showToast = useToast()
@@ -90,6 +91,7 @@ function FanProfileEdit() {
   const photoSeq = useRef(0)
   const [imageError, setImageError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [leaving, setLeaving] = useState(false)
   const [formError, setFormError] = useState('')
   const fileInput = useRef(null)
   const alive = useRef(true)
@@ -191,16 +193,27 @@ function FanProfileEdit() {
     save(restorable)
   }
 
-  /** 뒤로가기: 수정한 내용이 있으면 확인 시트를 열고, 없으면 바로 나간다. */
+  /** 뒤로가기: 최초 설정은 로그아웃 확인을, 일반 편집은 변경 내용 폐기 확인을 거친다. */
   function handleBack() {
     // 저장·사진 업로드 중에 나가면 결과를 화면에 반영하지 못한다. 끝날 때까지 기다리게 한다.
     if (saving || photoBusy) return
-    if (dirty) setConfirmingLeave(true)
+    if (setup || dirty) setConfirmingLeave(true)
     else leave()
   }
 
-  /** 이전 화면(기록이 없으면 진입 경로)으로 나간다. */
-  function leave() {
+  /** 최초 설정에서 나가면 로그아웃하고, 일반 편집이면 이전 화면으로 돌아간다. */
+  async function leave() {
+    if (setup) {
+      if (leaving) return
+      setLeaving(true)
+      try {
+        await clearUser()
+      } catch {
+        // 서버 로그아웃이 실패해도 clearUser가 로컬 인증 상태와 토큰을 지운다.
+      }
+      navigate('/login', { replace: true })
+      return
+    }
     const canGoBack = (window.history.state?.idx ?? 0) > 0
     if (canGoBack) navigate(-1)
     else navigate(from, { replace: true })
@@ -340,23 +353,15 @@ function FanProfileEdit() {
           >
             {saving ? '저장하는 중...' : setup ? '시작하기' : '저장'}
           </button>
-          {setup && (
-            <button
-              type="button"
-              onClick={() => goNext(user)}
-              disabled={saving || photoBusy}
-              className="py-2 font-label-md text-label-md text-on-surface-variant disabled:opacity-50"
-            >
-              나중에 할게요
-            </button>
-          )}
         </div>
       </form>
       <ConfirmSheet
         open={confirmingLeave}
-        title="수정한 내용이 사라져요"
-        message="저장하지 않고 나가면 수정한 내용이 사라져요."
-        confirmLabel="나가기"
+        title={setup ? '닉네임 설정을 종료할까요?' : '수정한 내용이 사라져요'}
+        message={setup ? '닉네임을 설정하기 전에는 서비스를 이용할 수 없어요. 나가면 로그아웃돼요.' : '저장하지 않고 나가면 수정한 내용이 사라져요.'}
+        confirmLabel={setup ? '로그아웃' : '나가기'}
+        busy={leaving}
+        closeOnBack={setup}
         onConfirm={() => {
           setConfirmingLeave(false)
           leave()

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { CREATOR_FILTERS, creatorFilterCounts, filterExploreCreators, sortExploreCreators } from '../src/utils/exploreCreatorSection.js'
+import { CREATOR_FILTERS, creatorFilterCounts, excludeOwnCreator, filterExploreCreators, sortExploreCreators } from '../src/utils/exploreCreatorSection.js'
 
 const creators = [
   { creatorId: 1, name: '유니' },
@@ -39,6 +39,14 @@ test('필터 칩 개수는 전체·도킹을 따로 센다', () => {
     { creatorId: 3, name: '다', openEventCount: 1 },
   ]
   assert.deepEqual(creatorFilterCounts(list, [2, 9]), { 전체: 3, 도킹: 2 })
+})
+
+test('로그인한 크리에이터 본인은 탐색 목록에서 빠지고, 본인 ID를 모르면 목록을 그대로 둔다', () => {
+  assert.deepEqual(excludeOwnCreator(creators, 2).map(({ creatorId }) => creatorId), [1, 3])
+  assert.equal(excludeOwnCreator(creators, null), creators)
+  assert.deepEqual(excludeOwnCreator(creators, 99).map(({ creatorId }) => creatorId), [1, 2, 3])
+  // 빠진 목록으로 센 전체 개수도 본인을 포함하지 않는다.
+  assert.equal(creatorFilterCounts(excludeOwnCreator(creators, 2), []).전체, 2)
 })
 
 test('크리에이터 필터 선택지는 전체·도킹뿐이고 진행 중은 없다', () => {

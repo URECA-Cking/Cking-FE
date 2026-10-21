@@ -22,15 +22,23 @@ test.before(async () => {
 test.after(async () => { await browser?.close() })
 
 /** 닉네임이 없는 로그인 계정으로 요청한 경로를 브라우저에서 연다. */
-async function screen(path) {
+async function screen(path, { delayLogout = false } = {}) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<html><body><div id="root"></div></body></html>' }) : route.abort())
   await page.goto(`http://localhost${path}`)
+  await page.evaluate((delay) => { window.delayLogout = delay; window.profileSaves = 0; window.fetch = async () => { window.profileSaves += 1; return new Response(null, { status: 500 }) } }, delayLogout)
   await page.addScriptTag({ content: bundle })
   await page.getByRole('button', { name: '뒤로가기' }).waitFor()
   return page
 }
+
+test('프로필 설정으로 보낼 때 쿼리와 해시를 함께 보존한다', async () => {
+  const page = await screen('/events/16?tab=tickets#tickets')
+  try {
+    assert.equal(await page.evaluate(() => window.routeStateFrom), '/events/16?tab=tickets#tickets')
+  } finally { await page.close() }
+})
 
 for (const path of ['/my-page', '/events/16']) {
   test(`닉네임 미설정 계정은 ${path} 직접 진입 시 프로필 설정으로 이동한다`, async () => {
@@ -55,5 +63,25 @@ test('최초 설정에서 뒤로 가기는 확인 후 로그아웃한다', async
     await page.getByRole('dialog', { name: '닉네임 설정을 종료할까요?' }).getByRole('button', { name: '로그아웃' }).click()
     await page.getByRole('button', { name: '구글로 시작하기' }).waitFor()
     assert.equal(await page.evaluate(() => window.logoutCalls), 1)
+  } finally { await page.close() }
+})
+
+test('로그아웃 응답을 기다리는 동안 확인 시트와 폼이 잠긴다', async () => {
+  const page = await screen('/my-page', { delayLogout: true })
+  try {
+    await page.locator('#nickname').fill('새닉네임')
+    assert.equal(await page.getByRole('button', { name: '시작하기' }).isEnabled(), true)
+    await page.getByRole('button', { name: '뒤로가기' }).click()
+    const sheet = page.getByRole('dialog', { name: '닉네임 설정을 종료할까요?' })
+    await sheet.getByRole('button', { name: '로그아웃' }).click()
+    await sheet.getByRole('button', { name: '처리하는 중...' }).waitFor()
+    assert.equal(await sheet.getByRole('button', { name: '취소' }).isDisabled(), true)
+    assert.equal(await page.locator('#nickname').isDisabled(), true)
+    assert.equal(await page.getByRole('button', { name: '시작하기' }).isDisabled(), true)
+    await page.locator('form').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    assert.equal(await page.evaluate(() => window.profileSaves), 0)
+    assert.equal(await page.evaluate(() => window.logoutCalls), 1)
+    await page.evaluate(() => window.finishLogout())
+    await page.getByRole('button', { name: '구글로 시작하기' }).waitFor()
   } finally { await page.close() }
 })

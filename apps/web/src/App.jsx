@@ -30,14 +30,14 @@ const MyCalendar = lazy(() => import('./pages/MyCalendar.jsx'))
 
 /** 화면 경로를 정의하고, 닉네임을 설정하지 않은 팬의 앱 진입을 모든 경로에서 막는다. */
 function App() {
-  const { pathname, search } = useLocation()
+  const { pathname, search, hash } = useLocation()
   const { status, user } = useUser()
   if (status === 'loading' && !['/login', '/oauth/callback', '/profile/edit'].includes(pathname)) {
     return <LoadingBlock label="로그인 상태를 확인하는 중..." />
   }
   if (status === 'authenticated' && needsNicknameSetup(user)
     && !['/login', '/oauth/callback', '/profile/edit'].includes(pathname)) {
-    return <Navigate to="/profile/edit" replace state={{ from: pathname + search }} />
+    return <Navigate to="/profile/edit" replace state={{ from: pathname + search + hash }} />
   }
   return (
     <ChunkErrorBoundary resetKey={pathname}>

@@ -23,7 +23,7 @@ test.after(async () => { await browser?.close() })
 
 const CONFIRM_TITLE = '작성 중인 내용이 사라져요'
 
-async function screen() {
+async function screen({ via = '스페이스 편집으로 이동' } = {}) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<html><body><div id="root"></div></body></html>' }) : route.abort())
@@ -53,7 +53,7 @@ async function screen() {
     }
   })
   await page.addScriptTag({ content: bundle })
-  await page.getByRole('button', { name: '스페이스 편집으로 이동' }).click()
+  await page.getByRole('button', { name: via, exact: true }).click()
   await page.getByRole('dialog', { name: '스페이스 편집' }).waitFor()
   return page
 }
@@ -95,7 +95,7 @@ test('변경이 없으면 뒤로가기로 시트만 닫히고, 한 번 더 뒤�
     assert.equal(await path(page), '/test')
     assert.equal(await page.getByRole('dialog').count(), 0)
     await page.goBack()
-    await page.getByRole('button', { name: '스페이스 편집으로 이동' }).waitFor()
+    await page.getByRole('button', { name: '스페이스 편집으로 이동', exact: true }).waitFor()
     assert.equal(await path(page), '/my')
   } finally { await page.close() }
 })
@@ -108,7 +108,7 @@ test('닫기 버튼으로 닫아도 남는 history 항목 없이 한 번 뒤로�
     await page.getByRole('dialog').waitFor({ state: 'detached' })
     await page.waitForFunction(() => window.history.state?.sheet === undefined)
     await page.goBack()
-    await page.getByRole('button', { name: '스페이스 편집으로 이동' }).waitFor()
+    await page.getByRole('button', { name: '스페이스 편집으로 이동', exact: true }).waitFor()
     assert.equal(await path(page), '/my')
   } finally { await page.close() }
 })
@@ -133,7 +133,7 @@ test('공유 주소를 바꾸고 시트를 닫으면 새 주소로 옮기고, �
     await page.waitForFunction(() => location.pathname === '/changed')
     await page.getByRole('button', { name: '스페이스 편집' }).first().waitFor()
     await page.goBack()
-    await page.getByRole('button', { name: '스페이스 편집으로 이동' }).waitFor()
+    await page.getByRole('button', { name: '스페이스 편집으로 이동', exact: true }).waitFor()
     assert.equal(await path(page), '/my')
   } finally { await page.close() }
 })
@@ -147,7 +147,40 @@ test('공유 주소를 바꾼 뒤 뒤로가기로 시트를 닫아도 새 주소
     await page.getByRole('dialog').waitFor({ state: 'detached' })
     await page.waitForFunction(() => location.pathname === '/changed')
     await page.goBack()
-    await page.getByRole('button', { name: '스페이스 편집으로 이동' }).waitFor()
+    await page.getByRole('button', { name: '스페이스 편집으로 이동', exact: true }).waitFor()
+    assert.equal(await path(page), '/my')
+  } finally { await page.close() }
+})
+
+test('test → changed로 바꿨다가 이전 주소 test로 되돌리고 닫으면, 예약해 둔 changed로 옮기지 않는다', async () => {
+  const page = await screen()
+  try {
+    await entryReady(page)
+    await changeSlug(page, 'changed')
+    await page.getByRole('button', { name: /이전 주소 .*test.*로 되돌리기/ }).click()
+    await page.waitForFunction(() => window.slug === 'test')
+    await page.waitForFunction(() => window.toasts.includes('이전 공유 주소로 되돌렸어요.'))
+    await page.getByRole('button', { name: '닫기', exact: true }).first().click()
+    await page.getByRole('dialog').waitFor({ state: 'detached' })
+    await page.waitForTimeout(900)
+    assert.equal(await path(page), '/test')
+    await page.goBack()
+    await page.getByRole('button', { name: '스페이스 편집으로 이동', exact: true }).waitFor()
+    assert.equal(await path(page), '/my')
+  } finally { await page.close() }
+})
+
+test('/space/{slug} 경로로 들어와 주소를 바꾸고 닫아도 새 주소로 옮기고, 뒤로가기는 마이페이지로 돌아간다', async () => {
+  const page = await screen({ via: '스페이스 편집으로 이동(space 경로)' })
+  try {
+    await entryReady(page)
+    assert.equal(await path(page), '/space/test')
+    await changeSlug(page, 'changed')
+    await page.getByRole('button', { name: '닫기', exact: true }).first().click()
+    await page.getByRole('dialog').waitFor({ state: 'detached' })
+    await page.waitForFunction(() => location.pathname === '/changed')
+    await page.goBack()
+    await page.getByRole('button', { name: '스페이스 편집으로 이동', exact: true }).waitFor()
     assert.equal(await path(page), '/my')
   } finally { await page.close() }
 })

@@ -259,13 +259,14 @@ export default function CreatorSpace() {
     const nextSlug = pendingSlugRef.current
     if (!nextSlug) return
     pendingSlugRef.current = null
-    const oldPath = spacePath(slugParam)
+    // 들어온 경로(/{slug} 또는 /space/{slug})를 그대로 기준으로 삼는다. 닫는 순간의 경로가 시트가 쌓은 항목이 있던 경로다.
+    const enteredPath = window.location.pathname
     let timer = null
     const moveToNewSlug = () => {
       window.removeEventListener('popstate', moveToNewSlug)
       window.clearTimeout(timer)
       // 그 사이 다른 화면으로 옮겨 갔다면 건드리지 않는다.
-      if (window.location.pathname === oldPath) navigate(spacePath(nextSlug), { replace: true })
+      if (window.location.pathname === enteredPath) navigate(spacePath(nextSlug), { replace: true })
     }
     // 시트가 항목을 되돌리며 popstate를 내므로 그 뒤에 옮긴다. 되돌릴 항목이 없어 popstate가 오지 않는 경우를 위해 잠시 뒤에도 옮긴다.
     window.addEventListener('popstate', moveToNewSlug)
@@ -514,8 +515,9 @@ export default function CreatorSpace() {
     mySpace.setData((current) => ({ ...current, ...updated }))
     setCreator((current) => (current ? { ...current, ...updated } : current))
     // 공유 링크로 들어온 화면에서 slug를 바꾸면 이전 주소는 더 이상 열리지 않으므로 새 주소로 옮긴다.
-    if (slugParam && updated.slug !== undefined && updated.slug !== slugParam) {
-      if (editOpen) pendingSlugRef.current = updated.slug
+    if (slugParam && updated.slug !== undefined) {
+      if (updated.slug === slugParam) pendingSlugRef.current = null // 원래 주소로 되돌렸으면 예약해 둔 이동도 없앤다.
+      else if (editOpen) pendingSlugRef.current = updated.slug
       else navigate(spacePath(updated.slug), { replace: true })
     }
   }

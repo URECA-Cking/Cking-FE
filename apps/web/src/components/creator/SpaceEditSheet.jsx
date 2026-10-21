@@ -130,16 +130,17 @@ function useSpaceImagePick({ validate, upload, failMessage }) {
  *   이 브라우저에서 바꿀 때 이전 주소를 기억해 두었다가(utils/previousSlug.js) 되돌리기 버튼에 쓴다.
  *   14일 변경 제한이 있어도 본인이 버린 이전 slug로 되돌리는 것은 허용되므로, 버튼은 막지 않고 백엔드 판단을 따른다.
  */
-export default function SpaceEditSheet({ open, onClose, space, onSaved }) {
+export default function SpaceEditSheet({ open, onClose, space, onSaved, closeOnBack = false }) {
   // 폼이 "지금 닫아도 되는지"(저장 중이면 막고, 저장하지 않은 변경이 있으면 확인 시트)를 등록한다.
   const { registerGuard, requestClose, confirmSheetProps } = useCloseGuard(open, onClose)
-  // closeOnBack은 켜지 않는다: 이 시트를 닫을 때 부모가 navigate(replace)로 이동 상태를 지우는 경우가 있어, 시트가 쌓은 history 항목과 어긋난다.
+  // closeOnBack: 뒤로가기도 같은 가드를 거치게 한다. 시트를 닫을 때 부모가 navigate(replace)로 이동 상태를 지우는 경우(다른 화면에서
+  // openSpaceEdit 상태로 들어온 경우)에는 시트가 쌓은 history 항목과 어긋나므로 부모가 그때는 켜지 않는다.
   return (
     <>
-      <BottomSheet open={open} onClose={requestClose} eyebrow="Creator Space" title="스페이스 편집">
+      <BottomSheet open={open} onClose={requestClose} closeOnBack={closeOnBack} eyebrow="Creator Space" title="스페이스 편집">
         {open && space && <SpaceEditForm space={space} onSaved={onSaved} registerGuard={registerGuard} />}
       </BottomSheet>
-      <ConfirmSheet {...confirmSheetProps} closeOnBack={false} />
+      <ConfirmSheet {...confirmSheetProps} closeOnBack={closeOnBack} />
     </>
   )
 }
@@ -176,7 +177,8 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
 
   // 저장하지 않은 변경: 소개, 고른(올리는 중 포함) 프로필 사진·배너, 입력한 주소. 저장하면 space가 갱신돼 다시 같아진다.
   // 활동명은 자체 저장 버튼이 있는 별도 입력이라 여기에 넣지 않는다.
-  const dirty = profile.introText !== (space.introText ?? '')
+  // 소개는 저장할 때 앞뒤 공백을 지워 보내므로 같은 기준(trim)으로 비교한다.
+  const dirty = profile.introText.trim() !== (space.introText ?? '').trim()
     || photo.pendingKey !== undefined || photo.busy
     || banner.pendingKey !== undefined || banner.busy
     || slug.trim() !== (space.slug ?? '')
@@ -202,6 +204,7 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
       // 저장된 사진·배너가 현재 이미지가 된다. 이후 저장에는 새 주소를 보내고 이미지는 다시 바꾸지 않은 상태로 둔다.
       setProfile((prev) => ({
         ...prev,
+        introText: updated.introText ?? prev.introText.trim(),
         profileImageUrl: updated.profileImageUrl ?? prev.profileImageUrl,
         bannerImageUrl: updated.bannerImageUrl ?? prev.bannerImageUrl,
       }))

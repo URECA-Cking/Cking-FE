@@ -12,7 +12,7 @@ function Fixture() {
   const [space, setSpace] = useState(window.spaceRecord)
   return (
     <MemoryRouter><ToastContext.Provider value={(message) => window.toasts.push(message)}>
-      <SpaceEditSheet open={open} space={space}
+      <SpaceEditSheet open={open} space={space} closeOnBack={Boolean(window.closeOnBack)}
         onClose={() => { window.closeCount += 1; setOpen(false) }}
         onSaved={(fields) => setSpace((prev) => ({ ...prev, ...fields }))} />
     </ToastContext.Provider></MemoryRouter>

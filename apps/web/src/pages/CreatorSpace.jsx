@@ -935,6 +935,7 @@ export default function CreatorSpace() {
         <SpaceEditSheet
           open={editVisible}
           onClose={closeSpaceEdit}
+          closeOnBack={editOpen}
           space={mySpace.data}
           onSaved={handleSpaceSaved}
         />

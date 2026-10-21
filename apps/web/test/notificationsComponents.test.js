@@ -175,6 +175,45 @@ test('결과 알림은 펼칠 때 읽고 별도 이벤트 버튼으로 이동한
   }
 })
 
+test('응모권 지급 알림은 서버 제목·본문을 표시하고 펼칠 때 읽지만 이벤트 이동 버튼은 없다', async () => {
+  const cases = [
+    { type: 'COMMON_TICKET_REWARDED', label: '공용 응모권 지급', icon: 'confirmation_number',
+      body: '출석체크 보상으로 공용 응모권 2장이 지급됐어요.' },
+    { type: 'CREATOR_TICKET_REWARDED', label: '크리에이터 응모권 지급', icon: 'local_activity',
+      body: 'AI 퀴즈 보상으로 하늘 크리에이터 전용 응모권 4장이 지급됐어요.' },
+  ]
+
+  for (const [index, variant] of cases.entries()) {
+    const { page, errors } = await screen()
+    // BE는 지급 알림의 event·drawing을 응답에 넣지 않는다.
+    const { event, drawing, ...base } = item(index + 1)
+    const notification = { ...base, type: variant.type, title: '응모권 지급 완료', body: variant.body }
+    try {
+      await requestCount(page, 1)
+      await page.evaluate((data) => window.respond(0, data), list([notification]))
+      await page.getByRole('button', { name: '알림 열기' }).click()
+      await requestCount(page, 2)
+      await page.evaluate((data) => window.respond(1, data), list([notification]))
+
+      const card = page.getByRole('button', { name: /응모권 지급 완료/ })
+      await card.waitFor()
+      assert.equal(await card.getByText(variant.label, { exact: true }).count(), 1)
+      assert.equal(await card.getByText(variant.icon, { exact: true }).count(), 1)
+      assert.equal(await card.getByText('응모권 지급 완료', { exact: true }).count(), 1)
+      assert.equal(await card.getByText(variant.body, { exact: true }).count(), 1)
+      await card.click()
+
+      await requestCount(page, 3)
+      assert.match(await page.evaluate(() => window.requests[2].url), new RegExp(`/api/me/notifications/${notification.notificationId}/read$`))
+      await page.evaluate(() => window.respond(2, { readAt: '2026-10-15T01:00:00Z' }))
+      await page.getByLabel('읽지 않음').waitFor({ state: 'detached' })
+      assert.equal(await card.getAttribute('aria-expanded'), 'true')
+      assert.equal(await page.getByRole('button', { name: '이벤트 보기', exact: true }).count(), 0)
+      assert.deepEqual(errors, [])
+    } finally { await page.close() }
+  }
+})
+
 for (const theme of ['light', 'dark']) for (const width of [320, 1280]) for (const fontSize of [16, 20]) {
   test(`${theme} ${width}px ${fontSize}px 글자: 바깥 높이 8rem으로 접고 긴 본문을 펼쳐 전체 표시하며 다시 접는다`, async () => {
     const { page, errors } = await screen()

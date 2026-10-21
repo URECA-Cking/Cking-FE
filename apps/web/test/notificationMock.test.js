@@ -10,11 +10,14 @@ test('알림 미리보기에는 긴 본문·URL·여러 유형의 알림이 있�
   try {
     installMockApiIfRequested()
     const { data } = await (await window.fetch('/api/me/notifications')).json()
-    assert.equal(data.items.length, 6)
-    assert.equal(new Set(data.items.map((item) => item.notificationId)).size, 6)
+    assert.equal(data.items.length, 8)
+    assert.equal(new Set(data.items.map((item) => item.notificationId)).size, 8)
     assert.ok(data.items.some((item) => item.body.includes('\n') && item.body.includes('https://')))
     assert.ok(data.items.some((item) => item.event))
     assert.ok(data.items.some((item) => !item.event))
+    const rewards = data.items.filter((item) => item.type.endsWith('_TICKET_REWARDED'))
+    assert.deepEqual(rewards.map((item) => item.type), ['COMMON_TICKET_REWARDED', 'CREATOR_TICKET_REWARDED'])
+    assert.ok(rewards.every((item) => !('event' in item) && !('drawing' in item)))
   } finally {
     globalThis.window = originalWindow
     globalThis.sessionStorage = originalStorage

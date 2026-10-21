@@ -39,8 +39,16 @@ async function screen({ closeOnBack = false } = {}) {
       const method = options.method ?? 'GET'
       const reply = (data) => new Response(JSON.stringify({ code: 'SUCCESS', data }), { status: 200 })
       if (path === '/api/creator/profile') return reply(null)
+      if (path === '/api/creator/space/slug') {
+        if (window.holdSlug) await window.holdSlug
+        window.spaceRecord = { ...window.spaceRecord, slug: JSON.parse(options.body).slug }
+        return reply({ ...window.spaceRecord, slugChangeableAt: null })
+      }
       if (path === '/api/creator/space') {
-        if (method === 'PATCH') window.spaceRecord = { ...window.spaceRecord, introText: JSON.parse(options.body).introText }
+        if (method === 'PATCH') {
+          if (window.holdPatch) await window.holdPatch
+          window.spaceRecord = { ...window.spaceRecord, introText: JSON.parse(options.body).introText }
+        }
         return reply({ ...window.spaceRecord })
       }
       throw new Error(`예상하지 않은 API 요청 ${path}`)
@@ -151,4 +159,38 @@ test('변경이 없으면 뒤로가기로 바로 닫히고, closeOnBack이 꺼�
     await off.waitForTimeout(100)
     assert.equal(await off.evaluate(() => window.history.state?.sheet), undefined)
   } finally { await off.close() }
+})
+
+test('저장 응답을 기다리는 동안 소개를 더 고치면 응답이 그 입력을 덮어쓰지 않고, 닫을 때 확인을 거친다', async () => {
+  const page = await screen()
+  try {
+    await page.evaluate(() => { window.holdPatch = new Promise((resolve) => { window.releasePatch = resolve }) })
+    await intro(page).fill('소개 A')
+    await page.getByRole('button', { name: '저장', exact: true }).click()
+    await page.waitForFunction(() => window.toasts.length === 0 && [...document.querySelectorAll('button')].some((button) => button.textContent === '저장하는 중...'))
+    await intro(page).fill('소개 B')
+    await page.evaluate(() => window.releasePatch())
+    await page.waitForFunction(() => window.toasts.includes('스페이스 정보를 저장했어요.'))
+    assert.equal(await intro(page).inputValue(), '소개 B')
+    await closeButton(page).click()
+    await page.getByRole('dialog', { name: CONFIRM_TITLE }).waitFor()
+    assert.equal(await page.evaluate(() => window.closeCount), 0)
+  } finally { await page.close() }
+})
+
+test('공유 주소를 바꾸는 응답을 기다리는 동안 주소를 더 고치면 응답이 그 입력을 덮어쓰지 않는다', async () => {
+  const page = await screen()
+  try {
+    await page.evaluate(() => { window.holdSlug = new Promise((resolve) => { window.releaseSlug = resolve }) })
+    const slugInput = page.getByPlaceholder('iu-official')
+    await slugInput.fill('address-a')
+    await page.getByRole('button', { name: '공유 주소 바꾸기' }).click()
+    await page.getByRole('button', { name: '바꾸는 중...' }).waitFor()
+    await slugInput.fill('address-b')
+    await page.evaluate(() => window.releaseSlug())
+    await page.waitForFunction(() => window.toasts.includes('공유 주소를 바꿨어요.'))
+    assert.equal(await slugInput.inputValue(), 'address-b')
+    await closeButton(page).click()
+    await page.getByRole('dialog', { name: CONFIRM_TITLE }).waitFor()
+  } finally { await page.close() }
 })

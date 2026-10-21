@@ -191,6 +191,8 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
   }, [registerGuard, savingProfile, savingSlug, dirty])
 
   async function saveProfile() {
+    // 응답을 기다리는 동안 소개를 더 고칠 수 있어, 응답 값은 요청 때와 같은 입력일 때만 입력칸에 반영한다.
+    const sentIntro = profile.introText
     setSavingProfile(true)
     try {
       const updated = await updateMySpace({
@@ -204,7 +206,7 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
       // 저장된 사진·배너가 현재 이미지가 된다. 이후 저장에는 새 주소를 보내고 이미지는 다시 바꾸지 않은 상태로 둔다.
       setProfile((prev) => ({
         ...prev,
-        introText: updated.introText ?? prev.introText.trim(),
+        introText: prev.introText === sentIntro ? (updated.introText ?? sentIntro.trim()) : prev.introText,
         profileImageUrl: updated.profileImageUrl ?? prev.profileImageUrl,
         bannerImageUrl: updated.bannerImageUrl ?? prev.bannerImageUrl,
       }))
@@ -230,12 +232,13 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
   /** 새 주소로 바꾸거나(restoring=false) 이전 주소로 되돌린다. 바꾸기 전 주소를 이전 주소로 기억한다(되돌릴 때 버린 주소도 14일 예약된다). */
   async function applySlug(nextSlug, { restoring }) {
     const before = space.slug
+    const slugAtRequest = slug // 응답을 기다리는 동안 주소를 더 고쳤으면 응답이 그 입력을 덮어쓰지 않게 한다.
     setSavingSlug(true)
     setSlugError(null)
     try {
       const updated = await changeMySpaceSlug(nextSlug)
       if (before && before !== updated.slug) rememberPreviousSlug(space.creatorId, before)
-      setSlug(updated.slug)
+      setSlug((current) => (current === slugAtRequest ? updated.slug : current))
       onSaved(pickFields(updated, SLUG_FIELDS))
       showToast(restoring ? '이전 공유 주소로 되돌렸어요.' : '공유 주소를 바꿨어요.')
     } catch (error) {

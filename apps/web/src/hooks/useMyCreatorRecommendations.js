@@ -8,7 +8,8 @@ const RECOMMEND_MAX = 20
 /**
  * 맞춤 추천 목록과 노출·클릭 수집용 응답 ID를 한 번에 돌려준다.
  *
- * - 추천 응답은 이름·이미지·소개만 주므로 핸들 등은 공개 크리에이터 목록(이벤트는 받지 않는다)의 같은 크리에이터로 채운다.
+ * - 추천 응답의 최신 이름·이미지·소개를 우선한다. 명시적인 null/빈 문자열은 삭제 값이며,
+ *   핸들 등 응답에서 누락된 필드만 공개 크리에이터 목록(이벤트는 받지 않는다)으로 채운다.
  * - 조회 결과(와 실패)에 요청한 회원을 함께 담는다. 공용 useAsync는 의존성이 바뀌어도 이전 결과를 지우지 않아서,
  *   회원이 바뀌면 새 조회가 끝나기 전·실패한 뒤에도 이전 회원의 추천과 응답 ID를 내보내지 않는다.
  * - 추천 조회와 프로필 목록 조회를 따로 추적해, 어느 한쪽만 실패해도 "추천이 없다"로 보이지 않고 오류와 다시 시도로 이어진다.
@@ -50,7 +51,8 @@ export function useMyCreatorRecommendations(memberId) {
   const items = useMemo(
     () => (mine?.items ?? []).map((item) => {
       const creator = creatorsById.get(item.creatorId)
-      return creator ? { ...creator, interestCodes: item.interestCodes, seedCreatorIds: item.seedCreatorIds } : null
+      // 명시적인 null/빈 문자열은 최신 삭제 값이다. undefined인 누락 필드만 카탈로그로 보완한다.
+      return creator ? { ...creator, ...Object.fromEntries(Object.entries(item).filter(([, value]) => value !== undefined)) } : null
     }).filter(Boolean),
     [mine, creatorsById],
   )

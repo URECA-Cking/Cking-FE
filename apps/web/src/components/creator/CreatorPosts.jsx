@@ -747,7 +747,8 @@ function PostImages({ post, creatorName, onRestricted, onRatio }) {
         onScroll={(event) => setActive(Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth))}
       >
       {images.map((image, index) => (
-        <div key={image.imageKey} className="h-full min-w-full snap-center bg-surface-container-low overflow-hidden">
+        // snap-always: 빠르게 튕겨도(안드로이드 크롬 등) 이미지를 건너뛰지 않고 다음 한 장에서 멈춘다.
+        <div key={image.imageKey} className="h-full min-w-full snap-center snap-always bg-surface-container-low overflow-hidden">
           {image.url && !unavailable.has(image.imageKey) ? (
             <img
               src={image.url}

@@ -34,6 +34,10 @@ async function screen() {
       page.completeCalls += 1
       return route.fulfill({ status: 204 })
     }
+    // 2단계 추천에 크리에이터 한 명을 보여, 크리에이터 스페이스를 둘러보는 흐름을 만들 수 있게 한다.
+    if (request.method() === 'GET' && request.url().includes('/api/me/creator-recommendations')) {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ code: 'SUCCESS', data: { policyVersion: 'v1', items: [{ creatorId: 7, creatorName: '추천크리에이터', interestCodes: [], seedCreatorIds: [] }] } }) })
+    }
     return route.abort()
   })
   await page.goto('http://localhost/before-login')
@@ -110,6 +114,24 @@ test('1단계에서 다음을 연달아 눌러도 2단계 기록이 한 번만 �
     await page.getByText('Cking 단계 2/2').waitFor()
     await page.getByRole('button', { name: '시작하기' }).click()
     await page.getByText('마이페이지 화면 (/my-page)').waitFor()
+    await page.goBack()
+    assert.equal(new URL(page.url()).pathname, '/before-login')
+  } finally { await page.close() }
+})
+
+test('2단계에서 크리에이터 스페이스를 둘러보고 돌아와 마쳐도 이동한 화면에서 뒤로가기를 누르면 로그인 전 화면으로 간다', async () => {
+  const page = await screen()
+  try {
+    await page.getByRole('button', { name: '건너뛰기', exact: true }).click()
+    await page.getByText('Cking 단계 2/2').waitFor()
+    // 스페이스로 나가면 온보딩이 언마운트됐다가 돌아올 때 새로 마운트된다.
+    await page.getByRole('link', { name: /추천크리에이터/ }).click()
+    await page.getByText('크리에이터 스페이스 화면').waitFor()
+    await page.goBack()
+    await page.getByText('Cking 단계 2/2').waitFor()
+    await page.getByRole('button', { name: '시작하기' }).click()
+    await page.getByText('마이페이지 화면 (/my-page)').waitFor()
+    assert.equal(page.completeCalls, 1)
     await page.goBack()
     assert.equal(new URL(page.url()).pathname, '/before-login')
   } finally { await page.close() }

@@ -23,6 +23,7 @@ createRoot(document.getElementById('root')).render(
         <Routes>
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/my-page" element={<Destination />} />
+          <Route path="/creators/:creatorId" element={<p>크리에이터 스페이스 화면</p>} />
         </Routes>
       </UserContext.Provider>
     </ToastContext.Provider>

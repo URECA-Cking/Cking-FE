@@ -73,8 +73,8 @@ export function deleteComment(creatorId, postId, commentId) {
 }
 
 /**
- * 필터링되어 목록에서 원문이 가려진 댓글(filtered)의 원문. 게시글을 볼 수 있으면 누구나 요청할 수 있다(로그인 불필요).
- * 작성자 본인의 댓글과 필터링되지 않은 댓글은 404, 개인정보로 막힌 댓글은 COMMENT_NOT_REVEALABLE(403)이다.
+ * 필터링되어 목록에서 원문이 가려진 댓글(filtered)의 원문. 스페이스 주인과 관리자만 받을 수 있고 그 외는 FORBIDDEN(403)이다.
+ * 작성자 본인과 필터링되지 않은 댓글은 404, 개인정보로 막힌 댓글과 관리자가 숨긴 댓글은 주인에게 COMMENT_NOT_REVEALABLE(403)이고 관리자에게만 열린다.
  */
 export function getCommentOriginal(creatorId, postId, commentId) {
   return apiClient.get(`${commentPath(creatorId, postId)}/${commentId}/original`)

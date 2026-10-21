@@ -30,7 +30,7 @@ const comments = [
   { commentId: 4, authorMemberId: 10, authorName: null, content: null, filtered: true, revealable: true, createdAt: at, updatedAt: at },
 ]
 
-async function screen() {
+async function screen(props = {}) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<html><body><div id="root"></div></body></html>' }) : route.abort())
@@ -44,7 +44,7 @@ async function screen() {
     }
   }, comments)
   await page.addScriptTag({ content: bundle })
-  await page.evaluate(() => window.renderComments({}))
+  await page.evaluate((options) => window.renderComments(options), props)
   await page.getByText('보이는 남의 댓글').waitFor()
   return page
 }
@@ -56,7 +56,27 @@ test('남의 댓글에만 신고 버튼이 보이고 본인·가려진 댓글에
     assert.equal(await reportButtons(page).count(), 1)
     assert.equal(await page.locator('li', { hasText: '보이는 남의 댓글' }).getByRole('button', { name: '신고', exact: true }).count(), 1)
     assert.equal(await page.locator('li', { hasText: '내가 쓴 댓글' }).getByRole('button', { name: '신고', exact: true }).count(), 0)
+    // 스페이스 주인·관리자가 아니면 revealable이 true로 와도 자리 표시만 보이고 원문 보기를 열지 않는다.
+    assert.equal(await page.getByText('필터링된 댓글이에요.').count(), 2)
+    assert.equal(await page.getByText('볼 수 없는 댓글이에요.').count(), 0)
+    assert.equal(await page.getByRole('button', { name: '필터링한 댓글 보기' }).count(), 0)
+  } finally { await page.close() }
+})
+
+test('관리자에게는 개인정보 차단·관리자 숨김 댓글을 포함해 모든 필터링 댓글에 원문 보기 버튼이 보인다', async () => {
+  const page = await screen({ isAdmin: true })
+  try {
+    assert.equal(await page.getByText('필터링된 댓글이에요.').count(), 2)
+    assert.equal(await page.getByText('볼 수 없는 댓글이에요.').count(), 0)
+    assert.equal(await page.getByRole('button', { name: '필터링한 댓글 보기' }).count(), 2)
+  } finally { await page.close() }
+})
+
+test('스페이스 주인에게는 BE가 열어 준(revealable) 필터링 댓글에만 원문 보기 버튼이 보인다', async () => {
+  const page = await screen({ isMine: true })
+  try {
     assert.equal(await page.getByText('볼 수 없는 댓글이에요.').count(), 1)
     assert.equal(await page.getByText('필터링된 댓글이에요.').count(), 1)
+    assert.equal(await page.getByRole('button', { name: '필터링한 댓글 보기' }).count(), 1)
   } finally { await page.close() }
 })

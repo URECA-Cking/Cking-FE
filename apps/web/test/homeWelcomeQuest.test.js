@@ -117,7 +117,7 @@ async function boot(page, initialQuest) {
       }
       if (path === '/api/missions') return Promise.resolve(envelope(200, 'SUCCESS', [{ missionId: 1, type: 'ATTENDANCE', rewardAmount: 1, completedToday: window.missionDone }]))
       if (path === '/api/tickets/common/history') return Promise.resolve(envelope(200, 'SUCCESS', { items: [], hasNext: false }))
-      if (path === '/api/me/creator-recommendations') return Promise.resolve(envelope(200, 'SUCCESS', recommendations))
+      if (path === '/api/me/creator-recommendations/by-tags') return Promise.resolve(envelope(200, 'SUCCESS', recommendations))
       return Promise.resolve(envelope(200, 'SUCCESS', { items: [], page: 0, hasNext: false }))
     }
   }, initialQuest)
@@ -347,11 +347,11 @@ test('같은 화면에서 회원이 바뀌면 추천 크리에이터를 다시 �
     await page.evaluate(() => window.renderHome([], 7))
     await waitWelcome(page)
     await page.getByRole('button', { name: '+ 도킹' }).first().waitFor()
-    const loads = () => page.evaluate(() => window.requests.filter((request) => request.path === '/api/me/creator-recommendations').length)
+    const loads = () => page.evaluate(() => window.requests.filter((request) => request.path === '/api/me/creator-recommendations/by-tags').length)
     assert.equal(await loads(), 1)
 
     await page.evaluate(() => window.renderHome([], 8))
-    await page.waitForFunction(() => window.requests.filter((request) => request.path === '/api/me/creator-recommendations').length === 2)
+    await page.waitForFunction(() => window.requests.filter((request) => request.path === '/api/me/creator-recommendations/by-tags').length === 2)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

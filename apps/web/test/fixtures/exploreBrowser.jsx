@@ -25,6 +25,7 @@ function Bridge() {
  */
 function Shell({ initial, memberId }) {
   const [ids, setIds] = useState([])
+  window.setFollowedCreators = setIds
   const value = {
     user: { memberId, nickname: '혁준' },
     isCreator: false,

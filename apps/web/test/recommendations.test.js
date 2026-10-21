@@ -44,7 +44,7 @@ async function screen() {
     const envelope = (plan) => new Response(JSON.stringify({ code: plan.code, data: plan.data ?? null, message: plan.message ?? null }), { status: plan.status })
     window.fetch = (url) => {
       const path = new URL(String(url), location.href).pathname
-      const key = path === '/api/me/creator-recommendations' ? 'recommendation' : 'catalog'
+      const key = path === '/api/me/creator-recommendations/by-tags' ? 'recommendation' : 'catalog'
       const plan = window.queues[key].shift() ?? { status: 500, code: 'SYSTEM_ERROR', message: '대기열 없음' }
       if (plan.deferred) return new Promise((resolve) => { window.resolvers[key] = () => resolve(envelope(plan.deferred)) })
       return Promise.resolve(envelope(plan))

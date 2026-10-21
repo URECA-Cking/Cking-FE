@@ -35,7 +35,7 @@ async function screen() {
       return route.fulfill({ status: 204 })
     }
     // 2단계 추천에 크리에이터 한 명을 보여, 크리에이터 스페이스를 둘러보는 흐름을 만들 수 있게 한다.
-    if (request.method() === 'GET' && request.url().includes('/api/me/creator-recommendations')) {
+    if (request.method() === 'GET' && request.url().includes('/api/me/creator-recommendations/by-tags')) {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ code: 'SUCCESS', data: { policyVersion: 'v1', items: [{ creatorId: 7, creatorName: '추천크리에이터', interestCodes: [], seedCreatorIds: [] }] } }) })
     }
     return route.abort()

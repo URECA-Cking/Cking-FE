@@ -37,19 +37,17 @@ const RECOMMENDATION = { recommendationRequestId: 'rid-1', policyVersion: 'INTER
  * window.requests에 호출한 경로를 쌓고, window.failures[경로]가 양수면 그 횟수만큼 먼저 오류를 돌려준다.
  * 목에 없는 경로(관심 분야·응모권 잔액 등)는 404라 해당 영역은 조용히 비거나 실패로 그려진다.
  */
-async function screen(initial = '/explore', { events = EVENTS, creators = CREATORS, counts = null, failures = {}, recommendation = RECOMMENDATION, recommendationAfterSave = null, delayCatalog = false, tagPlans = [] } = {}) {
+async function screen(initial = '/explore', { events = EVENTS, creators = CREATORS, counts = null, failures = {}, recommendation = RECOMMENDATION, recommendationAfterSave = null, delayCatalog = false, followRecommendation = { rankingStatus: 'READY', items: [] } } = {}) {
   const page = await browser.newPage()
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
   await page.goto('http://localhost/explore-test')
-  await page.evaluate(({ creators, events, recommendation, recommendationAfterSave, counts, failures, delayCatalog, tagPlans }) => {
+  await page.evaluate(({ creators, events, recommendation, recommendationAfterSave, counts, failures, delayCatalog, followRecommendation }) => {
     window.requests = []
     window.requestDetails = []
     window.failures = { ...failures }
     window.savedInterestCodes = ['FOOD']
     window.didSaveInterests = false
-    window.tagPlans = tagPlans
-    window.releaseTags = []
     const reply = (status, code, data, message = null) => Promise.resolve(new Response(JSON.stringify({ code, data, message }), { status }))
     const pageOf = (items, params) => {
       const size = Number(params.get('size') ?? 20)
@@ -74,23 +72,8 @@ async function screen(initial = '/explore', { events = EVENTS, creators = CREATO
         const status = target.searchParams.get('status')
         return reply(200, 'SUCCESS', pageOf(status ? events.filter((item) => item.displayStatus === status) : events, target.searchParams))
       }
-      if (path === '/api/me/creator-recommendations') return reply(200, 'SUCCESS', window.didSaveInterests && recommendationAfterSave ? recommendationAfterSave : recommendation)
-      if (path === '/api/me/creator-recommendations/tag-catalog') return reply(200, 'SUCCESS', {
-        taxonomyVersion: 'content-v1', taxonomyHash: 'hash-1', maxParents: 3, maxTopics: 9,
-        tags: [
-          { type: 'PARENT', code: 'FOOD', name: '푸드', description: '음식' },
-          { type: 'TOPIC', code: 'BAKING', name: '베이킹', description: '빵 만들기' },
-          { type: 'TOPIC', code: 'COOKING', name: '요리', description: '조리' },
-          { type: 'TOPIC', code: 'GAME', name: '게임', description: '게임' },
-        ],
-      })
-      if (path === '/api/me/creator-recommendations/by-tags') {
-        const plan = window.tagPlans.shift() ?? { rankingStatus: 'READY', recommendationRequestId: null, items: [] }
-        if (plan.error) return reply(plan.status, plan.error, null, '태그를 다시 확인해 주세요.')
-        if (plan.deferred) return new Promise((resolve) => { window.releaseTags.push(() => resolve(reply(200, 'SUCCESS', plan.deferred))) })
-        return reply(200, 'SUCCESS', plan)
-      }
-      if (path === '/api/me/creator-recommendation-events') return reply(200, 'SUCCESS', {})
+      if (path === '/api/me/creator-recommendations/by-tags' && target.searchParams.get('source') === 'FOLLOW') return reply(200, 'SUCCESS', followRecommendation)
+      if (path === '/api/me/creator-recommendations/by-tags') return reply(200, 'SUCCESS', window.didSaveInterests && recommendationAfterSave ? recommendationAfterSave : recommendation)
       if (path === '/api/interests') {
         const catalog = { taxonomyVersion: 'v1', maxSelection: 3, items: [
           { interestCode: 'FOOD', name: '요리·푸드' }, { interestCode: 'FITNESS', name: '운동·건강' },
@@ -106,7 +89,7 @@ async function screen(initial = '/explore', { events = EVENTS, creators = CREATO
       if (path === '/api/me/interests') return reply(200, 'SUCCESS', { taxonomyVersion: 'v1', interestCodes: window.savedInterestCodes })
       return reply(404, 'RESOURCE_NOT_FOUND', null, '없음')
     }
-  }, { creators, events, recommendation, recommendationAfterSave, counts, failures, delayCatalog, tagPlans })
+  }, { creators, events, recommendation, recommendationAfterSave, counts, failures, delayCatalog, followRecommendation })
   await page.addStyleTag({ content: styles })
   await page.addScriptTag({ content: bundle })
   await page.evaluate((path) => window.renderExplore(path), initial)
@@ -120,130 +103,6 @@ const search = async (page, text) => {
   await page.getByRole('searchbox').press('Enter')
 }
 const count = (page, path) => page.evaluate((target) => window.requests.filter((item) => item === target).length, path)
-
-const TAG_PATH = '/api/me/creator-recommendations/by-tags'
-const tag = (code, name, type = 'TOPIC') => ({ type, code, name })
-const tagged = (id, tags = [tag('BAKING', '베이킹')]) => ({
-  creatorId: id, creatorName: `태그크리${id}`, slug: `tag${id}`, introText: '최신 소개', profileImageUrl: null, matchedTags: tags,
-})
-const tagResult = (...items) => ({ rankingStatus: 'READY', recommendationRequestId: null, items })
-async function openTags(options = {}) {
-  const page = await screen('/explore/recommend', options)
-  await page.getByText('하늘', { exact: true }).waitFor()
-  await page.getByRole('button', { name: '태그로 찾기', exact: true }).click()
-  await page.getByRole('button', { name: '베이킹', exact: true }).waitFor()
-  return page
-}
-
-test('태그 검색은 별도 버전·정확 코드·size=20을 보내고 일치 2명만 표시하며 관심 분야를 저장하지 않는다', async () => {
-  const page = await openTags({ tagPlans: [tagResult(tagged(11), tagged(12))] })
-  assert.equal(await count(page, TAG_PATH), 0)
-  await page.getByText('찾고 싶은 태그를 선택해 주세요.').waitFor()
-  await page.getByRole('button', { name: '베이킹', exact: true }).click()
-  await page.getByText('일치하는 크리에이터 2명').waitFor()
-  assert.equal(await page.getByRole('link', { name: /태그크리/ }).count(), 2)
-  assert.equal(await page.getByLabel('실제 일치 태그').count(), 2)
-  assert.deepEqual(await page.getByLabel('실제 일치 태그').allTextContents(), ['베이킹', '베이킹'])
-  assert.equal(await page.getByText('하늘', { exact: true }).count(), 0)
-  const requests = await page.evaluate(() => window.requestDetails)
-  assert.deepEqual(requests.find((r) => r.path === TAG_PATH).query, { taxonomyVersion: 'content-v1', topicCodes: 'BAKING', size: '20' })
-  assert.equal(requests.some((r) => r.path === '/api/me/interests' && r.method === 'PUT'), false)
-  assert.equal(await page.getByRole('button', { name: '분야 편집' }).count(), 0)
-  await page.setViewportSize({ width: 360, height: 800 })
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
-  await page.close()
-})
-
-test('태그 1·2·3개를 골라도 서버의 실제 일치 1·2개만 표시하고 형제 태그를 추가하지 않는다', async () => {
-  const page = await openTags({ tagPlans: [
-    tagResult(tagged(11)),
-    tagResult(tagged(11, [tag('FOOD', '푸드', 'PARENT'), tag('BAKING', '베이킹')])),
-    tagResult(tagged(11)),
-  ] })
-  await page.getByRole('button', { name: '베이킹', exact: true }).click()
-  await page.getByText('일치하는 크리에이터 1명').waitFor()
-  assert.equal(await page.getByLabel('실제 일치 태그').locator('span').count(), 1)
-  await page.getByRole('button', { name: '푸드', exact: true }).click()
-  await page.getByLabel('실제 일치 태그').getByText('푸드', { exact: true }).waitFor()
-  assert.equal(await page.getByLabel('실제 일치 태그').locator('span').count(), 2)
-  await page.getByRole('button', { name: '요리', exact: true }).click()
-  await page.waitForFunction(() => window.requests.filter((r) => r.endsWith('/by-tags')).length === 3)
-  await page.getByText('일치하는 크리에이터 1명').waitFor()
-  assert.deepEqual(await page.getByLabel('실제 일치 태그').allTextContents(), ['베이킹'])
-  const requests = await page.evaluate(() => window.requestDetails.filter((r) => r.path.endsWith('/by-tags')))
-  assert.deepEqual(requests[2].query, { taxonomyVersion: 'content-v1', parentCodes: 'FOOD', topicCodes: 'BAKING,COOKING', size: '20' })
-  await page.close()
-})
-
-test('태그 후보 0명·소개 없는 후보 제외 응답은 빈 안내, PENDING은 갱신 안내이며 인기순으로 보충하지 않는다', async () => {
-  const page = await openTags({ tagPlans: [tagResult(), { rankingStatus: 'PENDING', items: [tagged(99)] }] })
-  await page.getByRole('button', { name: '베이킹', exact: true }).click()
-  await page.getByText('선택한 태그와 관련된 크리에이터가 없어요.').waitFor()
-  assert.equal(await page.getByRole('link', { name: /하늘|태그크리/ }).count(), 0)
-  await page.getByRole('button', { name: '게임', exact: true }).click()
-  await page.getByText('추천 순위를 갱신하고 있어요. 잠시 후 다시 확인해 주세요.').waitFor()
-  assert.equal(await page.getByRole('link', { name: /태그크리/ }).count(), 0)
-  assert.equal(await count(page, '/api/me/creator-recommendations'), 1)
-  await page.close()
-})
-
-test('선택 변경 직후 이전 결과를 숨기고 응답이 역전되어도 새 검색을 유지한다', async () => {
-  const page = await openTags({ tagPlans: [
-    tagResult(tagged(11)),
-    { deferred: tagResult(tagged(12)) },
-    tagResult(tagged(13, [tag('GAME', '게임')])),
-  ] })
-  await page.getByRole('button', { name: '베이킹', exact: true }).click()
-  await page.getByText('태그크리11', { exact: true }).waitFor()
-  await page.getByRole('button', { name: '요리', exact: true }).click()
-  await page.getByText('일치하는 크리에이터를 찾는 중...').waitFor()
-  assert.equal(await page.getByText('태그크리11', { exact: true }).count(), 0)
-  await page.getByRole('button', { name: '게임', exact: true }).click()
-  await page.getByText('태그크리13', { exact: true }).waitFor()
-  await page.evaluate(() => window.releaseTags[0]())
-  await page.getByText('태그크리13', { exact: true }).waitFor()
-  assert.equal(await page.getByText('태그크리12', { exact: true }).count(), 0)
-  await page.getByRole('button', { name: '선택 초기화' }).click()
-  await page.getByText('찾고 싶은 태그를 선택해 주세요.').waitFor()
-  assert.equal(await page.getByText('태그크리13', { exact: true }).count(), 0)
-  await page.close()
-})
-
-test('태그 검색 실패는 오류·재시도로 구분하고 null 요청 ID는 개인화 ID로 노출·클릭을 수집하지 않는다', async () => {
-  const page = await openTags({ failures: { [TAG_PATH]: 1 }, tagPlans: [tagResult(tagged(11))] })
-  await page.getByRole('button', { name: '베이킹', exact: true }).click()
-  await page.getByRole('button', { name: '다시 시도', exact: true }).click()
-  await page.getByText('태그크리11', { exact: true }).waitFor()
-  const before = await count(page, '/api/me/creator-recommendation-events')
-  await page.getByRole('link', { name: /태그크리11/ }).click()
-  // 클릭 flush는 즉시다. null이면 이벤트 큐도 타이머도 만들지 않는다.
-  assert.equal(await count(page, '/api/me/creator-recommendation-events'), before)
-  await page.close()
-})
-
-test('태그 카탈로그 실패는 다시 시도하고 회원 전환은 선택·결과를 초기화한다', async () => {
-  const page = await screen('/explore/recommend', { failures: { '/api/me/creator-recommendations/tag-catalog': 1 }, tagPlans: [tagResult(tagged(11))] })
-  await page.getByText('하늘', { exact: true }).waitFor()
-  await page.getByRole('button', { name: '태그로 찾기', exact: true }).click()
-  await page.getByRole('button', { name: '다시 시도', exact: true }).click()
-  await page.getByRole('button', { name: '베이킹', exact: true }).click()
-  await page.getByText('태그크리11', { exact: true }).waitFor()
-  await page.evaluate(() => window.renderExplore('/explore/recommend', 8))
-  await page.getByText('찾고 싶은 태그를 선택해 주세요.').waitFor()
-  assert.equal(await page.getByText('태그크리11', { exact: true }).count(), 0)
-  assert.equal(await count(page, TAG_PATH), 1)
-  await page.close()
-})
-
-test('분류체계 변경 오류는 최신 카탈로그 조회와 선택 초기화로 복구한다', async () => {
-  const page = await openTags({ tagPlans: [{ status: 400, error: 'INVALID_CONTENT_TAG' }] })
-  await page.getByRole('button', { name: '베이킹', exact: true }).click()
-  await page.getByRole('button', { name: '최신 태그 다시 불러오기' }).click()
-  await page.getByText('찾고 싶은 태그를 선택해 주세요.').waitFor()
-  assert.equal(await count(page, '/api/me/creator-recommendations/tag-catalog'), 2)
-  assert.equal(await count(page, TAG_PATH), 1)
-  await page.close()
-})
 
 test('크리에이터 탭에서 검색하면 크리에이터 결과가 열리고 전체·이벤트로 대상을 바꿀 수 있다', async () => {
   const page = await screen()
@@ -289,12 +148,12 @@ test('이벤트 탭에서 검색하면 이벤트 결과가 열리고 뒤로 가�
 test('탐색에 들어와도 맞춤 추천 API는 부르지 않고, 추천 화면에 들어갈 때 처음 부른다', async () => {
   const page = await screen()
   await page.getByText('다온').first().waitFor()
-  assert.equal(await count(page, '/api/me/creator-recommendations'), 0)
+  assert.equal(await count(page, '/api/me/creator-recommendations/by-tags'), 0)
 
   await page.getByRole('link', { name: /맞춤 추천 보기/ }).click()
   await waitWhere(page, '/explore/recommend')
   await page.getByText('하늘').first().waitFor()
-  assert.equal(await count(page, '/api/me/creator-recommendations'), 1)
+  assert.equal(await count(page, '/api/me/creator-recommendations/by-tags'), 1)
   await page.close()
 })
 
@@ -304,16 +163,16 @@ test('분야 카탈로그를 한 번만 요청하고 응답 전에는 추천 카
   ] }
   const page = await screen('/explore/recommend', { recommendation, delayCatalog: true })
   await page.setViewportSize({ width: 360, height: 800 })
-  await page.waitForFunction(() => window.requests.includes('/api/interests') && window.requests.includes('/api/me/creator-recommendations'))
+  await page.waitForFunction(() => window.requests.includes('/api/interests') && window.requests.includes('/api/me/creator-recommendations/by-tags'))
   assert.equal(await count(page, '/api/interests'), 1)
   assert.equal(await page.getByText('하늘', { exact: true }).count(), 0)
   assert.equal(await page.getByText('내가 도킹한 크리에이터와 비슷해요').count(), 0)
 
   await page.evaluate(() => window.releaseCatalog())
-  await page.getByText('선택한 요리·푸드, 운동·건강 관심사 기반 추천').waitFor()
+  await page.getByText('관심 분야 · 요리·푸드, 운동·건강').waitFor()
   assert.equal(await count(page, '/api/interests'), 1)
   assert.equal(await page.getByText('내가 도킹한 크리에이터와 비슷해요').count(), 0)
-  const badgeFits = await page.getByText('선택한 요리·푸드, 운동·건강 관심사 기반 추천').evaluate(
+  const badgeFits = await page.getByText('관심 분야 · 요리·푸드, 운동·건강').evaluate(
     (element) => element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
   )
   assert.equal(badgeFits, true)
@@ -330,14 +189,50 @@ test('카탈로그 조회 실패에도 추천을 표시하고 편집기에서 �
   await page.close()
 })
 
-test('인기순 대체 추천은 개인화 제목 대신 인기 크리에이터 제목을 표시한다', async () => {
-  const recommendation = { recommendationRequestId: 'rid-popular', policyVersion: 'POPULAR_FALLBACK_V1', items: [
-    { creatorId: 4, creatorName: '하늘', interestCodes: [], seedCreatorIds: [] },
+test('저장 관심 분야 후보가 없으면 인기순이나 팔로우로 보충하지 않고 기존 빈 안내를 표시한다', async () => {
+  const recommendation = { rankingStatus: 'READY', policyVersion: 'SAVED_TAG_INTEREST_V1', items: [] }
+  const page = await screen('/explore/recommend', { recommendation })
+  await page.getByText('아직 보여드릴 추천이 없어요. 관심 분야를 골라 보세요.').waitFor()
+  assert.equal(await page.getByText('지금 인기 있는 크리에이터').count(), 0)
+  assert.equal(await page.getByRole('button', { name: '태그로 찾기' }).count(), 0)
+  assert.equal(await page.getByRole('group', { name: '추천 방식' }).count(), 0)
+  await page.close()
+})
+
+test('기존 화면에서 관심 분야 후보 2명만 표시하고 별도 태그 UI를 추가하지 않는다', async () => {
+  const recommendation = { rankingStatus: 'READY', recommendationRequestId: null, policyVersion: 'SAVED_TAG_INTEREST_V1', items: [
+    { creatorId: 3, creatorName: '가을', slug: 'c3', introText: '새 소개', interestCodes: ['FOOD'] },
+    { creatorId: 4, creatorName: '하늘', slug: 'c4', introText: '최신 소개', interestCodes: ['FOOD'] },
   ] }
   const page = await screen('/explore/recommend', { recommendation })
+  await page.getByText('가을', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('link', { name: /가을|하늘/ }).count(), 2)
+  assert.equal(await page.getByRole('group', { name: '추천 방식' }).count(), 0)
+  assert.equal(await page.getByText('다온', { exact: true }).count(), 0)
+  const request = await page.evaluate(() => window.requestDetails.find((r) => r.path.endsWith('/by-tags')))
+  assert.deepEqual(request.query, { source: 'INTEREST', size: '20' })
+  await page.close()
+})
+
+test('아래 유사 목록은 전체 팔로우 source를 조회하고 응답 프로필로 부족한 후보만 표시한다', async () => {
+  const page = await screen('/explore/recommend', { followRecommendation: { rankingStatus: 'READY', recommendationRequestId: null,
+    items: [{ creatorId: 3, creatorName: '새 유사 활동명', slug: 'new-c3', introText: '새 유사 소개', seedCreatorIds: [1,2] }] } })
   await page.getByText('하늘', { exact: true }).waitFor()
-  assert.equal(await page.getByText('지금 인기 있는 크리에이터').count(), 1)
-  assert.equal(await page.getByText('나를 위한 추천').count(), 0)
+  await page.evaluate(() => window.setFollowedCreators([1,2]))
+  await page.getByText('다온 외 1명과 비슷한 크리에이터', { exact: true }).waitFor()
+  await page.getByText('새 유사 활동명', { exact: true }).waitFor()
+  const request = await page.evaluate(() => window.requestDetails.find((r) => r.query?.source === 'FOLLOW'))
+  assert.deepEqual(request.query, { source: 'FOLLOW', size: '5' })
+  assert.equal(await page.getByText('새 유사 소개', { exact: true }).count(), 1)
+  assert.equal(await page.getByText('가을', { exact: true }).count(), 0)
+  assert.equal(await count(page, '/api/creators/1/similar'), 0)
+  await page.close()
+})
+
+test('순위 갱신 중에는 다른 후보로 채우지 않고 기존 빈 안내 위치에서 알린다', async () => {
+  const page = await screen('/explore/recommend', { recommendation: { rankingStatus: 'PENDING', items: RECOMMENDATION.items } })
+  await page.getByText('추천 순위를 갱신하고 있어요. 잠시 후 다시 확인해 주세요.').waitFor()
+  assert.equal(await page.getByText('하늘', { exact: true }).count(), 0)
   await page.close()
 })
 
@@ -349,21 +244,21 @@ test('관심 분야 저장 성공 후 추천을 다시 조회해 변경된 카�
     { creatorId: 3, creatorName: '가을', interestCodes: ['FITNESS'], seedCreatorIds: [] },
   ] }
   const page = await screen('/explore/recommend', { recommendation, recommendationAfterSave })
-  await page.getByText('선택한 요리·푸드 관심사 기반 추천').waitFor()
+  await page.getByText('관심 분야 · 요리·푸드').waitFor()
   await page.getByRole('button', { name: '분야 편집' }).click()
   const interests = page.getByRole('group', { name: '관심 분야' })
   await interests.getByRole('button', { name: '요리·푸드' }).click()
   await interests.getByRole('button', { name: '운동·건강' }).click()
   await page.getByRole('button', { name: '저장', exact: true }).click()
 
-  await page.getByText('선택한 운동·건강 관심사 기반 추천').waitFor()
+  await page.getByText('관심 분야 · 운동·건강').waitFor()
   assert.equal(await page.getByText('가을', { exact: true }).count(), 1)
   assert.equal(await page.getByText('하늘', { exact: true }).count(), 0)
   const requests = await page.evaluate(() => window.requestDetails)
   const saveIndex = requests.findIndex((item) => item.path === '/api/me/interests' && item.method === 'PUT')
   assert.ok(saveIndex > 0)
   assert.deepEqual(requests[saveIndex].body, { taxonomyVersion: 'v1', interestCodes: ['FITNESS'] })
-  assert.ok(requests.slice(saveIndex + 1).some((item) => item.path === '/api/me/creator-recommendations' && item.method === 'GET'))
+  assert.ok(requests.slice(saveIndex + 1).some((item) => item.path === '/api/me/creator-recommendations/by-tags' && item.method === 'GET'))
   await page.close()
 })
 

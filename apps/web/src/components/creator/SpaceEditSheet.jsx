@@ -124,6 +124,8 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
 
   // 저장하지 않은 변경(올리는 중인 이미지 포함)이 있으면 닫을 때 확인을 거친다. 저장하면 space가 갱신돼 다시 같아진다.
   const dirty = profileDirty || photo.busy || banner.busy || slugDirty || nameDirty
+  // 사진·배너를 새로 고르거나 지우면 이전 저장 실패 문구를 지운다(소개는 입력할 때 지운다). 실패한 그대로면 문구가 남는다.
+  useEffect(() => { setProfileError(null) }, [photo.pendingKey, banner.pendingKey])
   useEffect(() => {
     registerGuard(() => {
       if (busy) return CLOSE_BLOCK
@@ -255,7 +257,10 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
             value={profile.introText}
             maxLength={MAX_TEXT}
             rows={3}
-            onChange={(event) => setProfile((prev) => ({ ...prev, introText: event.target.value }))}
+            onChange={(event) => {
+              setProfile((prev) => ({ ...prev, introText: event.target.value }))
+              setProfileError(null) // 고친 내용까지 실패한 것처럼 보이지 않게, 실패 문구는 입력을 바꾸면 지운다.
+            }}
             className={`${inputClass} resize-none`}
           />
         </label>

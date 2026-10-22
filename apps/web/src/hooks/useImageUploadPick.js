@@ -72,8 +72,9 @@ export function useImageUploadPick({ validate, upload, failMessage, describeErro
       setError('')
       setPendingKey(undefined)
     },
-    /** 저장된 이미지가 현재 이미지가 된다. 이후에는 바꾸지 않은 상태로 둔다. */
+    /** 바꾸지 않은 상태로 되돌린다(저장 뒤, 또는 방금 고른 이미지를 버릴 때). 이전 업로드 실패 문구도 같이 지운다. */
     reset() {
+      setError('')
       setPendingKey(undefined)
       setPreviewUrl(null)
     },

@@ -22,8 +22,8 @@ import { describeCreatorWriteError } from '../api/creatorProfile.js'
 import { useImageUploadPick } from '../hooks/useImageUploadPick.js'
 import { formatNumber } from '../utils/format.js'
 import { allocatePrizeKey } from '../utils/eventPrizeKeys.js'
-import { validateBannerImage } from '../utils/imageFile.js'
-import { toSafeImageUrl } from '../utils/safeUrl.js'
+import { validateEventBannerImage } from '../utils/imageValidation.js'
+import { toSafeHttpUrl } from '../utils/safeUrl.js'
 
 // 추첨 방식은 고를 수 없고 새로 만들 때는 WEIGHTED, 수정할 때는 기존 값을 보여준다.
 const DRAW_METHOD_LABELS = {
@@ -121,13 +121,13 @@ function EventFormBody({ eventId, isEdit, target }) {
   const [requestId] = useState(() => newRequestId())
   // ref는 따로 꺼내 둔다. 같은 객체로 ref를 넘기면 린터가 객체의 다른 값(busy 등)까지 렌더 중 ref 읽기로 본다.
   const { fileInput: bannerFileInput, ...banner } = useImageUploadPick({
-    validate: validateBannerImage,
+    validate: validateEventBannerImage,
     upload: uploadEventBannerImage,
     failMessage: '배너를 올리지 못했어요. 다시 시도해주세요.',
     describeError: describeEventBannerError,
   })
   // 수정 중인 이벤트에 이미 연결된 배너. 방금 올린 배너는 미리보기(blob:)로, 지우기를 고르면 아무것도 보여주지 않는다.
-  const savedBannerUrl = toSafeImageUrl(target?.bannerImageUrl)
+  const savedBannerUrl = toSafeHttpUrl(target?.bannerImageUrl)
   const shownBannerUrl = banner.pendingKey === null ? null : (banner.previewUrl ?? savedBannerUrl)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
@@ -392,17 +392,27 @@ function EventFormBody({ eventId, isEdit, target }) {
             >
               {shownBannerUrl ? '배너 변경' : '배너 선택'}
             </button>
-            {shownBannerUrl && (
+            {typeof banner.pendingKey === 'string' ? (
               <button
                 type="button"
-                // 새 이벤트는 지울 저장된 배너가 없어 고른 배너만 버린다. 수정은 저장할 때 배너를 떼도록 null을 보낸다.
-                onClick={isEdit && savedBannerUrl ? banner.remove : banner.reset}
+                // 방금 올린 배너만 버리고 원래 상태(저장된 배너 또는 배너 없음)로 돌아간다. 저장된 배너는 건드리지 않는다.
+                onClick={banner.reset}
+                disabled={banner.busy || submitting || createdEventId !== null}
+                className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
+              >
+                {savedBannerUrl ? '변경 취소' : '선택 취소'}
+              </button>
+            ) : shownBannerUrl ? (
+              <button
+                type="button"
+                // 저장된 배너를 보여 줄 때만 지우기다. 저장할 때 배너를 떼도록 null을 보낸다.
+                onClick={banner.remove}
                 disabled={banner.busy || submitting || createdEventId !== null}
                 className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
               >
                 배너 지우기
               </button>
-            )}
+            ) : null}
             {banner.pendingKey === null && (
               <button
                 type="button"

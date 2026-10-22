@@ -55,7 +55,15 @@ for(const bannerUrl of [null,'javascript:bad','https://images.test/banner-old.pn
   assert.equal(await p.locator('[data-testid=banner] img').count(),0)
  }finally{await p.close()}
 })
-for(const change of ['profile','banner','both','none'])test(`independent images ${change}: request, save, reload`,async()=>{
+// 저장 버튼은 바뀐 항목만 저장한다(#401). 아무것도 바꾸지 않으면 눌리지 않고 PATCH도 보내지 않는다.
+test('no change keeps the single save button disabled and sends no PATCH',async()=>{
+ const {p}=await screen()
+ try{
+  assert.equal(await p.getByRole('button',{name:'저장',exact:true}).isDisabled(),true)
+  assert.equal(await p.evaluate(()=>window.calls.some(x=>x.method==='PATCH')),false)
+ }finally{await p.close()}
+})
+for(const change of ['profile','banner','both'])test(`independent images ${change}: request, save, reload`,async()=>{
  const {p,png}=await screen()
  try{
   if(change==='profile'||change==='both')await upload(p,png,0)
@@ -93,7 +101,11 @@ test('profile save with broken existing banner keeps stored URL and neutral bann
 for(const index of [0,1])test(`failed upload ${index} preserves existing images`,async()=>{
  const {p,png}=await screen({failUpload:true})
  try{
-  await upload(p,png,index);await p.getByRole('alert').waitFor()
+  // 업로드에 실패하면 바뀐 이미지가 없어 저장 버튼이 눌리지 않는다. 소개를 고쳐 저장해도 이미지 key는 보내지 않는다.
+  await p.locator('input[type=file]').nth(index).setInputFiles({name:'image.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')})
+  await p.getByRole('alert').waitFor()
+  assert.equal(await p.getByRole('button',{name:'저장',exact:true}).isDisabled(),true)
+  await p.locator('textarea').fill('intro changed')
   await p.getByRole('button',{name:'저장',exact:true}).click()
   await p.waitForFunction(()=>window.toasts.includes('스페이스 정보를 저장했어요.'))
   const request=await p.evaluate(()=>window.calls.find(x=>x.method==='PATCH'))

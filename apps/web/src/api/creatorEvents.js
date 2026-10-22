@@ -1,6 +1,28 @@
-import { apiClient } from './client';
+import { ApiError, apiClient } from './client';
+import { describeCreatorWriteError } from './creatorProfile.js';
 
 // 크리에이터 운영(이벤트 CRUD·승인 요청) API. 호출자는 Access JWT로 식별하며, Creator가 아니면 FORBIDDEN이다.
+// 배너는 Cking-BE docs/domains/event/banner-api.md를 따른다. 응답의 bannerImageUrl은 배너가 없으면 null이다.
+
+// POST /api/creator/events/banner-images - 배너 이미지 1장 업로드 → { imageKey }.
+// 생성·수정의 bannerImageKey로 연결하며, 24시간 안에 연결하지 않으면 서버가 지운다.
+export function uploadEventBannerImage(file) {
+  const form = new FormData();
+  form.append('image', file);
+  return apiClient.post('/api/creator/events/banner-images', form);
+}
+
+/** 이벤트 배너 업로드·저장 오류 코드별 문구. 그 밖의 오류는 기존 이벤트 저장 문구 규칙(활동명 미설정 안내 등)을 따른다. */
+export const EVENT_BANNER_ERROR_MESSAGES = {
+  INVALID_EVENT_BANNER_IMAGE: '배너 이미지를 사용할 수 없어요. JPEG·PNG, 5MB 이하, 600×200px 이상인지 확인하고 배너를 다시 올려주세요.',
+  UPLOAD_TOO_LARGE: '이미지가 너무 커요. 5MB 이하 이미지를 올려주세요.',
+  IMAGE_PROCESSING_BUSY: '지금 사진을 처리하는 요청이 많아요. 잠시 뒤에 다시 시도해주세요.',
+};
+
+export function describeEventBannerError(error, fallback) {
+  if (error instanceof ApiError && EVENT_BANNER_ERROR_MESSAGES[error.code]) return EVENT_BANNER_ERROR_MESSAGES[error.code];
+  return describeCreatorWriteError(error, fallback);
+}
 
 // GET /api/creator/events - 내가 만든 이벤트 목록
 export async function getMyCreatorEvents({ page = 0, size = 20 } = {}) {

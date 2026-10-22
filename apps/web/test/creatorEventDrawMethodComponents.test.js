@@ -127,8 +127,8 @@ test('모바일 너비에서 두 방식의 한국어 이름을 표시한다', as
     const select = page.getByRole('combobox', { name: '추첨 방식' })
     await select.selectOption('WEIGHTED')
     if (process.env.DRAW_METHOD_SCREENSHOT) {
-      await page.evaluate(() => window.scrollTo(0, 0))
-      await page.screenshot({ path: process.env.DRAW_METHOD_SCREENSHOT, fullPage: true })
+      await select.evaluate(element => element.scrollIntoView({ block: 'center' }))
+      await page.screenshot({ path: process.env.DRAW_METHOD_SCREENSHOT })
     }
     assert.ok(await select.isVisible())
     const winnerBox = await page.locator('#event-winner-count').boundingBox()

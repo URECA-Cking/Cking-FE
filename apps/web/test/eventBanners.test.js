@@ -9,7 +9,8 @@ test('bannerImageUrl이 있으면 그 주소를 쓴다', () => {
 })
 
 test('bannerImageUrl이 없거나 안전하지 않으면 이벤트별 임시 그림으로 대신한다', () => {
-  for (const bannerImageUrl of [null, undefined, '', 'javascript:alert(1)', 'not a url']) {
+  // blob:은 업로드 직후 미리보기용이라 서버가 준 주소로는 받지 않는다(web·admin 같은 기준).
+  for (const bannerImageUrl of [null, undefined, '', 'javascript:alert(1)', 'not a url', 'blob:http://localhost/abc']) {
     assert.equal(eventBannerSrc({ eventId: 7, bannerImageUrl }), 'https://picsum.photos/seed/event-7/900/500')
   }
 })

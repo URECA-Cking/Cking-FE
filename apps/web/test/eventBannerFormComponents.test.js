@@ -39,20 +39,22 @@ async function screen({ edit = false, bannerImageUrl = null, uploadError = null 
   await page.route('https://images.test/**', (route) => route.fulfill({ contentType: 'image/png', body: Buffer.from(png, 'base64') }))
   await page.evaluate(({ edit, bannerImageUrl, uploadError, prizes }) => {
     window.eventPath = edit ? '/creator/events/16/edit' : '/creator/events/new'
-    window.calls = []; window.toasts = []
+    window.calls = []; window.toasts = []; window.uploadError = uploadError; window.createError = null
     window.fetch = async (url, options = {}) => {
       const path = new URL(url).pathname, method = options.method ?? 'GET'
       window.calls.push({ path, method, body: typeof options.body === 'string' ? JSON.parse(options.body) : options.body ? 'form' : undefined })
       const response = (data, status = 200, code = 'SUCCESS') => new Response(JSON.stringify({ code, data, message: code }), { status })
       if (path === '/api/creator/events/banner-images') {
-        return uploadError ? response(null, 400, uploadError) : response({ imageKey: 'creator-space-profile-images/1/event-banner/new.jpg' }, 201)
+        return window.uploadError ? response(null, 400, window.uploadError) : response({ imageKey: 'creator-space-profile-images/1/event-banner/new.jpg' }, 201)
       }
       if (path === '/api/creator/space') return response(null)
       if (path === '/api/creator/events' && method === 'GET') {
         return response({ items: [{ eventId: 16, title: '기존 이벤트', description: '', drawMethod: 'WEIGHTED', prizeAlgorithmVersion: 'PRIZE_WEIGHTED_V1',
           winnerCount: 1, startAt: '2030-01-01T01:00:00Z', endAt: '2030-02-01T01:00:00Z', prizes, bannerImageKey: bannerImageUrl ? 'old' : null, bannerImageUrl }], hasNext: false })
       }
-      if (path === '/api/creator/events' && method === 'POST') return response({ eventId: 16, status: 'DRAFT' }, 201)
+      if (path === '/api/creator/events' && method === 'POST') {
+        return window.createError ? response(null, 409, window.createError) : response({ eventId: 16, status: 'DRAFT' }, 201)
+      }
       if (path === '/api/creator/events/16' && method === 'PATCH') return response({ eventId: 16, status: 'DRAFT' })
       throw Error(path)
     }
@@ -137,6 +139,41 @@ test('지우기를 취소하면 기존 배너를 다시 보여 주고 bannerImag
     await save(page, true)
     const [request] = await writes(page)
     assert.equal('bannerImageKey' in request.body, false)
+  } finally { await page.close() }
+})
+
+test('저장된 배너 위에 새 배너를 올렸다가 변경 취소하면 저장된 배너가 그대로 남는다', async () => {
+  const { page, png } = await screen({ edit: true, bannerImageUrl: 'https://images.test/banner-old.png' })
+  try {
+    await pickBanner(page, png)
+    assert.equal(await page.getByRole('button', { name: '배너 지우기', exact: true }).count(), 0)
+    await page.getByRole('button', { name: '변경 취소', exact: true }).click()
+    assert.equal(await page.getByRole('img', { name: '배너 미리보기' }).getAttribute('src'), 'https://images.test/banner-old.png')
+    await save(page, true)
+    const [request] = await writes(page)
+    assert.equal('bannerImageKey' in request.body, false)
+  } finally { await page.close() }
+})
+
+test('올린 배너를 선택 취소하면 그 전 업로드 실패 문구도 함께 사라진다', async () => {
+  const { page, png } = await screen()
+  try {
+    await pickBanner(page, png)
+    await page.evaluate(() => { window.uploadError = 'INVALID_EVENT_BANNER_IMAGE' })
+    await page.getByLabel('배너 이미지 파일').setInputFiles({ name: 'b.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') })
+    await page.getByRole('alert').filter({ hasText: '배너 이미지를 사용할 수 없어요' }).waitFor()
+    await page.getByRole('button', { name: '선택 취소', exact: true }).click()
+    assert.equal(await page.getByRole('alert').filter({ hasText: '배너 이미지를 사용할 수 없어요' }).count(), 0)
+    assert.equal(await page.getByRole('img', { name: '배너 미리보기' }).count(), 0)
+  } finally { await page.close() }
+})
+
+test('같은 요청이 이미 저장돼 IDEMPOTENCY_CONFLICT가 오면 내 이벤트 목록에서 확인하라고 안내한다', async () => {
+  const { page } = await screen()
+  try {
+    await page.evaluate(() => { window.createError = 'IDEMPOTENCY_CONFLICT' })
+    await save(page, false)
+    await page.getByText('이 이벤트는 이미 저장됐을 수 있어요. 내 이벤트 목록에서 확인한 뒤 필요하면 수정해주세요.').waitFor()
   } finally { await page.close() }
 })
 

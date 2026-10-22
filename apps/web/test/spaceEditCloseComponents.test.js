@@ -56,6 +56,7 @@ async function screen({ closeOnBack = false, profile = null, space = {} } = {}) 
       }
       if (path === '/api/creator/space') {
         if (method === 'PATCH') {
+          if (window.failPatch) return new Response(JSON.stringify({ code: 'SYSTEM_ERROR', data: null, message: '서버 오류' }), { status: 500 })
           if (window.holdPatch) await window.holdPatch
           window.spaceRecord = { ...window.spaceRecord, introText: JSON.parse(options.body).introText }
         }
@@ -287,7 +288,21 @@ test('활동명은 따로 저장 버튼 없이 시트 저장으로 저장하고,
   }
 })
 
-test('공유 주소를 바꾸는 응답을 기다리는 동안 주소를 더 고치면 응답이 그 입력을 덮어쓰지 않는다', async () => {
+test('소개 저장이 실패한 뒤 소개를 고치면 실패 문구가 사라진다', async () => {
+  const page = await screen()
+  try {
+    await page.evaluate(() => { window.failPatch = true })
+    await intro(page).fill('실패할 소개')
+    await page.getByRole('button', { name: '저장', exact: true }).click()
+    const failure = page.getByRole('dialog', { name: '스페이스 편집' }).getByRole('alert')
+    await failure.first().waitFor()
+    await intro(page).fill('고친 소개')
+    assert.equal(await failure.count(), 0)
+  } finally { await page.close() }
+})
+
+// 저장하는 동안에는 공유 주소 칸을 막는다(잠금 기간 처리와 같은 입력 잠금). 응답이 오면 저장된 주소가 들어가고 바로 닫힌다.
+test('공유 주소를 저장하는 동안에는 주소 칸이 막히고, 응답이 오면 저장된 주소로 남는다', async () => {
   const page = await screen()
   try {
     await page.evaluate(() => { window.holdSlug = new Promise((resolve) => { window.releaseSlug = resolve }) })
@@ -296,11 +311,12 @@ test('공유 주소를 바꾸는 응답을 기다리는 동안 주소를 더 고
     await page.getByRole('button', { name: '저장', exact: true }).click()
     await page.getByRole('dialog', { name: LOCK_CONFIRM_TITLE }).getByRole('button', { name: '저장하기', exact: true }).click()
     await page.getByRole('button', { name: '저장하는 중...' }).waitFor()
-    await slugInput.fill('address-b')
+    assert.equal(await slugInput.isDisabled(), true)
     await page.evaluate(() => window.releaseSlug())
     await page.waitForFunction(() => window.toasts.includes('스페이스 정보를 저장했어요.'))
-    assert.equal(await slugInput.inputValue(), 'address-b')
+    assert.equal(await slugInput.inputValue(), 'address-a')
+    assert.equal(await slugInput.isDisabled(), false)
     await closeButton(page).click()
-    await page.getByRole('dialog', { name: CONFIRM_TITLE }).waitFor()
+    await page.getByRole('dialog').waitFor({ state: 'detached' })
   } finally { await page.close() }
 })

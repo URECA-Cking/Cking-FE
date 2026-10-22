@@ -14,6 +14,7 @@ function Probe({ memberId }) {
       <p data-testid="loading">{String(loading)}</p>
       <p data-testid="error">{error ?? ''}</p>
       <p data-testid="items">{items.map((creator) => creator.name).join(',')}</p>
+      <p data-testid="profiles">{JSON.stringify(items)}</p>
       <p data-testid="request">{requestId ?? ''}</p>
     </div>
   )

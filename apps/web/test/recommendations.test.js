@@ -176,3 +176,22 @@ test('같은 회원의 분야 저장 후 재조회 중에는 이전 추천과 �
   assert.equal(await read(page, 'request'), 'fitness')
   await page.close()
 })
+
+
+test('추천의 최신 소개·이미지 삭제는 반영하고 null 이름·링크는 카탈로그를 유지한다', async () => {
+  const page = await screen()
+  const result = recommendation('rid-new', 1)
+  Object.assign(result.data.items[0], { creatorName: null, introText: null, profileImageUrl: null })
+  const profiles = structuredClone(catalog)
+  Object.assign(profiles.data.items[0], { introText: '이전 소개', profileImageUrl: 'old.png' })
+  await enqueue(page, 'recommendation', result)
+  await enqueue(page, 'catalog', profiles)
+  await page.evaluate(() => window.renderRecommendations(1))
+  await waitText(page, 'items', '크리가')
+  const [item] = JSON.parse(await read(page, 'profiles'))
+  assert.equal(item.creatorId, 1)
+  assert.equal(item.handle, 'c1')
+  assert.equal(item.bio, null)
+  assert.equal(item.avatar, null)
+  await page.close()
+})

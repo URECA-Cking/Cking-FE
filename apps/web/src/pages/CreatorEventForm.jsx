@@ -457,7 +457,7 @@ function EventFormBody({ eventId, isEdit, target }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
+        <div className="grid grid-cols-2 gap-space-sm">
           <div className="flex flex-col gap-1.5">
             <label className={labelClass} htmlFor="event-winner-count">
               당첨 인원 <span className="text-primary">*</span>
@@ -477,7 +477,7 @@ function EventFormBody({ eventId, isEdit, target }) {
             </label>
             <select
               id="event-draw-method"
-              className={inputClass}
+              className={`${inputClass} opacity-70`}
               value={form.drawMethod}
               onChange={(e) => updateField('drawMethod', e.target.value)}
             >

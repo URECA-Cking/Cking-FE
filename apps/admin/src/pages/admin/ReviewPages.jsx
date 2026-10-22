@@ -10,6 +10,7 @@ import { useAsync } from '../../hooks/useAsync.js'
 import { approveCreatorApplication, approveEvent, getAllCreatorApplications, getAllPendingEvents, getCreatorApplications, rejectCreatorApplication, rejectEvent } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
+import { toSafeHttpUrl } from '@cking/shared/safeUrl'
 
 const CONFIG = {
   creators: {
@@ -24,19 +25,9 @@ const CONFIG = {
   },
 }
 
-/** 승인 대기 응답의 배너 주소(Cking-BE #748)를 http(s)일 때만 이미지로 그린다. 없으면 null이다. */
-function safeBannerUrl(value) {
-  if (typeof value !== 'string' || !value.trim()) return null
-  try {
-    const url = new URL(value.trim())
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null
-  } catch {
-    return null
-  }
-}
-
+/** 승인 대기 응답의 배너 주소(Cking-BE #748)를 http(s)일 때만 이미지로 그린다(web과 같은 기준). */
 function EventBannerPreview({ url }) {
-  const src = safeBannerUrl(url)
+  const src = toSafeHttpUrl(url)
   if (!src) return <span className="text-slate-500">배너 없음(사용자 화면은 기본 그림)</span>
   return <img src={src} alt="이벤트 배너" className="h-24 w-full max-w-sm rounded-md border border-slate-200 object-cover" />
 }

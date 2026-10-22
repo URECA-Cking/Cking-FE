@@ -63,7 +63,7 @@ test('회원이 바뀌면 새 응답이 오기 전에는 이전 회원의 추천
   await enqueue(page, 'recommendation', recommendation('rid-A', 1, 2))
   await enqueue(page, 'catalog', catalog)
   await page.evaluate(() => window.renderRecommendations(1))
-  await waitText(page, 'items', '크리가,크리나')
+  await waitText(page, 'items', '크리1,크리2')
   assert.equal(await read(page, 'request'), 'rid-A')
 
   // 회원 B의 조회를 붙잡아 둔 채 같은 화면에서 회원만 바꾼다.
@@ -74,7 +74,7 @@ test('회원이 바뀌면 새 응답이 오기 전에는 이전 회원의 추천
   assert.equal(await read(page, 'request'), '')
 
   await page.evaluate(() => window.resolvers.recommendation())
-  await waitText(page, 'items', '크리다')
+  await waitText(page, 'items', '크리3')
   assert.equal(await read(page, 'request'), 'rid-B')
   await page.close()
 })
@@ -84,7 +84,7 @@ test('새 회원의 조회가 실패하면 이전 회원의 추천 대신 오류
   await enqueue(page, 'recommendation', recommendation('rid-A', 1), failure)
   await enqueue(page, 'catalog', catalog)
   await page.evaluate(() => window.renderRecommendations(1))
-  await waitText(page, 'items', '크리가')
+  await waitText(page, 'items', '크리1')
 
   await page.evaluate(() => window.renderRecommendations(2))
   await page.waitForFunction(() => document.querySelector('[data-testid="error"]')?.textContent !== '')
@@ -104,7 +104,7 @@ test('추천은 성공했어도 프로필 목록이 실패하면 빈 추천이 �
   assert.equal(await read(page, 'loading'), 'false')
 
   await page.evaluate(() => window.reloadRecommendations())
-  await waitText(page, 'items', '크리가,크리다')
+  await waitText(page, 'items', '크리1,크리3')
   assert.equal(await read(page, 'error'), '')
   await page.close()
 })
@@ -121,7 +121,7 @@ test('추천은 있는데 프로필 목록에서 하나도 찾지 못하면 빈 
   assert.equal(await read(page, 'loading'), 'false')
 
   await page.evaluate(() => window.reloadRecommendations())
-  await waitText(page, 'items', '신규7,신규8')
+  await waitText(page, 'items', '크리7,크리8')
   assert.equal(await read(page, 'error'), '')
   await page.close()
 })
@@ -131,7 +131,67 @@ test('추천 일부만 프로필 목록에 없으면 찾은 항목만 보여 주
   await enqueue(page, 'recommendation', recommendation('rid-A', 1, 7))
   await enqueue(page, 'catalog', catalog)
   await page.evaluate(() => window.renderRecommendations(1))
-  await waitText(page, 'items', '크리가')
+  await waitText(page, 'items', '크리1')
   assert.equal(await read(page, 'error'), '')
+  await page.close()
+})
+
+
+test('빈 추천은 카탈로그의 다른 크리에이터로 채우지 않는다', async () => {
+  const page = await screen()
+  await enqueue(page, 'recommendation', recommendation('empty'))
+  await enqueue(page, 'catalog', catalog)
+  await page.evaluate(() => window.renderRecommendations(1))
+  await waitText(page, 'loading', 'false')
+  assert.equal(await read(page, 'items'), '')
+  assert.equal(await read(page, 'error'), '')
+  await page.close()
+})
+
+test('구 서버의 인기순 응답은 개인화 추천으로 표시하지 않는다', async () => {
+  const page = await screen()
+  const old = recommendation('popular', 1, 2, 3)
+  old.data.policyVersion = 'POPULAR_FALLBACK_V1'
+  await enqueue(page, 'recommendation', old)
+  await enqueue(page, 'catalog', catalog)
+  await page.evaluate(() => window.renderRecommendations(1))
+  await waitText(page, 'loading', 'false')
+  assert.equal(await read(page, 'items'), '')
+  await page.close()
+})
+
+test('같은 회원의 분야 저장 후 재조회 중에는 이전 추천과 요청 ID를 비운다', async () => {
+  const page = await screen()
+  await enqueue(page, 'recommendation', recommendation('food', 1), { deferred: recommendation('fitness', 2) })
+  await enqueue(page, 'catalog', catalog)
+  await page.evaluate(() => window.renderRecommendations(1))
+  await waitText(page, 'items', '크리1')
+  await page.evaluate(() => { window.reloadAfterInterests() })
+  await waitText(page, 'loading', 'true')
+  assert.equal(await read(page, 'items'), '')
+  assert.equal(await read(page, 'request'), '')
+  assert.equal(await read(page, 'error'), '')
+  await page.evaluate(() => window.resolvers.recommendation())
+  await waitText(page, 'items', '크리2')
+  assert.equal(await read(page, 'request'), 'fitness')
+  await page.close()
+})
+
+
+test('추천의 최신 소개·이미지 삭제는 반영하고 null 이름·링크는 카탈로그를 유지한다', async () => {
+  const page = await screen()
+  const result = recommendation('rid-new', 1)
+  Object.assign(result.data.items[0], { creatorName: null, introText: null, profileImageUrl: null })
+  const profiles = structuredClone(catalog)
+  Object.assign(profiles.data.items[0], { introText: '이전 소개', profileImageUrl: 'old.png' })
+  await enqueue(page, 'recommendation', result)
+  await enqueue(page, 'catalog', profiles)
+  await page.evaluate(() => window.renderRecommendations(1))
+  await waitText(page, 'items', '크리가')
+  const [item] = JSON.parse(await read(page, 'profiles'))
+  assert.equal(item.creatorId, 1)
+  assert.equal(item.handle, 'c1')
+  assert.equal(item.bio, null)
+  assert.equal(item.avatar, null)
   await page.close()
 })

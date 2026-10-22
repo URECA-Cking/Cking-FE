@@ -37,16 +37,16 @@ const RECOMMENDATION = { recommendationRequestId: 'rid-1', policyVersion: 'INTER
  * window.requests에 호출한 경로를 쌓고, window.failures[경로]가 양수면 그 횟수만큼 먼저 오류를 돌려준다.
  * 목에 없는 경로(관심 분야·응모권 잔액 등)는 404라 해당 영역은 조용히 비거나 실패로 그려진다.
  */
-async function screen(initial = '/explore', { events = EVENTS, creators = CREATORS, counts = null, failures = {}, recommendation = RECOMMENDATION, recommendationAfterSave = null, delayCatalog = false } = {}) {
+async function screen(initial = '/explore', { events = EVENTS, creators = CREATORS, counts = null, failures = {}, recommendation = RECOMMENDATION, recommendationAfterSave = null, delayCatalog = false, interestCodes = ['FOOD'] } = {}) {
   const page = await browser.newPage()
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
   await page.goto('http://localhost/explore-test')
-  await page.evaluate(({ creators, events, recommendation, recommendationAfterSave, counts, failures, delayCatalog }) => {
+  await page.evaluate(({ creators, events, recommendation, recommendationAfterSave, counts, failures, delayCatalog, interestCodes }) => {
     window.requests = []
     window.requestDetails = []
     window.failures = { ...failures }
-    window.savedInterestCodes = ['FOOD']
+    window.savedInterestCodes = interestCodes
     window.didSaveInterests = false
     const reply = (status, code, data, message = null) => Promise.resolve(new Response(JSON.stringify({ code, data, message }), { status }))
     const pageOf = (items, params) => {
@@ -88,7 +88,7 @@ async function screen(initial = '/explore', { events = EVENTS, creators = CREATO
       if (path === '/api/me/interests') return reply(200, 'SUCCESS', { taxonomyVersion: 'v1', interestCodes: window.savedInterestCodes })
       return reply(404, 'RESOURCE_NOT_FOUND', null, '없음')
     }
-  }, { creators, events, recommendation, recommendationAfterSave, counts, failures, delayCatalog })
+  }, { creators, events, recommendation, recommendationAfterSave, counts, failures, delayCatalog, interestCodes })
   await page.addStyleTag({ content: styles })
   await page.addScriptTag({ content: bundle })
   await page.evaluate((path) => window.renderExplore(path), initial)
@@ -168,10 +168,10 @@ test('분야 카탈로그를 한 번만 요청하고 응답 전에는 추천 카
   assert.equal(await page.getByText('내가 도킹한 크리에이터와 비슷해요').count(), 0)
 
   await page.evaluate(() => window.releaseCatalog())
-  await page.getByText('관심 분야 · 요리·푸드, 운동·건강').waitFor()
+  await page.getByText('선택한 요리·푸드, 운동·건강 관심사 기반 추천').waitFor()
   assert.equal(await count(page, '/api/interests'), 1)
   assert.equal(await page.getByText('내가 도킹한 크리에이터와 비슷해요').count(), 0)
-  const badgeFits = await page.getByText('관심 분야 · 요리·푸드, 운동·건강').evaluate(
+  const badgeFits = await page.getByText('선택한 요리·푸드, 운동·건강 관심사 기반 추천').evaluate(
     (element) => element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
   )
   assert.equal(badgeFits, true)
@@ -188,16 +188,25 @@ test('카탈로그 조회 실패에도 추천을 표시하고 편집기에서 �
   await page.close()
 })
 
-test('인기순 대체 추천은 개인화 제목 대신 인기 크리에이터 제목을 표시한다', async () => {
-  const recommendation = { recommendationRequestId: 'rid-popular', policyVersion: 'POPULAR_FALLBACK_V1', items: [
-    { creatorId: 4, creatorName: '하늘', interestCodes: [], seedCreatorIds: [] },
-  ] }
-  const page = await screen('/explore/recommend', { recommendation })
-  await page.getByText('하늘', { exact: true }).waitFor()
-  assert.equal(await page.getByText('지금 인기 있는 크리에이터').count(), 1)
-  assert.equal(await page.getByText('나를 위한 추천').count(), 0)
-  await page.close()
-})
+for (const { interestCodes, message } of [
+  { interestCodes: ['FOOD'], message: '선택한 관심 분야에 맞는 추천 크리에이터가 아직 없어요.' },
+  { interestCodes: [], message: '아직 보여드릴 추천이 없어요. 관심 분야를 골라 보세요.' },
+]) {
+  test(`구 서버 인기순 보충은 숨기고 관심 분야 선택 여부에 맞는 빈 화면을 표시한다 (선택 수: ${interestCodes.length})`, async () => {
+    const recommendation = { recommendationRequestId: 'rid-popular', policyVersion: 'POPULAR_FALLBACK_V1', items: [
+      { creatorId: 4, creatorName: '하늘', interestCodes: [], seedCreatorIds: [] },
+    ] }
+    const page = await screen('/explore/recommend', { recommendation, interestCodes })
+    try {
+      await page.getByText(message, { exact: true }).waitFor()
+      assert.equal(await page.getByText('하늘', { exact: true }).count(), 0)
+      assert.equal(await page.getByText('지금 인기 있는 크리에이터').count(), 0)
+      assert.equal(await page.getByText('나를 위한 추천').count(), 1)
+    } finally {
+      await page.close()
+    }
+  })
+}
 
 test('관심 분야 저장 성공 후 추천을 다시 조회해 변경된 카드와 이유를 표시한다', async () => {
   const recommendation = { recommendationRequestId: 'rid-before', policyVersion: 'INTEREST_PERSONALIZED_V1', items: [
@@ -207,14 +216,14 @@ test('관심 분야 저장 성공 후 추천을 다시 조회해 변경된 카�
     { creatorId: 3, creatorName: '가을', interestCodes: ['FITNESS'], seedCreatorIds: [] },
   ] }
   const page = await screen('/explore/recommend', { recommendation, recommendationAfterSave })
-  await page.getByText('관심 분야 · 요리·푸드').waitFor()
+  await page.getByText('선택한 요리·푸드 관심사 기반 추천').waitFor()
   await page.getByRole('button', { name: '분야 편집' }).click()
   const interests = page.getByRole('group', { name: '관심 분야' })
   await interests.getByRole('button', { name: '요리·푸드' }).click()
   await interests.getByRole('button', { name: '운동·건강' }).click()
   await page.getByRole('button', { name: '저장', exact: true }).click()
 
-  await page.getByText('관심 분야 · 운동·건강').waitFor()
+  await page.getByText('선택한 운동·건강 관심사 기반 추천').waitFor()
   assert.equal(await page.getByText('가을', { exact: true }).count(), 1)
   assert.equal(await page.getByText('하늘', { exact: true }).count(), 0)
   const requests = await page.evaluate(() => window.requestDetails)

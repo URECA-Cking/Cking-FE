@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useAsync } from './useAsync.js'
 import { getCreatorCatalog, getMyCreatorRecommendations } from '../api/creators.js'
+import { mergeRecommendationProfile } from '../utils/recommendationProfile.js'
 
 // 추천은 BE 상한(20)까지 한 번에 받고 화면에서 나눠 보여준다. 더 보기마다 다시 받으면 응답 ID(수집 단위)가 바뀐다.
 const RECOMMEND_MAX = 20
@@ -8,14 +9,14 @@ const RECOMMEND_MAX = 20
 /**
  * 맞춤 추천 목록과 노출·클릭 수집용 응답 ID를 한 번에 돌려준다.
  *
- * - 추천 응답은 이름·이미지·소개만 주므로 핸들 등은 공개 크리에이터 목록(이벤트는 받지 않는다)의 같은 크리에이터로 채운다.
+ * - 이름·이미지·소개는 추천 응답(명시적인 null/빈 문자열 포함)을 우선하고 누락된 핸들 등만 공개 크리에이터 목록(이벤트는 받지 않는다)의 같은 크리에이터로 채운다.
  * - 조회 결과(와 실패)에 요청한 회원을 함께 담는다. 공용 useAsync는 의존성이 바뀌어도 이전 결과를 지우지 않아서,
  *   회원이 바뀌면 새 조회가 끝나기 전·실패한 뒤에도 이전 회원의 추천과 응답 ID를 내보내지 않는다.
  * - 추천 조회와 프로필 목록 조회를 따로 추적해, 어느 한쪽만 실패해도 "추천이 없다"로 보이지 않고 오류와 다시 시도로 이어진다.
  * - 추천 응답에는 항목이 있는데 프로필 목록에서 하나도 찾지 못하면(목록 캐시가 오래돼 새 크리에이터가 빠진 경우 등) 빈 추천이 아니라
  *   오류로 보고, 다시 시도에서 프로필 목록을 캐시 없이 새로 받는다. 일부만 못 찾으면 찾은 항목만 보여 준다.
  * - 추천 응답의 기여 관심 분야·팔로우 seed는 프로필과 결합한 뒤에도 보존해 카드의 추천 이유에 쓴다.
- * - 인기순 대체 여부도 현재 회원의 응답에서만 꺼내 화면 제목에 전달한다.
+ * - 빈 응답을 목록이나 인기순으로 보충하지 않는다.
  *
  * @returns {{ items: object[], creatorsById: Map<number, object>, requestId: number|string|null, personalized: boolean|null, loading: boolean, error: string|null, reload: () => void, reloadRecommendations: () => void }}
  *   items는 현재 회원의 추천을 프로필과 결합한 목록이다. 아직 준비되지 않았거나 실패했으면 빈 배열이다.
@@ -48,13 +49,13 @@ export function useMyCreatorRecommendations(memberId) {
     [catalog.data],
   )
   const items = useMemo(
-    () => (mine?.items ?? []).map((item) => {
+    () => (!recommendation.loading && !failed ? mine?.items ?? [] : []).map((item) => {
       const creator = creatorsById.get(item.creatorId)
-      return creator ? { ...creator, interestCodes: item.interestCodes, seedCreatorIds: item.seedCreatorIds } : null
+      return creator ? mergeRecommendationProfile(creator, item) : null
     }).filter(Boolean),
-    [mine, creatorsById],
+    [mine, creatorsById, recommendation.loading, failed],
   )
-  const joinFailed = Boolean(catalog.data) && (mine?.items.length ?? 0) > 0 && items.length === 0
+  const joinFailed = !recommendation.loading && !failed && Boolean(catalog.data) && (mine?.items.length ?? 0) > 0 && items.length === 0
   const error = (failed ? recommendation.error : null) ?? catalog.error
     ?? (joinFailed ? '추천 크리에이터의 프로필을 불러오지 못했어요.' : null)
   // 새 회원의 응답이 오기 전(이전 회원 결과만 남은 상태)과 두 조회가 진행 중일 때는 로딩으로 본다.
@@ -63,7 +64,8 @@ export function useMyCreatorRecommendations(memberId) {
   return {
     items,
     creatorsById,
-    requestId: mine?.requestId ?? null,
+    requestId: !loading && !error ? mine?.requestId ?? null : null,
+    // 구 호출부와의 임시 호환 필드. BE #739 배포 및 추천 소비자 전환 완료 후 제거한다.
     personalized: mine?.personalized ?? null,
     loading,
     error,
@@ -75,6 +77,6 @@ export function useMyCreatorRecommendations(memberId) {
       }
       if (failed || !(catalog.error || joinFailed)) recommendation.reload()
     },
-    reloadRecommendations: recommendation.reload,
+    reloadRecommendations: () => { recommendation.setData(null); return recommendation.reload() },
   }
 }

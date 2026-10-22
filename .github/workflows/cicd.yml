@@ -118,8 +118,11 @@ jobs:
 
       - name: S3 동기화
         if: steps.latest.outputs.skip != 'true'
-        # --delete로 이전 빌드의 잔여 파일을 지운다. 해시가 붙은 파일명이라 계속 쌓인다.
-        run: aws s3 sync "apps/$APP/dist/" "s3://$S3_BUCKET/" --delete
+        # 해시가 붙은 파일(assets/)을 먼저 올리고 지우지 않는다. 배포 전에 연 화면과 서비스 워커가 캐시한 이전 index.html이
+        # 이전 해시 파일을 계속 찾기 때문이다. 이름이 고정된 파일(index.html 등)은 그다음에 바꾸고 남은 것은 지운다.
+        run: |
+          aws s3 sync "apps/$APP/dist/assets/" "s3://$S3_BUCKET/assets/"
+          aws s3 sync "apps/$APP/dist/" "s3://$S3_BUCKET/" --delete --exclude "assets/*"
 
       - name: CloudFront 캐시 무효화
         if: steps.latest.outputs.skip != 'true'
@@ -212,7 +215,10 @@ jobs:
 
       - name: S3 동기화
         if: steps.latest.outputs.skip != 'true'
-        run: aws s3 sync "apps/$APP/dist/" "s3://$S3_BUCKET/" --delete
+        # 개발 배포와 같다. 해시 파일을 먼저 올리고 지우지 않으며, 이름이 고정된 파일은 마지막에 바꾼다.
+        run: |
+          aws s3 sync "apps/$APP/dist/assets/" "s3://$S3_BUCKET/assets/"
+          aws s3 sync "apps/$APP/dist/" "s3://$S3_BUCKET/" --delete --exclude "assets/*"
 
       - name: CloudFront 캐시 무효화
         if: steps.latest.outputs.skip != 'true'

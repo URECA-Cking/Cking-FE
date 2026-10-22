@@ -23,8 +23,8 @@ test.after(async () => {
 })
 
 /** Creator 이벤트 생성·수정 API를 흉내 내고 해당 폼을 브라우저에 연다. */
-async function openForm(edit = false, initialMethod = 'WEIGHTED') {
-  const page = await browser.newPage()
+async function openForm(edit = false, initialMethod = 'WEIGHTED', touch = false) {
+  const page = await browser.newPage(touch ? { hasTouch: true, isMobile: true, viewport: { width: 375, height: 812 } } : {})
   page.on('pageerror', error => pageErrors.push(error.message))
   await page.route('**/*', route => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' })
@@ -167,8 +167,8 @@ test('추첨 방식·가중치 도움말은 hover와 focus로 열리고 이탈�
       await tooltip.waitFor()
       const box = await tooltip.boundingBox()
       assert.ok(box.x >= 0 && box.x + box.width <= 375)
-      if (label.startsWith('추첨')) assert.match(await tooltip.textContent(), /응모권 수와 관계없이/)
-      else assert.match(await tooltip.textContent(), /당첨자에게 이 상품/)
+      if (label.startsWith('추첨')) assert.match(await tooltip.textContent(), /참여자별 동일한 당첨 확률/)
+      else assert.match(await tooltip.textContent(), /상품 배정의 상대 비율/)
       if (process.env.DRAW_METHOD_SCREENSHOT) {
         await page.screenshot({ path: process.env.DRAW_METHOD_SCREENSHOT.replace('.png', label.startsWith('추첨') ? '-help.png' : '-weight-help.png') })
       }
@@ -180,6 +180,34 @@ test('추첨 방식·가중치 도움말은 hover와 focus로 열리고 이탈�
       await tooltip.waitFor({ state: 'detached' })
       await page.locator('#event-title').focus()
     }
+    assert.equal((await callsTo(page, 'POST', '/api/creator/events')).length, 0)
+  } finally { await page.close() }
+})
+
+
+test('모바일 터치로 도움말을 열고 재터치·바깥 터치로 닫으며 다른 도움말로 전환한다', async () => {
+  const page = await openForm(false, 'WEIGHTED', true)
+  try {
+    const method = page.getByRole('button', { name: '추첨 방식 도움말', exact: true })
+    const weight = page.getByRole('button', { name: '상품 1 가중치 도움말', exact: true })
+    for (const button of [method, weight]) {
+      await button.tap()
+      await page.getByRole('tooltip').waitFor()
+      assert.equal(await button.getAttribute('aria-expanded'), 'true')
+      await button.tap()
+      await page.getByRole('tooltip').waitFor({ state: 'detached' })
+      await button.tap()
+      await page.getByRole('tooltip').waitFor()
+      // focus를 받지 않는 바깥 제목을 눌러도 닫혀야 한다.
+      await page.getByRole('heading', { name: '상품 등급', exact: true }).tap()
+      await page.getByRole('tooltip').waitFor({ state: 'detached' })
+    }
+    await method.tap()
+    await weight.tap()
+    assert.equal(await page.getByRole('tooltip').count(), 1)
+    assert.equal(await method.getAttribute('aria-expanded'), 'false')
+    assert.equal(await weight.getAttribute('aria-expanded'), 'true')
+    assert.match(await page.getByRole('tooltip').textContent(), /단일 상품·균등 배정 시 미적용/)
     assert.equal((await callsTo(page, 'POST', '/api/creator/events')).length, 0)
   } finally { await page.close() }
 })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
@@ -25,10 +25,58 @@ import { allocatePrizeKey } from '../utils/eventPrizeKeys.js'
 import { validateEventBannerImage } from '../utils/imageValidation.js'
 import { toSafeHttpUrl } from '../utils/safeUrl.js'
 
-// 추첨 방식은 고를 수 없고 새로 만들 때는 WEIGHTED, 수정할 때는 기존 값을 보여준다.
+// 화면에는 이해하기 쉬운 이름을 표시하고 API에는 DrawMethod 값을 전달한다.
 const DRAW_METHOD_LABELS = {
-  WEIGHTED: 'WEIGHTED (응모권 수 비례 추첨)',
-  UNIFORM: 'UNIFORM (후보 동일 확률 추첨)',
+  UNIFORM: '동일 확률 추첨',
+  WEIGHTED: '응모권 수 비례 추첨',
+}
+
+/** hover·초점 또는 터치로 도움말을 열고 바깥 터치·재터치로 닫는다. */
+function FieldHelp({ label, centered = false, children }) {
+  const id = useId()
+  const [open, setOpen] = useState(false)
+  const root = useRef(null)
+  const pointerFocus = useRef(false)
+  useEffect(() => {
+    if (!open) return
+    const closeOutside = (event) => {
+      if (!root.current?.contains(event.target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOutside, true)
+    return () => document.removeEventListener('pointerdown', closeOutside, true)
+  }, [open])
+  return (
+    <span ref={root} className="relative inline-flex shrink-0"
+      onPointerEnter={(event) => { if (event.pointerType === 'mouse') setOpen(true) }}
+      onPointerLeave={(event) => { if (event.pointerType === 'mouse') setOpen(false) }}
+    >
+      <button
+        type="button"
+        aria-label={`${label} 도움말`}
+        aria-describedby={open ? id : undefined}
+        aria-expanded={open}
+        onPointerDown={() => { pointerFocus.current = true }}
+        onPointerCancel={() => { pointerFocus.current = false }}
+        onClick={() => { setOpen(value => !value); pointerFocus.current = false }}
+        onFocus={() => { if (!pointerFocus.current) setOpen(true) }}
+        onBlur={() => { pointerFocus.current = false; setOpen(false) }}
+        onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false) }}
+        className="flex h-4 w-4 items-center justify-center rounded-full text-outline hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+      >
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M8 7.5a2 2 0 1 1 3 1.73c-.7.4-1 1-1 1.77M10 14h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </button>
+      {open && (
+        <span id={id} role="tooltip" className={`absolute bottom-full z-50 w-56 pb-2 ${centered ? "left-1/2 -translate-x-1/2" : "right-0"}`}>
+          <span className="block rounded-xl bg-surface-container-high p-3 font-body-sm text-body-sm text-on-surface shadow-lg ring-1 ring-outline/30">
+            {children}
+          </span>
+        </span>
+      )}
+    </span>
+  )
 }
 
 const EMPTY_PRIZE = { prizeKey: '', displayName: '', priority: '', weight: '', quantity: '' }
@@ -62,7 +110,7 @@ function defaultRange() {
  * 이벤트 생성/수정 폼.
  *
  * 백엔드 검증 규칙을 그대로 따른다.
- *  - 제목 필수, 시작 < 종료, 당첨 인원 >= 1, 추첨 방식·상품 배정 알고리즘 버전은 새로 만들 때 BE 기본값(WEIGHTED), 수정 때는 기존 값을 유지
+ *  - 제목 필수, 시작 < 종료, 당첨 인원 >= 1, 추첨 방식은 선택값을 저장하고 상품 배정 알고리즘은 기존 값을 유지
  *  - 상품 등급: prizeKey는 영문·숫자·_·- 만, 중복 불가, priority/weight/quantity는 양수
  *  - 상품을 등록했다면 총 수량 >= 당첨 인원
  * 생성은 requestId(UUID)로 멱등 처리되므로, 같은 폼에서 재시도해도 중복 생성되지 않는다.
@@ -472,15 +520,31 @@ function EventFormBody({ eventId, isEdit, target }) {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className={labelClass} htmlFor="event-draw-method">
-              추첨 방식
-            </label>
-            <input
-              id="event-draw-method"
-              className={`${inputClass} opacity-70`}
-              value={DRAW_METHOD_LABELS[form.drawMethod] ?? form.drawMethod}
-              readOnly
-            />
+            <div className="flex items-center gap-1">
+              <label className={labelClass} htmlFor="event-draw-method">추첨 방식</label>
+              <FieldHelp label="추첨 방식">
+                동일 확률: 참여자별 동일한 당첨 확률<br />
+                응모권 수 비례: 응모한 응모권 수에 비례한 당첨 확률
+              </FieldHelp>
+            </div>
+            <div className="relative">
+              <select
+                id="event-draw-method"
+                className={`${inputClass} appearance-none text-transparent opacity-70`}
+                value={form.drawMethod}
+                onChange={(e) => updateField('drawMethod', e.target.value)}
+              >
+                {Object.entries(DRAW_METHOD_LABELS).map(([value, label]) => (
+                  <option key={value} value={value} className="text-on-surface">{label}</option>
+                ))}
+              </select>
+              <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-2 right-6 flex items-center break-keep text-[12px] leading-4 text-on-surface opacity-70">
+                {DRAW_METHOD_LABELS[form.drawMethod]}
+              </span>
+              <svg aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-on-surface opacity-70" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="m3 4.5 3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -531,9 +595,17 @@ function EventFormBody({ eventId, isEdit, target }) {
                   ['quantity', '수량', '예: 1'],
                 ].map(([key, label, placeholder]) => (
                   <div key={key} className="flex min-w-0 flex-col gap-1.5">
-                    <label className={labelClass} htmlFor={`event-prize-${prize.prizeKey}-${key}`}>
-                      {label} <span className="text-primary">*</span>
-                    </label>
+                    <div className="flex items-center gap-0.5">
+                      <label className={labelClass} htmlFor={`event-prize-${prize.prizeKey}-${key}`}>
+                        {label} <span className="text-primary">*</span>
+                      </label>
+                      {key === 'weight' && (
+                        <FieldHelp label={`상품 ${index + 1} 가중치`} centered>
+                          상품 배정의 상대 비율<br />
+                          단일 상품·균등 배정 시 미적용
+                        </FieldHelp>
+                      )}
+                    </div>
                     <input
                       id={`event-prize-${prize.prizeKey}-${key}`}
                       type="number"

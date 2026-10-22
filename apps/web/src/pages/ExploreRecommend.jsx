@@ -12,6 +12,7 @@ import { getSimilarCreators } from '../api/creators.js'
 import { getInterests, getMyInterests } from '../api/interests.js'
 import { describeError } from '../api/client.js'
 import { recommendationReason } from '../utils/recommendationReason.js'
+import { currentSimilarCreators, recommendationEmptyMessage } from '../utils/recommendationProfile.js'
 
 const RECOMMEND_PAGE_SIZE = 10
 const SIMILAR_SIZE = 5
@@ -27,7 +28,7 @@ export default function ExploreRecommend() {
   const showToast = useToast()
   const { user, followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds } = useUser()
   const { ownCreatorId, ownSpacePending } = useOwnCreatorId()
-  const { items: recommended, creatorsById, requestId, personalized, loading, error, reload, reloadRecommendations } = useMyCreatorRecommendations(user?.memberId ?? null)
+  const { items: recommended, creatorsById, requestId, loading, error, reload, reloadRecommendations } = useMyCreatorRecommendations(user?.memberId ?? null)
   const { impressionRef, trackClick } = useRecommendationEvents(requestId)
   const [limit, setLimit] = useState(RECOMMEND_PAGE_SIZE)
   const shown = recommended.slice(0, limit)
@@ -52,7 +53,7 @@ export default function ExploreRecommend() {
     { enabled: similarBaseId !== null },
   )
   const similarCreators = useMemo(
-    () => (similar.data?.owner === user?.memberId && similar.data?.seed === similarBaseId && !similar.loading && !similar.error ? similar.data.items : []).map((candidate) => creatorsById.get(candidate.similarCreatorId)).filter(Boolean),
+    () => currentSimilarCreators(similar.data, user?.memberId, similarBaseId, similar.loading, similar.error, creatorsById),
     [similar.data, similar.loading, similar.error, creatorsById, user?.memberId, similarBaseId],
   )
   const similarBase = creatorsById.get(similarBaseId)
@@ -86,7 +87,7 @@ export default function ExploreRecommend() {
     <div className="page-enter flex flex-col w-full pb-8">
       <section className="mt-space-md flex flex-col">
         <div className="px-margin">
-          <SectionHeader icon="auto_awesome" title={personalized === false ? '지금 인기 있는 크리에이터' : '나를 위한 추천'} action="도킹 관리" actionTo="/onboarding/creators" />
+          <SectionHeader icon="auto_awesome" title="나를 위한 추천" action="도킹 관리" actionTo="/onboarding/creators" />
         </div>
         <InterestEditor
           catalog={interests.data}
@@ -101,7 +102,7 @@ export default function ExploreRecommend() {
         {recommendationsLoading && <LoadingBlock label="추천 크리에이터를 찾는 중..." />}
         {!recommendationsLoading && error && <ErrorBlock message={error} onRetry={reload} />}
         {!recommendationsLoading && !error && shown.length === 0 && (
-          <EmptyBlock icon="auto_awesome" message={personalized === false ? '지금 보여드릴 크리에이터가 없어요.' : '아직 보여드릴 추천이 없어요. 관심 분야를 골라 보세요.'} />
+          <EmptyBlock icon="auto_awesome" message={recommendationEmptyMessage((mine?.interestCodes?.length ?? 0) > 0)} />
         )}
         {!recommendationsLoading && !error && shown.length > 0 && (
           <div className="px-margin flex flex-col gap-2.5">

@@ -157,20 +157,17 @@ export default function CreatorStep({ onFinish, finishLabel = '시작하기', sh
     onToggle: () => handleToggle(creator),
   })
 
-  const personalized = recommended.data?.personalized
   const followedCount = followedCreators.length
 
   return (
     <>
       <div className="pt-16 px-space-md flex flex-col gap-1">
         <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
-          {mode === 'recommend' ? (personalized === false ? '지금 인기 있는 크리에이터' : '나를 위한 추천') : '크리에이터 찾기'}
+          {mode === 'recommend' ? '나를 위한 추천' : '크리에이터 찾기'}
         </h1>
         <p className="font-body-md text-body-md text-on-surface-variant">
           {mode === 'recommend'
-            ? personalized === false
-              ? '아직 취향 정보가 부족해서 인기 크리에이터를 보여드려요.'
-              : '고른 분야와 도킹한 크리에이터를 바탕으로 추천해요.'
+            ? '고른 분야와 도킹한 크리에이터를 바탕으로 추천해요.'
             : '이름으로 검색해서 도킹할 크리에이터를 골라봐요.'}
         </p>
       </div>

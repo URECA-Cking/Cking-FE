@@ -64,6 +64,7 @@ export async function getCreatorProfileById(creatorId) {
 }
 
 const KEYWORD_MAX_LENGTH = 50;
+// BE #739 배포와 구 서버 롤백 지원 종료 후 제거한다. 배포 전 인기순을 개인화로 오인하지 않게 한다.
 const POPULAR_FALLBACK = 'POPULAR_FALLBACK_V1';
 
 /**
@@ -85,7 +86,7 @@ export async function searchCreators({ keyword = '', page = 0, size = 20 } = {})
  * GET /api/me/creator-recommendations?size - 관심 분야·팔로우 기반 추천(size 1~20, 기본 10).
  * 관련 후보가 부족하면 0~size개를 그대로 반환한다. 구 서버의 인기순 대체 응답도 추천으로 표시하지 않는다.
  * 이미 팔로우한 크리에이터와 본인은 BE가 제외한다. aggregateScore는 정렬용이라 화면에 넘기지 않는다.
- * @returns {Promise<{ personalized: boolean, items: object[] }>} 기존 카드·섹션 디자인을 유지한다
+ * @returns {Promise<{ personalized: boolean, requestId: number|string|null, items: object[] }>} personalized는 기존 소비자 호환용 true다.
  */
 export async function getMyCreatorRecommendations({ size = 10 } = {}) {
   const result = await apiClient.get('/api/me/creator-recommendations', { size });

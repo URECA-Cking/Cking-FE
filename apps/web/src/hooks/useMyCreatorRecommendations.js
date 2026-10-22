@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useAsync } from './useAsync.js'
 import { getCreatorCatalog, getMyCreatorRecommendations } from '../api/creators.js'
+import { mergeRecommendationProfile } from '../utils/recommendationProfile.js'
 
 // 추천은 BE 상한(20)까지 한 번에 받고 화면에서 나눠 보여준다. 더 보기마다 다시 받으면 응답 ID(수집 단위)가 바뀐다.
 const RECOMMEND_MAX = 20
@@ -50,7 +51,7 @@ export function useMyCreatorRecommendations(memberId) {
   const items = useMemo(
     () => (!recommendation.loading && !failed ? mine?.items ?? [] : []).map((item) => {
       const creator = creatorsById.get(item.creatorId)
-      return creator ? { ...creator, ...Object.fromEntries(Object.entries(item).filter(([, value]) => value !== undefined)) } : null
+      return creator ? mergeRecommendationProfile(creator, item) : null
     }).filter(Boolean),
     [mine, creatorsById, recommendation.loading, failed],
   )
@@ -64,6 +65,7 @@ export function useMyCreatorRecommendations(memberId) {
     items,
     creatorsById,
     requestId: !loading && !error ? mine?.requestId ?? null : null,
+    // 구 호출부와의 임시 호환 필드. BE #739 배포 및 추천 소비자 전환 완료 후 제거한다.
     personalized: mine?.personalized ?? null,
     loading,
     error,

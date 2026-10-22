@@ -14,10 +14,10 @@ import { describeCreatorWriteError } from '../api/creatorProfile.js'
 import { formatNumber } from '../utils/format.js'
 import { allocatePrizeKey } from '../utils/eventPrizeKeys.js'
 
-// 추첨 방식은 고를 수 없고 새로 만들 때는 WEIGHTED, 수정할 때는 기존 값을 보여준다.
+// 화면에는 이해하기 쉬운 이름을 표시하고 API에는 DrawMethod 값을 전달한다.
 const DRAW_METHOD_LABELS = {
-  WEIGHTED: 'WEIGHTED (응모권 수 비례 추첨)',
-  UNIFORM: 'UNIFORM (후보 동일 확률 추첨)',
+  UNIFORM: '동일 확률 추첨',
+  WEIGHTED: '응모권 수 비례 추첨',
 }
 
 const EMPTY_PRIZE = { prizeKey: '', displayName: '', priority: '', weight: '', quantity: '' }
@@ -51,7 +51,7 @@ function defaultRange() {
  * 이벤트 생성/수정 폼.
  *
  * 백엔드 검증 규칙을 그대로 따른다.
- *  - 제목 필수, 시작 < 종료, 당첨 인원 >= 1, 추첨 방식·상품 배정 알고리즘 버전은 새로 만들 때 BE 기본값(WEIGHTED), 수정 때는 기존 값을 유지
+ *  - 제목 필수, 시작 < 종료, 당첨 인원 >= 1, 추첨 방식은 선택값을 저장하고 상품 배정 알고리즘은 기존 값을 유지
  *  - 상품 등급: prizeKey는 영문·숫자·_·- 만, 중복 불가, priority/weight/quantity는 양수
  *  - 상품을 등록했다면 총 수량 >= 당첨 인원
  * 생성은 requestId(UUID)로 멱등 처리되므로, 같은 폼에서 재시도해도 중복 생성되지 않는다.
@@ -348,7 +348,7 @@ function EventFormBody({ eventId, isEdit, target }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-space-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
           <div className="flex flex-col gap-1.5">
             <label className={labelClass} htmlFor="event-winner-count">
               당첨 인원 <span className="text-primary">*</span>
@@ -366,12 +366,16 @@ function EventFormBody({ eventId, isEdit, target }) {
             <label className={labelClass} htmlFor="event-draw-method">
               추첨 방식
             </label>
-            <input
+            <select
               id="event-draw-method"
-              className={`${inputClass} opacity-70`}
-              value={DRAW_METHOD_LABELS[form.drawMethod] ?? form.drawMethod}
-              readOnly
-            />
+              className={inputClass}
+              value={form.drawMethod}
+              onChange={(e) => updateField('drawMethod', e.target.value)}
+            >
+              {Object.entries(DRAW_METHOD_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
           </div>
         </div>
 

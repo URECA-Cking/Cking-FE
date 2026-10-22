@@ -7,12 +7,23 @@ import ConfirmSheet from '../components/ui/ConfirmSheet.jsx'
 import { useToast } from '../context/useToast.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { useAppBack } from '../hooks/useAppBack.js'
-import { createCreatorEvent, getAllMyCreatorEvents, requestEventApproval, updateCreatorEvent } from '../api/creatorEvents.js'
+import { Spinner } from '../components/ui/States.jsx'
+import {
+  createCreatorEvent,
+  describeEventBannerError,
+  getAllMyCreatorEvents,
+  requestEventApproval,
+  updateCreatorEvent,
+  uploadEventBannerImage,
+} from '../api/creatorEvents.js'
 import { getMySpace, spacePath } from '../api/creatorSpace.js'
 import { newRequestId } from '../api/client.js'
 import { describeCreatorWriteError } from '../api/creatorProfile.js'
+import { useImageUploadPick } from '../hooks/useImageUploadPick.js'
 import { formatNumber } from '../utils/format.js'
 import { allocatePrizeKey } from '../utils/eventPrizeKeys.js'
+import { validateEventBannerImage } from '../utils/imageValidation.js'
+import { toSafeHttpUrl } from '../utils/safeUrl.js'
 
 // 화면에는 이해하기 쉬운 이름을 표시하고 API에는 DrawMethod 값을 전달한다.
 const DRAW_METHOD_LABELS = {
@@ -55,6 +66,8 @@ function defaultRange() {
  *  - 상품 등급: prizeKey는 영문·숫자·_·- 만, 중복 불가, priority/weight/quantity는 양수
  *  - 상품을 등록했다면 총 수량 >= 당첨 인원
  * 생성은 requestId(UUID)로 멱등 처리되므로, 같은 폼에서 재시도해도 중복 생성되지 않는다.
+ * 배너(Cking-BE docs/domains/event/banner-api.md): 파일을 고르면 POST /api/creator/events/banner-images로 올려 key를 받고,
+ * 저장할 때 `bannerImageKey`로 보낸다. 수정에서 배너를 건드리지 않으면 key를 보내지 않아 현재 배너를 유지하고, 지우면 null을 보낸다.
  */
 export default function CreatorEventForm() {
   const { eventId } = useParams()
@@ -106,6 +119,16 @@ function EventFormBody({ eventId, isEdit, target }) {
   const mySpace = useAsync(() => getMySpace(), [])
 
   const [requestId] = useState(() => newRequestId())
+  // ref는 따로 꺼내 둔다. 같은 객체로 ref를 넘기면 린터가 객체의 다른 값(busy 등)까지 렌더 중 ref 읽기로 본다.
+  const { fileInput: bannerFileInput, ...banner } = useImageUploadPick({
+    validate: validateEventBannerImage,
+    upload: uploadEventBannerImage,
+    failMessage: '배너를 올리지 못했어요. 다시 시도해주세요.',
+    describeError: describeEventBannerError,
+  })
+  // 수정 중인 이벤트에 이미 연결된 배너. 방금 올린 배너는 미리보기(blob:)로, 지우기를 고르면 아무것도 보여주지 않는다.
+  const savedBannerUrl = toSafeHttpUrl(target?.bannerImageUrl)
+  const shownBannerUrl = banner.pendingKey === null ? null : (banner.previewUrl ?? savedBannerUrl)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
   const [createdEventId, setCreatedEventId] = useState(null)
@@ -240,7 +263,8 @@ function EventFormBody({ eventId, isEdit, target }) {
   /** 검증된 입력으로 이벤트를 저장하고 신규 초안이면 승인 요청 확인 시트를 연다. */
   async function handleSubmit(event) {
     event.preventDefault()
-    if (submitting || createdEventId !== null) return
+    // 배너를 올리는 중에 저장하면 고른 배너가 빠진 채 저장되므로 업로드가 끝날 때까지 막는다.
+    if (submitting || createdEventId !== null || banner.busy) return
     const message = validate()
     if (message) {
       setFormError(message)
@@ -266,6 +290,10 @@ function EventFormBody({ eventId, isEdit, target }) {
         quantity: Number(prize.quantity),
       })),
     }
+    // 생성은 새로 올린 배너만 보낸다. 수정은 배너를 바꿨을 때만 보낸다(생략=유지, null=제거).
+    if (isEdit ? banner.pendingKey !== undefined : typeof banner.pendingKey === 'string') {
+      payload.bannerImageKey = banner.pendingKey
+    }
 
     try {
       if (isEdit) {
@@ -277,8 +305,9 @@ function EventFormBody({ eventId, isEdit, target }) {
         setCreatedEventId(created.eventId)
       }
     } catch (err) {
-      // 활동명을 정하기 전에는 이벤트를 만들거나 고칠 수 없다(ACTIVITY_NAME_SETUP_REQUIRED). 그 밖의 오류는 기존대로 보여 준다.
-      setFormError(describeCreatorWriteError(err, '저장에 실패했습니다. 입력값을 확인해주세요.'))
+      // 활동명을 정하기 전에는 이벤트를 만들거나 고칠 수 없다(ACTIVITY_NAME_SETUP_REQUIRED).
+      // 올린 배너가 정리됐거나 쓸 수 없으면 INVALID_EVENT_BANNER_IMAGE다. 그 밖의 오류는 기존대로 보여 준다.
+      setFormError(describeEventBannerError(err, '저장에 실패했습니다. 입력값을 확인해주세요.'))
     } finally {
       setSubmitting(false)
     }
@@ -319,6 +348,86 @@ function EventFormBody({ eventId, isEdit, target }) {
             onChange={(e) => updateField('description', e.target.value)}
             placeholder="이벤트 상세 설명, 당첨 혜택 등을 적어주세요."
           />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className={labelClass}>배너 이미지</span>
+          <button
+            type="button"
+            onClick={banner.openPicker}
+            disabled={banner.busy || submitting || createdEventId !== null}
+            aria-label={shownBannerUrl ? '배너 이미지 변경' : '배너 이미지 선택'}
+            className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-surface-container active:scale-[0.99] transition-transform disabled:opacity-70"
+          >
+            {shownBannerUrl ? (
+              <img className="h-full w-full object-cover" src={shownBannerUrl} alt="배너 미리보기" />
+            ) : (
+              <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-on-surface-variant">
+                <MaterialIcon name="add_photo_alternate" className="text-[36px]" />
+                <span className="font-label-sm text-label-sm">
+                  {banner.pendingKey === null ? '저장하면 배너가 지워져요' : '배너를 올려 주세요'}
+                </span>
+              </span>
+            )}
+            {banner.busy && (
+              <span className="absolute inset-0 flex items-center justify-center bg-black/40">
+                <Spinner className="h-6 w-6 text-white" />
+              </span>
+            )}
+          </button>
+          <input
+            ref={bannerFileInput}
+            type="file"
+            accept="image/jpeg,image/png"
+            className="hidden"
+            onChange={banner.handleFile}
+            aria-label="배너 이미지 파일"
+          />
+          <div className="flex items-center gap-space-md">
+            <button
+              type="button"
+              onClick={banner.openPicker}
+              disabled={banner.busy || submitting || createdEventId !== null}
+              className="font-label-md text-label-md font-semibold text-primary disabled:opacity-50"
+            >
+              {shownBannerUrl ? '배너 변경' : '배너 선택'}
+            </button>
+            {typeof banner.pendingKey === 'string' ? (
+              <button
+                type="button"
+                // 방금 올린 배너만 버리고 원래 상태(저장된 배너 또는 배너 없음)로 돌아간다. 저장된 배너는 건드리지 않는다.
+                onClick={banner.reset}
+                disabled={banner.busy || submitting || createdEventId !== null}
+                className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
+              >
+                {savedBannerUrl ? '변경 취소' : '선택 취소'}
+              </button>
+            ) : shownBannerUrl ? (
+              <button
+                type="button"
+                // 저장된 배너를 보여 줄 때만 지우기다. 저장할 때 배너를 떼도록 null을 보낸다.
+                onClick={banner.remove}
+                disabled={banner.busy || submitting || createdEventId !== null}
+                className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
+              >
+                배너 지우기
+              </button>
+            ) : null}
+            {banner.pendingKey === null && (
+              <button
+                type="button"
+                onClick={banner.cancelRemove}
+                disabled={submitting}
+                className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
+              >
+                지우기 취소
+              </button>
+            )}
+          </div>
+          <p className="font-label-xs text-label-xs text-on-surface-variant">
+            JPEG·PNG, 5MB 이하, 600×200px 이상
+          </p>
+          {banner.error && <p className="font-label-xs text-label-xs text-error" role="alert">{banner.error}</p>}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-space-sm">
@@ -467,10 +576,10 @@ function EventFormBody({ eventId, isEdit, target }) {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={submitting || createdEventId !== null}
+          disabled={submitting || createdEventId !== null || banner.busy}
           className="w-full h-12 rounded-xl bg-primary text-on-primary font-title-md text-title-md font-bold shadow-lg active:scale-[0.98] transition-all disabled:opacity-60"
         >
-          {submitting ? '저장 중...' : isEdit ? '수정 저장' : '이벤트 초안 작성'}
+          {submitting ? '저장 중...' : banner.busy ? '배너 올리는 중...' : isEdit ? '수정 저장' : '이벤트 초안 작성'}
         </button>
         </div>
       </div>

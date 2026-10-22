@@ -18,7 +18,7 @@ import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
 import { getPublicWinners } from '../api/winners.js'
 import { getMyWinners } from '../api/myWinners.js'
 import { newRequestId } from '../api/client.js'
-import { getEventBanner } from '../data/eventBanners.js'
+import { eventBannerSrc } from '../data/eventBanners.js'
 import { useCreatorProfile } from '../hooks/useCreatorProfile.js'
 import { formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '../utils/format.js'
 import { displayStatusMeta, eventStatusMeta, isEntryOpen } from '../utils/eventStatus.js'
@@ -364,7 +364,7 @@ export default function EventDetail() {
       <BackHeader title="" />
       <div className="pt-14 flex flex-col w-full">
         <div className="relative w-full aspect-[16/9] overflow-hidden bg-surface-container">
-          <img className="w-full h-full object-cover" src={getEventBanner(event.eventId)} alt="" />
+          <img className="w-full h-full object-cover" src={eventBannerSrc(event)} alt="" />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-surface/90 via-slate-surface/20 to-transparent" />
           <div className="absolute top-space-md left-space-md flex flex-wrap items-center gap-space-xs">
             <span

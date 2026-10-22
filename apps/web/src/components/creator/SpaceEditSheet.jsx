@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import BottomSheet from '../ui/BottomSheet.jsx'
 import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
@@ -8,6 +8,7 @@ import ActivityNameSection from './ActivityNameSection.jsx'
 import CreatorBanner from './CreatorBanner.jsx'
 import { useToast } from '../../context/useToast.js'
 import { CLOSE_ALLOW, CLOSE_BLOCK, CLOSE_CONFIRM, useCloseGuard } from '../../hooks/useCloseGuard.js'
+import { useImageUploadPick } from '../../hooks/useImageUploadPick.js'
 import { ApiError, describeError } from '../../api/client.js'
 import {
   SLUG_ERROR_MESSAGES,
@@ -38,87 +39,17 @@ function daysUntil(isoTime) {
 const inputClass =
   'w-full px-3 py-2.5 rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none shadow-sm transition-all'
 
-/**
- * 스페이스 이미지(프로필 사진·배너) 한 종류의 선택·업로드 상태.
- * pendingKey — undefined: 바꾸지 않음 / null: 기본 이미지로 / string: 새로 올린 이미지의 key.
- * busy는 파일을 고른 순간부터(검증·업로드 중) 켜진다. 이 동안은 저장·변경을 막아 이전 선택의 결과가 나중 선택을 덮지 못하게 한다.
- */
-function useSpaceImagePick({ validate, upload, failMessage }) {
-  const [pendingKey, setPendingKey] = useState(undefined)
-  const [previewUrl, setPreviewUrl] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const seq = useRef(0)
-  const alive = useRef(true)
-  const fileInput = useRef(null)
-
-  useEffect(() => {
-    alive.current = true
-    return () => {
-      alive.current = false
-    }
-  }, [])
-
-  // 방금 올린 이미지의 미리보기 주소(blob:). 바뀌거나 화면을 떠나면 해제한다.
-  useEffect(() => () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-  }, [previewUrl])
-
-  async function handleFile(event) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file || busy) return
-    const current = ++seq.current
-    const isLatest = () => alive.current && current === seq.current
-    setError('')
-    setBusy(true)
-    try {
-      const reason = await validate(file)
-      if (!isLatest()) return
-      if (reason) {
-        setError(reason)
-        return
-      }
-      const { imageKey } = await upload(file)
-      if (!isLatest()) return
-      setPendingKey(imageKey)
-      setPreviewUrl(URL.createObjectURL(file))
-    } catch (uploadError) {
-      if (isLatest()) setError(describeSpaceImageError(uploadError, failMessage))
-    } finally {
-      if (isLatest()) setBusy(false)
-    }
-  }
-
-  return {
-    pendingKey,
-    previewUrl,
-    busy,
-    error,
-    fileInput,
-    handleFile,
-    openPicker: () => fileInput.current?.click(),
-    /** 기본 이미지로 돌아가려는 선택. */
-    remove() {
-      setError('')
-      setPreviewUrl(null)
-      setPendingKey(null)
-    },
-    /** 기본 이미지로 되돌리려던 선택을 취소해 현재 이미지를 그대로 둔다. */
-    cancelRemove() {
-      setError('')
-      setPendingKey(undefined)
-    },
-    /** 저장된 이미지가 현재 이미지가 된다. 이후에는 바꾸지 않은 상태로 둔다. */
-    reset() {
-      setPendingKey(undefined)
-      setPreviewUrl(null)
-    },
-  }
+/** 스페이스 이미지(프로필 사진·배너) 한 종류의 선택·업로드 상태. 지우기(null)는 스페이스 기본 이미지로 돌아간다. */
+function useSpaceImagePick(options) {
+  return useImageUploadPick({ ...options, describeError: describeSpaceImageError })
 }
 
 /**
  * Creator 본인의 Space 편집(Cking-BE docs/domains/creator/space-api.md).
+ * 저장 버튼은 시트 아래에 하나만 두고, 바뀐 항목의 API만 활동명 → 홈·프로필 → slug 순서로 호출한다.
+ * 활동명·slug는 바꾸면 14일 동안 다시 바꿀 수 없어 저장 전에 확인 시트를 띄운다(활동명 최초 설정은 제외).
+ * 일부만 실패하면 성공한 항목은 반영하고 실패한 칸에 오류를 남긴다. 이전 활동명·주소로 되돌리기도 입력칸만 채우고 같은 저장 버튼으로 저장한다.
+ * 저장 버튼은 시트 내용의 맨 끝(공유 주소 아래)에 있다.
  * - 활동명: GET·PUT /api/creator/profile (ActivityNameSection). 저장하면 화면의 크리에이터 이름도 바로 바뀐다.
  * - 홈·프로필: PATCH /api/creator/space (소개·프로필 이미지 URL·배너 이미지 URL을 한 번에 교체)
  *   프로필 사진은 파일을 고르면 POST /api/creator/space/profile-images로 올려 key를 받고, 저장할 때 `profileImageKey`로 보낸다.
@@ -166,34 +97,49 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
   const [slug, setSlug] = useState(space.slug ?? '')
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingSlug, setSavingSlug] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [confirmingSave, setConfirmingSave] = useState(false)
   const [slugError, setSlugError] = useState(null)
+  const [profileError, setProfileError] = useState(null)
+  // 활동명 입력 상태({ dirty, valid, firstSetup, save }). 불러오기 전이거나 화면에서 빠지면 null이다.
+  const [activityName, setActivityName] = useState(null)
 
   const remainingDays = daysUntil(space.slugChangeableAt)
+  // 공유 주소를 바꾼 지 14일이 안 지났다. 새 주소로는 못 바꾸고 이전 주소로 되돌리기만 된다(최종 판단은 BE).
+  const slugLocked = remainingDays > 0
   // 프로필 이미지·배너 URL은 입력칸이 없어도 PATCH에 필수라 현재 값을 그대로 보낸다(업로드한 이미지가 연결돼 있으면 BE가 무시한다).
   const profileValid = Object.values(profile).every((value) => value.trim() && value.length <= MAX_TEXT)
   // 방금 올린 사진은 미리보기(blob:) 주소로, 저장돼 있는 사진은 서버 주소가 http(s)일 때만 보여준다.
   const shownImage = photo.pendingKey === null ? null : (photo.previewUrl ?? toSafeHttpUrl(space.profileImageUrl))
   const imageBusy = photo.busy || banner.busy
 
-  // 저장하지 않은 변경: 소개, 고른(올리는 중 포함) 프로필 사진·배너, 입력한 주소. 저장하면 space가 갱신돼 다시 같아진다.
-  // 활동명은 자체 저장 버튼이 있는 별도 입력이라 여기에 넣지 않는다.
-  // 소개는 저장할 때 앞뒤 공백을 지워 보내므로 같은 기준(trim)으로 비교한다.
-  const dirty = profile.introText.trim() !== (space.introText ?? '').trim()
-    || photo.pendingKey !== undefined || photo.busy
-    || banner.pendingKey !== undefined || banner.busy
-    || slug.trim() !== (space.slug ?? '')
+  // 항목별로 바뀌었는지 본다. 저장 버튼은 바뀐 항목만 저장한다. 소개는 저장할 때 앞뒤 공백을 지워 보내므로 같은 기준(trim)으로 비교한다.
+  const profileDirty = profile.introText.trim() !== (space.introText ?? '').trim()
+    || photo.pendingKey !== undefined || banner.pendingKey !== undefined
+  const slugDirty = slug.trim() !== (space.slug ?? '')
+  const nameDirty = Boolean(activityName?.dirty)
+  const busy = saving || savingProfile || savingSlug
+  const canSave = (profileDirty || slugDirty || nameDirty) && !busy && !imageBusy
+    && (!profileDirty || profileValid) && (!slugDirty || Boolean(slug.trim())) && (!nameDirty || activityName.valid)
+
+  // 저장하지 않은 변경(올리는 중인 이미지 포함)이 있으면 닫을 때 확인을 거친다. 저장하면 space가 갱신돼 다시 같아진다.
+  const dirty = profileDirty || photo.busy || banner.busy || slugDirty || nameDirty
+  // 사진·배너를 새로 고르거나 지우면 이전 저장 실패 문구를 지운다(소개는 입력할 때 지운다). 실패한 그대로면 문구가 남는다.
+  useEffect(() => { setProfileError(null) }, [photo.pendingKey, banner.pendingKey])
   useEffect(() => {
     registerGuard(() => {
-      if (savingProfile || savingSlug) return CLOSE_BLOCK
+      if (busy) return CLOSE_BLOCK
       return dirty ? CLOSE_CONFIRM : CLOSE_ALLOW
     })
     return () => registerGuard(() => CLOSE_ALLOW)
-  }, [registerGuard, savingProfile, savingSlug, dirty])
+  }, [registerGuard, busy, dirty])
 
+  /** 소개·프로필 사진·배너를 저장하고 성공 여부를 돌려준다. 토스트는 saveAll이 한 번만 띄운다. */
   async function saveProfile() {
     // 응답을 기다리는 동안 소개를 더 고칠 수 있어, 응답 값은 요청 때와 같은 입력일 때만 입력칸에 반영한다.
     const sentIntro = profile.introText
     setSavingProfile(true)
+    setProfileError(null)
     try {
       const updated = await updateMySpace({
         introText: profile.introText.trim(),
@@ -212,9 +158,10 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
       }))
       photo.reset()
       banner.reset()
-      showToast('스페이스 정보를 저장했어요.')
+      return true
     } catch (error) {
-      showToast(describeSpaceImageError(error, '스페이스 정보를 저장하지 못했어요.'), { icon: 'error' })
+      setProfileError(describeSpaceImageError(error, '소개·사진·배너를 저장하지 못했어요.'))
+      return false
     } finally {
       setSavingProfile(false)
     }
@@ -229,7 +176,10 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
     [space.creatorId, space.slug, slugMemoryVersion],
   )
 
-  /** 새 주소로 바꾸거나(restoring=false) 이전 주소로 되돌린다. 바꾸기 전 주소를 이전 주소로 기억한다(되돌릴 때 버린 주소도 14일 예약된다). */
+  /**
+   * 새 주소로 바꾸거나(restoring=false) 이전 주소로 되돌린다. 바꾸기 전 주소를 이전 주소로 기억한다(되돌릴 때 버린 주소도 14일 예약된다).
+   * 성공 여부를 돌려준다. 토스트는 saveAll이 저장 결과를 모아 한 번 띄운다.
+   */
   async function applySlug(nextSlug, { restoring }) {
     const before = space.slug
     const slugAtRequest = slug // 응답을 기다리는 동안 주소를 더 고쳤으면 응답이 그 입력을 덮어쓰지 않게 한다.
@@ -240,7 +190,7 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
       if (before && before !== updated.slug) rememberPreviousSlug(space.creatorId, before)
       setSlug((current) => (current === slugAtRequest ? updated.slug : current))
       onSaved(pickFields(updated, SLUG_FIELDS))
-      showToast(restoring ? '이전 공유 주소로 되돌렸어요.' : '공유 주소를 바꿨어요.')
+      return true
     } catch (error) {
       const message = error instanceof ApiError ? SLUG_ERROR_MESSAGES[error.code] : null
       setSlugError(message ?? describeError(error, restoring ? '이전 공유 주소로 되돌리지 못했어요.' : '공유 주소를 바꾸지 못했어요.'))
@@ -249,17 +199,55 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
         forgetPreviousSlug(space.creatorId)
         setSlugMemoryVersion((current) => current + 1)
       }
+      return false
     } finally {
       setSavingSlug(false)
     }
   }
 
-  const saveSlug = () => applySlug(slug.trim(), { restoring: false })
-  const restoreSlug = () => applySlug(restorableSlug, { restoring: true })
+  // 이전 주소로 되돌리기도 바로 저장하지 않고 입력칸에 이전 주소를 채운다. 14일 잠금 중에도 BE가 허용한다.
+  const restoringSlug = Boolean(restorableSlug) && slug.trim() === restorableSlug
+  function toggleRestoreSlug() {
+    setSlugError(null)
+    setSlug(restoringSlug ? (space.slug ?? '') : restorableSlug)
+  }
+
+  /** 바뀐 항목만 활동명 → 소개·사진·배너 → 공유 주소 순서로 저장한다. 일부가 실패해도 성공한 항목은 반영하고, 실패한 칸에 오류를 남긴다. */
+  async function saveAll() {
+    setConfirmingSave(false)
+    if (!canSave) return
+    setSaving(true)
+    const results = []
+    try {
+      if (nameDirty) results.push(await activityName.save())
+      if (profileDirty) results.push(await saveProfile())
+      if (slugDirty) results.push(await applySlug(slug.trim(), { restoring: restoringSlug }))
+    } finally {
+      setSaving(false)
+    }
+    if (results.every(Boolean)) showToast('스페이스 정보를 저장했어요.')
+    else if (results.some(Boolean)) showToast('일부 항목을 저장하지 못했어요. 표시된 내용을 확인해주세요.', { icon: 'error' })
+    else showToast('저장하지 못했어요. 표시된 내용을 확인해주세요.', { icon: 'error' })
+  }
+
+  // 활동명·공유 주소를 새 값으로 바꾸면 14일 동안 다시 바꿀 수 없어, 저장 전에 한 번 확인한다.
+  // 활동명을 처음 정하거나, 이전 값으로 되돌리는 경우는 확인하지 않는다.
+  const nameLocks = nameDirty && !activityName.firstSetup && !activityName.restoring
+  const slugLocks = slugDirty && !restoringSlug
+  const needsLockConfirm = nameLocks || slugLocks
+  function requestSave() {
+    if (!canSave) return
+    if (needsLockConfirm) setConfirmingSave(true)
+    else void saveAll()
+  }
 
   return (
-    <div className="flex flex-col gap-space-lg pb-space-md">
-      <ActivityNameSection onSaved={(activityName) => onSaved({ creatorName: activityName })} />
+    <div className="flex flex-col gap-space-lg">
+      <ActivityNameSection
+        onChange={setActivityName}
+        disabled={busy}
+        onSaved={(activityName) => onSaved({ creatorName: activityName })}
+      />
 
       <section className="flex flex-col gap-space-sm">
         <h3 className="font-label-md text-label-md font-semibold text-on-surface">홈·프로필</h3>
@@ -269,7 +257,10 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
             value={profile.introText}
             maxLength={MAX_TEXT}
             rows={3}
-            onChange={(event) => setProfile((prev) => ({ ...prev, introText: event.target.value }))}
+            onChange={(event) => {
+              setProfile((prev) => ({ ...prev, introText: event.target.value }))
+              setProfileError(null) // 고친 내용까지 실패한 것처럼 보이지 않게, 실패 문구는 입력을 바꾸면 지운다.
+            }}
             className={`${inputClass} resize-none`}
           />
         </label>
@@ -279,7 +270,7 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
             <button
               type="button"
               onClick={photo.openPicker}
-              disabled={photo.busy || savingProfile}
+              disabled={photo.busy || busy}
               aria-label="프로필 사진 변경"
               className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-surface-container active:scale-95 transition-transform disabled:opacity-70"
             >
@@ -301,7 +292,7 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
               <button
                 type="button"
                 onClick={photo.openPicker}
-                disabled={photo.busy || savingProfile}
+                disabled={photo.busy || busy}
                 className="font-label-md text-label-md font-semibold text-primary disabled:opacity-50"
               >
                 사진 변경
@@ -310,7 +301,7 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
                 <button
                   type="button"
                   onClick={photo.remove}
-                  disabled={photo.busy || savingProfile}
+                  disabled={photo.busy || busy}
                   className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
                 >
                   기본 이미지로
@@ -319,7 +310,7 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
                 <button
                   type="button"
                   onClick={photo.cancelRemove}
-                  disabled={savingProfile}
+                  disabled={busy}
                   className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
                 >
                   되돌리기 취소
@@ -339,7 +330,7 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
           <button
             type="button"
             onClick={banner.openPicker}
-            disabled={banner.busy || savingProfile}
+            disabled={banner.busy || busy}
             aria-label="배너 이미지 변경"
             className="relative aspect-[3/1] w-full overflow-hidden rounded-xl bg-surface-container active:scale-[0.99] transition-transform disabled:opacity-70"
           >
@@ -363,7 +354,7 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
             <button
               type="button"
               onClick={banner.openPicker}
-              disabled={banner.busy || savingProfile}
+              disabled={banner.busy || busy}
               className="font-label-md text-label-md font-semibold text-primary disabled:opacity-50"
             >
               배너 변경
@@ -372,7 +363,7 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
               <button
                 type="button"
                 onClick={banner.remove}
-                disabled={banner.busy || savingProfile}
+                disabled={banner.busy || busy}
                 className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
               >
                 기본 배너로
@@ -381,7 +372,7 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
               <button
                 type="button"
                 onClick={banner.cancelRemove}
-                disabled={savingProfile}
+                disabled={busy}
                 className="font-label-sm text-label-sm text-on-surface-variant disabled:opacity-50"
               >
                 되돌리기 취소
@@ -395,14 +386,11 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
           </p>
           {banner.error && <p className="font-label-xs text-label-xs text-error" role="alert">{banner.error}</p>}
         </div>
-        <button
-          type="button"
-          disabled={!profileValid || savingProfile || imageBusy}
-          onClick={saveProfile}
-          className="w-full h-11 rounded-xl bg-primary disabled:opacity-50 text-on-primary font-label-md text-label-md font-semibold active:scale-[0.98] transition-all"
-        >
-          {savingProfile ? '저장하는 중...' : '저장'}
-        </button>
+        {profileError && (
+          <p className="rounded-xl bg-error-container px-3 py-2.5 font-body-sm text-body-sm text-on-error-container" role="alert">
+            {profileError}
+          </p>
+        )}
       </section>
 
       <section className="flex flex-col gap-space-sm">
@@ -412,7 +400,9 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
           <input
             value={slug}
             onChange={(event) => setSlug(event.target.value.toLowerCase())}
-            className={inputClass}
+            // 14일이 지나기 전에는 새 주소로 바꿀 수 없어 입력을 막는다(활동명과 같다). 이전 주소로 되돌리기는 아래 버튼으로 할 수 있다.
+            disabled={busy || slugLocked}
+            className={`${inputClass} disabled:opacity-60`}
             placeholder="iu-official"
           />
         </label>
@@ -424,26 +414,44 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
             {remainingDays}일 후 새 주소로 바꿀 수 있어요. (이전 주소로 되돌리기는 지금도 가능해요)
           </p>
         )}
-        {slugError && <p className="font-label-xs text-label-xs text-error">{slugError}</p>}
+        {slugError && <p className="font-label-xs text-label-xs text-error" role="alert">{slugError}</p>}
         {restorableSlug && (
           <button
             type="button"
-            onClick={restoreSlug}
-            disabled={savingSlug}
-            className="self-start font-label-md text-label-md font-semibold text-primary disabled:opacity-50"
+            onClick={toggleRestoreSlug}
+            disabled={busy}
+            className="self-start font-label-sm text-label-sm font-semibold text-primary disabled:opacity-50"
           >
-            이전 주소 ‘/{restorableSlug}’로 되돌리기
+            {restoringSlug ? '되돌리기 취소' : `이전 주소 ‘/${restorableSlug}’로 되돌리기`}
           </button>
         )}
-        <button
-          type="button"
-          disabled={!slug.trim() || slug.trim() === space.slug || savingSlug}
-          onClick={saveSlug}
-          className="w-full h-11 rounded-xl bg-surface-container-highest disabled:opacity-50 text-on-surface font-label-md text-label-md font-semibold active:scale-[0.98] transition-all"
-        >
-          {savingSlug ? '바꾸는 중...' : '공유 주소 바꾸기'}
-        </button>
       </section>
+
+      {/* 저장 버튼은 하나다. 시트 내용의 맨 끝(공유 주소 아래)에 두고, 바뀐 항목만 저장한다. */}
+      <button
+        type="button"
+        disabled={!canSave}
+        onClick={requestSave}
+        className="w-full h-12 rounded-xl bg-primary disabled:opacity-50 text-on-primary font-title-md text-title-md font-bold active:scale-[0.98] transition-all"
+      >
+        {busy ? '저장하는 중...' : imageBusy ? '이미지 올리는 중...' : '저장'}
+      </button>
+      <ConfirmSheet
+        open={confirmingSave}
+        title="변경 내용을 저장할까요?"
+        message={
+          nameLocks && slugLocks
+            ? '활동명과 공유 주소는 바꾸면 14일 동안 다시 바꿀 수 없어요. 이전 이름·주소로 되돌리는 것은 그 전에도 할 수 있어요.'
+            : slugLocks
+              ? '공유 주소는 바꾸면 14일 동안 다시 바꿀 수 없고, 이전 주소는 열리지 않아요. 이전 주소로 되돌리는 것은 그 전에도 할 수 있어요.'
+              : '활동명은 바꾸면 14일 동안 다시 바꿀 수 없어요. 이전 활동명으로 되돌리는 것은 그 전에도 할 수 있어요.'
+        }
+        confirmLabel="저장하기"
+        cancelLabel="취소"
+        confirmTone="primary"
+        onConfirm={() => void saveAll()}
+        onClose={() => setConfirmingSave(false)}
+      />
     </div>
   )
 }

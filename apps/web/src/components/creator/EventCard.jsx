@@ -2,7 +2,7 @@ import CreatorVerifiedBadge from '../ui/CreatorVerifiedBadge.jsx'
 import { useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
-import { getEventBanner } from '../../data/eventBanners.js'
+import { eventBannerSrc } from '../../data/eventBanners.js'
 import { useCreatorProfile } from '../../hooks/useCreatorProfile.js'
 import { useNow } from '../../hooks/useNow.js'
 import { formatCountdown, formatDday, formatEventDate, formatNumber, formatShortDate, totalPrizeQuantity } from '../../utils/format.js'
@@ -10,7 +10,7 @@ import { closedDisplayAt, displayStatusMeta, eventStatusMeta } from '../../utils
 
 /**
  * 이벤트(래플) 요약 카드. 백엔드 EventSummary( eventId, creatorId, title, startAt,
- * endAt, closeRequestedAt, status, displayStatus, winnerCount, drawMethod, prizes )를 그대로 받는다.
+ * endAt, closeRequestedAt, status, displayStatus, winnerCount, drawMethod, prizes, bannerImageUrl )를 그대로 받는다.
  *
  * 응모 누적 건수는 공개 API가 제공하지 않아, 대신 실제 값이 있는 당첨 인원과
  * 상품 등급 구성을 보여준다.
@@ -97,7 +97,7 @@ export default function EventCard({ event, showCreatorTag = false, variant = 'ca
         <div className="relative h-36 w-full overflow-hidden bg-surface-container-high">
           <img
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            src={getEventBanner(event.eventId)}
+            src={eventBannerSrc(event)}
             alt=""
             loading={priority ? 'eager' : 'lazy'}
             fetchPriority={priority ? 'high' : undefined}

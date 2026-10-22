@@ -37,6 +37,7 @@ npm run dev:admin
 루트에서 `npm run lint`(shared/Web/Admin), `npm run test`(shared/Web/Admin), `npm run build`(Web/Admin)를 실행합니다.
 `develop`에 머지되면 Web(`apps/web/dist`)은 `dev.cking.co.kr`, Admin(`apps/admin/dist`)은 `dev-admin.cking.co.kr`로 배포됩니다.
 `main`에 머지되면 같은 방식으로 운영 주소(API `api.cking.co.kr`)로 빌드해 Web은 `cking.co.kr`, Admin은 `admin.cking.co.kr`로 배포됩니다. 운영 CloudFront 배포는 도메인으로 찾습니다.
+배포 job은 버킷을 바꾸기 직전에 이 커밋이 브랜치의 최신인지 확인하고, 아니면 건너뜁니다(늦게 끝난 옛 실행이 새 배포를 덮지 않게). 그래서 옛 실행을 다시 실행해도 배포되지 않으며, 되돌릴 때는 되돌리는 커밋을 머지합니다.
 기존 `npm run dev`와 `npm run preview`도 Web 앱을 실행합니다.
 
 ### 로컬 Admin E2E

@@ -18,11 +18,14 @@ import { spacePath } from '../../api/creatorSpace.js'
 const PAGE_SIZE = 20
 const SEARCH_DEBOUNCE_MS = 300
 
-/** 추천 이유 문구. 인기순 대체에서는 이유가 없다. */
+/**
+ * 추천 이유 문구. 인기순 대체에서는 이유가 없다.
+ * interestCodes는 추천 근거로 쓴 내 관심 분야일 뿐 크리에이터가 실제로 가진 태그가 아니라서, 태그처럼 보이지 않는 문장으로 쓴다.
+ */
 function reasonOf(item, interestNames) {
   const names = item.interestCodes.map((code) => interestNames.get(code)).filter(Boolean)
-  if (names.length > 0) return `관심 분야 · ${names.join(', ')}`
-  if (item.seedCreatorIds.length > 0) return '내가 도킹한 크리에이터와 비슷해요'
+  if (names.length > 0) return { text: names.join(', '), boxed: true }
+  if (item.seedCreatorIds.length > 0) return { text: '내가 도킹한 크리에이터와 비슷해요', boxed: false }
   return null
 }
 
@@ -88,11 +91,18 @@ function CreatorRow({ creator, reason, followed, disabled, onToggle }) {
             <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
             <CreatorVerifiedBadge />
           </span>
-          {creator.bio && <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">{creator.bio}</p>}
-          {reason && (
-            <span className="mt-1 self-start max-w-full truncate px-2 py-0.5 rounded-full bg-berry-tint font-label-xs text-label-xs text-primary">
-              {reason}
-            </span>
+          {/* 도킹 기반 추천은 소개글 자리에 이유를 핑크 글씨로 보여준다. 관심 분야 추천은 소개글 아래에 태그로 둔다. */}
+          {reason && !reason.boxed ? (
+            <p className="text-[10px] leading-[14px] font-semibold text-primary line-clamp-2">{reason.text}</p>
+          ) : (
+            <>
+              {creator.bio && <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">{creator.bio}</p>}
+              {reason && (
+                <span className="mt-1 self-start max-w-full truncate px-2 py-0.5 rounded-full bg-berry-tint font-label-xs text-label-xs text-primary">
+                  {reason.text}
+                </span>
+              )}
+            </>
           )}
         </div>
       </Link>

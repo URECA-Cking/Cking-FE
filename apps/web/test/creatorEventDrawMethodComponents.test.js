@@ -138,3 +138,48 @@ test('모바일 너비에서 두 방식의 한국어 이름을 표시한다', as
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
   } finally { await page.close() }
 })
+
+
+test('320px에서도 선택 문구 전체가 입력창 안에 표시되고 기존 2열 배치를 유지한다', async () => {
+  const page = await openForm()
+  try {
+    await page.setViewportSize({ width: 320, height: 812 })
+    const select = page.getByRole('combobox', { name: '추첨 방식' })
+    await select.selectOption('WEIGHTED')
+    const text = select.locator('..').locator('span[aria-hidden="true"]')
+    assert.equal(await text.textContent().then(value => value.trim()), '응모권 수 비례 추첨')
+    assert.ok(await text.evaluate(element => element.scrollHeight <= element.clientHeight && element.scrollWidth <= element.clientWidth))
+    assert.equal((await select.boundingBox()).y, (await page.locator('#event-winner-count').boundingBox()).y)
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+  } finally { await page.close() }
+})
+
+test('추첨 방식·가중치 도움말은 hover와 focus로 열리고 이탈과 Escape로 닫힌다', async () => {
+  const page = await openForm()
+  try {
+    await page.setViewportSize({ width: 375, height: 812 })
+    for (const label of ['추첨 방식 도움말', '상품 1 가중치 도움말']) {
+      const button = page.getByRole('button', { name: label, exact: true })
+      assert.equal(await page.getByRole('tooltip').count(), 0)
+      await button.evaluate(element => element.scrollIntoView({ block: 'center' }))
+      await button.hover()
+      const tooltip = page.getByRole('tooltip')
+      await tooltip.waitFor()
+      const box = await tooltip.boundingBox()
+      assert.ok(box.x >= 0 && box.x + box.width <= 375)
+      if (label.startsWith('추첨')) assert.match(await tooltip.textContent(), /응모권 수와 관계없이/)
+      else assert.match(await tooltip.textContent(), /당첨자에게 이 상품/)
+      if (process.env.DRAW_METHOD_SCREENSHOT) {
+        await page.screenshot({ path: process.env.DRAW_METHOD_SCREENSHOT.replace('.png', label.startsWith('추첨') ? '-help.png' : '-weight-help.png') })
+      }
+      await page.mouse.move(0, 0)
+      await tooltip.waitFor({ state: 'detached' })
+      await button.focus()
+      await tooltip.waitFor()
+      await page.keyboard.press('Escape')
+      await tooltip.waitFor({ state: 'detached' })
+      await page.locator('#event-title').focus()
+    }
+    assert.equal((await callsTo(page, 'POST', '/api/creator/events')).length, 0)
+  } finally { await page.close() }
+})

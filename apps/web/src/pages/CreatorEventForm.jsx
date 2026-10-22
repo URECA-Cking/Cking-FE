@@ -31,18 +31,35 @@ const DRAW_METHOD_LABELS = {
   WEIGHTED: '응모권 수 비례 추첨',
 }
 
-/** 포인터나 키보드 초점이 머무는 동안 입력 항목의 설명을 표시한다. */
+/** hover·초점 또는 터치로 도움말을 열고 바깥 터치·재터치로 닫는다. */
 function FieldHelp({ label, centered = false, children }) {
   const id = useId()
   const [open, setOpen] = useState(false)
+  const root = useRef(null)
+  const pointerFocus = useRef(false)
+  useEffect(() => {
+    if (!open) return
+    const closeOutside = (event) => {
+      if (!root.current?.contains(event.target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOutside, true)
+    return () => document.removeEventListener('pointerdown', closeOutside, true)
+  }, [open])
   return (
-    <span className="relative inline-flex shrink-0" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <span ref={root} className="relative inline-flex shrink-0"
+      onPointerEnter={(event) => { if (event.pointerType === 'mouse') setOpen(true) }}
+      onPointerLeave={(event) => { if (event.pointerType === 'mouse') setOpen(false) }}
+    >
       <button
         type="button"
         aria-label={`${label} 도움말`}
         aria-describedby={open ? id : undefined}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
+        aria-expanded={open}
+        onPointerDown={() => { pointerFocus.current = true }}
+        onPointerCancel={() => { pointerFocus.current = false }}
+        onClick={() => { setOpen(value => !value); pointerFocus.current = false }}
+        onFocus={() => { if (!pointerFocus.current) setOpen(true) }}
+        onBlur={() => { pointerFocus.current = false; setOpen(false) }}
         onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false) }}
         className="flex h-4 w-4 items-center justify-center rounded-full text-outline hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
       >
@@ -506,8 +523,8 @@ function EventFormBody({ eventId, isEdit, target }) {
             <div className="flex items-center gap-1">
               <label className={labelClass} htmlFor="event-draw-method">추첨 방식</label>
               <FieldHelp label="추첨 방식">
-                동일 확률: 응모권 수와 관계없이 참여자마다 같은 확률로 뽑아요.<br />
-                응모권 수 비례: 이 이벤트에 응모한 응모권이 많을수록 당첨 가능성이 높아져요.
+                동일 확률: 참여자별 동일한 당첨 확률<br />
+                응모권 수 비례: 응모한 응모권 수에 비례한 당첨 확률
               </FieldHelp>
             </div>
             <div className="relative">
@@ -584,7 +601,8 @@ function EventFormBody({ eventId, isEdit, target }) {
                       </label>
                       {key === 'weight' && (
                         <FieldHelp label={`상품 ${index + 1} 가중치`} centered>
-                          당첨자에게 이 상품을 배정할 상대적인 비율이에요. 예: 10과 90이면 처음 배정할 때 10%, 90%예요. 재고 소진 시 비율이 달라지며, 상품이 하나이거나 균등 배정이면 확률에 영향을 주지 않아요.
+                          상품 배정의 상대 비율<br />
+                          단일 상품·균등 배정 시 미적용
                         </FieldHelp>
                       )}
                     </div>

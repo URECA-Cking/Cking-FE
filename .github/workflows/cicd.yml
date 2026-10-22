@@ -4,8 +4,9 @@ on:
   pull_request:
     branches: [develop, main]
   # 기본 브랜치에서 한 번 돌아야 npm 캐시가 저장되고, 이후 모든 PR이 그걸 재사용한다.
+  # develop은 개발, main은 운영에 배포한다.
   push:
-    branches: [develop]
+    branches: [develop, main]
 
 # 기본은 읽기만 주고, 필요한 권한은 job별로 연다.
 permissions:
@@ -13,9 +14,6 @@ permissions:
 
 env:
   AWS_REGION: ap-northeast-2
-  AWS_ROLE_ARN: arn:aws:iam::551372961758:role/dev-cking-fe-github-actions-role
-  API_BASE_URL: https://dev-api.cking.co.kr
-  ADMIN_BASE_URL: https://dev-admin.cking.co.kr
 
 jobs:
   build:
@@ -44,8 +42,8 @@ jobs:
           rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
           -no-color
 
-  deploy:
-    name: Deploy ${{ matrix.app }}
+  deploy-dev:
+    name: Deploy ${{ matrix.app }} to dev
     # 검증이 끝나야 배포한다. lint가 실패한 커밋이 배포되지 않도록 한 워크플로에 묶는다.
     needs: [build, actionlint]
     # develop만 배포한다. PR에서는 이 job을 건너뛴다.
@@ -71,6 +69,9 @@ jobs:
       group: cd-deploy-dev-${{ matrix.app }}
       cancel-in-progress: false
     env:
+      AWS_ROLE_ARN: arn:aws:iam::551372961758:role/dev-cking-fe-github-actions-role
+      API_BASE_URL: https://dev-api.cking.co.kr
+      ADMIN_BASE_URL: https://dev-admin.cking.co.kr
       APP: ${{ matrix.app }}
       S3_BUCKET: ${{ matrix.s3_bucket }}
       CLOUDFRONT_DISTRIBUTION_ID: ${{ matrix.cloudfront_distribution_id }}
@@ -111,3 +112,79 @@ jobs:
             --paths "/*" \
             --query Invalidation.Id --output text)
           echo "무효화 요청: $INVALIDATION_ID"
+
+  deploy-prod:
+    name: Deploy ${{ matrix.app }} to prod
+    needs: [build, actionlint]
+    # main 푸시만 운영에 배포한다. 실제 차단은 IAM 신뢰 정책(sub = main)이 한다.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: web
+            s3_bucket: prod-cking-frontend-551372961758-ap-northeast-2-an
+            domain: cking.co.kr
+          - app: admin
+            s3_bucket: prod-cking-admin-551372961758-ap-northeast-2-an
+            domain: admin.cking.co.kr
+    concurrency:
+      group: cd-deploy-prod-${{ matrix.app }}
+      cancel-in-progress: false
+    env:
+      AWS_ROLE_ARN: arn:aws:iam::551372961758:role/prod-cking-fe-github-actions-role
+      API_BASE_URL: https://api.cking.co.kr
+      ADMIN_BASE_URL: https://admin.cking.co.kr
+      APP: ${{ matrix.app }}
+      S3_BUCKET: ${{ matrix.s3_bucket }}
+      DOMAIN: ${{ matrix.domain }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: 빌드
+        run: npm run "build:$APP"
+        env:
+          VITE_API_BASE_URL: ${{ env.API_BASE_URL }}
+          VITE_ADMIN_BASE_URL: ${{ env.ADMIN_BASE_URL }}
+
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 운영은 내렸다가 다시 만들 수 있어 배포 ID가 바뀌므로 도메인으로 찾는다. 버킷을 바꾸기 전에 찾아, 없으면 아무것도 바꾸지 않고 멈춘다.
+      - name: CloudFront 배포 찾기
+        id: cdn
+        run: |
+          ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Aliases.Items && contains(Aliases.Items, '$DOMAIN')].Id" --output text)
+          if ! [[ "$ID" =~ ^E[A-Z0-9]+$ ]]; then
+            echo "::error::$DOMAIN 의 CloudFront 배포를 하나로 찾지 못했다: ${ID:-없음}"
+            exit 1
+          fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: S3 동기화
+        run: aws s3 sync "apps/$APP/dist/" "s3://$S3_BUCKET/" --delete
+
+      - name: CloudFront 캐시 무효화
+        env:
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ steps.cdn.outputs.id }}
+        run: |
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query Invalidation.Id --output text)
+          echo "운영 $DOMAIN 무효화 요청: $INVALIDATION_ID"

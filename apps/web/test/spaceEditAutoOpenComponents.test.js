@@ -116,8 +116,10 @@ test('닫기 버튼으로 닫아도 남는 history 항목 없이 한 번 뒤로�
 // 시트에서 공유 주소를 바꾼 뒤 닫고 뒤로가기를 눌러도, 더는 열리지 않는 이전 주소가 아니라 마이페이지로 돌아간다.
 async function changeSlug(page, next) {
   await page.getByPlaceholder('iu-official').fill(next)
-  await page.getByRole('button', { name: '공유 주소 바꾸기' }).click()
-  await page.waitForFunction(() => window.toasts.includes('공유 주소를 바꿨어요.'))
+  // 저장 버튼은 하나이고, 공유 주소 변경은 14일 확인 시트를 거친다(#401).
+  await page.getByRole('button', { name: '저장', exact: true }).click()
+  await page.getByRole('dialog', { name: '변경 내용을 저장할까요?' }).getByRole('button', { name: '저장하기', exact: true }).click()
+  await page.waitForFunction(() => window.toasts.includes('스페이스 정보를 저장했어요.'))
   await page.waitForFunction((slug) => window.slug === slug, next)
 }
 
@@ -157,9 +159,12 @@ test('test → changed로 바꿨다가 이전 주소 test로 되돌리고 닫으
   try {
     await entryReady(page)
     await changeSlug(page, 'changed')
+    // 되돌리기는 입력칸만 채우고 저장 버튼으로 저장한다. 이전 값으로 되돌리는 것이라 14일 확인 시트는 뜨지 않는다.
     await page.getByRole('button', { name: /이전 주소 .*test.*로 되돌리기/ }).click()
+    assert.equal(await page.getByPlaceholder('iu-official').inputValue(), 'test')
+    await page.getByRole('button', { name: '저장', exact: true }).click()
     await page.waitForFunction(() => window.slug === 'test')
-    await page.waitForFunction(() => window.toasts.includes('이전 공유 주소로 되돌렸어요.'))
+    assert.equal(await page.getByRole('dialog', { name: '변경 내용을 저장할까요?' }).count(), 0)
     await page.getByRole('button', { name: '닫기', exact: true }).first().click()
     await page.getByRole('dialog').waitFor({ state: 'detached' })
     await page.waitForTimeout(900)

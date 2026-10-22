@@ -168,10 +168,10 @@ test('분야 카탈로그를 한 번만 요청하고 응답 전에는 추천 카
   assert.equal(await page.getByText('내가 도킹한 크리에이터와 비슷해요').count(), 0)
 
   await page.evaluate(() => window.releaseCatalog())
-  await page.getByText('선택한 요리·푸드, 운동·건강 관심사 기반 추천').waitFor()
+  await page.getByText('요리·푸드, 운동·건강').waitFor()
   assert.equal(await count(page, '/api/interests'), 1)
   assert.equal(await page.getByText('내가 도킹한 크리에이터와 비슷해요').count(), 0)
-  const badgeFits = await page.getByText('선택한 요리·푸드, 운동·건강 관심사 기반 추천').evaluate(
+  const badgeFits = await page.getByText('요리·푸드, 운동·건강').evaluate(
     (element) => element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
   )
   assert.equal(badgeFits, true)
@@ -216,14 +216,15 @@ test('관심 분야 저장 성공 후 추천을 다시 조회해 변경된 카�
     { creatorId: 3, creatorName: '가을', interestCodes: ['FITNESS'], seedCreatorIds: [] },
   ] }
   const page = await screen('/explore/recommend', { recommendation, recommendationAfterSave })
-  await page.getByText('선택한 요리·푸드 관심사 기반 추천').waitFor()
+  // 분야 편집의 칩과 이름이 같아서 카드(링크) 안의 이유 태그로 한정한다.
+  await page.getByRole('link', { name: /하늘/ }).getByText('요리·푸드').waitFor()
   await page.getByRole('button', { name: '분야 편집' }).click()
   const interests = page.getByRole('group', { name: '관심 분야' })
   await interests.getByRole('button', { name: '요리·푸드' }).click()
   await interests.getByRole('button', { name: '운동·건강' }).click()
   await page.getByRole('button', { name: '저장', exact: true }).click()
 
-  await page.getByText('선택한 운동·건강 관심사 기반 추천').waitFor()
+  await page.getByRole('link', { name: /가을/ }).getByText('운동·건강').waitFor()
   assert.equal(await page.getByText('가을', { exact: true }).count(), 1)
   assert.equal(await page.getByText('하늘', { exact: true }).count(), 0)
   const requests = await page.evaluate(() => window.requestDetails)

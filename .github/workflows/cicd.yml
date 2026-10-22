@@ -1,0 +1,232 @@
+name: CI/CD
+
+on:
+  pull_request:
+    branches: [develop, main]
+  # 기본 브랜치에서 한 번 돌아야 npm 캐시가 저장되고, 이후 모든 PR이 그걸 재사용한다.
+  # develop은 개발, main은 운영에 배포한다.
+  push:
+    branches: [develop, main]
+
+# 기본은 읽기만 주고, 필요한 권한은 job별로 연다.
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-northeast-2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+
+  # 배포 워크플로는 develop에 머지된 뒤에야 실행되어, 오류가 배포 때 드러난다.
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: >
+          docker run --rm -v "$PWD:/repo:ro" -w /repo
+          rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+          -no-color
+
+  deploy-dev:
+    name: Deploy ${{ matrix.app }} to dev
+    # 검증이 끝나야 배포한다. lint가 실패한 커밋이 배포되지 않도록 한 워크플로에 묶는다.
+    needs: [build, actionlint]
+    # develop만 배포한다. PR에서는 이 job을 건너뛴다.
+    # 실제 차단은 IAM 신뢰 정책(sub = develop)이 하고, 이 조건은 실패가 아닌 skipped로 드러내기 위한 것이다.
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # OIDC 토큰 발급. AWS 역할을 맡는 데 필요하다.
+    strategy:
+      # 한 앱의 배포 실패가 다른 앱의 배포를 취소하지 않게 한다.
+      fail-fast: false
+      matrix:
+        include:
+          - app: web
+            s3_bucket: dev-cking-frontend-551372961758
+            cloudfront_distribution_id: E2NQPJU059830V
+          - app: admin
+            s3_bucket: dev-cking-admin-551372961758-ap-northeast-2-an
+            cloudfront_distribution_id: E341I8SNV2CFXS
+    # 배포는 취소하지 않는다. S3 동기화 도중 끊기면 일부 파일만 바뀐 상태로 남는다.
+    concurrency:
+      group: cd-deploy-dev-${{ matrix.app }}
+      cancel-in-progress: false
+    env:
+      AWS_ROLE_ARN: arn:aws:iam::551372961758:role/dev-cking-fe-github-actions-role
+      API_BASE_URL: https://dev-api.cking.co.kr
+      ADMIN_BASE_URL: https://dev-admin.cking.co.kr
+      APP: ${{ matrix.app }}
+      S3_BUCKET: ${{ matrix.s3_bucket }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ matrix.cloudfront_distribution_id }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: 빌드
+        # Vite 환경변수는 빌드 시점에 번들에 포함된다. 배포본은 개발 프록시가 없어
+        # 브라우저가 API를 직접 호출하므로 여기서 주소를 주입한다.
+        # build job의 산출물을 넘기지 않고 다시 빌드한다. 빌드가 10초대라 아티팩트 전달보다 단순하다.
+        run: npm run "build:$APP"
+        env:
+          VITE_API_BASE_URL: ${{ env.API_BASE_URL }}
+          VITE_ADMIN_BASE_URL: ${{ env.ADMIN_BASE_URL }}
+
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 동시 실행 제한은 한 번에 하나만 돌게 할 뿐 커밋 순서는 보장하지 않는다. 잠금을 잡은 뒤 이 커밋이 아직
+      # 브랜치의 최신인지 보고, 아니면 버킷을 바꾸지 않는다(늦게 도착한 옛 실행, 옛 실행 재실행).
+      - name: 최신 커밋 확인
+        id: latest
+        run: |
+          REMOTE=$(git ls-remote origin "$GITHUB_REF")
+          HEAD_SHA=${REMOTE%%$'\t'*}
+          if [ -z "$HEAD_SHA" ]; then
+            echo "::error::$GITHUB_REF 의 최신 커밋을 읽지 못했다"
+            exit 1
+          fi
+          if [ "$HEAD_SHA" != "$GITHUB_SHA" ]; then
+            echo "::warning::$GITHUB_REF 의 최신 커밋(${HEAD_SHA::12})이 이 커밋(${GITHUB_SHA::12})과 달라 배포를 건너뛴다"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: S3 동기화
+        if: steps.latest.outputs.skip != 'true'
+        # 해시가 붙은 파일(assets/)을 먼저 올리고 지우지 않는다. 배포 전에 연 화면과 서비스 워커가 캐시한 이전 index.html이
+        # 이전 해시 파일을 계속 찾기 때문이다. 이름이 고정된 파일(index.html 등)은 그다음에 바꾸고 남은 것은 지운다.
+        run: |
+          aws s3 sync "apps/$APP/dist/assets/" "s3://$S3_BUCKET/assets/"
+          aws s3 sync "apps/$APP/dist/" "s3://$S3_BUCKET/" --delete --exclude "assets/*"
+
+      - name: CloudFront 캐시 무효화
+        if: steps.latest.outputs.skip != 'true'
+        # JS·CSS는 파일명에 해시가 붙어 캐시를 타지 않지만 index.html은 이름이 고정이다.
+        run: |
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query Invalidation.Id --output text)
+          echo "무효화 요청: $INVALIDATION_ID"
+
+  deploy-prod:
+    name: Deploy ${{ matrix.app }} to prod
+    needs: [build, actionlint]
+    # main 푸시만 운영에 배포한다. 실제 차단은 IAM 신뢰 정책(sub = main)이 한다.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: web
+            s3_bucket: prod-cking-frontend-551372961758-ap-northeast-2-an
+            domain: cking.co.kr
+          - app: admin
+            s3_bucket: prod-cking-admin-551372961758-ap-northeast-2-an
+            domain: admin.cking.co.kr
+    concurrency:
+      group: cd-deploy-prod-${{ matrix.app }}
+      cancel-in-progress: false
+    env:
+      AWS_ROLE_ARN: arn:aws:iam::551372961758:role/prod-cking-fe-github-actions-role
+      API_BASE_URL: https://api.cking.co.kr
+      ADMIN_BASE_URL: https://admin.cking.co.kr
+      APP: ${{ matrix.app }}
+      S3_BUCKET: ${{ matrix.s3_bucket }}
+      DOMAIN: ${{ matrix.domain }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: 빌드
+        run: npm run "build:$APP"
+        env:
+          VITE_API_BASE_URL: ${{ env.API_BASE_URL }}
+          VITE_ADMIN_BASE_URL: ${{ env.ADMIN_BASE_URL }}
+
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 개발 배포와 같다. 이 커밋이 main의 최신이 아니면 버킷을 바꾸지 않는다.
+      - name: 최신 커밋 확인
+        id: latest
+        run: |
+          REMOTE=$(git ls-remote origin "$GITHUB_REF")
+          HEAD_SHA=${REMOTE%%$'\t'*}
+          if [ -z "$HEAD_SHA" ]; then
+            echo "::error::$GITHUB_REF 의 최신 커밋을 읽지 못했다"
+            exit 1
+          fi
+          if [ "$HEAD_SHA" != "$GITHUB_SHA" ]; then
+            echo "::warning::$GITHUB_REF 의 최신 커밋(${HEAD_SHA::12})이 이 커밋(${GITHUB_SHA::12})과 달라 배포를 건너뛴다"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 운영은 내렸다가 다시 만들 수 있어 배포 ID가 바뀌므로 도메인으로 찾는다. 버킷을 바꾸기 전에 찾아, 없으면 아무것도 바꾸지 않고 멈춘다.
+      - name: CloudFront 배포 찾기
+        id: cdn
+        if: steps.latest.outputs.skip != 'true'
+        run: |
+          ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Aliases.Items && contains(Aliases.Items, '$DOMAIN')].Id" --output text)
+          if ! [[ "$ID" =~ ^E[A-Z0-9]+$ ]]; then
+            echo "::error::$DOMAIN 의 CloudFront 배포를 하나로 찾지 못했다: ${ID:-없음}"
+            exit 1
+          fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: S3 동기화
+        if: steps.latest.outputs.skip != 'true'
+        # 개발 배포와 같다. 해시 파일을 먼저 올리고 지우지 않으며, 이름이 고정된 파일은 마지막에 바꾼다.
+        run: |
+          aws s3 sync "apps/$APP/dist/assets/" "s3://$S3_BUCKET/assets/"
+          aws s3 sync "apps/$APP/dist/" "s3://$S3_BUCKET/" --delete --exclude "assets/*"
+
+      - name: CloudFront 캐시 무효화
+        if: steps.latest.outputs.skip != 'true'
+        env:
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ steps.cdn.outputs.id }}
+        run: |
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query Invalidation.Id --output text)
+          echo "운영 $DOMAIN 무효화 요청: $INVALIDATION_ID"

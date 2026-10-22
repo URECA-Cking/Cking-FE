@@ -1,0 +1,531 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * 화면 모드(다크/일반)에 따라 바뀌는 배경·카드·글씨 색 토큰. 값은 "R G B" 채널이라
+ * tailwind.config.js에서 rgb(var(--color-*) / <alpha-value>)로 감싸 bg-surface/80 같은 투명도도 쓸 수 있다.
+ * 기본은 다크이고, <html data-theme="light">이면 쿨 그레이 기반의 밝은 값으로 바뀐다.
+ */
+@layer base {
+  :root {
+    color-scheme: dark;
+    --color-surface: 26 26 30; /* #1a1a1e */
+    --color-surface-dim: 20 20 23; /* #141417 */
+    --color-surface-bright: 26 26 30; /* #1a1a1e */
+    --color-surface-container-lowest: 20 20 23; /* #141417 */
+    --color-surface-container-low: 34 34 38; /* #222226 */
+    --color-surface-container: 41 41 46; /* #29292e */
+    --color-surface-container-high: 50 50 55; /* #323237 */
+    --color-surface-container-highest: 59 59 65; /* #3b3b41 */
+    --color-on-surface: 252 251 247; /* #fcfbf7 */
+    --color-on-surface-variant: 222 218 208; /* #dedad0 */
+    --color-background: 26 26 30; /* #1a1a1e */
+    --color-on-background: 252 251 247; /* #fcfbf7 */
+    --color-surface-variant: 59 59 65; /* #3b3b41 */
+    --color-surface-glass: 26 26 30; /* #1a1a1e, 투명도는 tailwind.config.js의 surface-glass */
+    --color-surface-rose-muted: 42 31 37; /* #2a1f25, 분홍 기운이 도는 카드 배경(글씨는 on-surface 계열) */
+    /*
+     * 일정 유형 색(tailwind.config.js의 schedule-*). 글씨가 놓이는 카드(surface-container-lowest #141417)와
+     * 날짜 칸(surface-container-low #222226) 위에서 대비 4.6 이상이 되도록 일반 모드보다 밝게 잡았다.
+     * 이 값보다 밝은 배경(surface-container 이상) 위에는 올리지 않는다.
+     */
+    --color-schedule-birthday: 227 89 151; /* #e35997 */
+    --color-schedule-fan-sign: 238 106 115; /* #ee6a73 */
+    --color-schedule-broadcast: 160 112 242; /* #a070f2 */
+    --color-schedule-content-release: 195 122 0; /* #c37a00 */
+    --color-schedule-other: 165 130 140; /* #a5828c */
+    /*
+     * 웰컴 퀘스트의 강조 글씨·아이콘 색(tailwind.config.js의 warm-accent·success-text).
+     * surface-container 이상의 카드와 그 위의 옅은 색 배경 위에서 대비 4.5 이상이 되도록 모드별로 따로 잡았다.
+     */
+    --color-warm-accent: 251 191 36; /* #fbbf24 */
+    --color-success-text: 52 211 153; /* #34d399 */
+    --color-success: 16 185 129; /* #10b981 */
+    /* 아래는 원래 두 모드가 같은 고정색으로 쓰던 토큰이다. 다크 값은 예전 그대로다. */
+    --color-primary: 219 39 119; /* #db2777 */
+    --color-primary-text: 219 39 119; /* #db2777, 다크는 primary와 같은 값 */
+    --color-outline: 141 111 119; /* #8d6f77 */
+    --color-disabled: 141 111 119; /* #8d6f77, 다크는 outline과 같은 값 */
+    --color-outline-variant: 225 190 198; /* #e1bec6 */
+    --color-berry-tint: 253 242 248; /* #fdf2f8 */
+    --color-secondary-fixed: 234 221 255; /* #eaddff */
+    --color-on-secondary-fixed: 37 0 90; /* #25005a */
+  }
+
+  /* 일반 모드: 쿨 그레이 배경에 브랜드 핑크(#e11d76)만 포인트로 쓴다. 배경·카드에 핑크·보라 기운을 두지 않는다. */
+  :root[data-theme='light'] {
+    color-scheme: light;
+    --color-surface: 245 246 248; /* #f5f6f8 앱 전체 배경 */
+    --color-surface-dim: 221 225 230; /* #dde1e6 */
+    --color-surface-bright: 245 246 248; /* #f5f6f8 */
+    --color-surface-container-lowest: 255 255 255; /* #ffffff 기본 카드 */
+    --color-surface-container-low: 241 243 246; /* #f1f3f6 서브 카드 */
+    --color-surface-container: 238 241 244; /* #eef1f4 검색창·입력 영역 */
+    --color-surface-container-high: 232 235 239; /* #e8ebef */
+    --color-surface-container-highest: 226 230 235; /* #e2e6eb */
+    --color-on-surface: 29 36 51; /* #1d2433 메인 텍스트 */
+    /* 시안 #6f7785는 회색 칩·입력 영역 위 대비가 4.5에 못 미쳐 한 단계 진하게 둔다. */
+    --color-on-surface-variant: 102 109 122; /* #666d7a 보조 텍스트 */
+    --color-background: 245 246 248; /* #f5f6f8 */
+    --color-on-background: 29 36 51; /* #1d2433 */
+    --color-surface-variant: 226 230 235; /* #e2e6eb */
+    --color-surface-glass: 255 255 255; /* #ffffff */
+    --color-surface-rose-muted: 252 234 242; /* #fceaf2 */
+    --color-schedule-birthday: 219 39 119; /* #db2777 */
+    --color-schedule-fan-sign: 157 23 77; /* #9d174d */
+    --color-schedule-broadcast: 124 58 237; /* #7c3aed */
+    --color-schedule-content-release: 131 82 0; /* #835200 */
+    --color-schedule-other: 89 64 71; /* #594047 */
+    --color-warm-accent: 146 64 14; /* #92400e */
+    /* #22c55e 계열. 글씨는 회색 카드(surface-container) 위에서도 대비 4.5 이상이 되도록 진하게 둔다. */
+    --color-success-text: 22 101 52; /* #166534 */
+    --color-success: 34 197 94; /* #22c55e */
+    /* 시안 #e61e78은 흰 글씨 대비가 4.36이라 기준(4.5)을 넘기도록 살짝 진하게 둔다. */
+    --color-primary: 225 29 118; /* #e11d76 */
+    /* 핑크 글씨(text-primary)는 연핑크(berry-tint)·primary/15 칸·회색 배경 위에서도 대비 4.5가 되도록 더 진하게 둔다. 버튼 면은 primary 그대로다. */
+    --color-primary-text: 187 24 98; /* #bb1862 */
+    /*
+     * outline은 날짜·개수·안내 문구처럼 읽어야 하는 보조 정보에 쓰여 대비 4.5를 맞춘다(보조 텍스트와 같은 값).
+     * 시안의 비활성 텍스트 #a0a7b4는 실제로 누를 수 없는 요소에만 disabled로 쓴다.
+     */
+    --color-outline: 102 109 122; /* #666d7a */
+    --color-disabled: 160 167 180; /* #a0a7b4 비활성 텍스트 */
+    --color-outline-variant: 226 230 235; /* #e2e6eb 구분선·테두리 */
+    --color-berry-tint: 252 234 242; /* #fceaf2 핑크 강조 영역 배경 */
+    --color-secondary-fixed: 241 243 246; /* #f1f3f6 예전 연보라 배지 → 쿨 그레이 */
+    --color-on-secondary-fixed: 29 36 51; /* #1d2433 */
+  }
+
+  /* 브라우저 기본 당겨서 새로고침·바운스를 끄고 PullToRefresh.jsx의 CKing 로고 연출로 대신한다. */
+  html {
+    overscroll-behavior-y: none;
+  }
+
+  html,
+  body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: theme('colors.surface');
+    color: theme('colors.on-surface');
+    font-family: 'Inter', sans-serif;
+  }
+
+  body {
+    overscroll-behavior-y: none;
+    min-height: 100dvh;
+  }
+
+  #root {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+    background-color: theme('colors.surface');
+  }
+
+  @media (min-width: 768px) {
+    #root {
+      width: 100%;
+      max-width: none;
+    }
+  }
+
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings:
+      'FILL' 0,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24;
+  }
+
+  /* 홈 웰컴 퀘스트용 속이 찬 둥근 아이콘. index.html이 쓰는 아이콘만 불러온다. */
+  .material-symbols-rounded {
+    font-family: 'Material Symbols Rounded';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+
+  .material-symbols-outlined.icon-fill {
+    font-variation-settings:
+      'FILL' 1,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24;
+  }
+
+  /* 아이콘 폰트가 받아지기 전에는 아이콘 이름 글자(chevron_right 등) 대신 1em 빈칸을 둔다. 클래스는 index.html 스크립트가 붙인다.
+     visibility: hidden은 iOS 브라우저(WebKit)가 숨은 글자의 폰트를 받지 않아 아이콘이 영영 안 뜨는 것으로 보여(실기기 미확인), 글자는 그려지게 두고 투명하게만 한다. */
+  html:not(.icons-outlined-ready) .material-symbols-outlined,
+  html:not(.icons-rounded-ready) .material-symbols-rounded {
+    color: transparent !important;
+    width: 1em;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+@layer base {
+  /* 각 고정 헤더와 메인 컨테이너가 safe area를 직접 처리한다. body에 다시 더하면 상단 여백이 중복된다. */
+  @media (display-mode: standalone) {
+    body {
+      padding-top: 0;
+    }
+  }
+
+  /* 홈 화면에서 실행된 앱에서 링크/버튼을 눌렀을 때 생기는 하이라이트를 없앤다. */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 모바일에서 버튼을 빠르게 누를 때 더블탭 확대 판정을 기다리다 탭이 씹히지 않게 한다. */
+  button,
+  [role='button'],
+  a {
+    touch-action: manipulation;
+  }
+}
+
+/* 임시 첫 화면(Splash.jsx). intro: 몸통 280ms + 로딩 대기 + 왕관 620ms → dock(로고 자리로 이동) 또는 out(사라짐) ~440ms, 총 1초 미만. */
+@layer components {
+  .pull-to-refresh-fixed {
+    translate: 0 var(--pull-fixed-offset, 0px);
+    transition: translate var(--pull-offset-duration, 220ms) ease-out;
+  }
+
+  .liquid-nav-dock {
+    --indicator-top: 3px;
+    --indicator-bottom: 4px;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    /* 투명 유리: 면은 비워 두고 뒤를 살짝 흐리게·선명하게 비치게 한다. */
+    background: transparent;
+    -webkit-backdrop-filter: blur(2px) saturate(190%) brightness(1.06);
+    backdrop-filter: blur(2px) saturate(190%) brightness(1.06);
+    /* 번지는 안쪽 빛은 빼고, 비치는 듯 옅은 1px 선으로만 경계를 잡는다 */
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  }
+
+  .liquid-nav-dock.is-compact {
+    --indicator-top: 2px;
+    --indicator-bottom: 2px;
+  }
+
+  /* 탭을 누르면 독이 젤리처럼 눌렸다가 좌우로 출렁이며 돌아온다 */
+  .liquid-nav-dock.is-pulsing {
+    animation: liquid-nav-dock-pulse 520ms linear;
+  }
+
+  @keyframes liquid-nav-dock-pulse {
+    0% { transform: scale(1, 1); animation-timing-function: ease-out; }
+    18% { transform: scale(1.0225, 0.95); animation-timing-function: ease-in-out; }
+    40% { transform: scale(0.99, 1.035); animation-timing-function: ease-in-out; }
+    62% { transform: scale(1.0075, 0.985); animation-timing-function: ease-in-out; }
+    82% { transform: scale(0.9975, 1.006); animation-timing-function: ease-out; }
+    100% { transform: scale(1, 1); }
+  }
+
+  .liquid-nav-indicator {
+    z-index: 1;
+    --liquid-nav-motion-duration: 520ms;
+    top: var(--indicator-top);
+    bottom: var(--indicator-bottom);
+    left: 10px;
+    width: calc((100% / var(--liquid-nav-item-count)) - 20px);
+    /* 선택 표시의 위치는 left가 아니라 translate로 옮긴다: 화면 전환 렌더링이 메인 스레드를 점유해도 합성 스레드에서 움직여 멈칫하지 않는다.
+       translate의 %는 이 요소 자신의 너비라서, 한 칸 거리(독 너비 ÷ 칸 수)는 요소 너비 + 양쪽 여백 20px과 같다. */
+    translate: calc(var(--liquid-nav-active-index) * (100% + 20px)) 0;
+    /* 독 안의 한 겹 더 볼록한 유리. 글자색 토큰을 옅게 깔아 다크·라이트 모두에서 구분되게 한다. */
+    background: rgb(var(--color-on-surface) / 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
+    transition:
+      translate var(--liquid-nav-motion-duration) cubic-bezier(0.34, 1.3, 0.5, 1),
+      top 300ms ease-out,
+      bottom 300ms ease-out,
+      opacity 160ms ease-out;
+  }
+
+  /* 이동 중에는 가는 방향으로 늘어났다가 도착하면 말랑하게 줄어든다 */
+  .liquid-nav-indicator.is-moving-right {
+    transform-origin: left center;
+    animation: liquid-nav-jelly 520ms linear;
+  }
+
+  .liquid-nav-indicator.is-moving-left {
+    transform-origin: right center;
+    animation: liquid-nav-jelly 520ms linear;
+  }
+
+  @keyframes liquid-nav-jelly {
+    0% { transform: scale(1, 1); animation-timing-function: ease-out; }
+    30% { transform: scale(1.25, 0.9); animation-timing-function: ease-in-out; }
+    60% { transform: scale(0.97, 1.05); animation-timing-function: ease-in-out; }
+    80% { transform: scale(1.015, 0.99); animation-timing-function: ease-out; }
+    100% { transform: scale(1, 1); }
+  }
+
+  .splash-body {
+    opacity: 0;
+    animation: splash-body-in 280ms ease-out forwards;
+  }
+
+  /* 왕관: 오른쪽 위에서 기울어진 채 비스듬히 떨어져 몸통에 얹히고(~55%), 한 번 튕긴 뒤 자리 잡는다. */
+  .splash-crown {
+    opacity: 0;
+    transform-origin: 45% 17%;
+  }
+
+  /* 로딩이 끝나(is-dropped) 왕관을 떨어뜨리기 전까지는 몸통만 보인다. */
+  .splash.is-dropped .splash-crown {
+    animation: splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) forwards;
+  }
+
+  /* 스플래시 뒤에 화면이 다시 뜰 때(로그인 화면): 몸통이 나타난 뒤 바로 왕관이 떨어진다. */
+  .logo-enter .splash-crown {
+    animation: splash-crown-drop 620ms cubic-bezier(0.5, 0, 0.75, 0.4) 200ms
+      forwards;
+  }
+
+  /* 왕관이 닿는 순간(620*0.55 ≈ 340ms) 몸통이 살짝 눌렸다 돌아온다. */
+  .splash-stack {
+    transform-origin: 50% 100%;
+  }
+
+  .splash.is-dropped .splash-stack {
+    animation: splash-stack-bump 220ms ease-out 340ms;
+  }
+
+  .logo-enter.splash-stack {
+    animation: splash-stack-bump 220ms ease-out 540ms;
+  }
+
+  .splash {
+    transition: background-color 200ms ease-out;
+  }
+
+  /* 로그인된 사용자: 아래 페이지(홈 등)는 그대로 보이고 그 위에 CKing만 떠 있다. 클릭을 막지 않는다. */
+  .splash.is-over {
+    background-color: transparent;
+    pointer-events: none;
+  }
+
+  .splash.is-dock {
+    animation: splash-bg-clear 440ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .splash.is-dock .splash-wordmark {
+    animation: splash-dock 440ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  }
+
+  .splash.is-out {
+    animation: splash-out 300ms ease-in forwards;
+  }
+
+  .splash.is-out .splash-wordmark {
+    animation: splash-wordmark-out 300ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+
+  /* 스플래시가 옮겨 올 자리의 실제 로고는 스플래시가 끝날 때까지 숨겨 둔다. */
+  .splash-active [data-splash-target] {
+    visibility: hidden;
+  }
+
+  @keyframes splash-body-in {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes splash-crown-drop {
+    0% {
+      opacity: 0;
+      transform: translate(90px, -55px) rotate(22deg);
+    }
+    15% {
+      opacity: 1;
+    }
+    55% {
+      opacity: 1;
+      transform: translate(0, 0) rotate(-5deg);
+    }
+    75% {
+      transform: translate(0, -9px) rotate(3deg);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes splash-stack-bump {
+    40% {
+      transform: scale(1.02, 0.96);
+    }
+  }
+
+  @keyframes splash-dock {
+    to {
+      transform: translate(var(--dock-x), var(--dock-y));
+    }
+  }
+
+  @keyframes splash-bg-clear {
+    to {
+      background-color: transparent;
+    }
+  }
+
+  @keyframes splash-wordmark-out {
+    to {
+      opacity: 0;
+      transform: scale(1.08);
+      filter: blur(8px);
+    }
+  }
+
+  /* 배경은 건드리지 않는다. 비로그인은 불투명한 채 CKing만 사라지고, 로그인(is-over)은 이미 투명해 페이지 위에서 사라진다. */
+  @keyframes splash-out {
+    to {
+      visibility: hidden;
+    }
+  }
+}
+
+/* 모션을 줄인 환경에서는 도장 둘레의 고리·반짝이 장식을 아예 그리지 않는다. */
+@media (prefers-reduced-motion: reduce) {
+  .stamp-burst { display: none; }
+}
+
+/* 출석 도장이 찍히는 순간: 크게 내려와 살짝 기울어진 채 자리 잡는다. 모션을 줄인 환경에서는 쓰지 않는다. */
+@keyframes stamp-pop {
+  0% { transform: scale(2.2) rotate(-24deg); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: scale(1) rotate(-8deg); opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .animate-stamp-pop { animation: stamp-pop 420ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+  .animate-stamp-bounce { animation: stamp-bounce 520ms cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+  .stamp-ring { animation: stamp-ring 600ms ease-out both; }
+  .stamp-spark { animation: stamp-spark 650ms ease-out both; }
+}
+
+/* 도장이 찍힌 칸이 눌렸다 튀어 오른다. */
+@keyframes stamp-bounce {
+  0% { transform: scale(0.85); }
+  55% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+/* 도장 자리에서 퍼져 나가는 고리. */
+@keyframes stamp-ring {
+  0% { transform: scale(0.7); opacity: 0.7; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+/* 도장 둘레로 흩어지는 반짝이. 방향은 --a(각도)로 정한다. */
+@keyframes stamp-spark {
+  0% { transform: rotate(var(--a)) translateY(0) scale(1); opacity: 1; }
+  100% { transform: rotate(var(--a)) translateY(-26px) scale(0.2); opacity: 0; }
+}
+
+/* 로고는 어두운 배경용(흰색)과 밝은 배경용(어두운색) 두 장이고, 화면 모드(<html data-theme>)에 맞는 쪽만 보인다. */
+.logo-for-dark { display: block; }
+.logo-for-light { display: none; }
+:root[data-theme='light'] .logo-for-dark { display: none; }
+:root[data-theme='light'] .logo-for-light { display: block; }
+
+/* 하위 화면(검색 결과 등)이 오른쪽에서 살짝 밀려 들어오며 나타난다. */
+.page-enter {
+  animation: page-enter 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter { animation: none; }
+}
+
+/* 홈 웰컴 퀘스트 히어로가 부드럽게 올라오며 나타난다. 모션을 줄인 환경에서는 쓰지 않는다. */
+@keyframes welcome-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .animate-welcome-in { animation: welcome-in 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+}
+
+/* 캘린더 토요일 글씨는 각 테마에서 읽기 쉬운 파란색을 쓴다. */
+.calendar-saturday { color: #60a5fa; }
+:root[data-theme='light'] .calendar-saturday { color: #2563eb; }
+
+/* 바텀시트: 아래에서 올라오며 배경이 서서히 어두워진다. 모션을 줄인 환경에서는 쓰지 않는다.
+   fill-mode를 backwards로 둬서 끝난 뒤 transform이 남지 않게 한다(남으면 안쪽 fixed 요소의 기준이 바뀐다). */
+@keyframes bottom-sheet-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bottom-sheet-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bottom-sheet-backdrop { animation: bottom-sheet-fade-in 240ms ease-out backwards; }
+  .bottom-sheet-panel {
+    animation: bottom-sheet-slide-up 340ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+    /* 확장·접기 때 높이가 부드럽게 바뀐다. interpolate-size를 모르는 브라우저는 예전처럼 바로 바뀐다. */
+    interpolate-size: allow-keywords;
+    transition: height 300ms cubic-bezier(0.32, 0.72, 0, 1), max-height 300ms cubic-bezier(0.32, 0.72, 0, 1), transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}

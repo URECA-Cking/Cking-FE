@@ -1,0 +1,6 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,jsx}'],
+  theme: { extend: { colors: { surface: '#f7f8fa', 'surface-container-low': '#f1f3f5', 'surface-container': '#e9ecef', 'surface-container-high': '#dee2e6', 'surface-container-highest': '#ced4da', 'surface-container-lowest': '#ffffff', 'on-surface': '#0f172a', 'on-surface-variant': '#475569', outline: '#94a3b8', primary: '#be185d', 'on-primary': '#ffffff', 'primary-fixed': '#fce7f3', secondary: '#7c3aed', 'secondary-fixed': '#ede9fe', 'on-secondary-fixed': '#2e1065', error: '#ba1a1a', 'on-error': '#ffffff', 'error-container': '#ffdad6', 'on-error-container': '#93000a', 'berry-tint': '#fdf2f8', 'berry-deep': '#9d174d', 'gold-badge': '#b45309', 'gold-badge-bg': '#fffbeb' }, fontFamily: { sans: ['Inter', 'sans-serif'] }, fontSize: { 'title-lg': ['18px', { lineHeight: '26px' }], 'title-md': ['16px', { lineHeight: '24px' }], 'body-sm': ['13px', { lineHeight: '18px' }], 'label-md': ['14px', { lineHeight: '20px' }], 'label-sm': ['12px', { lineHeight: '16px' }], 'label-xs': ['11px', { lineHeight: '14px' }] }, spacing: { margin: '1rem', 'space-sm': '0.5rem', 'space-md': '1rem', 'space-lg': '1.25rem', 'space-xl': '1.75rem' }, boxShadow: { card: '0 1px 3px rgba(15,23,42,.08)', floating: '0 4px 12px rgba(15,23,42,.10)' } } },
+  plugins: [],
+}

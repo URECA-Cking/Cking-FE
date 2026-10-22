@@ -1,0 +1,314 @@
+import { useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import MaterialIcon from '../components/ui/MaterialIcon.jsx'
+import CreatorRow from '../components/creator/CreatorRow.jsx'
+import EventCard from '../components/creator/EventCard.jsx'
+import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/ui/States.jsx'
+import { useToast } from '../context/useToast.js'
+import { useUser } from '../context/useUser.js'
+import { useAsync } from '../hooks/useAsync.js'
+import { loadCreatorDirectory } from '../api/creators.js'
+import { getEventCounts, getEvents } from '../api/events.js'
+import { CreatorFilterChips, CreatorSortMenu } from '../components/creator/CreatorListControls.jsx'
+import { useOwnCreatorId } from '../hooks/useOwnCreatorId.js'
+import { creatorFilterCounts, excludeOwnCreator, filterExploreCreators, sortExploreCreators } from '../utils/exploreCreatorSection.js'
+import { formatNumber } from '../utils/format.js'
+import { describeError } from '../api/client.js'
+
+// 처음에는 10명만 보여주고, 이벤트 탭처럼 더 보기로 10명씩 늘린 뒤 마지막에 접는다.
+const CREATOR_PREVIEW = 10
+// 이벤트는 5개씩 늘려 가며 다시 받는다. BE 페이지 상한(100)을 넘기면 더 받을 수 없다.
+const EVENT_PAGE_SIZE = 5
+const EVENT_MAX_SIZE = 100
+
+const EVENT_FILTERS = [
+  { id: '', label: '전체' },
+  { id: 'IN_PROGRESS', label: '진행 중' },
+  { id: 'UPCOMING', label: '오픈 예정' },
+  { id: 'CLOSED', label: '종료' },
+]
+
+/**
+ * 탐색 화면.
+ *
+ * 크리에이터 검색과 관심 필터는 이벤트 및 서버 팔로우 목록의 크리에이터를 대상으로 하고,
+ * 이벤트 목록은 GET /api/events 의 status(표시 상태) 필터를 그대로 사용한다.
+ */
+export default function Explore() {
+  const showToast = useToast()
+  const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const { followedCreators, toggleFollow, isFollowing, followsReady, pendingFollowIds } = useUser()
+  const { ownCreatorId, ownSpacePending } = useOwnCreatorId()
+  // 탭과 검색어는 주소에 둔다. 다른 화면의 '이벤트 둘러보기' 링크가 이벤트 탭으로 열 수 있고, 검색 뒤 뒤로 가기에서도 유지된다.
+  const tab = params.get('tab') === 'event' ? 'event' : 'creator'
+  const [query, setQuery] = useState(params.get('q') ?? '')
+  const [creatorFilter, setCreatorFilter] = useState('전체')
+  const [creatorSort, setCreatorSort] = useState('name-asc')
+  const [creatorSize, setCreatorSize] = useState(CREATOR_PREVIEW)
+  const exploreTopRef = useRef(null)
+  const [eventFilter, setEventFilter] = useState('IN_PROGRESS')
+  const [eventSize, setEventSize] = useState(EVENT_PAGE_SIZE)
+
+  const directory = useAsync(() => loadCreatorDirectory(), [], {
+    fallbackMessage: '크리에이터를 불러오지 못했습니다.',
+  })
+  // 필터 칩의 개수. 선택한 필터와 상관없이 한 번만 받고(서버 집계 한 번, 없으면 상태별 호출), 못 받으면 개수 없이 칩만 보인다.
+  const eventCounts = useAsync(() => getEventCounts(EVENT_FILTERS.map((filter) => filter.id)), [], { enabled: tab === 'event' })
+  const eventList = useAsync(
+    () => getEvents({ status: eventFilter || undefined, size: eventSize }),
+    [eventFilter, eventSize],
+    { fallbackMessage: '이벤트를 불러오지 못했습니다.' },
+  )
+
+  const creators = useMemo(() => excludeOwnCreator(directory.data?.creators ?? [], ownCreatorId), [directory.data, ownCreatorId])
+
+  const filteredCreators = useMemo(
+    () => sortExploreCreators(filterExploreCreators(creators, followedCreators, creatorFilter, ''), creatorSort),
+    [creators, creatorFilter, creatorSort, followedCreators],
+  )
+
+  // 필터를 바꿔 처음부터 다시 받는 동안에는 이전 필터의 목록을 보여주지 않는다. '더 보기'로 늘리는 중에는 목록을 유지한다.
+  const eventsFirstLoad = eventList.loading && eventSize === EVENT_PAGE_SIZE
+  const events = eventsFirstLoad ? [] : (eventList.data?.items ?? [])
+  const shownCreators = useMemo(() => filteredCreators.slice(0, creatorSize), [filteredCreators, creatorSize])
+  async function handleToggleFollow(creator) {
+    try {
+      const result = await toggleFollow(creator.creatorId)
+      if (result) showToast(result.following ? `${creator.name} 도킹 완료! 💖` : '도킹이 해제되었습니다.')
+    } catch (error) {
+      showToast(describeError(error, '도킹 상태를 변경하지 못했어요.'), { icon: 'error' })
+    }
+  }
+
+  function changeTab(next) {
+    setParams((current) => {
+      const nextParams = new URLSearchParams(current)
+      if (next === 'event') nextParams.set('tab', 'event')
+      else nextParams.delete('tab')
+      return nextParams
+    }, { replace: true })
+  }
+
+  function changeEventFilter(nextFilter) {
+    setEventFilter(nextFilter)
+    setEventSize(EVENT_PAGE_SIZE)
+  }
+
+  function changeCreatorFilter(nextFilter) {
+    setCreatorFilter(nextFilter)
+    setCreatorSize(CREATOR_PREVIEW)
+  }
+
+  // 진행 중 이벤트가 있는 크리에이터에게는 이름 아래에 진행 중 태그를 작게 보여 준다.
+  function renderCreatorMeta(creator) {
+    return creator.openEventCount > 0 && (
+      <span className="self-start px-2 py-0.5 rounded border border-primary text-primary font-label-xs text-label-xs">진행 중 {creator.openEventCount}</span>
+    )
+  }
+
+  return (
+    <div ref={exploreTopRef} className="flex flex-col w-full pb-8">
+      <div className="px-margin pt-space-md pb-space-sm flex flex-col gap-space-sm">
+        <form
+          className="relative w-full"
+          onSubmit={(event) => {
+            event.preventDefault()
+            const keyword = query.trim()
+            // 보던 탭에 맞춰 검색 대상을 좁혀 연다. 결과 화면에서 '전체'로 넓힐 수 있다.
+            if (!keyword) return
+            // 뒤로 돌아왔을 때 검색어가 남도록 현재 기록에 q를 심어 두고 이동한다.
+            setParams((current) => { const next = new URLSearchParams(current); next.set('q', keyword); return next }, { replace: true })
+            navigate(`/explore/search?q=${encodeURIComponent(keyword)}&type=${tab}`)
+          }}
+        >
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-outline">
+            <MaterialIcon name="search" className="text-[20px]" />
+          </div>
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-colors shadow-sm"
+            placeholder={tab === 'event' ? '이벤트 제목이나 크리에이터로 검색해 보세요' : '크리에이터를 검색해 보세요'}
+            type="search"
+          />
+          {query && (
+            <button
+              type="button"
+              aria-label="지우기"
+              onClick={() => setQuery('')}
+              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-outline hover:text-on-surface transition-colors"
+            >
+              <MaterialIcon name="cancel" className="text-[18px]" />
+            </button>
+          )}
+        </form>
+        <div role="tablist" className="relative flex border-b border-outline-variant/30">
+          {[['creator', '크리에이터'], ['event', '이벤트']].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => changeTab(id)}
+              className={`flex-1 h-10 font-label-md text-label-md font-semibold transition-colors ${
+                tab === id ? 'text-on-surface' : 'text-outline'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          {/* 탭 두 개가 같은 너비라 활성 탭 순서만큼 한 칸씩 밀어 밑줄이 미끄러지듯 옮겨 간다. */}
+          <span
+            aria-hidden="true"
+            className="absolute bottom-0 left-0 h-0.5 w-1/2 bg-primary transition-transform duration-200 ease-out motion-reduce:transition-none"
+            style={{ transform: `translateX(${tab === 'creator' ? 0 : 100}%)` }}
+          />
+        </div>
+        {tab === 'creator' && (
+        <Link
+          to="/explore/recommend"
+          className="flex items-center justify-between gap-2 px-3 h-11 rounded-xl bg-berry-tint text-primary font-label-md text-label-md font-semibold active:scale-[0.98] transition-all"
+        >
+          <span className="flex items-center gap-1.5">
+            <MaterialIcon name="auto_awesome" className="text-[18px]" />
+            맞춤 추천 보기
+          </span>
+          <MaterialIcon name="chevron_right" className="text-[20px]" />
+        </Link>
+        )}
+      </div>
+
+      {tab === 'creator' && (<>
+      <section className="mt-space-md flex flex-col">
+        <div className="px-margin mb-space-sm flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <MaterialIcon name="groups" className="text-[20px] text-primary" />
+            <h2 className="font-title-md text-title-md font-bold text-on-surface">크리에이터</h2>
+          </div>
+          <CreatorSortMenu value={creatorSort} onChange={setCreatorSort} />
+        </div>
+        <CreatorFilterChips value={creatorFilter} onChange={changeCreatorFilter} counts={directory.data ? creatorFilterCounts(creators, followedCreators) : undefined} />
+        {directory.loading && <LoadingBlock label="크리에이터를 불러오는 중..." />}
+        {!directory.loading && directory.error && (
+          <ErrorBlock message={directory.error} onRetry={directory.reload} />
+        )}
+        {!directory.loading && !directory.error && filteredCreators.length === 0 && (
+          creatorFilter === '도킹' && followedCreators.length === 0
+            ? <EmptyBlock
+              icon="favorite_border"
+              message="아직 도킹한 크리에이터가 없어요. 마음에 드는 크리에이터를 찾아보세요."
+              action={<button type="button" onClick={() => changeCreatorFilter('전체')} className="mt-2 min-h-10 rounded-xl bg-primary px-4 font-label-sm text-label-sm font-semibold text-on-primary active:scale-95">전체 크리에이터 보기</button>}
+            />
+            : <EmptyBlock icon="person_search" message="조건에 맞는 크리에이터가 없어요." />
+        )}
+        {!directory.loading && !directory.error && filteredCreators.length > 0 && (
+          <div className="px-margin flex flex-col">
+            {shownCreators.map((creator) => (
+              <CreatorRow
+                key={creator.creatorId}
+                creator={creator}
+                variant="flat"
+                highlight={creator.openEventCount > 0}
+                meta={renderCreatorMeta(creator)}
+                followed={isFollowing(creator.creatorId)}
+                disabled={!followsReady || pendingFollowIds.has(creator.creatorId) || ownSpacePending || ownCreatorId === creator.creatorId}
+                onToggle={handleToggleFollow}
+              />
+            ))}
+          </div>
+        )}
+        {!directory.loading && !directory.error && (shownCreators.length < filteredCreators.length ? (
+          <button
+            type="button"
+            onClick={() => setCreatorSize((size) => size + CREATOR_PREVIEW)}
+            className="mx-margin mt-space-md h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
+          >
+            더 보기
+          </button>
+        ) : creatorSize > CREATOR_PREVIEW && (
+          <button
+            type="button"
+            onClick={() => {
+              setCreatorSize(CREATOR_PREVIEW)
+              exploreTopRef.current?.closest('main')?.scrollTo({ top: 0, behavior: 'instant' })
+              window.scrollTo({ top: 0, behavior: 'instant' })
+            }}
+            className="mx-margin mt-space-md h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
+          >
+            접기
+          </button>
+        ))}
+      </section>
+
+      </>)}
+
+      {tab === 'event' && (
+      <section className="mt-space-sm flex flex-col">
+        <div className="px-margin flex items-center justify-between mb-space-sm">
+          <div className="flex items-center gap-1.5">
+            <MaterialIcon name="confirmation_number" filled className="text-primary text-[20px]" />
+            <h2 className="font-title-md text-title-md font-bold text-on-surface">이벤트 둘러보기</h2>
+          </div>
+        </div>
+        <div className="flex overflow-x-auto gap-2 px-margin no-scrollbar py-1 mb-space-sm">
+          {EVENT_FILTERS.map((filter) => (
+            <button
+              key={filter.id || 'all'}
+              type="button"
+              onClick={() => changeEventFilter(filter.id)}
+              className={`px-4 py-1.5 rounded-full font-label-sm text-label-sm font-semibold whitespace-nowrap transition-all active:scale-95 ${
+                eventFilter === filter.id
+                  ? 'bg-inverse-surface text-inverse-on-surface shadow-sm'
+                  : 'bg-surface-container-low text-on-surface-variant'
+              }`}
+            >
+              {filter.label}
+              {eventCounts.data?.[filter.id] != null && ` ${formatNumber(eventCounts.data[filter.id])}`}
+            </button>
+          ))}
+        </div>
+
+        {eventsFirstLoad && <LoadingBlock label="이벤트를 불러오는 중..." />}
+        {!eventList.loading && eventList.error && (
+          <ErrorBlock message={eventList.error} onRetry={eventList.reload} />
+        )}
+        {!eventList.loading && !eventList.error && events.length === 0 && (
+          <EmptyBlock icon="event_busy" message="이 조건에 해당하는 이벤트가 없어요." />
+        )}
+        {!eventList.error && events.length > 0 && (
+          <div className="px-margin grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+            {events.map((event) => (
+              <EventCard
+                key={event.eventId}
+                event={event}
+                variant="compact"
+                showCreatorTag
+              />
+            ))}
+          </div>
+        )}
+        {/* 더 불러올 게 있으면 '더 보기', 끝까지 펼친 뒤에는 같은 자리에 '접기'를 두어 첫 페이지 크기로 되돌린다. */}
+        {!eventList.error && (eventList.data?.hasNext && eventSize < EVENT_MAX_SIZE ? (
+          <button
+            type="button"
+            onClick={() => setEventSize((size) => Math.min(size + EVENT_PAGE_SIZE, EVENT_MAX_SIZE))}
+            disabled={eventList.loading}
+            className="mx-margin mt-space-md h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all disabled:opacity-60"
+          >
+            {eventList.loading ? '불러오는 중...' : '더 보기'}
+          </button>
+        ) : eventSize > EVENT_PAGE_SIZE && !eventList.loading && (
+          <button
+            type="button"
+            onClick={() => setEventSize(EVENT_PAGE_SIZE)}
+            className="mx-margin mt-space-md h-11 rounded-xl bg-surface-container-low text-primary font-label-md text-label-md active:scale-95 transition-all"
+          >
+            접기
+          </button>
+        ))}
+      </section>
+      )}
+    </div>
+  )
+}

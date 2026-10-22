@@ -1,0 +1,184 @@
+import { useCallback, useMemo, useRef, useState } from 'react'
+import InstallBanner from '../components/pwa/InstallBanner.jsx'
+import WinnerBanner from '../components/home/WinnerBanner.jsx'
+import StudioLink from '../components/home/StudioLink.jsx'
+import NewsFeed from '../components/home/NewsFeed.jsx'
+import NewsRow from '../components/home/NewsRow.jsx'
+import EntrySection from '../components/home/EntrySection.jsx'
+import MissionSection from '../components/home/MissionSection.jsx'
+import WelcomeQuest from '../components/home/WelcomeQuest.jsx'
+import WelcomeCreators from '../components/home/WelcomeCreators.jsx'
+import { LoadingBlock, ErrorBlock, InlineRetry } from '../components/ui/States.jsx'
+import { useUser } from '../context/useUser.js'
+import { useAsync } from '../hooks/useAsync.js'
+import { useNow } from '../hooks/useNow.js'
+import { getCreatorCatalog } from '../api/creators.js'
+import { getInProgressEvents } from '../api/events.js'
+import { useCreatorBalances } from '../hooks/useCreatorBalances.js'
+import { useAppliedEvents } from '../hooks/useAppliedEvents.js'
+import { useCreatorNews } from '../hooks/useCreatorNews.js'
+import { useFollowPostNews } from '../hooks/useFollowPostNews.js'
+import { useWelcomeQuest } from '../hooks/useWelcomeQuest.js'
+import { useWelcomeClaim } from '../hooks/useWelcomeClaim.js'
+import { useWelcomeGuideHidden } from '../hooks/useWelcomeGuideHidden.js'
+import { selectEntryEvents } from '../utils/homeEvents.js'
+import { WELCOME_QUEST_STEPS, isWelcomeQuestActive } from '../utils/welcomeQuest.js'
+
+// 한 화면에 소식·응모·미션이 함께 보이도록 응모는 티켓 3장까지만 보여준다.
+const ENTRY_LIMIT = 3
+// 응모 가능한 이벤트를 먼저 채우므로, 응모 여부는 마감 임박순으로 이 수만큼씩 조회하고 응모 가능한 이벤트가 3장이 안 되면 다음 묶음을 더 조회한다.
+// 사용자 단위 응모 목록 API가 없어 조회한 이벤트 수만큼 요청이 나간다.
+const ENTRY_CANDIDATE_STEP = 3
+
+/**
+ * 홈. 당첨 → 소식 → 응모 → 미션 순으로 팬이 지금 할 수 있는 "내 것"만 보여준다. 남의 이벤트·크리에이터를 훑어보는 건 탐색 화면이 맡는다.
+ * 이벤트·크리에이터·잔액은 BE 응답 그대로이고, 여기서는 목록을 고르고 정렬하기만 한다.
+ * 신규 회원(웰컴 퀘스트 대상이고 아직 끝내지 않은 회원)에게는 응모 대신 웰컴 퀘스트 → 출석 → 인기 크리에이터 순으로 보여준다.
+ * 신규 여부와 단계 상태는 서버가 판정한 값(eligible, completed)을 그대로 따른다.
+ */
+export default function Home() {
+  const { user, isCreator, followedCreators } = useUser()
+
+  // 홈은 팔로우한 크리에이터의 프로필만 쓴다. 이벤트 100건까지 함께 받는 loadCreatorDirectory 대신 프로필 목록(캐시됨)만 받는다.
+  const directory = useAsync(async () => ({ creators: await getCreatorCatalog() }), [], {
+    fallbackMessage: '크리에이터와 이벤트를 불러오지 못했습니다.',
+    cacheKey: 'home:creators',
+  })
+  // 마감 임박순 3건을 정확히 고르려면 진행 중 이벤트 전체가 필요하다. 목록 전체(최신 100건)에서 고르면 100건을 넘을 때 놓친다.
+  const openEvents = useAsync(() => getInProgressEvents(), [], {
+    fallbackMessage: '진행 중인 이벤트를 불러오지 못했습니다.',
+    cacheKey: 'home:in-progress-events',
+  })
+  const { latestByCreator, posts, failed: newsFailed, retry: retryNews } = useCreatorNews(followedCreators, user?.memberId)
+
+  const { unreadCreatorIds, latestPostAt } = useFollowPostNews(user?.memberId, followedCreators)
+
+  const myCreators = useMemo(
+    () => (directory.data?.creators ?? []).filter((creator) => followedCreators.includes(creator.creatorId)),
+    [directory.data, followedCreators],
+  )
+
+  // 캐시로 그린 목록은 마감 뒤에도 남을 수 있어 현재 시각으로 한 번 더 걸러 낸다. 시각은 주기적으로 갱신된다.
+  const now = useNow()
+  const [candidateLimit, setCandidateLimit] = useState(ENTRY_CANDIDATE_STEP)
+  const allEntryEvents = useMemo(
+    () => selectEntryEvents(openEvents.data ?? [], followedCreators, Infinity, now),
+    [openEvents.data, followedCreators, now],
+  )
+  const entryCandidates = useMemo(() => allEntryEvents.slice(0, candidateLimit), [allEntryEvents, candidateLimit])
+  const { appliedIds, knownIds, failedIds: appliedFailedIds, retry: retryApplied } = useAppliedEvents(entryCandidates.map((event) => event.eventId), user?.memberId)
+  // 응모 완료로 확인된 이벤트만 뒤로 보낸다. 조회 중이거나 실패한 이벤트는 응모 여부를 모르므로 그대로 둔다. 응모 가능한 이벤트가 모자라면 응모 완료 이벤트가 마감 임박순으로 채운다.
+  const entryEvents = useMemo(() => selectEntryEvents(entryCandidates, [], ENTRY_LIMIT, null, appliedIds), [entryCandidates, appliedIds])
+  // 후보를 모두 조회했는데 응모 가능한 이벤트가 3장이 안 되고 남은 이벤트가 있으면 다음 묶음을 후보에 넣는다.
+  const candidatesChecked = entryCandidates.length > 0 && entryCandidates.every((event) => knownIds.has(event.eventId) || appliedFailedIds.has(event.eventId))
+  if (candidatesChecked && entryCandidates.filter((event) => !appliedIds.has(event.eventId)).length < ENTRY_LIMIT && candidateLimit < allEntryEvents.length) {
+    setCandidateLimit(candidateLimit + ENTRY_CANDIDATE_STEP)
+  }
+  // 잔액은 홈에 보이는 응모 이벤트의 크리에이터 것만 조회한다. 팔로우 전체를 조회하면 팔로우 수만큼 요청이 나간다.
+  const entryCreatorIds = useMemo(() => [...new Set(entryEvents.map((event) => event.creatorId))], [entryEvents])
+  const { balances } = useCreatorBalances(entryCreatorIds, user?.memberId)
+
+  const balanceByCreator = useMemo(() => {
+    const map = new Map()
+    balances.forEach((balance, creatorId) => map.set(creatorId, balance.balance))
+    return map
+  }, [balances])
+
+  // 캐시로 이미 그린 화면은 뒤에서 하는 갱신이 실패해도 지우지 않는다. 보여줄 데이터가 없을 때만 오류 화면으로 바꾼다.
+  const directoryFailed = Boolean(directory.error) && directory.data == null
+  const eventsFailed = Boolean(openEvents.error) && openEvents.data == null
+  const ready = !directory.loading && !directoryFailed
+
+  const welcome = useWelcomeQuest(user?.memberId)
+  const claimWelcome = useWelcomeClaim(welcome.claim)
+  const [guideHidden, setGuideHidden] = useWelcomeGuideHidden(user?.memberId)
+  const creatorsRef = useRef(null)
+  const questActive = isWelcomeQuestActive(welcome.quest)
+  // 이번 화면에서 퀘스트가 진행 중인 것을 본 회원. 마지막 단계를 받는 순간 완료 화면이 바로 사라지지 않고,
+  // 새로고침하거나 다시 들어올 때까지 완료 안내(웰컴 퀘스트 완료!)를 보여 주기 위해 기억한다.
+  // 회원 번호와 함께 기억해, 같은 화면에서 계정이 바뀌어도 이전 회원의 기록이 다른 회원에게 남지 않게 한다.
+  const memberId = user?.memberId
+  const [seenMemberId, setSeenMemberId] = useState(null)
+  if (questActive && memberId != null && seenMemberId !== memberId) setSeenMemberId(memberId)
+  const questSeen = memberId != null && seenMemberId === memberId
+  const isNewMember = questActive || (questSeen && welcome.quest?.eligible === true)
+  // 퀘스트 상태를 처음 받아 오는 동안은 신규 여부를 모른다. 응모 섹션이 떴다가 사라지지 않게 그 사이에는 응모를 그리지 않는다.
+  const questPending = user?.memberId != null && welcome.quest === null && welcome.loading
+  const questLoadFailed = user?.memberId != null && welcome.quest === null && !welcome.loading && Boolean(welcome.error)
+
+  /** 팔로우 단계를 하러 가는 사용자를 인기 크리에이터 섹션으로 부드럽게 스크롤한다. */
+  const goFollow = useCallback(() => {
+    creatorsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [])
+
+  // 웰컴 보너스는 퀘스트가 끝난 뒤에도 받을 수 있으므로, 신규 대상이면 상태에 맞춰 출석 카드에 넘긴다.
+  const bonus = welcome.quest?.eligible ? welcome.quest.bonus : null
+  const welcomeBonus = bonus
+    ? {
+        status: bonus.status,
+        claiming: welcome.claimingSteps.includes(WELCOME_QUEST_STEPS.BONUS),
+        onClaim: () => claimWelcome(WELCOME_QUEST_STEPS.BONUS),
+      }
+    : null
+  // 출석 카드는 회원 번호를 key로 둬서 계정이 바뀌면 통째로 새로 만든다. 보너스를 받은 표시와 출석 요청 상태(requestId 포함)가 이전 회원의 것으로 남지 않게 한다.
+  const attendance = <MissionSection key={user?.memberId} memberId={user?.memberId} welcomeBonus={welcomeBonus} />
+
+  return (
+    <div className="flex flex-col w-full pb-6">
+      <InstallBanner />
+      <WinnerBanner memberId={user?.memberId} />
+
+      {/* 퀘스트 상태를 못 받아 오면 신규 여부를 알 수 없어 일반 홈이 보인다. 일시 장애로 신규 회원의 퀘스트가 가려지지 않게 다시 시도할 수 있게 한다. */}
+      {questLoadFailed && (
+        <div className="mx-margin mt-4">
+          <InlineRetry message="웰컴 퀘스트를 불러오지 못했어요." onRetry={welcome.reload} />
+        </div>
+      )}
+
+      {isNewMember && (
+        <>
+          <WelcomeQuest
+            memberId={user?.memberId}
+            nickname={user?.nickname}
+            quest={welcome.quest}
+            claimingSteps={welcome.claimingSteps}
+            onClaim={claimWelcome}
+            hidden={guideHidden}
+            onHide={() => setGuideHidden(true)}
+            onShow={() => setGuideHidden(false)}
+            onGoFollow={goFollow}
+          />
+          {attendance}
+          <WelcomeCreators sectionRef={creatorsRef} onFollowed={welcome.reload} />
+        </>
+      )}
+
+      {directory.loading && <LoadingBlock label="소식과 이벤트를 불러오는 중..." />}
+      {!directory.loading && directoryFailed && <ErrorBlock message={directory.error} onRetry={directory.reload} />}
+      {ready && (!isNewMember || myCreators.length > 0) && <NewsRow creators={myCreators} latestByCreator={latestByCreator} unreadCreatorIds={unreadCreatorIds} latestPostAt={latestPostAt} />}
+      {ready && <NewsFeed creators={myCreators} posts={posts} />}
+      {ready && newsFailed && (
+        <div className="mt-3 px-margin">
+          <InlineRetry message="일부 소식을 불러오지 못했어요." onRetry={retryNews} />
+        </div>
+      )}
+      {isCreator && <StudioLink />}
+      {ready && !isNewMember && !questPending && openEvents.loading && <LoadingBlock label="진행 중인 이벤트를 불러오는 중..." />}
+      {ready && !isNewMember && !questPending && !openEvents.loading && eventsFailed && (
+        <ErrorBlock message={openEvents.error} onRetry={openEvents.reload} />
+      )}
+      {ready && !isNewMember && !questPending && !openEvents.loading && !eventsFailed && (
+        <EntrySection
+          events={entryEvents}
+          balanceByCreator={balanceByCreator}
+          appliedIds={appliedIds}
+          knownIds={knownIds}
+          appliedCheckFailed={entryEvents.some((event) => appliedFailedIds.has(event.eventId))}
+          onRetryApplied={retryApplied}
+        />
+      )}
+
+      {!isNewMember && attendance}
+    </div>
+  )
+}

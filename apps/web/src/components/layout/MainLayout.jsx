@@ -1,0 +1,217 @@
+import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import BottomNav from './BottomNav.jsx'
+import { TopHeader } from './TopHeader.jsx'
+import MaterialIcon from '../ui/MaterialIcon.jsx'
+import { LoadingBlock } from '../ui/States.jsx'
+import ChunkErrorBoundary from '../ui/ChunkErrorBoundary.jsx'
+import { useOnline } from '../../hooks/useOnline.js'
+import { useNotificationPage } from '../../hooks/useNotificationPage.js'
+import { getMyNotifications } from '../../api/notifications.js'
+import FollowStatus from '../creator/FollowStatus.jsx'
+import { useScrollChrome } from '../../hooks/useScrollChrome.js'
+import { useAppBack } from '../../hooks/useAppBack.js'
+import { useMyTickets } from '../../context/useMyTickets.js'
+import { useUser } from '../../context/useUser.js'
+import {
+  resetNavigationScroll,
+  restoreNavigationScroll,
+  saveNavigationScroll,
+  shouldContinueNavigationScrollRestore,
+} from './navigationScroll.js'
+
+const APP_BAR_TITLES = {
+  '/': { title: 'Cking' },
+  '/explore': { title: '탐색', centered: true },
+  '/explore/recommend': { title: '맞춤 추천', back: true },
+  '/explore/search': { title: '검색 결과', back: true },
+  // back: 홈·스페이스 등 다른 화면에서 들어오므로 뒤로 가기 버튼을 보여준다. hideBell: 이미 알림 화면이라 알림 종 아이콘은 숨긴다.
+  // hideTickets: 알림은 당첨·제재 안내만 다루고 응모권 잔액과 무관하므로 응모권 개수 버튼도 숨긴다.
+  '/notifications': { title: '알림', back: true, hideBell: true, hideTickets: true },
+  '/my-entries': { title: '내 응모', centered: true },
+  '/my-page': { title: '마이', centered: true },
+  // 마이페이지 메뉴와 헤더 응모권 버튼에서 들어온다. 이미 그 화면이라 헤더의 응모권 버튼은 숨긴다.
+  '/my-tickets': { title: '내 응모권', back: true, hideTickets: true },
+}
+
+/** 사용자 화면의 헤더 배지와 공용 탐색 레이아웃을 관리한다. */
+export default function MainLayout() {
+  const { user, status } = useUser()
+  if (status !== 'authenticated') return null
+  // 회원이 바뀌면 예약뿐 아니라 읽음·숨김 override와 진행 중 조회도 함께 버린다.
+  return <MemberMainLayout key={user?.memberId ?? 'authenticated'} />
+}
+
+function MemberMainLayout() {
+  const location = useLocation()
+  const navigationType = useNavigationType()
+  const { pathname } = location
+  const goBack = useAppBack('/')
+  const scrollRef = useRef(null)
+  const isRestoringScrollRef = useRef(false)
+  const restoreFrameRef = useRef(null)
+  const { headerVisible, bottomCompact, resetChrome } = useScrollChrome(scrollRef)
+  const online = useOnline()
+  const appBarTitle = APP_BAR_TITLES[pathname]
+
+  // 미확인 개수 API가 없어 첫 100건만 조회한다. 전체 개수 계약이 추가되면 배지 조회를 교체한다.
+  // 이 레이아웃은 RequireUser 안에서만 렌더링되므로 항상 로그인된 상태에서 조회한다.
+  const {
+    data, loading: notificationsLoading, error: notificationsError, reload,
+    markRead: markNotificationReadLocally,
+    markAllRead: markAllNotificationsReadLocally,
+    rollbackAllRead: rollbackAllNotificationsReadLocally,
+    hide: hideNotificationLocally,
+    unhide: unhideNotificationLocally,
+  } = useNotificationPage(
+    () => getMyNotifications({ page: 0, size: 100 }),
+    [],
+    { fallbackMessage: '알림을 불러오지 못했습니다.' },
+  )
+  const notifications = data?.items ?? []
+  const unreadCount = notifications.filter((item) => !item.readAt).length
+
+  const previousPathnameRef = useRef(pathname)
+  // 알림 화면에 다시 들어올 때만 서버 상태를 갱신한다. 최초 마운트 조회는 useAsync가 담당한다.
+  useEffect(() => {
+    if (pathname === '/notifications' && previousPathnameRef.current !== '/notifications') reload()
+    previousPathnameRef.current = pathname
+  }, [pathname, reload])
+
+  // 헤더 응모권 버튼의 총 개수. 아직 불러오지 못했으면 null이라 자리 표시를 보여 준다.
+  const { summary: ticketSummary } = useMyTickets()
+  const previousTicketTotalRef = useRef(null)
+  const notificationTimersRef = useRef([])
+
+  // 화면을 떠나면 예약을 취소한다. 회원 변경·로그아웃은 상위 key/언마운트로 같은 정리를 거친다.
+  useEffect(() => {
+    previousTicketTotalRef.current = null
+    return () => {
+      notificationTimersRef.current.forEach(window.clearTimeout)
+      notificationTimersRef.current = []
+    }
+  }, [pathname])
+
+  const ticketTotal = ticketSummary?.total ?? null
+  useEffect(() => {
+    const previous = previousTicketTotalRef.current
+    previousTicketTotalRef.current = Number.isFinite(ticketTotal) ? ticketTotal : null
+    if (!Number.isFinite(ticketTotal) || previous === null || ticketTotal <= previous) return
+    // 진행 중 추가 적립은 같은 두 예약에 합친다. 잔액 증가를 지급 알림 생성 완료로 단정하지 않는다.
+    if (notificationTimersRef.current.length > 0) return
+    notificationTimersRef.current = [
+      window.setTimeout(() => reload(), 2500),
+      window.setTimeout(() => {
+        notificationTimersRef.current = []
+        reload()
+      }, 5500),
+    ]
+  }, [ticketTotal, pathname, reload])
+
+  /** 현재 history 위치에서 사용자가 읽고 있던 공용 스크롤 위치를 기록한다. */
+  const handleScrollPositionSave = useCallback(() => {
+    if (isRestoringScrollRef.current) return
+    saveNavigationScroll(location.key, scrollRef.current?.scrollTop ?? 0)
+  }, [location.key])
+
+  /** 활성 하단 메뉴 재선택 시 현재 history 위치를 최상단으로 초기화한다. */
+  const handleNavigationScrollReset = () => resetNavigationScroll(scrollRef.current, location.key, resetChrome)
+
+  /** 복원 대기 중 사용자가 직접 스크롤하려 할 때 RAF를 취소하고 입력을 우선한다. */
+  const cancelScrollRestore = useCallback(() => {
+    if (!isRestoringScrollRef.current) return
+    if (restoreFrameRef.current !== null) window.cancelAnimationFrame(restoreFrameRef.current)
+    restoreFrameRef.current = null
+    isRestoringScrollRef.current = false
+  }, [])
+
+  // 새 화면 진입은 최상단에서 시작하고, POP 뒤로 가기만 비동기 콘텐츠가 늘어날 때까지 제한적으로 위치를 복원한다.
+  useLayoutEffect(() => {
+    const targetScrollTop = restoreNavigationScroll(scrollRef.current, navigationType, location.key, resetChrome)
+    if (navigationType !== 'POP' || targetScrollTop === 0) return undefined
+
+    isRestoringScrollRef.current = true
+    let attempt = 0
+
+    /** 콘텐츠 높이가 아직 부족해 목표 위치에 닿지 못하면 다음 프레임에 다시 복원한다. */
+    const restoreUntilReady = () => {
+      const scrollContainer = scrollRef.current
+      if (!scrollContainer) {
+        isRestoringScrollRef.current = false
+        return
+      }
+
+      scrollContainer.scrollTop = targetScrollTop
+      resetChrome(scrollContainer.scrollTop)
+      if (!shouldContinueNavigationScrollRestore(targetScrollTop, scrollContainer.scrollTop, attempt)) {
+        isRestoringScrollRef.current = false
+        restoreFrameRef.current = null
+        return
+      }
+
+      attempt += 1
+      restoreFrameRef.current = window.requestAnimationFrame(restoreUntilReady)
+    }
+
+    restoreFrameRef.current = window.requestAnimationFrame(restoreUntilReady)
+    return () => {
+      cancelScrollRestore()
+    }
+  }, [cancelScrollRestore, location.key, navigationType, resetChrome])
+
+  return (
+    <div className="flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
+      {appBarTitle && (
+        <TopHeader
+          title={appBarTitle.title}
+          centered={appBarTitle.centered}
+          unreadCount={unreadCount}
+          unreadCountPartial={Boolean(data?.hasNext)}
+          embedded
+          hidden={!headerVisible}
+          onBack={appBarTitle.back ? goBack : undefined}
+          showNotificationBell={!appBarTitle.hideBell}
+          showTicketButton={!appBarTitle.hideTickets}
+          ticketCount={ticketSummary ? ticketSummary.total : null}
+        />
+      )}
+      <main
+        ref={scrollRef}
+        onScroll={handleScrollPositionSave}
+        onWheel={cancelScrollRestore}
+        onTouchStart={cancelScrollRestore}
+        className={`flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] ${
+          appBarTitle ? 'pt-[calc(env(safe-area-inset-top,0px)+3.5rem)]' : 'pt-safe'
+        }`}
+      >
+        <FollowStatus />
+        {!online && (
+          <div className="mx-margin mt-space-sm flex items-center gap-2 px-3 py-2 rounded-xl bg-gold-badge-bg text-gold-badge">
+            <MaterialIcon name="wifi_off" className="text-[18px]" />
+            <span className="font-label-xs text-label-xs font-semibold">
+              오프라인 상태예요. 마지막으로 불러온 내용을 보여주고 있어요.
+            </span>
+          </div>
+        )}
+        <ChunkErrorBoundary resetKey={pathname}>
+        <Suspense fallback={<LoadingBlock />}>
+        <Outlet context={{
+          notifications,
+          unreadCount,
+          notificationsData: data,
+          notificationsLoading,
+          notificationsError,
+          reloadNotifications: reload,
+          markNotificationReadLocally,
+          markAllNotificationsReadLocally,
+          rollbackAllNotificationsReadLocally,
+          hideNotificationLocally,
+          unhideNotificationLocally,
+        }} />
+        </Suspense>
+        </ChunkErrorBoundary>
+      </main>
+      <BottomNav embedded compact={bottomCompact} onNavigate={handleNavigationScrollReset} />
+    </div>
+  )
+}

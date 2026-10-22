@@ -2,6 +2,7 @@ import CreatorVerifiedBadge from '../ui/CreatorVerifiedBadge.jsx'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import ProfilePhoto from '../ui/ProfilePhoto.jsx'
+import RecommendationReason from './RecommendationReason.jsx'
 import { spacePath } from '../../api/creatorSpace.js'
 
 /**
@@ -35,10 +36,13 @@ export default function CreatorRow({ creator, followed, disabled, onToggle, rowR
           </span>
           {flat
             ? meta
-            : <>
-                <span className="font-body-sm text-body-sm text-outline line-clamp-1">{creator.bio}</span>
-                {reason && <span className="self-start max-w-full px-2 py-0.5 rounded-full bg-berry-tint font-label-xs text-label-xs text-primary break-words">{reason}</span>}
-              </>}
+            : reason && !reason.boxed
+              // 도킹 기반 추천은 소개글 대신 이유를 보여준다.
+              ? <RecommendationReason reason={reason} />
+              : <>
+                  <span className="font-body-sm text-body-sm text-outline line-clamp-1">{creator.bio}</span>
+                  {reason && <RecommendationReason reason={reason} />}
+                </>}
         </div>
       </Link>
       <button

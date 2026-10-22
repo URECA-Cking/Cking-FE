@@ -14,6 +14,7 @@ import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/useToast.js'
 import { useUser } from '../../context/useUser.js'
 import { spacePath } from '../../api/creatorSpace.js'
+import RecommendationReason from '../creator/RecommendationReason.jsx'
 import { recommendationReason } from '../../utils/recommendationReason.js'
 
 const PAGE_SIZE = 20
@@ -82,11 +83,14 @@ function CreatorRow({ creator, reason, followed, disabled, onToggle }) {
             <span className="font-title-md text-title-md text-on-surface truncate">{creator.name}</span>
             <CreatorVerifiedBadge />
           </span>
-          {creator.bio && <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">{creator.bio}</p>}
-          {reason && (
-            <span className="mt-1 self-start max-w-full truncate px-2 py-0.5 rounded-full bg-berry-tint font-label-xs text-label-xs text-primary">
-              {reason}
-            </span>
+          {reason && !reason.boxed ? (
+            // 도킹 기반 추천은 소개글 대신 이유를 보여준다.
+            <RecommendationReason reason={reason} />
+          ) : (
+            <>
+              {creator.bio && <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">{creator.bio}</p>}
+              {reason && <RecommendationReason reason={reason} />}
+            </>
           )}
         </div>
       </Link>

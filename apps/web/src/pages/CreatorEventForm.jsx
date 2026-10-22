@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
@@ -29,6 +29,37 @@ import { toSafeHttpUrl } from '../utils/safeUrl.js'
 const DRAW_METHOD_LABELS = {
   UNIFORM: '동일 확률 추첨',
   WEIGHTED: '응모권 수 비례 추첨',
+}
+
+/** 포인터나 키보드 초점이 머무는 동안 입력 항목의 설명을 표시한다. */
+function FieldHelp({ label, centered = false, children }) {
+  const id = useId()
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="relative inline-flex shrink-0" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button
+        type="button"
+        aria-label={`${label} 도움말`}
+        aria-describedby={open ? id : undefined}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false) }}
+        className="flex h-4 w-4 items-center justify-center rounded-full text-outline hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+      >
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M8 7.5a2 2 0 1 1 3 1.73c-.7.4-1 1-1 1.77M10 14h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </button>
+      {open && (
+        <span id={id} role="tooltip" className={`absolute bottom-full z-50 w-56 pb-2 ${centered ? "left-1/2 -translate-x-1/2" : "right-0"}`}>
+          <span className="block rounded-xl bg-surface-container-high p-3 font-body-sm text-body-sm text-on-surface shadow-lg ring-1 ring-outline/30">
+            {children}
+          </span>
+        </span>
+      )}
+    </span>
+  )
 }
 
 const EMPTY_PRIZE = { prizeKey: '', displayName: '', priority: '', weight: '', quantity: '' }
@@ -472,19 +503,31 @@ function EventFormBody({ eventId, isEdit, target }) {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className={labelClass} htmlFor="event-draw-method">
-              추첨 방식
-            </label>
-            <select
-              id="event-draw-method"
-              className={`${inputClass} opacity-70`}
-              value={form.drawMethod}
-              onChange={(e) => updateField('drawMethod', e.target.value)}
-            >
-              {Object.entries(DRAW_METHOD_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-1">
+              <label className={labelClass} htmlFor="event-draw-method">추첨 방식</label>
+              <FieldHelp label="추첨 방식">
+                동일 확률: 응모권 수와 관계없이 참여자마다 같은 확률로 뽑아요.<br />
+                응모권 수 비례: 이 이벤트에 응모한 응모권이 많을수록 당첨 가능성이 높아져요.
+              </FieldHelp>
+            </div>
+            <div className="relative">
+              <select
+                id="event-draw-method"
+                className={`${inputClass} appearance-none text-transparent opacity-70`}
+                value={form.drawMethod}
+                onChange={(e) => updateField('drawMethod', e.target.value)}
+              >
+                {Object.entries(DRAW_METHOD_LABELS).map(([value, label]) => (
+                  <option key={value} value={value} className="text-on-surface">{label}</option>
+                ))}
+              </select>
+              <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-2 right-6 flex items-center break-keep text-[12px] leading-4 text-on-surface opacity-70">
+                {DRAW_METHOD_LABELS[form.drawMethod]}
+              </span>
+              <svg aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-on-surface opacity-70" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="m3 4.5 3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -535,9 +578,16 @@ function EventFormBody({ eventId, isEdit, target }) {
                   ['quantity', '수량', '예: 1'],
                 ].map(([key, label, placeholder]) => (
                   <div key={key} className="flex min-w-0 flex-col gap-1.5">
-                    <label className={labelClass} htmlFor={`event-prize-${prize.prizeKey}-${key}`}>
-                      {label} <span className="text-primary">*</span>
-                    </label>
+                    <div className="flex items-center gap-0.5">
+                      <label className={labelClass} htmlFor={`event-prize-${prize.prizeKey}-${key}`}>
+                        {label} <span className="text-primary">*</span>
+                      </label>
+                      {key === 'weight' && (
+                        <FieldHelp label={`상품 ${index + 1} 가중치`} centered>
+                          당첨자에게 이 상품을 배정할 상대적인 비율이에요. 예: 10과 90이면 처음 배정할 때 10%, 90%예요. 재고 소진 시 비율이 달라지며, 상품이 하나이거나 균등 배정이면 확률에 영향을 주지 않아요.
+                        </FieldHelp>
+                      )}
+                    </div>
                     <input
                       id={`event-prize-${prize.prizeKey}-${key}`}
                       type="number"

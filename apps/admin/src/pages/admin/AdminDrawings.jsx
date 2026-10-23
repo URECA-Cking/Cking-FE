@@ -32,6 +32,12 @@ import {
 import { useToast } from "../../context/useToast.js";
 import { useAsync } from "../../hooks/useAsync.js";
 import { canRunInitialDrawing } from "../../utils/drawingActions.js";
+import {
+  compareWinners,
+  isLegacyVerification,
+  replaySameWinners,
+  verificationChecks,
+} from "../../utils/drawingVerification.js";
 import { drawingStatusMeta } from "../../utils/eventStatus.js";
 import { formatDateTime, formatNumber } from "../../utils/format.js";
 
@@ -537,6 +543,8 @@ function DrawingSection({
               <VerificationRows
                 verification={verification}
                 title="최근 검증 결과"
+                winners={result.data?.winners}
+                detailed
               />
             )}
             {historyOpen && (
@@ -627,28 +635,156 @@ function WinnerTable({ event, drawing, winners }) {
     </div>
   );
 }
-function VerificationRows({ verification, title }) {
+/** 검증 한 건의 상태·시각을 보여준다. detailed면 항목별 체크와 당첨자 비교 표까지 함께 보여준다. */
+function VerificationRows({ verification, title, winners, detailed = false }) {
   return (
-    <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-      <div>
-        <dt className="text-slate-500">{title ?? "검증 결과"}</dt>
-        <dd className="mt-1">
-          <StatusBadge type="verification" status={verification.status} />
-        </dd>
-      </div>
-      <div>
-        <dt className="text-slate-500">검증 시각</dt>
-        <dd className="mt-1 text-slate-800">
-          {formatDateTime(verification.verifiedAt)}
-        </dd>
-      </div>
-      {verification.failureMessage && (
-        <div className="sm:col-span-2">
-          <dt className="text-slate-500">상세</dt>
-          <dd className="mt-1 text-slate-800">{verification.failureMessage}</dd>
+    <>
+      <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-slate-500">{title ?? "검증 결과"}</dt>
+          <dd className="mt-1">
+            <StatusBadge type="verification" status={verification.status} />
+          </dd>
         </div>
+        <div>
+          <dt className="text-slate-500">검증 시각</dt>
+          <dd className="mt-1 text-slate-800">
+            {formatDateTime(verification.verifiedAt)}
+          </dd>
+        </div>
+        {verification.failureMessage && (
+          <div className="sm:col-span-2">
+            <dt className="text-slate-500">상세</dt>
+            <dd className="mt-1 text-slate-800">{verification.failureMessage}</dd>
+          </div>
+        )}
+      </dl>
+      <ReplaySummary verification={verification} />
+      {detailed && (
+        <>
+          <VerificationChecklist verification={verification} />
+          <WinnerComparison verification={verification} winners={winners} />
+        </>
       )}
-    </dl>
+    </>
+  );
+}
+/** 원본 Seed 재현 결과가 최초 당첨자와 같았는지 한 줄 문구로 보여준다. 이전 방식 이력은 별도 표시한다. */
+function ReplaySummary({ verification }) {
+  if (isLegacyVerification(verification))
+    return (
+      <p className="mt-3 text-xs text-slate-500">
+        이전 방식 검증: 당첨자 재현 결과가 기록되지 않았습니다.
+      </p>
+    );
+  const same = replaySameWinners(verification);
+  if (same === "unknown") return null;
+  const tone =
+    same === "same"
+      ? "bg-emerald-50 text-emerald-800"
+      : "bg-red-50 text-red-800";
+  return (
+    <p className={`mt-3 rounded-md px-3 py-2 text-sm ${tone}`}>
+      {same === "same"
+        ? "같은 Seed로 다시 추첨해도 최초 당첨자와 동일합니다 (순위 포함)"
+        : "같은 Seed로 다시 추첨한 결과가 최초 당첨자와 다릅니다"}
+    </p>
+  );
+}
+/** 검증 항목별 통과·실패·미실행 여부를 체크리스트로 보여준다. */
+function VerificationChecklist({ verification }) {
+  const checks = verificationChecks(verification);
+  if (!checks.length) return null;
+  const STATE_VIEW = {
+    pass: ["통과 ✓", "text-emerald-700"],
+    fail: ["불일치 ✕", "font-medium text-red-700"],
+    unknown: ["미확인", "text-slate-400"],
+  };
+  return (
+    <ul className="mt-3 divide-y divide-slate-100 border-y border-slate-100 text-sm">
+      {checks.map((check) => {
+        const [label, tone] = STATE_VIEW[check.state];
+        return (
+          <li key={check.key} className="flex justify-between gap-3 py-2">
+            <span className="text-slate-700">{check.label}</span>
+            <span className={tone}>
+              {check.detail ? `${check.detail} · ` : ""}
+              {label}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+/** 최초 당첨자와 검증 때 재현한 당첨자를 순위별로 나란히 비교하고 일치율을 보여준다. 재현 목록이 없으면 그리지 않는다. */
+function WinnerComparison({ verification, winners }) {
+  const comparison = compareWinners(winners, verification.replayedWinners);
+  if (!comparison) return null;
+  const nameByUserId = new Map(
+    (winners ?? []).map((winner) => [winner.userId, winner.name]),
+  );
+  return (
+    <div className="mt-4">
+      <h3 className="text-xs font-semibold text-slate-700">
+        최초 당첨자 ↔ 재현 당첨자
+      </h3>
+      {comparison.total === 0 ? (
+        <p className="mt-2 text-sm text-slate-500">비교할 당첨자가 없습니다.</p>
+      ) : (
+        <>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500">
+                <tr>
+                  <th className="px-3 py-2">순위</th>
+                  <th className="px-3 py-2">최초 당첨자</th>
+                  <th className="px-3 py-2">재현 당첨자</th>
+                  <th className="px-3 py-2 text-right">일치</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {comparison.rows.map((row) => (
+                  <tr key={row.rank}>
+                    <td className="px-3 py-2">{row.rank}</td>
+                    <ComparedWinnerCell winner={row.original} name={row.original?.name} />
+                    <ComparedWinnerCell
+                      winner={row.replayed}
+                      name={nameByUserId.get(row.replayed?.userId)}
+                    />
+                    <td
+                      className={`px-3 py-2 text-right ${row.matched ? "text-emerald-700" : "font-medium text-red-700"}`}
+                    >
+                      {row.matched ? "✓" : "✕"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-sm text-slate-700">
+            일치율{" "}
+            <span className="font-medium">
+              {comparison.matched} / {comparison.total} ({comparison.rate}%)
+            </span>
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+/** 비교 표의 당첨자 셀 하나를 그린다. 이름은 최초 당첨자 목록에서 userId로 찾은 값을 쓴다. */
+function ComparedWinnerCell({ winner, name }) {
+  if (!winner)
+    return <td className="px-3 py-2 text-slate-400">-</td>;
+  return (
+    <td className="px-3 py-2">
+      <p className="font-medium text-slate-900">{name ?? `User #${winner.userId}`}</p>
+      <p className="text-xs text-slate-500">
+        User #{winner.userId}
+        {winner.prizeDisplayName ? ` · ${winner.prizeDisplayName}` : ""}
+      </p>
+    </td>
   );
 }
 function ActionPanel({

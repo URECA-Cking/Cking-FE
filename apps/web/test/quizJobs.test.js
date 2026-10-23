@@ -148,12 +148,13 @@ test('계약의 오류 코드는 정해진 안내로, 연결 오류는 fallback�
   assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_GENERATION_IN_PROGRESS', 'x', 409), 'f'), /진행 중인 Quiz 생성/)
   assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_GENERATION_DISABLED', 'x', 503), 'f'), /생성 기능/)
   assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_JUDGE_DISABLED', 'x', 503), 'f'), /Judge 평가 기능/)
-  assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_JUDGE_EVALUATION_REQUIRED', 'x', 409), 'f'), /ALL_PASS/)
+  assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_JUDGE_EVALUATION_REQUIRED', 'x', 409), 'f'), /모든 항목이 통과/)
   assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_REVISION_NOT_LATEST', 'x', 409), 'f'), /최신 revision/)
   assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_REVISION_NOT_APPROVED', 'x', 409), 'f'), /승인한 revision/)
-  assert.equal(creatorQuizErrorMessage(new ApiError('NETWORK_ERROR', '백엔드 서버에 연결할 수 없습니다.'), 'f'), 'f')
+  assert.equal(creatorQuizErrorMessage(new ApiError('NETWORK_ERROR', '서버 연결 메시지'), 'f'), 'f')
   assert.equal(creatorQuizErrorMessage(new TypeError('Failed to fetch'), 'f'), 'f')
-  assert.equal(creatorQuizErrorMessage(new ApiError('VALIDATION_FAILED', '제목은 100자 이하', 400), 'f'), '제목은 100자 이하')
+  assert.equal(creatorQuizErrorMessage(new ApiError('VALIDATION_FAILED', '제목은 100자 이하', 400), 'f'), '입력한 내용을 확인해 주세요.')
+  assert.equal(creatorQuizErrorMessage(new ApiError('QUIZ_DRAFT_INVALID', '저장할 수 없는 Quiz 생성 결과입니다.', 400), 'f'), 'f')
 })
 
 test('ALL_PASS인 이 revision의 SUCCEEDED 평가만 승인할 수 있다', () => {

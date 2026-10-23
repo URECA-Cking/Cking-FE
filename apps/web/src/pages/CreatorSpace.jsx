@@ -5,6 +5,7 @@ import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import SpaceHeaderBackdrop from '../components/creator/SpaceHeaderBackdrop.jsx'
 import BackButton from '../components/ui/BackButton.jsx'
+import { MyProfileLink } from '../components/layout/TopHeader.jsx'
 import { useAppBack } from '../hooks/useAppBack.js'
 import EventCard from '../components/creator/EventCard.jsx'
 import CreatorPosts from '../components/creator/CreatorPosts.jsx'
@@ -745,13 +746,7 @@ export default function CreatorSpace() {
             >
               <MaterialIcon name="notifications" className="text-[20px]" />
             </Link>
-            <Link
-              to="/my-page"
-              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center"
-              aria-label="마이페이지"
-            >
-              <MaterialIcon name="person" className="text-on-primary text-[18px]" />
-            </Link>
+            <MyProfileLink />
           </div>
         </div>
       </header>

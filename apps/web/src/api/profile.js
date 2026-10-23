@@ -43,7 +43,7 @@ export function isProfileSetupRequired(error) {
 /** 승인된 크리에이터의 공개 이름·사진은 스페이스 편집에서만 바꾼다. 프로필 저장·사진 업로드가 이 코드(409)로 막힌다. */
 export const CREATOR_PROFILE_MANAGED_IN_SPACE = 'CREATOR_PROFILE_MANAGED_IN_SPACE'
 
-/** 프로필 저장·사진 업로드 오류 코드별 문구. 모르는 코드는 서버 메시지나 상태 코드로 대신한다. */
+/** 프로필 저장·사진 업로드 오류 코드별 문구. 모르는 코드는 공통 문구나 대체 문구로 대신한다. */
 export const PROFILE_ERROR_MESSAGES = {
   NICKNAME_ALREADY_TAKEN: '이미 사용 중인 닉네임이에요. 다른 닉네임을 입력해주세요.',
   NICKNAME_CHANGE_TOO_SOON: '닉네임은 마지막으로 바꾼 뒤 14일이 지나야 다시 바꿀 수 있어요.',
@@ -57,10 +57,6 @@ export const PROFILE_ERROR_MESSAGES = {
 }
 
 export function describeProfileError(error, fallback = '프로필을 저장하지 못했어요.') {
-  if (error instanceof ApiError) {
-    if (PROFILE_ERROR_MESSAGES[error.code]) return PROFILE_ERROR_MESSAGES[error.code]
-    // 위에 없는 409는 서버 메시지를 그대로 보여준다.
-    if (error.status === 409) return error.message || '지금은 이 닉네임으로 바꿀 수 없어요. 다른 닉네임을 입력하거나 나중에 다시 시도해주세요.'
-  }
+  if (error instanceof ApiError && PROFILE_ERROR_MESSAGES[error.code]) return PROFILE_ERROR_MESSAGES[error.code]
   return describeError(error, fallback)
 }

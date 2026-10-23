@@ -1,10 +1,16 @@
+import { useContext } from 'react'
 import { Link } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
+import ProfilePhoto from '../ui/ProfilePhoto.jsx'
 import ThemedImage from '../ui/ThemedImage.jsx'
 import BackButton from '../ui/BackButton.jsx'
+import UserContext from '../../context/userContext.js'
 import { useToast } from '../../context/useToast.js'
 import { useAppBack } from '../../hooks/useAppBack.js'
+import { useAsync } from '../../hooks/useAsync.js'
+import { getMySpace } from '../../api/creatorSpace.js'
 import { formatTicketBadge } from '../../utils/myTickets.js'
+import { ownPublicProfile } from '../../utils/publicProfile.js'
 
 /** 현재 화면 주소를 공유한다. Web Share API가 없으면 클립보드로 복사한다. */
 function useShare() {
@@ -151,17 +157,33 @@ export function BackHeader({ title, badge, onBack, right, showShare = true }) {
               >
                 <MaterialIcon name="share" className="text-[20px]" />
               </button>}
-              <Link
-                to="/my-page"
-                className="w-8 h-8 rounded-full bg-primary flex items-center justify-center"
-                aria-label="마이페이지"
-              >
-                <MaterialIcon name="person" className="text-on-primary text-[18px]" />
-              </Link>
+              <MyProfileLink />
             </div>
           ))
         )}
       </div>
     </header>
+  )
+}
+
+/**
+ * 마이페이지로 가는 내 프로필 사진. 팬은 Member 사진, 크리에이터는 스페이스 사진을 쓰고, 사진이 없으면 사람 아이콘이다.
+ * 스페이스는 useOwnCreatorId와 같은 캐시 키·응답 모양을 써서 화면을 옮길 때 다시 기다리지 않는다.
+ */
+export function MyProfileLink() {
+  const { user = null, isCreator = false } = useContext(UserContext) ?? {}
+  const memberId = user?.memberId ?? null
+  const mySpace = useAsync(
+    () => getMySpace().then((space) => ({ ...space, memberId })),
+    [isCreator, memberId],
+    { enabled: isCreator && memberId != null, cacheKey: isCreator && memberId != null ? `own-space:${memberId}` : null },
+  )
+  const space = mySpace.data?.memberId === memberId ? mySpace.data : null
+  const { photo } = ownPublicProfile(user, space)
+
+  return (
+    <Link to="/my-page" className="w-8 h-8 rounded-full" aria-label="마이페이지">
+      <ProfilePhoto src={photo} className="h-8 w-8" iconClassName="text-[18px]" />
+    </Link>
   )
 }

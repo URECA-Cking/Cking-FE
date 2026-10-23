@@ -27,7 +27,7 @@ export function isActivityNameSetupRequired(error) {
   return error?.code === ACTIVITY_NAME_SETUP_REQUIRED
 }
 
-/** 활동명 저장 오류 코드별 문구. 모르는 코드는 서버 메시지나 상태 코드로 대신한다. */
+/** 활동명 저장 오류 코드별 문구. 모르는 코드는 공통 문구나 대체 문구로 대신한다. */
 export const ACTIVITY_NAME_ERROR_MESSAGES = {
   ACTIVITY_NAME_ALREADY_TAKEN: '이미 다른 크리에이터가 쓰고 있는 활동명이에요. 다른 이름을 입력해주세요.',
   ACTIVITY_NAME_CHANGE_TOO_SOON: '활동명은 마지막으로 바꾼 뒤 14일이 지나야 다시 바꿀 수 있어요.',
@@ -36,7 +36,7 @@ export const ACTIVITY_NAME_ERROR_MESSAGES = {
 }
 
 /**
- * 크리에이터의 공개 활동(게시글·이벤트 작성·승인 요청)이 활동명 미설정으로 막혔을 때만 안내 문구로 바꾸고, 다른 오류는 그대로 보여 준다.
+ * 크리에이터의 공개 활동(게시글·이벤트 작성·승인 요청)이 활동명 미설정으로 막혔을 때만 안내 문구로 바꾸고, 다른 오류는 공통 문구나 대체 문구로 보여 준다.
  * describeActivityNameError는 활동명 저장 화면용이라 VALIDATION_FAILED 같은 코드를 활동명 규칙 문구로 바꾸므로 여기서 쓰면 안 된다.
  */
 export function describeCreatorWriteError(error, fallback) {

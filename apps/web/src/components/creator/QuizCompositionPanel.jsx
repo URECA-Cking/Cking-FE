@@ -5,6 +5,7 @@ import { ErrorBlock, StatusPill } from '../ui/States.jsx'
 import { composeQuizRevision, getMyQuiz, getMyQuizRevision } from '../../api/creatorQuizzes.js'
 import { newRequestId } from '../../api/client.js'
 import { browserStorage, creatorQuizErrorMessage } from '../../utils/quizJobs.js'
+import { judgeItemLabel, verdictLabel } from './quizLabels.js'
 import { compositionBody, compositionDraft, compositionKey, compositionLock, compositionStatus, readComposition, releaseRejectedComposition, reserveComposition, restoreCompositionDraft, settleComposition } from '../../utils/quizComposition.js'
 
 const fieldClass = 'w-full rounded-lg bg-surface-container-lowest p-space-sm text-on-surface outline-none focus:ring-2 focus:ring-primary'
@@ -105,8 +106,8 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
       if (e.code === 'QUIZ_CONTENT_LOCKED' || e.code === 'QUIZ_CLOSED') setLocked(true)
       if (e.code === 'QUIZ_CLOSED') onQuizClosed?.()
       setError(e.code === 'QUIZ_REVISION_CONFLICT' ? '기준 Revision이 바뀌었어요. 작성 내용은 보존했습니다. 최신본을 확인해 주세요.'
-        : e.code === 'QUIZ_EDIT_REQUEST_CONFLICT' ? '같은 UUID의 요청 본문이 달라요. 기존 저장 기록을 확인해 주세요.'
-        : creatorQuizErrorMessage(e, '저장 결과를 확인하지 못했어요. 기존 UUID와 본문으로 다시 확인해 주세요.'))
+        : e.code === 'QUIZ_EDIT_REQUEST_CONFLICT' ? '이전 저장 요청과 내용이 달라요. 기존 저장 기록을 확인해 주세요.'
+        : creatorQuizErrorMessage(e, '저장 결과를 확인하지 못했어요. 같은 내용으로 다시 확인해 주세요.'))
     } finally {
       inFlight.current = false
       if (active.current) setBusy(false)
@@ -157,7 +158,7 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
           {q.options.map((option, index) => <label className="flex gap-2 items-center" key={index}><input type="radio" name={`answer-${q.id}`} checked={q.correctOptionIndex === index} onChange={() => change(q.id, { correctOptionIndex: index })} aria-label={`정답 ${index + 1} ${q.id}`} /><input aria-label={`보기 ${index + 1} ${q.id}`} className={fieldClass} value={option} maxLength={200} onChange={e => change(q.id, { options: q.options.map((o, i) => i === index ? e.target.value : o) })} /></label>)}
           <label>해설<textarea className={fieldClass} value={q.explanation} maxLength={1000} onChange={e => change(q.id, { explanation: e.target.value })} /></label>
           <label>근거 (수정·추가 시 선택)<textarea className={fieldClass} value={q.sourceEvidence} maxLength={1000} onChange={e => change(q.id, { sourceEvidence: e.target.value })} /></label>
-          {q.sourceEvaluation && <details><summary>AI 원본 참고 평가 · 현재 수정 문항의 검증 결과가 아닙니다</summary>{Object.entries(q.sourceEvaluation.items).map(([name, item]) => <p key={name}>{name}: {item.verdict} · {item.reason}</p>)}</details>}
+          {q.sourceEvaluation && <details><summary>AI 원본 참고 평가 · 현재 수정 문항의 검증 결과가 아닙니다</summary>{Object.entries(q.sourceEvaluation.items).map(([name, item]) => <p key={name}>{judgeItemLabel(name)}: {verdictLabel(item.verdict)} · {item.reason}</p>)}</details>}
           {!q.sourceQuestionId && <button className={buttonClass} onClick={() => setDraft(items => items.filter(item => item.id !== q.id))}>추가 문항 삭제</button>}
         </article>)}
         <button className={buttonClass} disabled={selected.length >= 5} onClick={() => setDraft(items => [...items, { id: `new:${newRequestId()}`, selected: true, question: '', options: ['', '', '', ''], correctOptionIndex: null, explanation: '', sourceEvidence: '', evaluationStatus: 'NOT_EVALUATED' }])}><MaterialIcon name="add" /> 직접 문항 추가</button>

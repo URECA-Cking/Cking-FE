@@ -9,7 +9,7 @@ export const WINNER_STATUS_ORDER = ['SELECTED', 'RECEIVED', 'DECLINED', 'DISQUAL
 
 export function winnerStatusMeta(status) {
   return STATUS_META[status] ?? {
-    label: status ?? '상태 확인 필요',
+    label: '상태 확인 필요',
     tone: 'bg-surface-container-high text-on-surface-variant',
     icon: 'help',
   }
@@ -43,7 +43,7 @@ export function winnerRankLabel(rank) {
 }
 
 export function winnerEventTitle(winner, eventById) {
-  return eventById.get(winner.eventId)?.title?.trim() || `이벤트 #${winner.eventId}`
+  return eventById.get(winner.eventId)?.title?.trim() || '이벤트 정보를 불러오지 못했어요'
 }
 
 // 포기·자격 박탈된 당첨은 더 이상 당첨이 아니다. 상태를 알 수 없으면(상태 필드가 없는 응답) 당첨으로 본다.

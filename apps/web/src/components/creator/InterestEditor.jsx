@@ -78,9 +78,9 @@ export default function InterestEditor({ catalog, catalogError, onRetryCatalog, 
           {saved.length === 0 && (
             <span className="font-label-xs text-label-xs text-outline">관심 분야를 고르면 추천이 더 정확해져요</span>
           )}
-          {saved.map((code) => (
+          {saved.filter((code) => names.has(code)).map((code) => (
             <span key={code} className="px-2.5 py-1 rounded-full bg-berry-tint text-primary font-label-xs text-label-xs font-semibold">
-              {names.get(code) ?? code}
+              {names.get(code)}
             </span>
           ))}
         </div>

@@ -26,7 +26,7 @@ export default function RequireRole({ role, children }) {
         </p>
         <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed max-w-xs">
           {role === 'admin'
-            ? '관리자(ADMIN) 계정으로 로그인하면 승인 심사와 추첨 실행을 사용할 수 있어요.'
+            ? '관리자 계정으로 로그인하면 승인 심사와 추첨 실행을 사용할 수 있어요.'
             : '마이페이지에서 크리에이터 전환을 신청하고 관리자 승인을 받으면 사용할 수 있어요.'}
         </p>
         <Link

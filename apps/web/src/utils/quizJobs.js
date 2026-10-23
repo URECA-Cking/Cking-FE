@@ -4,6 +4,8 @@
 // 응답을 받지 못한 요청은 requestId를 저장해 두었다가 같은 입력이면 그대로 다시 보낸다. 작업 ID를 받은 뒤에는
 // 작업 ID로 상태를 조회한다. 새로고침해도 이어 볼 수 있게 Creator별로 브라우저 저장소에 둔다(토큰·인증 정보는 두지 않는다).
 
+import { describeError } from '../api/errorMessages.js'
+
 export const QUIZ_TITLE_MAX = 100
 export const REJECT_REASON_MAX = 500
 export const QUESTION_COUNTS = [3, 5]
@@ -161,8 +163,8 @@ export function isUncertainError(error) {
 const ERROR_MESSAGES = {
   QUIZ_CLOSED: '마감된 Quiz예요. 재게시하거나 내용을 변경할 수 없어요.',
   QUIZ_CLOSE_NOT_ALLOWED: '게시 중이거나 게시 중지한 Quiz만 마감할 수 있어요.',
-  QUIZ_REVISION_CONFLICT: '편집 기준이 바뀌었거나 hash가 달라요. 최신 Revision을 확인해 주세요.',
-  QUIZ_EDIT_REQUEST_CONFLICT: '같은 저장 UUID의 요청 내용이 달라요. 기존 저장 기록을 확인해 주세요.',
+  QUIZ_REVISION_CONFLICT: '편집하는 사이에 Quiz 내용이 바뀌었어요. 최신 Revision을 확인해 주세요.',
+  QUIZ_EDIT_REQUEST_CONFLICT: '이전 저장 요청과 내용이 달라 처리하지 못했어요. 기존 저장 기록을 확인해 주세요.',
   QUIZ_CONTENT_LOCKED: '최초 게시한 Quiz는 게시 취소 후에도 편집할 수 없어요.',
   QUIZ_GENERATION_REQUEST_CONFLICT: '이전 생성 요청과 입력이 달라 처리하지 못했어요. 다시 요청해 주세요.',
   QUIZ_GENERATION_IN_PROGRESS: '이미 진행 중인 Quiz 생성이 있어요. 끝난 뒤 다시 요청해 주세요.',
@@ -179,7 +181,7 @@ const ERROR_MESSAGES = {
   QUIZ_JUDGE_DISABLED: '지금은 GPT Judge 평가 기능을 사용할 수 없어요.',
   QUIZ_JUDGE_NOT_CONFIGURED: '지금은 GPT Judge 평가 기능을 사용할 수 없어요.',
   QUIZ_JUDGE_EVALUATION_NOT_FOUND: '평가 기록을 찾을 수 없어요.',
-  QUIZ_JUDGE_EVALUATION_REQUIRED: 'GPT Judge 평가에서 모든 항목이 통과(ALL_PASS)해야 승인·게시할 수 있어요.',
+  QUIZ_JUDGE_EVALUATION_REQUIRED: 'GPT Judge 평가에서 모든 항목이 통과해야 승인·게시할 수 있어요.',
   QUIZ_JUDGE_EVALUATION_INTEGRITY_FAILED: '저장된 평가 결과를 검증하지 못했어요.',
   QUIZ_REVISION_ALREADY_DECIDED: '이미 승인 또는 반려한 revision이에요.',
   QUIZ_REVISION_NOT_LATEST: '최신 revision만 게시할 수 있어요.',
@@ -187,14 +189,18 @@ const ERROR_MESSAGES = {
   QUIZ_REVISION_INTEGRITY_FAILED: '저장된 Quiz 내용을 검증하지 못했어요.',
   QUIZ_NOT_FOUND: 'Quiz를 찾을 수 없어요.',
   QUIZ_REVISION_NOT_FOUND: 'revision을 찾을 수 없어요.',
-  FORBIDDEN: '내 Quiz만 관리할 수 있어요. Creator 계정인지 확인해 주세요.',
+  VALIDATION_FAILED: '입력한 내용을 확인해 주세요.',
+  FORBIDDEN: '내 Quiz만 관리할 수 있어요. 크리에이터 계정인지 확인해 주세요.',
 }
 
-/** 화면에 보여줄 오류 문구. 계약에 있는 코드는 정해진 문구, 그 밖의 서버 오류는 서버 문구, 나머지는 fallback. */
+/**
+ * 화면에 보여줄 오류 문구. 계약에 있는 코드는 정해진 문구, 나머지는 공통 문구나 fallback. 서버 문구는 쓰지 않는다.
+ * 연결 오류는 결과를 모르는 상태라 화면마다 다음 행동을 적은 fallback을 쓴다.
+ */
 export function creatorQuizErrorMessage(error, fallback) {
-  if (ERROR_MESSAGES[error?.code]) return ERROR_MESSAGES[error.code]
-  if (error?.code === 'NETWORK_ERROR' || !error?.code) return fallback
-  return error.message || fallback
+  if (Object.hasOwn(ERROR_MESSAGES, error?.code ?? '')) return ERROR_MESSAGES[error.code]
+  if (error?.code === 'NETWORK_ERROR') return fallback
+  return describeError(error, fallback)
 }
 
 const GENERATION_FAILURES = {

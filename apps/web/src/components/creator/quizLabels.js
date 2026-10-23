@@ -14,6 +14,33 @@ export const CONTENT_REVIEW_LABELS = {
   false: { label: 'AI 원문 그대로 확정', icon: 'task_alt', tone: 'bg-surface-container-high text-on-surface' },
 }
 
+// 문항마다 평가하는 7개 항목(judge-api.md). 응답의 항목 키는 화면에 그대로 쓰지 않는다.
+export const JUDGE_ITEMS = [
+  ['textAnswerCorrect', '정답이 원문과 일치'],
+  ['uniqueAnswer', '정답이 하나'],
+  ['evidenceSupportsAnswer', '근거가 정답을 뒷받침'],
+  ['questionClarity', '질문이 명확'],
+  ['koreanQuality', '한국어 품질'],
+  ['distractorQuality', '오답 보기 품질'],
+  ['textFaithfulness', '원문 밖 내용 없음'],
+]
+
+export const VERDICTS = {
+  pass: { label: '통과', icon: 'check_circle', className: 'text-primary' },
+  fail: { label: '미통과', icon: 'cancel', className: 'text-error' },
+  uncertain: { label: '보류', icon: 'help', className: 'text-on-surface-variant' },
+}
+
+/** 평가 항목 키를 화면 문구로 바꾼다. 모르는 키는 원문 대신 일반 문구를 쓴다. */
+export function judgeItemLabel(key) {
+  return JUDGE_ITEMS.find(([field]) => field === key)?.[1] ?? '평가 항목'
+}
+
+/** 판정 값을 화면 문구로 바꾼다. 모르는 값은 보류로 보여 준다. */
+export function verdictLabel(verdict) {
+  return (Object.hasOwn(VERDICTS, verdict ?? '') ? VERDICTS[verdict] : VERDICTS.uncertain).label
+}
+
 export const REVIEW_LABELS = {
   PENDING_REVIEW: { label: '검토 대기', icon: 'rate_review', tone: 'bg-surface-container-high text-on-surface' },
   APPROVED: { label: '승인됨', icon: 'verified', tone: 'bg-primary/10 text-primary' },

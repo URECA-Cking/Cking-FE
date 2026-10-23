@@ -73,7 +73,7 @@ const FAILURE_MESSAGES = {
   WELCOME_QUEST_NOT_ELIGIBLE: '웰컴 퀘스트 대상이 아니에요.',
 }
 
-/** 지급 실패 코드에 맞는 안내 문구를 돌려준다. 정해 둔 문구가 없으면 null이라 호출자가 서버 문구나 기본 문구를 쓴다. */
+/** 지급 실패 코드에 맞는 안내 문구를 돌려준다. 정해 둔 문구가 없으면 null이라 호출자가 공통 문구나 기본 문구를 쓴다. */
 export function claimFailureMessage(code) {
   return FAILURE_MESSAGES[code] ?? null
 }

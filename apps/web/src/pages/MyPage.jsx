@@ -75,7 +75,9 @@ export default function MyPage() {
       showToast(
         result?.status === 'PENDING'
           ? '크리에이터 전환 신청이 접수됐어요. 관리자 승인을 기다려주세요.'
-          : `신청 상태: ${result?.status}`,
+          : result?.status === 'APPROVED'
+            ? '이미 크리에이터로 승인된 계정이에요.'
+            : '크리에이터 전환 신청 결과를 확인하지 못했어요. 신청 상태를 다시 확인해주세요.',
       )
       await Promise.all([applications.reload(), refreshCapabilities()])
     } catch (err) {

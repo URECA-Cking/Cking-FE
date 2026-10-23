@@ -20,7 +20,7 @@ import {
   unpublishQuiz,
 } from '../../api/creatorQuizzes.js'
 import { formatDateTime } from '../../utils/format.js'
-import { CONTENT_REVIEW_LABELS, PUBLICATION_LABELS, REVIEW_LABELS } from './quizLabels.js'
+import { CONTENT_REVIEW_LABELS, JUDGE_ITEMS, PUBLICATION_LABELS, REVIEW_LABELS, VERDICTS, judgeItemLabel, verdictLabel } from './quizLabels.js'
 import {
   REJECT_REASON_MAX,
   browserStorage,
@@ -55,23 +55,6 @@ const AGGREGATION_LABELS = {
   ALL_PASS: { label: '모두 통과', icon: 'check_circle', tone: 'bg-primary text-on-primary' },
   HAS_FAIL: { label: '미통과 항목 있음', icon: 'cancel', tone: 'bg-error-container text-on-error-container' },
   UNCERTAIN_ONLY: { label: '판단 보류 항목 있음', icon: 'help', tone: 'bg-surface-container-high text-on-surface' },
-}
-
-// 문항마다 평가하는 7개 항목(judge-api.md).
-const JUDGE_ITEMS = [
-  ['textAnswerCorrect', '정답이 원문과 일치'],
-  ['uniqueAnswer', '정답이 하나'],
-  ['evidenceSupportsAnswer', '근거가 정답을 뒷받침'],
-  ['questionClarity', '질문이 명확'],
-  ['koreanQuality', '한국어 품질'],
-  ['distractorQuality', '오답 보기 품질'],
-  ['textFaithfulness', '원문 밖 내용 없음'],
-]
-
-const VERDICTS = {
-  pass: { label: '통과', icon: 'check_circle', className: 'text-primary' },
-  fail: { label: '미통과', icon: 'cancel', className: 'text-error' },
-  uncertain: { label: '보류', icon: 'help', className: 'text-on-surface-variant' },
 }
 
 // 상태 조회가 이 횟수만큼 연달아 실패하면 자동 조회를 멈추고 "다시 확인"을 보여준다.
@@ -526,9 +509,9 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
           <span className="font-label-md text-label-md font-semibold text-on-surface">검토 결정</span>
           {!approvable && (
             <p className="font-body-sm text-body-sm text-on-surface-variant">
-              {composed ? '최신 구성본의 저장된 hash를 확인한 뒤 책임 승인할 수 있어요.' : evaluation?.status === 'SUCCEEDED'
-                ? '기존 Judge 승인은 ALL_PASS가 필요해요. 최종 문항 구성에서는 미통과·보류 문항도 선택·수정할 수 있어요.'
-                : 'GPT Judge 평가에서 모든 항목이 통과(ALL_PASS)해야 승인할 수 있어요.'}
+              {composed ? '최신 구성본의 저장 내용을 확인한 뒤 책임 승인할 수 있어요.' : evaluation?.status === 'SUCCEEDED'
+                ? '기존 Judge 승인은 모든 항목이 통과해야 해요. 최종 문항 구성에서는 미통과·보류 문항도 선택·수정할 수 있어요.'
+                : 'GPT Judge 평가에서 모든 항목이 통과해야 승인할 수 있어요.'}
             </p>
           )}
           {confirming === 'approve' && (
@@ -612,7 +595,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
         <div key={question.questionId ?? question.questionNo}>
           {question.evaluationStatus && <p className="font-label-sm text-label-sm text-on-surface-variant">{({ PASS: 'AI 원본 통과', FAIL: 'AI 원본 미통과', UNCERTAIN: 'AI 원본 판단 보류', NOT_REVALIDATED: '수정 문항 · 재검증 안 됨', NOT_EVALUATED: '평가 없음' })[question.evaluationStatus]}</p>}
           <QuestionReview question={question} judged={composed ? null : judgedByNo.get(question.questionNo)} />
-          {question.sourceEvaluation && (composed || !judgedByNo.has(question.questionNo)) && <details className={sectionClass}><summary>AI 원본 참고 평가 (현재 수정 문항의 검증 결과가 아닙니다)</summary>{Object.entries(question.sourceEvaluation.items).map(([name, item]) => <p key={name}>{JUDGE_ITEMS.find(([field]) => field === name)?.[1] ?? name}: {VERDICTS[item.verdict]?.label ?? item.verdict} · {item.reason}</p>)}</details>}
+          {question.sourceEvaluation && (composed || !judgedByNo.has(question.questionNo)) && <details className={sectionClass}><summary>AI 원본 참고 평가 (현재 수정 문항의 검증 결과가 아닙니다)</summary>{Object.entries(question.sourceEvaluation.items).map(([name, item]) => <p key={name}>{judgeItemLabel(name)}: {verdictLabel(item.verdict)} · {item.reason}</p>)}</details>}
         </div>
       ))}
     </div>
@@ -636,7 +619,7 @@ function JudgeSection({ judge, evaluation, action, readOnly = false }) {
         {aggregation && <StatusPill label={aggregation.label} icon={aggregation.icon} tone={aggregation.tone} />}
         {!aggregation && evaluation && (
           <StatusPill
-            label={JUDGE_LABELS[evaluation.status] ?? evaluation.status}
+            label={JUDGE_LABELS[evaluation.status] ?? '상태 확인 중'}
             icon={failed ? 'error' : 'hourglass_top'}
             tone={failed ? 'bg-error-container text-on-error-container' : 'bg-surface-container-high text-on-surface'}
           />

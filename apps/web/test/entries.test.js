@@ -14,8 +14,14 @@ test('네트워크 예외는 동일 요청 재시도용 실패 결과로 바꾼�
     code: 'NETWORK_ERROR',
     accepted: false,
     tone: 'error',
-    message: '백엔드 서버에 연결할 수 없어요.',
+    message: '연결이 불안정해 응모 결과를 확인하지 못했어요. 다시 시도해도 중복으로 차감되지 않아요.',
   })
+})
+
+test('응모 표에 없는 코드는 서버 문구 대신 공통 문구나 기본 문구를 쓴다', () => {
+  assert.equal(describeEntryResult({ code: 'PROFILE_SETUP_REQUIRED', message: '닉네임 설정을 먼저 완료해 주세요.' }).message, '먼저 닉네임을 설정해주세요.')
+  assert.equal(describeEntryResult({ code: 'SOMETHING_NEW', message: '서버 메시지' }).message, '응모 결과를 확인하지 못했어요.')
+  assert.equal(describeEntryResult({ code: 'toString', message: '서버 메시지' }).message, '응모 결과를 확인하지 못했어요.')
 })
 
 test('멱등 재전송 성공은 기존처럼 수락 결과로 유지한다', () => {

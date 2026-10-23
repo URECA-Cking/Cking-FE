@@ -407,7 +407,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
           <div className="flex items-center justify-between gap-2">
             <span className="min-w-0 truncate font-label-md text-label-md font-semibold text-on-surface">{displayInput.title}</span>
             <StatusPill
-              label={awaitingReview ? '원문 검토 대기' : currentJob?.reviewStage === 'GROUNDING' ? '영상 분석 중' : currentJob?.reviewStage === 'GENERATING' ? '문항 생성 중' : currentJob ? GENERATION_LABELS[currentJob.status] ?? currentJob.status : '상태 확인 중'}
+              label={awaitingReview ? '원문 검토 대기' : currentJob?.reviewStage === 'GROUNDING' ? '영상 분석 중' : currentJob?.reviewStage === 'GENERATING' ? '문항 생성 중' : currentJob ? GENERATION_LABELS[currentJob.status] ?? '상태 확인 중' : '상태 확인 중'}
               icon="hourglass_top"
               tone="bg-surface-container-high text-on-surface"
             />

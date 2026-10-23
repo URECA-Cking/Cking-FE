@@ -34,6 +34,6 @@ export function imageReuseTypeMeta(reuseType) {
   return IMAGE_REUSE_TYPE_META[reuseType] ?? {
     label: reuseType || '알 수 없음',
     tone: 'bg-slate-100 text-slate-700',
-    description: '정의되지 않은 재사용 유형입니다. 백엔드 계약을 확인해주세요.',
+    description: '화면에 아직 등록되지 않은 재사용 유형입니다.',
   }
 }

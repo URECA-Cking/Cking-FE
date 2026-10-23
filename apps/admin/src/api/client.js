@@ -7,7 +7,7 @@ export { ApiError }
 const send = createApiTransport({
   baseUrl: BASE_URL,
   getAccessToken,
-  networkErrorMessage: '백엔드 서버에 연결할 수 없습니다.',
+  networkErrorMessage: '서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.',
 })
 
 let refreshing = null

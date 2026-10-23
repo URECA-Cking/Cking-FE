@@ -94,7 +94,7 @@ async function waitForRequestCount(page, count) {
 async function loadWinners(page, data = [winner()]) {
   await waitForRequest(page, '/api/me/winners')
   await page.evaluate((result) => window.reply('/api/me/winners', result), data)
-  await page.getByText('이벤트 #16').waitFor()
+  await page.getByText('이벤트 정보를 불러오지 못했어요').first().waitFor()
 }
 
 async function loadEventNames(page) {

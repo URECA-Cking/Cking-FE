@@ -45,7 +45,7 @@ export function displayStatusMeta(status) {
 }
 
 export function eventStatusMeta(status) {
-  return EVENT_STATUS_META[status] ?? { label: status ?? '-', tone: 'bg-surface-container text-on-surface-variant' }
+  return EVENT_STATUS_META[status] ?? { label: '상태 확인 중', tone: 'bg-surface-container text-on-surface-variant' }
 }
 
 /**

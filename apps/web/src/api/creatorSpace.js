@@ -1,4 +1,5 @@
 import { ApiError, apiClient, describeError } from './client';
+import { getAccessToken } from './authToken.js';
 import { spaceUpdateBody } from '../utils/spaceProfile.js';
 
 // Creator Space API(Cking-BE docs/domains/creator/space-api.md).
@@ -15,9 +16,18 @@ export async function getCreatorSpaceBySlug(slug) {
   return apiClient.get(`/api/creator-spaces/${encodeURIComponent(slug)}`);
 }
 
+// 같은 화면의 여러 곳(본인 여부 확인, 상단 프로필 사진 등)이 동시에 부르면 요청 하나를 함께 기다린다.
+// 로그인 토큰별로 나눠, 계정이 바뀐 뒤의 호출이 이전 계정의 진행 중 요청을 받지 않게 한다. 끝나면 지워 다음 호출은 새로 읽는다.
+const mySpaceRequests = new Map();
+
 // GET /api/creator/space - 내 Space 조회(Creator 본인)
-export async function getMySpace() {
-  return apiClient.get('/api/creator/space');
+export function getMySpace() {
+  const token = getAccessToken() ?? '';
+  const pending = mySpaceRequests.get(token);
+  if (pending) return pending;
+  const request = apiClient.get('/api/creator/space').finally(() => mySpaceRequests.delete(token));
+  mySpaceRequests.set(token, request);
+  return request;
 }
 
 // PATCH /api/creator/space - 내 Space 홈·프로필 수정(모든 필드를 한 번에 교체)
@@ -39,7 +49,7 @@ export function uploadSpaceBannerImage(file) {
   return apiClient.post('/api/creator/space/banner-images', form);
 }
 
-/** 스페이스 프로필 사진·배너 업로드·저장 오류 코드별 문구. 모르는 코드는 서버 메시지나 상태 코드로 대신한다. */
+/** 스페이스 프로필 사진·배너 업로드·저장 오류 코드별 문구. 모르는 코드는 공통 문구나 대체 문구로 대신한다. */
 export const SPACE_IMAGE_ERROR_MESSAGES = {
   INVALID_SPACE_PROFILE_IMAGE: '이미지를 사용할 수 없어요. JPEG·PNG, 5MB 이하, 200×200px 이상인지 확인하고 사진을 다시 올려주세요.',
   INVALID_SPACE_BANNER_IMAGE: '배너 이미지를 사용할 수 없어요. JPEG·PNG, 5MB 이하, 600×200px 이상인지 확인하고 배너를 다시 올려주세요.',
@@ -60,10 +70,10 @@ export async function changeMySpaceSlug(slug) {
 
 /** slug 변경 오류 코드별 안내(Cking-BE docs/domains/creator/space-slug-policy.md). */
 export const SLUG_ERROR_MESSAGES = {
-  VALIDATION_FAILED: 'slug는 3~30자의 소문자·숫자·하이픈(-)·밑줄(_)이며, 처음과 끝은 소문자나 숫자여야 해요.',
-  RESERVED_SLUG: '사용할 수 없는 slug예요. 다른 값을 입력해주세요.',
-  SLUG_ALREADY_TAKEN: '이미 사용 중이거나 다른 크리에이터가 잠시 보관 중인 slug예요.',
-  SLUG_CHANGE_TOO_SOON: 'slug는 마지막 변경 후 14일이 지나야 다시 바꿀 수 있어요.',
+  VALIDATION_FAILED: '공유 주소는 3~30자의 소문자·숫자·하이픈(-)·밑줄(_)이며, 처음과 끝은 소문자나 숫자여야 해요.',
+  RESERVED_SLUG: '사용할 수 없는 공유 주소예요. 다른 값을 입력해주세요.',
+  SLUG_ALREADY_TAKEN: '이미 사용 중이거나 다른 크리에이터가 잠시 보관 중인 공유 주소예요.',
+  SLUG_CHANGE_TOO_SOON: '공유 주소는 마지막 변경 후 14일이 지나야 다시 바꿀 수 있어요.',
 };
 
 /** 크리에이터 스페이스 경로. 인스타처럼 /{slug}. 예전 공유 링크 /space/{slug}도 계속 열린다. */

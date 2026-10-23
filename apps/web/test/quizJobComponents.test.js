@@ -81,7 +81,7 @@ async function screen(kind, initial = null, context = null) {
   await page.evaluate((kind) => window.renderQuiz(kind), kind)
   // 초기 저장소 조회가 끝난 뒤 장애/경쟁을 주입해 요청 직전 조회와 예약 조회 사이를 정확히 검증한다.
   if (kind === 'generation') await page.getByRole('button', { name: 'AI Quiz 생성', exact: false }).waitFor()
-  else await page.getByRole('region', { name: 'GPT Judge 평가', exact: true }).waitFor()
+  else await page.getByRole('region', { name: 'AI 평가', exact: true }).waitFor()
   return page
 }
 async function send(page, kind, recovery = false) {
@@ -118,7 +118,7 @@ for (const kind of ['generation', 'judge']) {
         if (order === 'success-first') await succeed()
         await a.evaluate(() => window.reply(0, 403, null, 'FORBIDDEN'))
         // 실패 핸들러가 실제로 처리한 문구를 기다린다. 고정 sleep으로 성공 여부를 추정하지 않는다.
-        await a.getByText('내 Quiz만 관리할 수 있어요. Creator 계정인지 확인해 주세요.', { exact: true }).waitFor()
+        await a.getByText('내 Quiz만 관리할 수 있어요. 크리에이터 계정인지 확인해 주세요.', { exact: true }).waitFor()
         const saved = await a.evaluate(() => window.readStored())
         const current = kind === 'generation' ? saved?.generation : saved?.judges['100']
         assert.equal(current?.requestId, requestId)
@@ -155,7 +155,7 @@ for (const kind of ['generation', 'judge']) {
       await send(b, kind, true)
       await b.waitForFunction(() => window.posts.length === 1)
       await a.evaluate((kind) => window.reply(0, 503, null, kind === 'generation' ? 'QUIZ_GENERATION_DISABLED' : 'QUIZ_JUDGE_DISABLED'), kind)
-      await a.getByText(kind === 'generation' ? '지금은 AI Quiz 생성 기능을 사용할 수 없어요.' : '지금은 GPT Judge 평가 기능을 사용할 수 없어요.', { exact: true }).waitFor()
+      await a.getByText(kind === 'generation' ? '지금은 AI Quiz 생성 기능을 사용할 수 없어요.' : '지금은 AI 평가 기능을 사용할 수 없어요.', { exact: true }).waitFor()
       const saved = await a.evaluate(() => window.readStored())
       const current = kind === 'generation' ? saved.generation : saved.judges['100']
       assert.equal(current.requestId, requestId)

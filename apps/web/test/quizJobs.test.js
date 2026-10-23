@@ -147,13 +147,14 @@ test('응답을 못 받았거나 5xx면 불확실, 4xx와 기능 꺼짐 503은 �
 test('계약의 오류 코드는 정해진 안내로, 연결 오류는 fallback으로 보여준다', () => {
   assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_GENERATION_IN_PROGRESS', 'x', 409), 'f'), /진행 중인 Quiz 생성/)
   assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_GENERATION_DISABLED', 'x', 503), 'f'), /생성 기능/)
-  assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_JUDGE_DISABLED', 'x', 503), 'f'), /Judge 평가 기능/)
-  assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_JUDGE_EVALUATION_REQUIRED', 'x', 409), 'f'), /ALL_PASS/)
-  assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_REVISION_NOT_LATEST', 'x', 409), 'f'), /최신 revision/)
-  assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_REVISION_NOT_APPROVED', 'x', 409), 'f'), /승인한 revision/)
-  assert.equal(creatorQuizErrorMessage(new ApiError('NETWORK_ERROR', '백엔드 서버에 연결할 수 없습니다.'), 'f'), 'f')
+  assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_JUDGE_DISABLED', 'x', 503), 'f'), /AI 평가 기능/)
+  assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_JUDGE_EVALUATION_REQUIRED', 'x', 409), 'f'), /모든 항목이 통과/)
+  assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_REVISION_NOT_LATEST', 'x', 409), 'f'), /최신 문항 버전/)
+  assert.match(creatorQuizErrorMessage(new ApiError('QUIZ_REVISION_NOT_APPROVED', 'x', 409), 'f'), /승인한 문항 버전/)
+  assert.equal(creatorQuizErrorMessage(new ApiError('NETWORK_ERROR', '서버 연결 메시지'), 'f'), 'f')
   assert.equal(creatorQuizErrorMessage(new TypeError('Failed to fetch'), 'f'), 'f')
-  assert.equal(creatorQuizErrorMessage(new ApiError('VALIDATION_FAILED', '제목은 100자 이하', 400), 'f'), '제목은 100자 이하')
+  assert.equal(creatorQuizErrorMessage(new ApiError('VALIDATION_FAILED', '제목은 100자 이하', 400), 'f'), '입력한 내용을 확인해 주세요.')
+  assert.equal(creatorQuizErrorMessage(new ApiError('QUIZ_DRAFT_INVALID', '저장할 수 없는 Quiz 생성 결과입니다.', 400), 'f'), 'f')
 })
 
 test('ALL_PASS인 이 revision의 SUCCEEDED 평가만 승인할 수 있다', () => {
@@ -181,7 +182,7 @@ test('평가 버튼은 완료·진행 중에는 숨기고 기술적 실패는 �
   assert.equal(judgeAction({ ...revision, reviewStatus: 'REJECTED' }, null), 'DECIDED')
 })
 
-test('승인된 최신 revision만 게시하고, 같은 revision을 게시 중이면 다시 게시하지 않는다', () => {
+test('승인된 최신 문항 버전만 게시하고, 같은 문항 버전을 게시 중이면 다시 게시하지 않는다', () => {
   const revision = { revisionId: 100, latest: true, reviewStatus: 'APPROVED' }
   const quiz = { publicationStatus: 'NOT_PUBLISHED', publishedRevisionId: null }
   assert.equal(canPublish(quiz, revision), true)

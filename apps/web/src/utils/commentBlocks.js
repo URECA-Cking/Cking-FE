@@ -1,6 +1,7 @@
 // 크리에이터의 스페이스 댓글 차단 화면용 순수 로직. 계약은 Cking-BE docs/domains/sanction/api.md.
 // 순수 로직이라 Vite 환경 값을 읽는 api/client.js 대신 공유 ApiError만 쓴다(Node 테스트에서 불러올 수 있게).
 import { ApiError } from '@cking/shared/api'
+import { describeError } from '../api/errorMessages.js'
 
 export const BLOCK_DAYS_MIN = 1
 export const BLOCK_DAYS_MAX = 365
@@ -25,11 +26,8 @@ const BLOCK_ERROR_MESSAGES = {
 }
 
 export function commentBlockErrorMessage(error, fallback) {
-  if (error instanceof ApiError) {
-    if (Object.hasOwn(BLOCK_ERROR_MESSAGES, error.code)) return BLOCK_ERROR_MESSAGES[error.code]
-    return error.message || fallback
-  }
-  return fallback
+  if (error instanceof ApiError && Object.hasOwn(BLOCK_ERROR_MESSAGES, error.code)) return BLOCK_ERROR_MESSAGES[error.code]
+  return describeError(error, fallback)
 }
 
 /** 차단 한 건의 상태. active는 서버가 응답 시점에 계산한 값이다. */

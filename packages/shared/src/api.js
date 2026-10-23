@@ -11,7 +11,7 @@ export class ApiError extends Error {
 export function createApiTransport({
   baseUrl = '',
   getAccessToken,
-  networkErrorMessage = '백엔드 서버에 연결할 수 없습니다. Cking-BE가 실행 중인지 확인해주세요.',
+  networkErrorMessage = '서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.',
 }) {
   function buildUrl(path, params) {
     const origin = baseUrl || (typeof window === 'undefined' ? 'http://localhost' : window.location.origin)

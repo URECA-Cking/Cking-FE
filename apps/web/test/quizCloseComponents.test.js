@@ -23,7 +23,7 @@ async function screen(status='PUBLISHED',kind='sheet',review='APPROVED',origin='
     localStorage.clear();window.calls=[];window.toasts=[];window.changed=0;window.fail=null;window.hold=false;window.failGet=false;window.detail404=false;window.attempt=null
     window.quiz={quizId:1,creatorId:10,publicationStatus:status,publishedRevisionId:status==='PUBLISHED'?100:null,closedAt:status==='CLOSED'?'2026-10-19T01:00:00Z':null,revisions:[{revisionId:100,revisionNo:1,title:'검토 Quiz',reviewStatus:review}],latestRevisionId:100,latestRevisionNo:1,latestReviewStatus:review,title:'검토 Quiz'}
     window.revision={revisionId:100,revisionNo:1,title:'검토 Quiz',latest:true,reviewStatus:review,origin,canEdit:true,contentLocked:false,revisionSha256:'a'.repeat(64),questions:[{questionId:1000,questionNo:0,question:'질문',options:[{optionNo:0,text:'보기 A'},{optionNo:1,text:'보기 B'},{optionNo:2,text:'보기 C'},{optionNo:3,text:'보기 D'}],correctOptionIndex:0,explanation:'해설',sourceEvidence:'근거'}]}
-    if(multiple)window.quiz.revisions.push({revisionId:101,revisionNo:2,title:'두 번째 Revision',reviewStatus:'PENDING_REVIEW'})
+    if(multiple)window.quiz.revisions.push({revisionId:101,revisionNo:2,title:'두 번째 문항 버전',reviewStatus:'PENDING_REVIEW'})
     window.quizGets=[]
     window.fetch=async(url,options={})=>{
       const path=new URL(url).pathname, method=options.method??'GET';window.calls.push({path,method,body:options.body})
@@ -99,13 +99,13 @@ for(const action of ['approval','judge','edit'])test(`다른 탭 마감 후 ${ac
   try {
     if(action==='edit')await button(p,'최종 문항 선택·편집').click()
     if(action==='approval'){
-      await button(p,'Creator 책임 승인').click()
+      await button(p,'크리에이터 책임 승인').click()
       await p.getByRole('checkbox').check()
     }
     await p.evaluate(()=>{window.fail={status:409,code:'QUIZ_CLOSED'};window.quiz.publicationStatus='CLOSED'})
     await button(p,action==='edit'?'최종 문항 저장':action==='approval'?'승인 확정':'평가 요청').click()
     await p.getByText('마감된 Quiz는 재게시할 수 없어요.',{exact:false}).waitFor()
-    for(const name of ['게시하기','게시 중지','최종 문항 선택·편집','평가 요청','Creator 책임 승인'])assert.equal(await button(p,name).count(),0)
+    for(const name of ['게시하기','게시 중지','최종 문항 선택·편집','평가 요청','크리에이터 책임 승인'])assert.equal(await button(p,name).count(),0)
     assert.equal((await posts(p)).length,1)
   } finally {await p.close()}
 })
@@ -122,19 +122,19 @@ test('마감 모달은 초점 순환·취소 복귀와 요청 중 Escape 차단�
 })
 
 async function assertClosedAcrossRevisions(p) {
-  await p.getByRole('button',{name:'revision 2',exact:true}).click()
-  await p.getByRole('region',{name:'revision 정보'}).getByText('revision 2',{exact:false}).waitFor()
+  await p.getByRole('button',{name:'문항 버전 2',exact:true}).click()
+  await p.getByRole('region',{name:'문항 버전 정보'}).getByText('문항 버전 2',{exact:false}).waitFor()
   assert.equal(await button(p,'게시 중지').count(),0)
   await p.getByText('마감된 Quiz는 재게시할 수 없어요.',{exact:false}).waitFor()
-  for(const name of ['마감하기','게시하기','이 revision으로 바꿔 게시','최종 문항 선택·편집','평가 요청','승인','Creator 책임 승인','승인 확정','반려'])assert.equal(await button(p,name).count(),0,name)
+  for(const name of ['마감하기','게시하기','이 문항 버전으로 바꿔 게시','최종 문항 선택·편집','평가 요청','승인','크리에이터 책임 승인','승인 확정','반려'])assert.equal(await button(p,name).count(),0,name)
 }
-test('F1: 마감 성공·상세 재조회 실패 후 Revision을 바꿔도 게시 중지는 0개다',async()=>{
+test('F1: 마감 성공·상세 재조회 실패 후 문항 버전을 바꿔도 게시 중지는 0개다',async()=>{
   const p=await screen('PUBLISHED','sheet','APPROVED','AI_GENERATED',true)
   try {
     await confirm(p);await p.evaluate(()=>window.failGet=true);await button(p,'마감 확정').click()
     await p.waitForFunction(()=>window.changed===1)
     await assertClosedAcrossRevisions(p)
-    await p.getByRole('button',{name:'revision 1',exact:true}).click()
+    await p.getByRole('button',{name:'문항 버전 1',exact:true}).click()
     await p.getByText('마감된 Quiz는 재게시할 수 없어요.',{exact:false}).waitFor()
     assert.equal(await button(p,'게시 중지').count(),0)
     assert.equal((await posts(p)).length,1)
@@ -152,7 +152,7 @@ test('F1: CLOSED 확정 뒤 늦게 도착한 PUBLISHED 상세가 재게시 상�
     await assertClosedAcrossRevisions(p)
   } finally {await p.close()}
 })
-test('F1: 정상 CLOSED 상세 재조회는 서버 마감 시각과 동기화하고 Revision 변경에도 유지한다',async()=>{
+test('F1: 정상 CLOSED 상세 재조회는 서버 마감 시각과 동기화하고 문항 버전 변경에도 유지한다',async()=>{
   const p=await screen('PUBLISHED','sheet','APPROVED','AI_GENERATED',true)
   try {
     await confirm(p);await p.evaluate(()=>window.holdQuizGet=true);await button(p,'마감 확정').click()

@@ -19,7 +19,7 @@ export function compositionStatus(question) {
 export function compositionBody(revision, draft) {
   const selected = draft.filter(q => q.selected)
   if (selected.length < 1 || selected.length > 5) invalid('최종 문항은 1~5개를 선택해 주세요.')
-  if (!revision.revisionId || !/^[0-9a-f]{64}$/.test(revision.revisionSha256 ?? '')) invalid('최신 Revision을 다시 확인해 주세요.')
+  if (!revision.revisionId || !/^[0-9a-f]{64}$/.test(revision.revisionSha256 ?? '')) invalid('최신 문항 버전을 다시 확인해 주세요.')
   const seen = new Set(), sources = new Set()
   const questions = selected.map(q => {
     const question = text(q.question, 500, '문제'), explanation = text(q.explanation, 1000, '해설')
@@ -89,11 +89,11 @@ export async function compositionLock(key, task) {
   try { return await navigator.locks.request(key, task) } catch { return { ok: false, applied: false } }
 }
 export function restoreCompositionDraft(revision, body) {
-  if (body.baseRevisionId !== revision.revisionId || body.baseRevisionSha256 !== revision.revisionSha256) invalid('복원 기준 Revision이 다릅니다.')
+  if (body.baseRevisionId !== revision.revisionId || body.baseRevisionSha256 !== revision.revisionSha256) invalid('복원 기준 문항 버전이 다릅니다.')
   const originals = compositionDraft(revision)
   const draft = body.questions.map((q, i) => {
     const original = originals.find(o => o.sourceQuestionId === q.sourceQuestionId)
-    if (q.sourceQuestionId != null && !original) invalid('복원 문항이 기준 Revision에 없습니다.')
+    if (q.sourceQuestionId != null && !original) invalid('복원 문항이 기준 문항 버전에 없습니다.')
     return q.content ? { ...(original ?? {}), ...q.content, id: original?.id ?? `restored:${i}`, sourceQuestionId: q.sourceQuestionId,
       selected: true, edited: !!q.sourceQuestionId, evaluationStatus: original?.evaluationStatus ?? 'NOT_EVALUATED' } : original
   })

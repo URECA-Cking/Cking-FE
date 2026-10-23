@@ -151,7 +151,7 @@ export default function MyEntries() {
                     )}
                   </div>
                   <p className="font-label-md text-label-md text-on-surface font-semibold truncate">
-                    {event?.title ?? `이벤트 #${entry.eventId}`}
+                    {event?.title ?? '이벤트 정보를 불러오지 못했어요'}
                   </p>
                 </div>
                 {statusMeta && <StatusPill label={statusMeta.label} tone={statusMeta.tone} className="shrink-0" />}

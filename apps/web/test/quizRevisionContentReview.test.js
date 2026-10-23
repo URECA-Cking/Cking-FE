@@ -56,14 +56,14 @@ async function sheet(fixture) {
   }, fixture)
   await page.addScriptTag({ content: bundle })
   await page.evaluate(() => window.renderComposition('sheet'))
-  await page.getByRole('region', { name: 'revision 정보', exact: true }).waitFor()
+  await page.getByRole('region', { name: '문항 버전 정보', exact: true }).waitFor()
   assert.deepEqual(errors, [])
   return { page, context }
 }
 
-const info = (page) => page.getByRole('region', { name: 'revision 정보', exact: true })
+const info = (page) => page.getByRole('region', { name: '문항 버전 정보', exact: true })
 
-for (const [edited, label] of [[true, 'Creator가 수정한 원문'], [false, 'AI 원문 그대로 확정']]) {
+for (const [edited, label] of [[true, '크리에이터가 수정한 원문'], [false, 'AI 원문 그대로 확정']]) {
   test(`contentEdited=${edited}이면 "${label}"과 확정 시각을 원문 위에 표시한다`, async () => {
     const { page, context } = await sheet(revision({ contentEdited: edited, contentConfirmedAt: confirmedAt }))
     try {
@@ -71,7 +71,7 @@ for (const [edited, label] of [[true, 'Creator가 수정한 원문'], [false, 'A
       const time = await info(page).getByText('원문 확정', { exact: false }).textContent()
       assert.match(time, /26\.10\.15\./)
       assert.match(time, /10시 02분/)
-      assert.equal(await info(page).getByText(edited ? 'AI 원문 그대로 확정' : 'Creator가 수정한 원문', { exact: false }).count(), 0)
+      assert.equal(await info(page).getByText(edited ? 'AI 원문 그대로 확정' : '크리에이터가 수정한 원문', { exact: false }).count(), 0)
       // 수정 여부는 원문 텍스트(<details>) 바로 위에 온다.
       const order = await info(page).evaluate((section, label) => {
         const pill = [...section.querySelectorAll('span')].find((node) => node.textContent.endsWith(label))
@@ -85,7 +85,7 @@ for (const [edited, label] of [[true, 'Creator가 수정한 원문'], [false, 'A
 test('확정 시각이 없으면 수정 여부만 표시한다', async () => {
   const { page, context } = await sheet(revision({ contentEdited: true, contentConfirmedAt: null }))
   try {
-    await info(page).getByText('Creator가 수정한 원문', { exact: false }).waitFor()
+    await info(page).getByText('크리에이터가 수정한 원문', { exact: false }).waitFor()
     assert.equal(await info(page).getByText('원문 확정', { exact: false }).count(), 0)
   } finally { await context.close() }
 })
@@ -95,11 +95,11 @@ for (const [name, fields] of [['null', {}], ['undefined', { contentEdited: undef
     const { page, context } = await sheet(revision(fields))
     try {
       await info(page).getByText('분석한 원문 텍스트', { exact: true }).waitFor()
-      for (const text of ['Creator가 수정한 원문', 'AI 원문 그대로 확정', '원문 확정']) {
+      for (const text of ['크리에이터가 수정한 원문', 'AI 원문 그대로 확정', '원문 확정']) {
         assert.equal(await page.getByText(text, { exact: false }).count(), 0)
       }
       // 기존 검토·평가·승인·편집 진입은 그대로다.
-      await page.getByRole('region', { name: 'GPT Judge 평가', exact: true }).waitFor()
+      await page.getByRole('region', { name: 'AI 평가', exact: true }).waitFor()
       await page.getByRole('region', { name: '승인과 반려', exact: true }).waitFor()
       await page.getByRole('button', { name: '최종 문항 선택·편집', exact: true }).waitFor()
       assert.equal(await page.evaluate(() => window.posts.length), 0)

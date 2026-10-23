@@ -16,7 +16,7 @@ export default function AdminWinners() {
     <AdminPageHeader title="당첨자 관리" description="당첨자의 현재 상태와 처리 이력은 추첨 결과에서 선택해 관리합니다." />
     <section className="rounded-lg border border-slate-200 bg-white p-6">
       <h2 className="text-base font-semibold text-slate-950">당첨자 전체 목록을 제공하지 않습니다</h2>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">현재 관리자 API에는 전체 당첨자 또는 단건 당첨자 조회 계약이 없습니다. 모든 추첨 결과를 순회해 목록을 만들지 않고, 각 Drawing 결과에서 당첨자를 선택하는 운영 흐름을 유지합니다.</p>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">당첨자는 추첨 결과별로 관리합니다. 추첨 관리에서 해당 추첨 결과를 열고 당첨자를 선택해주세요.</p>
       <Link to="/admin/drawings" className="mt-5 inline-flex h-10 items-center rounded-md bg-pink-700 px-4 text-sm font-semibold text-white hover:bg-pink-800">추첨 관리로 이동</Link>
     </section>
   </div>

@@ -4,6 +4,9 @@ import { confirmQuizContent, cancelQuizGeneration } from '../../api/creatorQuizz
 import { creatorQuizErrorMessage, isUncertainError } from '../../utils/quizJobs.js'
 import { readReviewDraft, saveReviewDraft, clearReviewDraft, validateReviewText } from '../../utils/quizContentReview.js'
 
+// 근거 종류. 응답 값은 화면에 그대로 쓰지 않는다.
+const EVIDENCE_TYPE_LABELS = { SPEECH: '말한 내용', VISUAL: '화면 내용' }
+
 export default function QuizContentReviewSheet({ creatorId, job, storage, drafts, onClose, onResult, onRefresh, onInaccessible }) {
   const content = job.content
   const [draft, setDraft] = useState(() => drafts.get(job.generationId) ?? readReviewDraft(storage, creatorId, job.generationId) ?? { text: content.aiContentText, pendingText: null })
@@ -51,7 +54,7 @@ export default function QuizContentReviewSheet({ creatorId, job, storage, drafts
       </label>
       <p>{draft.text.length}/{content.maxLength}자</p>
       <details><summary>AI 근거 {content.facts.length}개</summary>
-        <ul>{content.facts.map((fact, index) => <li key={index} className="py-2"><p>{fact.fact}</p><p>{fact.evidenceType} · {fact.timestampStart ?? '시각 없음'}{fact.timestampEnd ? ` ~ ${fact.timestampEnd}` : ''}</p><p>{fact.evidence}</p></li>)}</ul>
+        <ul>{content.facts.map((fact, index) => <li key={index} className="py-2"><p>{fact.fact}</p><p>{EVIDENCE_TYPE_LABELS[fact.evidenceType] ?? '근거 종류 확인 불가'} · {fact.timestampStart ?? '시각 없음'}{fact.timestampEnd ? ` ~ ${fact.timestampEnd}` : ''}</p><p>{fact.evidence}</p></li>)}</ul>
       </details>
       {error && <p role="alert" className="text-error">{error}</p>}
       {draft.pendingText !== null && <p>확정 응답을 확인하기 전에는 원문을 변경할 수 없어요. 같은 원문으로 다시 확인해 주세요.</p>}

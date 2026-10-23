@@ -314,7 +314,7 @@ test('퀴즈 오답 뒤 새 답을 보낼 때 실패해도 이전 오답 안내�
 
     await page.evaluate(() => { window.failClaims = 1 })
     await page.getByRole('button', { name: 'O 맞다' }).click()
-    await page.waitForFunction(() => window.toasts.includes('서버 오류'))
+    await page.waitForFunction(() => window.toasts.includes('응모권을 받지 못했어요. 다시 눌러 주세요.'))
     assert.equal(await page.getByText('다시 생각해 보세요!', { exact: false }).count(), 0)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
@@ -361,7 +361,7 @@ test('SIGNUP 자동 지급이 승인 불명으로 끝난 뒤 새로고침하면 
   try {
     await page.evaluate(() => { localStorage.clear(); window.failClaims = 1; window.renderHome([]) })
     await waitWelcome(page)
-    await page.waitForFunction(() => window.toasts.includes('서버 오류'))
+    await page.waitForFunction(() => window.toasts.includes('응모권을 받지 못했어요. 다시 눌러 주세요.'))
     const [first] = await claims(page)
     assert.equal(first.path, '/api/me/welcome-quest/SIGNUP/claim')
 

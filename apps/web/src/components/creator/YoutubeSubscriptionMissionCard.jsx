@@ -100,15 +100,22 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
   const requestIdRef = useRef(null)
   const fileInput = useRef(null)
   const rewardedRef = useRef(false)
+  // 이 카드에서 제출했거나 VERIFIED가 아닌 상태를 본 뒤 VERIFIED가 되었는지. 처음 조회부터 VERIFIED면 예전에 끝난 인증이다.
+  const sawUnverifiedRef = useRef(false)
 
   useEffect(() => {
     rewardedRef.current = false
+    sawUnverifiedRef.current = false
   }, [creatorId, mission.missionId])
+
+  useEffect(() => {
+    if (!loading && verification?.status && verification.status !== 'VERIFIED') sawUnverifiedRef.current = true
+  }, [loading, verification?.status])
 
   useEffect(() => {
     if (verification?.status !== 'VERIFIED' || rewardedRef.current) return
     rewardedRef.current = true
-    onRewarded?.()
+    onRewarded?.({ justVerified: sawUnverifiedRef.current })
   }, [verification?.status, onRewarded])
 
   useEffect(() => () => {
@@ -155,6 +162,7 @@ export default function YoutubeSubscriptionMissionCard({ creatorId, mission, cha
         image: selectedFile,
       })
       requestIdRef.current = null
+      sawUnverifiedRef.current = true
       setSelectedFile(null)
       setPreviewUrl(null)
       setVerification(submitted)

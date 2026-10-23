@@ -186,27 +186,10 @@ export default function CreatorSpace() {
   const ticketBalance = balance.data?.balance ?? 0
   const likeMissions = useMemo(() => (missions ?? []).filter((mission) => mission.type === 'LIKE'), [missions])
   const shareMission = useMemo(() => (missions ?? []).find((mission) => mission.type === 'SHARE') ?? null, [missions])
-  const youtubeSubscriptionMission = useMemo(
+  const subscriptionMission = useMemo(
     () => (missions ?? []).find((mission) => mission.type === 'YOUTUBE_SUBSCRIPTION') ?? null,
     [missions],
   )
-  // 채널 설정 시 생성되는 구독 인증 미션이 있는 경우에만 공개 채널을 조회한다.
-  // 채널 미설정 Creator의 Space를 열 때마다 409을 발생시키거나 재시도하지 않는다.
-  const youtubeChannel = useAsync(
-    async () => {
-      try {
-        return await getCreatorYoutubeChannel(creatorId)
-      } catch (channelError) {
-        // 데이터가 불일치해 미션만 남은 경우에는 카드를 숨긴다. 자동 재시도는 하지 않는다.
-        if (channelError instanceof ApiError && channelError.code === 'CREATOR_CHANNEL_NOT_CONFIGURED') return null
-        throw channelError
-      }
-    },
-    [creatorId, youtubeSubscriptionMission?.missionId],
-    { enabled: youtubeSubscriptionMission !== null },
-  )
-  // useAsync는 재조회 중 이전 data를 유지한다. Creator를 이동했을 때 이전 채널을 새 Space에 보이지 않게 응답의 소유 Creator를 확인한다.
-  const currentYoutubeChannel = isYoutubeChannelForCreator(youtubeChannel.data, creatorId) ? youtubeChannel.data : null
   const goLogin = () => navigate('/login', { state: { from: location.pathname + location.search } })
   /** 홈에서 넘어온 openPostId를 한 번 쓴 뒤 지워, 새로고침·뒤로 가기에서 상세가 다시 열리지 않게 한다. */
   function clearOpenPostId() {
@@ -279,9 +262,29 @@ export default function CreatorSpace() {
   const shownLikeMissions = isMine ? [] : likeMissions
   // BE는 본인 Space 공유도 막지 않으므로 FE가 구분한다. 크리에이터는 내 Space 조회가 끝나야 본인 여부를 알 수 있다.
   const ownershipKnown = !isCreator || Boolean(mySpace.data)
-  const shownShareMission = isMine || !ownershipKnown ? null : shareMission
+  const shownShareMission = isMine || !ownershipKnown || shareMission?.completedToday ? null : shareMission
+  // SHARE·YOUTUBE_SUBSCRIPTION은 한 번만 받는 미션이라 completedToday가 평생 완료 여부다(BE mission/api.md). 이미 받은 회원에게는 카드를 보여 주지 않는다.
+  // 본인 Space에서는 설정한 채널(이름·링크)을 확인할 수 있도록 완료 여부와 관계없이 구독 인증 카드를 보여 준다.
+  const youtubeSubscriptionMission = subscriptionMission && (isMine || !subscriptionMission.completedToday) ? subscriptionMission : null
+  // 채널 설정 시 생성되는 구독 인증 미션이 있는 경우에만 공개 채널을 조회한다.
+  // 채널 미설정 Creator의 Space를 열 때마다 409을 발생시키거나 재시도하지 않는다.
+  const youtubeChannel = useAsync(
+    async () => {
+      try {
+        return await getCreatorYoutubeChannel(creatorId)
+      } catch (channelError) {
+        // 데이터가 불일치해 미션만 남은 경우에는 카드를 숨긴다. 자동 재시도는 하지 않는다.
+        if (channelError instanceof ApiError && channelError.code === 'CREATOR_CHANNEL_NOT_CONFIGURED') return null
+        throw channelError
+      }
+    },
+    [creatorId, youtubeSubscriptionMission?.missionId],
+    { enabled: youtubeSubscriptionMission !== null },
+  )
+  // useAsync는 재조회 중 이전 data를 유지한다. Creator를 이동했을 때 이전 채널을 새 Space에 보이지 않게 응답의 소유 Creator를 확인한다.
+  const currentYoutubeChannel = isYoutubeChannelForCreator(youtubeChannel.data, creatorId) ? youtubeChannel.data : null
   const shareUnconfirmed = shareChecking?.memberId === memberId && shareChecking?.creatorId === creatorId
-    && Boolean(shownShareMission) && !shownShareMission.completedToday
+    && Boolean(shownShareMission)
 
   const events = useMemo(() => creator?.events ?? [], [creator])
   const liveEvents = useMemo(
@@ -598,6 +601,18 @@ export default function CreatorSpace() {
     refreshMyTickets()
   }
 
+  // 구독 인증 카드가 VERIFIED를 받았을 때: 한 번만 받는 미션이라 완료로 바꿔 팬에게는 카드를 숨기고(본인 Space는 유지), 이미 지급된 잔액을 한 번 다시 읽는다.
+  // 미션 목록을 다시 조회하면 목록 전체가 로딩으로 바뀌므로 SHARE처럼 완료 표시만 바꾼다.
+  // 처음 조회부터 VERIFIED였던 예전 인증(justVerified=false)에는 완료 안내를 띄우지 않는다. 본인 Space는 완료 카드를 계속 보여 줘 열 때마다 이 경우가 된다.
+  function handleSubscriptionRewarded({ justVerified }) {
+    setMissions((current) => (current ?? []).map((item) => (item.type === 'YOUTUBE_SUBSCRIPTION' ? { ...item, completedToday: true } : item)))
+    balance.reload()
+    if (!justVerified) return
+    const reward = youtubeSubscriptionMission?.rewardAmount
+    showToast(reward ? `구독 인증 완료! 응모권 ${reward}장이 지급되었어요.` : '구독 인증 완료! 응모권이 지급되었어요.')
+    refreshMyTickets()
+  }
+
   // 팬에게는 관심 등록과 공유를, 본인에게는 편집·채널 설정·공유를 같은 자리에서 제공한다.
   const actions = (
     <div className="flex items-center gap-space-xs">
@@ -658,7 +673,7 @@ export default function CreatorSpace() {
     </div>
   )
 
-  // SHARE는 본인 Space에서는 숨기고(BE가 막지 않아 FE가 구분), YouTube 구독 인증은 채널이 설정된 경우에만 별도로 노출한다.
+  // SHARE는 본인 Space와 이미 받은 경우에 숨기고(BE가 본인 공유를 막지 않아 FE가 구분), YouTube 구독 인증은 채널이 설정된 경우에 받지 않은 팬과 본인에게만 별도로 노출한다.
   const missionList = sessionLoading ? <LoadingBlock label="로그인 상태를 확인하는 중..." /> : anonymous ? loginPrompt('로그인하면 미션에 참여하고 응모권을 모을 수 있어요.') : (
     <>
       {missionsLoading && <LoadingBlock label="오늘의 미션을 불러오는 중..." />}
@@ -699,11 +714,11 @@ export default function CreatorSpace() {
           </div>
           <button
             type="button"
-            disabled={shownShareMission.completedToday || shareRewardBusy}
+            disabled={shareRewardBusy}
             onClick={shareUnconfirmed ? recheckShare : handleShare}
-            className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 ${shownShareMission.completedToday ? 'bg-surface-container-high text-outline' : 'bg-berry-tint text-primary'}`}
+            className="shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 bg-berry-tint text-primary"
           >
-            {shownShareMission.completedToday ? '완료' : shareRewardBusy ? '처리 중...' : shareUnconfirmed ? '다시 확인' : `${shownShareMission.rewardAmount}장`}
+            {shareRewardBusy ? '처리 중...' : shareUnconfirmed ? '다시 확인' : `${shownShareMission.rewardAmount}장`}
           </button>
         </div>
       )}
@@ -719,7 +734,7 @@ export default function CreatorSpace() {
           creatorId={creator.creatorId}
           mission={youtubeSubscriptionMission}
           channel={currentYoutubeChannel}
-          onRewarded={balance.reload}
+          onRewarded={handleSubscriptionRewarded}
         />
       )}
       {!missionsLoading && !missionsError && shownLikeMissions.length === 0 && !shownShareMission && !youtubeSubscriptionMission && (

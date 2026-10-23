@@ -11,13 +11,30 @@ export function isLegacyVerification(verification) {
 }
 
 /**
+ * 원본 Seed 재현 단계의 결과를 "pass"/"fail"/"unknown"으로 판정한다.
+ * BE는 이 단계의 일치 여부를 resultHashMatched 하나로 판정하지만, 재현 전 단계(Snapshot·저장 Input/Result 무결성)에서
+ * 실패해도 false가 올 수 있으므로 실제 불일치(DETERMINISTIC_REPLAY_MISMATCH)일 때만 fail로 본다.
+ */
+function seedReplayState(verification) {
+  if (verification.resultHashMatched === true) return "pass";
+  if (
+    verification.resultHashMatched === false &&
+    verification.failureCode === "DETERMINISTIC_REPLAY_MISMATCH"
+  )
+    return "fail";
+  return "unknown";
+}
+
+/**
  * 원본 Seed 재현이 최초 당첨자·순위·상품과 같았는지를 "same"/"different"/"unknown"으로 판정한다.
- * BE는 이 단계의 일치 여부를 resultHashMatched 하나로 판정한다. (ranksMatched는 새 Seed 재실행의 순위 연속성이다.)
+ * 재현 단계에 도달하지 못한 실패는 당첨자가 다르다고 단정할 수 없으므로 "unknown"이다.
+ * (ranksMatched는 새 Seed 재실행의 순위 연속성이라 여기서 쓰지 않는다.)
  */
 export function replaySameWinners(verification) {
   if (!verification || isLegacyVerification(verification)) return "unknown";
-  if (verification.resultHashMatched === true) return "same";
-  if (verification.resultHashMatched === false) return "different";
+  const state = seedReplayState(verification);
+  if (state === "pass") return "same";
+  if (state === "fail") return "different";
   return "unknown";
 }
 
@@ -39,7 +56,7 @@ export function verificationChecks(verification) {
     {
       key: "seedReplay",
       label: "원본 Seed 재현 — 당첨자·순위·상품·결과 Hash",
-      state: combine([verification.resultHashMatched]),
+      state: seedReplayState(verification),
     },
     {
       key: "winnerCount",

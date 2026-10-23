@@ -25,7 +25,14 @@ const VERIFIED = {
 
 test("원본 Seed 재현 일치 여부는 결과 Hash로만 판정한다", () => {
   assert.equal(replaySameWinners(VERIFIED), "same");
-  assert.equal(replaySameWinners({ ...VERIFIED, resultHashMatched: false }), "different");
+  assert.equal(
+    replaySameWinners({
+      ...VERIFIED,
+      resultHashMatched: false,
+      failureCode: "DETERMINISTIC_REPLAY_MISMATCH",
+    }),
+    "different",
+  );
   assert.equal(replaySameWinners({ ...VERIFIED, resultHashMatched: null }), "unknown");
 });
 
@@ -42,6 +49,26 @@ test("독립 재실행의 순위 연속성이 깨져도 원본 Seed 재현은 �
   );
   assert.equal(byKey.seedReplay, "pass");
   assert.equal(byKey.rankContinuity, "fail");
+});
+
+test("재현 단계에 도달하지 못한 실패는 당첨자 불일치로 단정하지 않는다", () => {
+  for (const failureCode of [
+    "SNAPSHOT_INTEGRITY_FAILED",
+    "STORED_INPUT_INTEGRITY_FAILED",
+    "STORED_RESULT_INTEGRITY_FAILED",
+  ]) {
+    const verification = {
+      ...VERIFIED,
+      status: "VERIFICATION_FAILED",
+      resultHashMatched: false,
+      failureCode,
+    };
+    assert.equal(replaySameWinners(verification), "unknown");
+    const seedReplay = verificationChecks(verification).find(
+      (check) => check.key === "seedReplay",
+    );
+    assert.equal(seedReplay.state, "unknown");
+  }
 });
 
 test("LEGACY_INTEGRITY 이력은 재현 항목이 없어 판정하지 않는다", () => {

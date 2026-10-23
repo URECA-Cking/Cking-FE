@@ -55,10 +55,10 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
   async function openSaved(saved) {
     try {
       const data = await getMyQuizRevision(quizId, saved.revisionId)
-      if (data.revisionId !== saved.revisionId || data.revisionSha256 !== saved.revisionSha256) throw new Error('저장한 Revision과 조회 결과가 다릅니다.')
+      if (data.revisionId !== saved.revisionId || data.revisionSha256 !== saved.revisionSha256) throw new Error('저장한 문항 버전과 조회 결과가 다릅니다.')
       if (active.current) onSaved(data)
     } catch {
-      if (active.current) setError('문항은 저장됐어요. 저장된 Revision을 다시 불러와 승인해 주세요. 다시 저장하지 않습니다.')
+      if (active.current) setError('문항은 저장됐어요. 저장된 문항 버전을 다시 불러와 승인해 주세요. 다시 저장하지 않습니다.')
     }
   }
   async function save(recover = false) {
@@ -71,7 +71,7 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
       if (current.entry?.result && current.entry.body.baseRevisionId === revision.revisionId) {
         setRecord(current.entry)
         if (!currentBody || JSON.stringify(current.entry.body) !== JSON.stringify(currentBody)) {
-          setError('다른 탭이 다른 내용으로 저장했어요. 작성 내용은 보존했습니다. 최신 Revision을 확인해 주세요.')
+          setError('다른 탭이 다른 내용으로 저장했어요. 작성 내용은 보존했습니다. 최신 문항 버전을 확인해 주세요.')
           return
         }
         await openSaved(current.entry.result)
@@ -88,24 +88,24 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
     try {
       if (reserved.entry.result) {
         if (currentBody && JSON.stringify(reserved.entry.body) === JSON.stringify(currentBody)) await openSaved(reserved.entry.result)
-        else if (active.current) setError('다른 요청의 저장 결과를 확인했어요. 작성 내용을 보존했으니 최신 Revision을 확인해 주세요.')
+        else if (active.current) setError('다른 요청의 저장 결과를 확인했어요. 작성 내용을 보존했으니 최신 문항 버전을 확인해 주세요.')
         return
       }
       const response = await composeQuizRevision(quizId, { ...reserved.entry.body, requestId: reserved.entry.requestId })
-      if (!response?.revisionId || !/^[0-9a-f]{64}$/.test(response.revisionSha256 ?? '')) throw Error('저장 결과의 Revision 정보를 확인하지 못했어요.')
+      if (!response?.revisionId || !/^[0-9a-f]{64}$/.test(response.revisionSha256 ?? '')) throw Error('저장 결과의 문항 버전 정보를 확인하지 못했어요.')
       const saved = await compositionLock(key, () => settleComposition(storage, key, reserved.entry.requestId, response))
       if (!active.current) return
       if (!saved.applied) { setError('다른 탭의 최신 저장 정보를 보호했어요. 저장 기록을 다시 확인해 주세요.'); return }
       setRecord(saved.entry)
       if (currentBody && JSON.stringify(reserved.entry.body) === JSON.stringify(currentBody)) await openSaved(response)
-      else setError('다른 요청의 저장 결과를 확인했어요. 작성 내용을 보존했으니 최신 Revision을 확인해 주세요.')
+      else setError('다른 요청의 저장 결과를 확인했어요. 작성 내용을 보존했으니 최신 문항 버전을 확인해 주세요.')
     } catch (e) {
       const failed = await compositionLock(key, () => settleComposition(storage, key, reserved.entry.requestId, null, { code: e.code ?? 'NETWORK_ERROR', status: e.status ?? 0 }))
       if (!active.current) return
       if (failed.ok) setRecord(failed.entry)
       if (e.code === 'QUIZ_CONTENT_LOCKED' || e.code === 'QUIZ_CLOSED') setLocked(true)
       if (e.code === 'QUIZ_CLOSED') onQuizClosed?.()
-      setError(e.code === 'QUIZ_REVISION_CONFLICT' ? '기준 Revision이 바뀌었어요. 작성 내용은 보존했습니다. 최신본을 확인해 주세요.'
+      setError(e.code === 'QUIZ_REVISION_CONFLICT' ? '기준 문항 버전이 바뀌었어요. 작성 내용은 보존했습니다. 최신본을 확인해 주세요.'
         : e.code === 'QUIZ_EDIT_REQUEST_CONFLICT' ? '이전 저장 요청과 내용이 달라요. 기존 저장 기록을 확인해 주세요.'
         : creatorQuizErrorMessage(e, '저장 결과를 확인하지 못했어요. 같은 내용으로 다시 확인해 주세요.'))
     } finally {
@@ -131,7 +131,7 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
           && current.entry.result?.revisionSha256 === record.result.revisionSha256 }
       })
       if (!active.current) return
-      if (!checked.ok) { setError('다른 탭의 저장 기록이 바뀌었어요. 최신 Revision을 다시 확인해 주세요.'); return }
+      if (!checked.ok) { setError('다른 탭의 저장 기록이 바뀌었어요. 최신 문항 버전을 다시 확인해 주세요.'); return }
       onSaved(latest)
       return
     }
@@ -143,13 +143,13 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
   return (
     <section className="flex flex-col gap-space-md" aria-label="최종 문항 구성">
       <div className="flex justify-between items-center"><h3 className="font-semibold">최종 문항 구성 · {selected.length}/5</h3><button className={buttonClass} disabled={busy} onClick={onClose}>편집 닫기</button></div>
-      <p className="text-sm text-on-surface-variant">원본 평가와 관계없이 선택할 수 있어요. 수정·추가 문항은 재평가하지 않으며 최종 내용은 Creator가 책임 승인합니다.</p>
+      <p className="text-sm text-on-surface-variant">원본 평가와 관계없이 선택할 수 있어요. 수정·추가 문항은 재평가하지 않으며 최종 내용은 크리에이터가 책임 승인합니다.</p>
       {locked && <p role="status">최초 게시 이후에는 게시를 취소해도 편집할 수 없어요. 새 Quiz를 생성해 주세요.</p>}
       {error && <ErrorBlock message={error} />}
-      {successfulConflict && <div className="rounded-xl p-space-sm bg-surface-container" role="status"><p>다른 탭이 다른 내용으로 저장했어요. 현재 작성 내용은 보존했으며 이 탭의 저장 성공으로 처리하지 않습니다.</p><button className={buttonClass} disabled={busy} onClick={checkLatest}>최신 Revision 확인</button></div>}
-      {unresolved && <div className="rounded-xl p-space-sm bg-surface-container"><p>미확정 저장 요청이 있어요. 변경한 내용으로 새 요청을 보내지 않고 기존 본문으로 복구합니다.</p><button className={buttonClass} disabled={busy || locked} onClick={() => save(true)}>기존 저장 요청 다시 확인</button><button className={buttonClass} disabled={busy} onClick={checkLatest}>최신 Revision 확인</button></div>}
-      {result && <button className={buttonClass} disabled={busy} onClick={() => openSaved(result)}>저장된 Revision 다시 열기</button>}
-      {latest && <div className="rounded-xl bg-surface-container p-space-sm"><p>최신 revision {latest.revisionNo} · {latest.title}</p>{latest.questions.map(q => <p key={q.questionId}>{q.questionNo + 1}. {q.question}</p>)}<p>현재 작성 내용은 그대로 보존했습니다. 계속 검토하거나, 명시적으로 최신 기준에서 다시 시작할 수 있어요.</p>{(successfulConflict || record?.failure?.code === 'QUIZ_REVISION_CONFLICT') && latest.canEdit && <button className={buttonClass} disabled={busy} onClick={() => setConfirmingRestart(true)}>최신 기준으로 다시 시작</button>}</div>}
+      {successfulConflict && <div className="rounded-xl p-space-sm bg-surface-container" role="status"><p>다른 탭이 다른 내용으로 저장했어요. 현재 작성 내용은 보존했으며 이 탭의 저장 성공으로 처리하지 않습니다.</p><button className={buttonClass} disabled={busy} onClick={checkLatest}>최신 문항 버전 확인</button></div>}
+      {unresolved && <div className="rounded-xl p-space-sm bg-surface-container"><p>미확정 저장 요청이 있어요. 변경한 내용으로 새 요청을 보내지 않고 기존 본문으로 복구합니다.</p><button className={buttonClass} disabled={busy || locked} onClick={() => save(true)}>기존 저장 요청 다시 확인</button><button className={buttonClass} disabled={busy} onClick={checkLatest}>최신 문항 버전 확인</button></div>}
+      {result && <button className={buttonClass} disabled={busy} onClick={() => openSaved(result)}>저장된 문항 버전 다시 열기</button>}
+      {latest && <div className="rounded-xl bg-surface-container p-space-sm"><p>최신 문항 버전 {latest.revisionNo} · {latest.title}</p>{latest.questions.map(q => <p key={q.questionId}>{q.questionNo + 1}. {q.question}</p>)}<p>현재 작성 내용은 그대로 보존했습니다. 계속 검토하거나, 명시적으로 최신 기준에서 다시 시작할 수 있어요.</p>{(successfulConflict || record?.failure?.code === 'QUIZ_REVISION_CONFLICT') && latest.canEdit && <button className={buttonClass} disabled={busy} onClick={() => setConfirmingRestart(true)}>최신 기준으로 다시 시작</button>}</div>}
       <fieldset disabled={busy || locked} className="flex flex-col gap-space-sm">
         {draft.map(q => <article key={q.id} className="rounded-xl bg-surface-container-low p-space-md flex flex-col gap-space-xs">
           <div className="flex items-center gap-2"><label><input type="checkbox" checked={q.selected} onChange={e => setDraft(items => items.map(item => item.id === q.id ? { ...item, selected: e.target.checked } : item))} /> 게시 대상으로 선택</label><StatusPill label={labels[compositionStatus(q)] ?? '평가 없음'} /></div>
@@ -168,7 +168,7 @@ export default function QuizCompositionPanel({ creatorId, quizId, revision, onSa
       <ConfirmSheet
         open={confirmingRestart}
         title="최신 기준으로 다시 시작할까요?"
-        message="현재 편집본 대신 최신 Revision에서 새 편집을 시작해요."
+        message="현재 편집본 대신 최신 문항 버전에서 새 편집을 시작해요."
         confirmLabel="다시 시작"
         onConfirm={() => {
           setConfirmingRestart(false)

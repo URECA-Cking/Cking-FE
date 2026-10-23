@@ -42,7 +42,7 @@ test('다음 페이지 요청이 실패하면 기존 목록을 유지하고 같�
   assert.equal(quizListView(first, retried).items.length, 25)
 })
 
-test('Creator가 바뀌면 이전 Creator의 이어 읽은 목록을 섞지 않는다', () => {
+test('크리에이터가 바뀌면 이전 Creator의 이어 읽은 목록을 섞지 않는다', () => {
   const firstA = firstPage(quizzes(1, 20), true)
   const moreA = appendQuizPage(null, firstA, firstA, 1, { items: quizzes(21, 3), hasNext: false })
   const firstB = firstPage(quizzes(100, 2), false)

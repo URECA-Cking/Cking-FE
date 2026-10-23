@@ -1,4 +1,5 @@
 import { ApiError, apiClient, describeError } from './client';
+import { getAccessToken } from './authToken.js';
 import { spaceUpdateBody } from '../utils/spaceProfile.js';
 
 // Creator Space API(Cking-BE docs/domains/creator/space-api.md).
@@ -15,9 +16,18 @@ export async function getCreatorSpaceBySlug(slug) {
   return apiClient.get(`/api/creator-spaces/${encodeURIComponent(slug)}`);
 }
 
+// 같은 화면의 여러 곳(본인 여부 확인, 상단 프로필 사진 등)이 동시에 부르면 요청 하나를 함께 기다린다.
+// 로그인 토큰별로 나눠, 계정이 바뀐 뒤의 호출이 이전 계정의 진행 중 요청을 받지 않게 한다. 끝나면 지워 다음 호출은 새로 읽는다.
+const mySpaceRequests = new Map();
+
 // GET /api/creator/space - 내 Space 조회(Creator 본인)
-export async function getMySpace() {
-  return apiClient.get('/api/creator/space');
+export function getMySpace() {
+  const token = getAccessToken() ?? '';
+  const pending = mySpaceRequests.get(token);
+  if (pending) return pending;
+  const request = apiClient.get('/api/creator/space').finally(() => mySpaceRequests.delete(token));
+  mySpaceRequests.set(token, request);
+  return request;
 }
 
 // PATCH /api/creator/space - 내 Space 홈·프로필 수정(모든 필드를 한 번에 교체)

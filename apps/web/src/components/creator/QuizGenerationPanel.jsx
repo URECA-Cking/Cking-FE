@@ -461,7 +461,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
             <StatusPill label="생성 완료" icon="check_circle" tone="bg-primary text-on-primary" />
           </div>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            문항을 검토하고 GPT Judge 평가를 거쳐 승인하면 게시할 수 있어요.
+            문항을 검토하고 AI 평가를 거쳐 승인하면 게시할 수 있어요.
           </p>
           <div className="flex gap-2">
             <button type="button" onClick={() => onReview?.(succeeded)} className={`${smallButtonClass} bg-primary text-on-primary`}>

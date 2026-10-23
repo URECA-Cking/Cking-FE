@@ -10,7 +10,6 @@
     "./icons/*": "./src/icons/*",
     "./useAsync": "./src/useAsync.js",
     "./format": "./src/format.js",
-    "./imageValidation": "./src/imageValidation.js",
     "./safeUrl": "./src/safeUrl.js"
   },
   "peerDependencies": { "react": "^19.2.8" },

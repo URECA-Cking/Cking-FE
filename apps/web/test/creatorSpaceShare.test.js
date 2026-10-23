@@ -185,6 +185,42 @@ test('본인 스페이스에서는 완료한 구독 인증 미션도 채널 확�
   } finally { await page.close() }
 })
 
+test('본인 스페이스를 다시 열어도 예전에 끝난 구독 인증으로 완료 안내를 띄우지 않는다', async () => {
+  const { page, errors } = await screen({
+    missions: [{ ...MISSION }, { ...YOUTUBE_SUBSCRIPTION_MISSION, completedToday: true }],
+    mySpaces: [{ creatorId: 11 }],
+    youtubeChannel: YOUTUBE_CHANNEL,
+    latestVerification: { status: 'VERIFIED', reasonCode: null },
+  })
+  try {
+    await page.evaluate(() => window.renderSpace({ memberId: 1, isCreator: true }))
+    await page.getByText('구독 인증이 완료되었어요').waitFor()
+    await page.waitForTimeout(300)
+
+    assert.equal(await page.getByText('YouTube 구독 인증').count(), 1)
+    assert.equal((await page.evaluate(() => window.toasts)).some((message) => message.includes('구독 인증 완료')), false)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('미션 목록은 미완료인데 처음 조회한 인증이 이미 VERIFIED면 카드를 숨기고 완료 안내는 띄우지 않는다', async () => {
+  const { page, errors } = await screen({
+    missions: [{ ...MISSION }, { ...YOUTUBE_SUBSCRIPTION_MISSION }],
+    youtubeChannel: YOUTUBE_CHANNEL,
+    latestVerification: { status: 'VERIFIED', reasonCode: null },
+  })
+  try {
+    await page.evaluate(() => window.renderSpace({ memberId: 1 }))
+    await page.waitForFunction(() => window.youtubeChannelReads > 0)
+    await page.getByText('YouTube 구독 인증').waitFor({ state: 'detached', timeout: 5000 })
+    await page.waitForTimeout(300)
+
+    assert.equal((await page.evaluate(() => window.toasts)).some((message) => message.includes('구독 인증 완료')), false)
+    assert.equal(await page.getByText('공유 미션', { exact: true }).count(), 1)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
 test('구독 인증이 확인 중에서 완료로 바뀌면 인증 카드를 숨기고 잔액을 다시 읽는다', async () => {
   const { page, errors } = await screen({
     missions: [{ ...MISSION }, { ...YOUTUBE_SUBSCRIPTION_MISSION }],

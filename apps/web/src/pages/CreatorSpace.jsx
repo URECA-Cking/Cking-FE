@@ -601,13 +601,15 @@ export default function CreatorSpace() {
     refreshMyTickets()
   }
 
-  // 구독 인증 카드가 VERIFIED를 받았을 때: 한 번만 받는 미션이라 카드를 숨기고, 이미 지급된 잔액을 한 번 다시 읽는다.
+  // 구독 인증 카드가 VERIFIED를 받았을 때: 한 번만 받는 미션이라 완료로 바꿔 팬에게는 카드를 숨기고(본인 Space는 유지), 이미 지급된 잔액을 한 번 다시 읽는다.
   // 미션 목록을 다시 조회하면 목록 전체가 로딩으로 바뀌므로 SHARE처럼 완료 표시만 바꾼다.
-  function handleSubscriptionRewarded() {
-    const reward = youtubeSubscriptionMission?.rewardAmount
+  // 처음 조회부터 VERIFIED였던 예전 인증(justVerified=false)에는 완료 안내를 띄우지 않는다. 본인 Space는 완료 카드를 계속 보여 줘 열 때마다 이 경우가 된다.
+  function handleSubscriptionRewarded({ justVerified }) {
     setMissions((current) => (current ?? []).map((item) => (item.type === 'YOUTUBE_SUBSCRIPTION' ? { ...item, completedToday: true } : item)))
-    showToast(reward ? `구독 인증 완료! 응모권 ${reward}장이 지급되었어요.` : '구독 인증 완료! 응모권이 지급되었어요.')
     balance.reload()
+    if (!justVerified) return
+    const reward = youtubeSubscriptionMission?.rewardAmount
+    showToast(reward ? `구독 인증 완료! 응모권 ${reward}장이 지급되었어요.` : '구독 인증 완료! 응모권이 지급되었어요.')
     refreshMyTickets()
   }
 
@@ -671,7 +673,7 @@ export default function CreatorSpace() {
     </div>
   )
 
-  // SHARE는 본인 Space와 이미 받은 경우에 숨기고(BE가 본인 공유를 막지 않아 FE가 구분), YouTube 구독 인증은 받지 않았고 채널이 설정된 경우에만 별도로 노출한다.
+  // SHARE는 본인 Space와 이미 받은 경우에 숨기고(BE가 본인 공유를 막지 않아 FE가 구분), YouTube 구독 인증은 채널이 설정된 경우에 받지 않은 팬과 본인에게만 별도로 노출한다.
   const missionList = sessionLoading ? <LoadingBlock label="로그인 상태를 확인하는 중..." /> : anonymous ? loginPrompt('로그인하면 미션에 참여하고 응모권을 모을 수 있어요.') : (
     <>
       {missionsLoading && <LoadingBlock label="오늘의 미션을 불러오는 중..." />}
@@ -714,7 +716,7 @@ export default function CreatorSpace() {
             type="button"
             disabled={shareRewardBusy}
             onClick={shareUnconfirmed ? recheckShare : handleShare}
-            className={`shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 bg-berry-tint text-primary`}
+            className="shrink-0 px-3 py-2 rounded-lg font-label-sm text-label-sm transition-all active:scale-95 disabled:opacity-60 bg-berry-tint text-primary"
           >
             {shareRewardBusy ? '처리 중...' : shareUnconfirmed ? '다시 확인' : `${shownShareMission.rewardAmount}장`}
           </button>

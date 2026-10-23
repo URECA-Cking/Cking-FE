@@ -188,47 +188,6 @@ export async function rejectCreatorApplication(applicationId, rejectReason) {
   return post(`/api/admin/creator-applications/${applicationId}/reject`, { rejectReason });
 }
 
-/** Creator Space 템플릿 목록을 페이지 단위로 조회한다. */
-export async function getSpaceTemplates({ page = 0, size = 20 } = {}) {
-  return get('/api/admin/creator-space-templates', { page, size })
-}
-
-/** 템플릿이 적어 한 번에 보여주므로 모든 페이지를 읽는다. */
-export function getAllSpaceTemplates() {
-  return getAllPages((params) => getSpaceTemplates(params))
-}
-
-/** 새 템플릿을 비활성 상태로 만든다. */
-export async function createSpaceTemplate(fields) {
-  return post('/api/admin/creator-space-templates', fields)
-}
-
-/** 템플릿의 모든 필드를 새 값으로 교체한다(부분 수정 아님). 활성 상태와 관계없이 수정할 수 있다. */
-export async function updateSpaceTemplate(templateId, fields) {
-  return patch(`/api/admin/creator-space-templates/${templateId}`, fields)
-}
-
-/** 템플릿에 넣을 기본 프로필 이미지 1장을 올려 CDN URL을 받는다. 템플릿에 연결되지 않으므로 URL을 생성·수정 요청에 넣어 저장해야 한다. */
-export async function uploadSpaceTemplateProfileImage(file) {
-  return uploadSpaceTemplateImage('/api/admin/creator-space-templates/profile-images', file)
-}
-
-/** 템플릿에 넣을 기본 배너 이미지 1장을 올려 CDN URL을 받는다. 템플릿에 연결되지 않으므로 URL을 생성·수정 요청에 넣어 저장해야 한다. */
-export async function uploadSpaceTemplateBannerImage(file) {
-  return uploadSpaceTemplateImage('/api/admin/creator-space-templates/banner-images', file)
-}
-
-function uploadSpaceTemplateImage(path, file) {
-  const form = new FormData()
-  form.append('image', file)
-  return post(path, form)
-}
-
-/** 템플릿을 활성화한다. 기존 활성 템플릿은 함께 비활성화되고, 이미 만든 스페이스는 바뀌지 않는다. */
-export async function activateSpaceTemplate(templateId) {
-  return post(`/api/admin/creator-space-templates/${templateId}/activate`)
-}
-
 /** 신고된 댓글을 댓글별로 모아 최근 신고 순으로 조회한다. status(PENDING·RESOLVED·REJECTED)를 생략하면 전체다. */
 export async function getCommentReports({ status, page = 0, size = 20 } = {}) {
   return get('/api/admin/comment-reports', { status, page, size })

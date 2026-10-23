@@ -161,7 +161,7 @@ test('승인 요청이 실패해도 생성된 초안을 다시 만들지 않고 
     await page.getByRole('button', { name: '이벤트 초안 작성' }).click()
     const dialog = page.getByRole('dialog', { name: '바로 승인 요청을 보내시겠습니까?' })
     await dialog.getByRole('button', { name: '승인 요청' }).click()
-    await dialog.getByText('이벤트 시작 최소 48시간 전까지 개설 승인을 요청해야 합니다.').waitFor()
+    await dialog.getByText('이벤트 시작 48시간 전까지만 승인을 요청할 수 있어요.').waitFor()
     assert.equal((await callsTo(page, 'POST', '/api/creator/events')).length, 1)
     assert.equal((await callsTo(page, 'POST', '/api/creator/events/28/approval-request')).length, 1)
     await dialog.getByRole('button', { name: '나중에' }).click()

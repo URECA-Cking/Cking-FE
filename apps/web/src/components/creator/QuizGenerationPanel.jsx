@@ -407,7 +407,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
           <div className="flex items-center justify-between gap-2">
             <span className="min-w-0 truncate font-label-md text-label-md font-semibold text-on-surface">{displayInput.title}</span>
             <StatusPill
-              label={awaitingReview ? '원문 검토 대기' : currentJob?.reviewStage === 'GROUNDING' ? '영상 분석 중' : currentJob?.reviewStage === 'GENERATING' ? '문항 생성 중' : currentJob ? GENERATION_LABELS[currentJob.status] ?? currentJob.status : '상태 확인 중'}
+              label={awaitingReview ? '원문 검토 대기' : currentJob?.reviewStage === 'GROUNDING' ? '영상 분석 중' : currentJob?.reviewStage === 'GENERATING' ? '문항 생성 중' : currentJob ? GENERATION_LABELS[currentJob.status] ?? '상태 확인 중' : '상태 확인 중'}
               icon="hourglass_top"
               tone="bg-surface-container-high text-on-surface"
             />
@@ -461,7 +461,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
             <StatusPill label="생성 완료" icon="check_circle" tone="bg-primary text-on-primary" />
           </div>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            문항을 검토하고 GPT Judge 평가를 거쳐 승인하면 게시할 수 있어요.
+            문항을 검토하고 AI 평가를 거쳐 승인하면 게시할 수 있어요.
           </p>
           <div className="flex gap-2">
             <button type="button" onClick={() => onReview?.(succeeded)} className={`${smallButtonClass} bg-primary text-on-primary`}>

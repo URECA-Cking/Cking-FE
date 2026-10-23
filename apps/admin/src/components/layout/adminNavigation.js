@@ -31,8 +31,4 @@ export const ADMIN_NAVIGATION = [
       { label: '응모권 관리', icon: 'confirmation_number', to: '/admin/tickets', matches: (location) => location.pathname === '/admin/tickets' },
     ],
   },
-  {
-    label: '시스템 관리',
-    items: [{ label: 'Creator Space Template', icon: 'space_dashboard', to: '/admin/space-templates', matches: (location) => location.pathname === '/admin/space-templates' }],
-  },
 ]

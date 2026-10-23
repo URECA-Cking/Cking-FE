@@ -186,7 +186,7 @@ export default function Notifications() {
       )}
 
       {items.map((item) => {
-        const meta = NOTIFICATION_TYPE_META[item.type] ?? { label: item.type, icon: 'notifications' }
+        const meta = NOTIFICATION_TYPE_META[item.type] ?? { label: '알림', icon: 'notifications' }
         const unread = !item.readAt
         const expanded = expandedId === item.notificationId
         return (

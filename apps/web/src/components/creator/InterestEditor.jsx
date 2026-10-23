@@ -20,11 +20,14 @@ export default function InterestEditor({ catalog, catalogError, onRetryCatalog, 
   const [saving, setSaving] = useState(false)
 
   const items = useMemo(() => catalog?.items ?? [], [catalog])
+  const names = useMemo(() => new Map(items.map((item) => [item.interestCode, item.name])), [items])
   const saved = useMemo(() => mine?.interestCodes ?? [], [mine])
-  const current = picked ?? saved
+  // 분류체계가 바뀌면 예전 버전의 코드가 저장돼 있을 수 있다. 화면에 이름이 없는 코드는 보여 주지도, 선택 개수에 넣지도 않고,
+  // 편집도 현재 카탈로그에 있는 코드에서 시작한다. 저장하면 예전 코드는 함께 빠진다.
+  const active = useMemo(() => saved.filter((code) => names.has(code)), [saved, names])
+  const current = picked ?? active
   const max = catalog?.maxSelection ?? 3
   const changed = picked !== null && !sameSet(picked, saved)
-  const names = new Map(items.map((item) => [item.interestCode, item.name]))
 
   if (catalogError || mineError) {
     return (
@@ -39,7 +42,7 @@ export default function InterestEditor({ catalog, catalogError, onRetryCatalog, 
   // 렌더 시점의 값이 아니라 직전 상태를 기준으로 바꿔, 빠르게 연달아 눌러도 앞선 선택을 잃지 않는다.
   function toggle(code) {
     setPicked((prev) => {
-      const base = prev ?? saved
+      const base = prev ?? active
       const next = base.includes(code) ? base.filter((item) => item !== code) : [...base, code]
       return next.length > max ? base : next
     })
@@ -66,6 +69,12 @@ export default function InterestEditor({ catalog, catalogError, onRetryCatalog, 
     }
   }
 
+  // 편집은 현재 카탈로그에 있는 코드로 시작한다. 예전 코드가 저장돼 있으면 그대로 저장만 눌러도 변경으로 보고 정리한다.
+  function handleStartEdit() {
+    setPicked(active)
+    setEditing(true)
+  }
+
   function handleCancel() {
     setPicked(null)
     setEditing(false)
@@ -75,19 +84,19 @@ export default function InterestEditor({ catalog, catalogError, onRetryCatalog, 
     <div className="px-margin mb-space-sm flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <div className="flex flex-wrap gap-1.5 min-w-0 flex-1">
-          {saved.length === 0 && (
+          {active.length === 0 && (
             <span className="font-label-xs text-label-xs text-outline">관심 분야를 고르면 추천이 더 정확해져요</span>
           )}
-          {saved.map((code) => (
+          {active.map((code) => (
             <span key={code} className="px-2.5 py-1 rounded-full bg-berry-tint text-primary font-label-xs text-label-xs font-semibold">
-              {names.get(code) ?? code}
+              {names.get(code)}
             </span>
           ))}
         </div>
         {!editing && (
           <button
             type="button"
-            onClick={() => setEditing(true)}
+            onClick={handleStartEdit}
             className="flex-shrink-0 flex items-center gap-1 px-3 h-8 rounded-full bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm active:scale-95 transition-all"
           >
             <MaterialIcon name="tune" className="text-[16px]" />

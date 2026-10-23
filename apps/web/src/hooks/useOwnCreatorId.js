@@ -2,6 +2,9 @@ import { useAsync } from './useAsync.js'
 import { useUser } from '../context/useUser.js'
 import { getMySpace } from '../api/creatorSpace.js'
 
+/** 내 Space 조회 캐시 키. 헤더 프로필 사진(MyProfileLink)과 Space 저장 결과 반영도 같은 키를 쓴다. */
+export const ownSpaceCacheKey = (memberId) => `own-space:${memberId}`
+
 /**
  * 크리에이터 본인의 creatorId. 내 스페이스를 불러오는 동안은 pending이라 관심 버튼을 막아 본인 팔로우를 방지한다.
  * 계정이 바뀐 직후 이전 계정의 응답을 쓰지 않도록 memberId가 같은 응답만 인정한다.
@@ -13,7 +16,7 @@ export function useOwnCreatorId() {
   const mySpace = useAsync(
     () => getMySpace().then((space) => ({ ...space, memberId: user.memberId })),
     [isCreator, user?.memberId],
-    { enabled: isCreator, cacheKey: isCreator && user?.memberId != null ? `own-space:${user.memberId}` : null },
+    { enabled: isCreator, cacheKey: isCreator && user?.memberId != null ? ownSpaceCacheKey(user.memberId) : null },
   )
   const ready = isCreator && !mySpace.loading && mySpace.data?.memberId === user?.memberId
   return {

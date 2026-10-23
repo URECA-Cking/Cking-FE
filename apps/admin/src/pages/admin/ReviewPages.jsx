@@ -32,11 +32,6 @@ function EventBannerPreview({ url }) {
   return <img src={src} alt="이벤트 배너" className="h-24 w-full max-w-sm rounded-md border border-slate-200 object-cover" />
 }
 
-const TEMPLATE_PROBLEM_MESSAGES = {
-  NO_ACTIVE_SPACE_TEMPLATE: '활성 Creator Space 템플릿이 없어 승인할 수 없습니다. 템플릿을 활성화한 뒤 다시 승인해주세요.',
-  INVALID_ACTIVE_SPACE_TEMPLATE: '활성 템플릿의 주소 규칙이 올바르지 않아 승인할 수 없습니다. 주소 규칙을 고친 뒤 다시 승인해주세요.',
-}
-
 /** Creator 신청과 이벤트 승인을 같은 목록·상세 심사 흐름으로 제공한다. */
 export function ReviewListPage({ type }) {
   const config = CONFIG[type]
@@ -79,8 +74,6 @@ export function ReviewDetailPage({ type }) {
   const showToast = useToast()
   const [action, setAction] = useState(null)
   const [busy, setBusy] = useState(false)
-  // Creator 승인은 활성 Creator Space 템플릿이 있어야 한다. 없으면 NO_ACTIVE_SPACE_TEMPLATE, 있어도 주소 규칙이 잘못됐으면 INVALID_ACTIVE_SPACE_TEMPLATE(둘 다 409)로 막는다.
-  const [templateProblem, setTemplateProblem] = useState(null)
   const selectedItem = location.state?.reviewItem && String(config.itemId(location.state.reviewItem)) === reviewId
     ? location.state.reviewItem
     : null
@@ -94,7 +87,6 @@ export function ReviewDetailPage({ type }) {
   async function decide(reason) {
     if (!item || !action) return
     setBusy(true)
-    setTemplateProblem(null)
     try {
       if (type === 'creators') {
         if (action === 'approve') await approveCreatorApplication(item.applicationId)
@@ -104,11 +96,7 @@ export function ReviewDetailPage({ type }) {
       showToast(action === 'approve' ? '승인 처리했습니다.' : '거절 처리했습니다.')
       navigate(config.listPath, { replace: true })
     } catch (err) {
-      // 템플릿 오류는 Creator 승인에서만 의미가 있다.
-      if (type === 'creators' && TEMPLATE_PROBLEM_MESSAGES[err?.code]) {
-        setAction(null)
-        setTemplateProblem(TEMPLATE_PROBLEM_MESSAGES[err.code])
-      } else showToast(describeError(err, '심사 처리에 실패했습니다.'), { icon: 'error' })
+      showToast(describeError(err, '심사 처리에 실패했습니다.'), { icon: 'error' })
     } finally { setBusy(false) }
   }
 
@@ -119,5 +107,5 @@ export function ReviewDetailPage({ type }) {
   const basicRows = type === 'creators'
     ? [['Application ID', item.applicationId], ['신청자', item.applicantName], ['Member ID', item.applicantUserId], ['신청 상태', <StatusBadge key="creator-status" status={item.status} />], ['신청 시간', formatDateTime(item.requestedAt)]]
     : [['Event ID', item.eventId], ['이벤트명', item.title], ['Creator', item.creatorName ?? `#${item.creatorId}`], ['상태', <StatusBadge key="event-status" status={item.status} />], ['승인 요청일', formatDateTime(item.requestedAt)], ['배너', <EventBannerPreview key="event-banner" url={item.bannerImageUrl} />]]
-  return <div className="mx-auto flex w-full max-w-4xl flex-col gap-6"><div><Link to={config.listPath} className="text-sm font-medium text-pink-700 hover:text-pink-800">← {config.title} 목록</Link><h1 className="mt-3 text-xl font-semibold text-slate-950">{type === 'creators' ? 'Creator 신청 상세' : '이벤트 승인 상세'}</h1></div><section className="border-y border-slate-200 bg-white"><DetailInfoRows title="기본 정보" rows={basicRows} />{type === 'creators' ? <DetailInfoRows title="처리 정보" rows={[['처리 시간', item.reviewedAt ? formatDateTime(item.reviewedAt) : '-'], ['처리자', item.reviewedBy ? `#${item.reviewedBy}` : '-'], ['거절 사유', item.rejectReason ?? '-']]} /> : <><DetailInfoRows title="진행 정보" rows={[['시작일', formatDateTime(item.startAt)], ['종료일', formatDateTime(item.endAt)], ['당첨 인원', `${formatNumber(item.winnerCount)}명`], ['추첨 방식', item.drawMethod], ['승인 요청 차수', `${item.approvalRound}차`]]} />{item.prizes?.length > 0 && <DetailInfoRows title="상품" rows={item.prizes.map((prize) => [prize.displayName, `${formatNumber(prize.quantity)}개`])} />}</>}</section>{type === 'creators' && templateProblem && <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert">{templateProblem} <Link to="/admin/space-templates" className="font-semibold text-pink-700 hover:text-pink-800">템플릿 관리로 이동</Link></div>}{pending && <div className="flex justify-end gap-2"><button type="button" onClick={() => setAction('reject')} className="h-10 rounded-md border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800 hover:bg-red-100">거절</button><button type="button" onClick={() => setAction('approve')} className="h-10 rounded-md bg-pink-700 px-4 text-sm font-semibold text-white hover:bg-pink-800">승인</button></div>}{action && <ConfirmModal action={action} subject={config.subject(item)} busy={busy} onCancel={() => setAction(null)} onConfirm={(reason) => void decide(reason)} />}</div>
+  return <div className="mx-auto flex w-full max-w-4xl flex-col gap-6"><div><Link to={config.listPath} className="text-sm font-medium text-pink-700 hover:text-pink-800">← {config.title} 목록</Link><h1 className="mt-3 text-xl font-semibold text-slate-950">{type === 'creators' ? 'Creator 신청 상세' : '이벤트 승인 상세'}</h1></div><section className="border-y border-slate-200 bg-white"><DetailInfoRows title="기본 정보" rows={basicRows} />{type === 'creators' ? <DetailInfoRows title="처리 정보" rows={[['처리 시간', item.reviewedAt ? formatDateTime(item.reviewedAt) : '-'], ['처리자', item.reviewedBy ? `#${item.reviewedBy}` : '-'], ['거절 사유', item.rejectReason ?? '-']]} /> : <><DetailInfoRows title="진행 정보" rows={[['시작일', formatDateTime(item.startAt)], ['종료일', formatDateTime(item.endAt)], ['당첨 인원', `${formatNumber(item.winnerCount)}명`], ['추첨 방식', item.drawMethod], ['승인 요청 차수', `${item.approvalRound}차`]]} />{item.prizes?.length > 0 && <DetailInfoRows title="상품" rows={item.prizes.map((prize) => [prize.displayName, `${formatNumber(prize.quantity)}개`])} />}</>}</section>{pending && <div className="flex justify-end gap-2"><button type="button" onClick={() => setAction('reject')} className="h-10 rounded-md border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800 hover:bg-red-100">거절</button><button type="button" onClick={() => setAction('approve')} className="h-10 rounded-md bg-pink-700 px-4 text-sm font-semibold text-white hover:bg-pink-800">승인</button></div>}{action && <ConfirmModal action={action} subject={config.subject(item)} busy={busy} onCancel={() => setAction(null)} onConfirm={(reason) => void decide(reason)} />}</div>
 }

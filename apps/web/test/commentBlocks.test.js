@@ -32,9 +32,9 @@ test('BE 오류 코드별로 구분된 안내를 보여준다', () => {
   assert.match(message('RESOURCE_NOT_FOUND'), /찾을 수 없어요/)
 })
 
-test('모르는 오류 코드는 서버 메시지를, ApiError가 아니면 기본 문구를 쓴다', () => {
-  assert.equal(commentBlockErrorMessage(new ApiError('SOMETHING_ELSE', '서버 메시지', 500), '기본'), '서버 메시지')
-  assert.equal(commentBlockErrorMessage(new ApiError('toString', '서버 메시지', 500), '기본'), '서버 메시지')
+test('모르는 오류 코드와 ApiError가 아닌 오류는 서버 메시지 대신 기본 문구를 쓴다', () => {
+  assert.equal(commentBlockErrorMessage(new ApiError('SOMETHING_ELSE', '서버 메시지', 500), '기본'), '기본')
+  assert.equal(commentBlockErrorMessage(new ApiError('toString', '서버 메시지', 500), '기본'), '기본')
   assert.equal(commentBlockErrorMessage(new Error('boom'), '기본'), '기본')
 })
 

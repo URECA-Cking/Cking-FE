@@ -92,7 +92,7 @@ function LedgerList({ creatorId }) {
       <ul className="flex flex-col gap-2">
         {items.map((item) => {
           const meta = TICKET_LEDGER_TYPE_META[item.type] ?? {
-            label: item.type,
+            label: '내역',
             icon: 'circle',
             tone: 'text-outline',
           }
@@ -112,7 +112,6 @@ function LedgerList({ creatorId }) {
                   {ledgerTitle(item, meta.label)}
                 </p>
                 <p className="font-label-xs text-label-xs text-on-surface-variant truncate">
-                  {item.reason ? `${item.reason} · ` : ''}
                   {formatAgo(item.createdAt)}
                 </p>
               </div>

@@ -20,7 +20,7 @@ import {
   unpublishQuiz,
 } from '../../api/creatorQuizzes.js'
 import { formatDateTime } from '../../utils/format.js'
-import { CONTENT_REVIEW_LABELS, PUBLICATION_LABELS, REVIEW_LABELS } from './quizLabels.js'
+import { CONTENT_REVIEW_LABELS, JUDGE_ITEMS, PUBLICATION_LABELS, REVIEW_LABELS, judgeItemLabel, verdictLabel, verdictMeta } from './quizLabels.js'
 import {
   REJECT_REASON_MAX,
   browserStorage,
@@ -55,23 +55,6 @@ const AGGREGATION_LABELS = {
   ALL_PASS: { label: '모두 통과', icon: 'check_circle', tone: 'bg-primary text-on-primary' },
   HAS_FAIL: { label: '미통과 항목 있음', icon: 'cancel', tone: 'bg-error-container text-on-error-container' },
   UNCERTAIN_ONLY: { label: '판단 보류 항목 있음', icon: 'help', tone: 'bg-surface-container-high text-on-surface' },
-}
-
-// 문항마다 평가하는 7개 항목(judge-api.md).
-const JUDGE_ITEMS = [
-  ['textAnswerCorrect', '정답이 원문과 일치'],
-  ['uniqueAnswer', '정답이 하나'],
-  ['evidenceSupportsAnswer', '근거가 정답을 뒷받침'],
-  ['questionClarity', '질문이 명확'],
-  ['koreanQuality', '한국어 품질'],
-  ['distractorQuality', '오답 보기 품질'],
-  ['textFaithfulness', '원문 밖 내용 없음'],
-]
-
-const VERDICTS = {
-  pass: { label: '통과', icon: 'check_circle', className: 'text-primary' },
-  fail: { label: '미통과', icon: 'cancel', className: 'text-error' },
-  uncertain: { label: '보류', icon: 'help', className: 'text-on-surface-variant' },
 }
 
 // 상태 조회가 이 횟수만큼 연달아 실패하면 자동 조회를 멈추고 "다시 확인"을 보여준다.
@@ -142,7 +125,7 @@ function QuizReview({ creatorId, quizId, initialRevisionId, onClose, onChanged }
       {quiz.data && (
         <div className="flex flex-col gap-space-md">
           {revisions.length > 1 && (
-            <div className="flex flex-wrap gap-2" role="group" aria-label="revision 선택">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="문항 버전 선택">
               {revisions.map((item) => (
                 <button
                   key={item.revisionId}
@@ -153,7 +136,7 @@ function QuizReview({ creatorId, quizId, initialRevisionId, onClose, onChanged }
                     item.revisionId === revisionId ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface'
                   }`}
                 >
-                  revision {item.revisionNo}
+                  문항 버전 {item.revisionNo}
                 </button>
               ))}
             </div>
@@ -303,7 +286,7 @@ function useJudgeEvaluation(creatorId, quizId, revisionId, onRevisionStale) {
         setNotice('평가 요청 결과를 확인하지 못했어요. 다시 확인하면 같은 요청으로 이어서 처리해요.')
       } else {
         // 개별 거절 응답만으로 다른 탭의 접수·진행 상태를 삭제하지 않는다.
-        setNotice(creatorQuizErrorMessage(error, 'GPT Judge 평가를 요청하지 못했어요.'))
+        setNotice(creatorQuizErrorMessage(error, 'AI 평가를 요청하지 못했어요.'))
         if (STALE_CODES.has(error?.code)) onStaleRef.current?.(error)
       }
     } finally {
@@ -420,7 +403,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
         </div>
         {!closed && quiz.publicationStatus === 'PUBLISHED' && (
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            {quiz.publishedRevisionId === revisionId ? '이 revision을 팬에게 공개하고 있어요.' : '다른 revision을 공개하고 있어요.'}
+            {quiz.publishedRevisionId === revisionId ? '이 문항 버전을 팬에게 공개하고 있어요.' : '다른 문항 버전을 공개하고 있어요.'}
             {quiz.publishedAt && ` · ${formatDateTime(quiz.publishedAt)} 게시`}
           </p>
         )}
@@ -428,10 +411,10 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
           <p className="font-body-sm text-body-sm text-on-surface-variant">{formatDateTime(quiz.unpublishedAt)} 게시 중지</p>
         )}
         {data.reviewStatus === 'APPROVED' && !data.latest && (
-          <p className="font-body-sm text-body-sm text-on-surface-variant">최신 revision만 게시할 수 있어요.</p>
+          <p className="font-body-sm text-body-sm text-on-surface-variant">최신 문항 버전만 게시할 수 있어요.</p>
         )}
         {!closed && data.reviewStatus !== 'APPROVED' && quiz.publicationStatus !== 'PUBLISHED' && (
-          <p className="font-body-sm text-body-sm text-on-surface-variant">승인한 revision을 게시할 수 있어요.</p>
+          <p className="font-body-sm text-body-sm text-on-surface-variant">승인한 문항 버전을 게시할 수 있어요.</p>
         )}
         {closed && <p className="font-body-sm text-body-sm text-on-surface-variant">마감된 Quiz는 재게시할 수 없어요. 기존 문항과 응시·보상 기록은 유지돼요.{quiz.closedAt && ` · ${formatDateTime(quiz.closedAt)} 마감`}</p>}
         <div className="flex flex-wrap gap-2">
@@ -442,7 +425,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
               onClick={() => run('publish', () => publishQuiz(quizId, revisionId), 'Quiz를 게시했어요. 팬이 풀 수 있어요.')}
               className={`${buttonClass} bg-primary text-on-primary`}
             >
-              {busy === 'publish' ? '게시하는 중...' : quiz.publicationStatus === 'PUBLISHED' ? '이 revision으로 바꿔 게시' : '게시하기'}
+              {busy === 'publish' ? '게시하는 중...' : quiz.publicationStatus === 'PUBLISHED' ? '이 문항 버전으로 바꿔 게시' : '게시하기'}
             </button>
           )}
           {!blocked && quiz.publicationStatus === 'PUBLISHED' && (
@@ -463,11 +446,11 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
       </section>
       {confirming === 'close' && !closed && <CloseConfirmation busy={busy !== null} onClose={() => setConfirming(null)} onConfirm={() => run('close', () => closeQuiz(quizId), 'Quiz를 마감했어요.')} />}
 
-      {/* revision 정보 */}
-      <section className={sectionClass} aria-label="revision 정보">
+      {/* 문항 버전 정보 */}
+      <section className={sectionClass} aria-label="문항 버전 정보">
         <div className="flex items-center justify-between gap-2">
           <span className="font-label-md text-label-md font-semibold text-on-surface">
-            revision {data.revisionNo}
+            문항 버전 {data.revisionNo}
             {data.latest && <span className="ml-1 font-label-xs text-label-xs text-on-surface-variant">(최신)</span>}
           </span>
           <StatusPill label={review.label} icon={review.icon} tone={review.tone} />
@@ -514,7 +497,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
       {!blocked && data.canEdit === true && data.latest && data.contentLocked === false && (
         <button type="button" className={`${buttonClass} bg-primary text-on-primary`} disabled={busy !== null || data === staleData} onClick={() => setEditing(true)}>최종 문항 선택·편집</button>
       )}
-      {composed && <p className="font-body-sm text-body-sm text-on-surface-variant">Creator 구성본이에요. 원본 Judge 결과는 참고용이며 최종 내용은 Creator가 책임 승인합니다.</p>}
+      {composed && <p className="font-body-sm text-body-sm text-on-surface-variant">크리에이터 구성본이에요. 원본 AI 평가 결과는 참고용이며 최종 내용은 크리에이터가 책임 승인합니다.</p>}
       {/* GPT Judge */}
       {!composed && (action !== 'DECIDED' || evaluation) && (
         <JudgeSection judge={judge} evaluation={evaluation} action={action} readOnly={blocked || busy !== null} />
@@ -526,9 +509,9 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
           <span className="font-label-md text-label-md font-semibold text-on-surface">검토 결정</span>
           {!approvable && (
             <p className="font-body-sm text-body-sm text-on-surface-variant">
-              {composed ? '최신 구성본의 저장된 hash를 확인한 뒤 책임 승인할 수 있어요.' : evaluation?.status === 'SUCCEEDED'
-                ? '기존 Judge 승인은 ALL_PASS가 필요해요. 최종 문항 구성에서는 미통과·보류 문항도 선택·수정할 수 있어요.'
-                : 'GPT Judge 평가에서 모든 항목이 통과(ALL_PASS)해야 승인할 수 있어요.'}
+              {composed ? '최신 구성본의 저장 내용을 확인한 뒤 책임 승인할 수 있어요.' : evaluation?.status === 'SUCCEEDED'
+                ? '기존 AI 평가 승인은 모든 항목이 통과해야 해요. 최종 문항 구성에서는 미통과·보류 문항도 선택·수정할 수 있어요.'
+                : 'AI 평가에서 모든 항목이 통과해야 승인할 수 있어요.'}
             </p>
           )}
           {confirming === 'approve' && (
@@ -568,7 +551,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
                   className="rounded-lg bg-surface-container-lowest p-space-sm font-body-sm text-body-sm text-on-surface outline-none focus:ring-2 focus:ring-primary"
                 />
               </label>
-              <p className="font-body-sm text-body-sm text-on-surface-variant">반려하면 되돌릴 수 없고 이 revision은 게시할 수 없어요.</p>
+              <p className="font-body-sm text-body-sm text-on-surface-variant">반려하면 되돌릴 수 없고 이 문항 버전은 게시할 수 없어요.</p>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -592,7 +575,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
                 onClick={() => setConfirming('approve')}
                 className={`${buttonClass} bg-primary text-on-primary`}
               >
-                {composed ? 'Creator 책임 승인' : '승인'}
+                {composed ? '크리에이터 책임 승인' : '승인'}
               </button>
               <button
                 type="button"
@@ -612,7 +595,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
         <div key={question.questionId ?? question.questionNo}>
           {question.evaluationStatus && <p className="font-label-sm text-label-sm text-on-surface-variant">{({ PASS: 'AI 원본 통과', FAIL: 'AI 원본 미통과', UNCERTAIN: 'AI 원본 판단 보류', NOT_REVALIDATED: '수정 문항 · 재검증 안 됨', NOT_EVALUATED: '평가 없음' })[question.evaluationStatus]}</p>}
           <QuestionReview question={question} judged={composed ? null : judgedByNo.get(question.questionNo)} />
-          {question.sourceEvaluation && (composed || !judgedByNo.has(question.questionNo)) && <details className={sectionClass}><summary>AI 원본 참고 평가 (현재 수정 문항의 검증 결과가 아닙니다)</summary>{Object.entries(question.sourceEvaluation.items).map(([name, item]) => <p key={name}>{JUDGE_ITEMS.find(([field]) => field === name)?.[1] ?? name}: {VERDICTS[item.verdict]?.label ?? item.verdict} · {item.reason}</p>)}</details>}
+          {question.sourceEvaluation && (composed || !judgedByNo.has(question.questionNo)) && <details className={sectionClass}><summary>AI 원본 참고 평가 (현재 수정 문항의 검증 결과가 아닙니다)</summary>{Object.entries(question.sourceEvaluation.items).map(([name, item]) => <p key={name}>{judgeItemLabel(name)}: {verdictLabel(item.verdict)} · {item.reason}</p>)}</details>}
         </div>
       ))}
     </div>
@@ -630,13 +613,13 @@ function JudgeSection({ judge, evaluation, action, readOnly = false }) {
     && (action === 'REQUEST' || action === 'RETRY' || (judge.unconfirmed && action !== 'DECIDED' && action !== 'DONE'))
 
   return (
-    <section className={sectionClass} aria-label="GPT Judge 평가">
+    <section className={sectionClass} aria-label="AI 평가">
       <div className="flex items-center justify-between gap-2">
-        <span className="font-label-md text-label-md font-semibold text-on-surface">GPT Judge 평가</span>
+        <span className="font-label-md text-label-md font-semibold text-on-surface">AI 평가</span>
         {aggregation && <StatusPill label={aggregation.label} icon={aggregation.icon} tone={aggregation.tone} />}
         {!aggregation && evaluation && (
           <StatusPill
-            label={JUDGE_LABELS[evaluation.status] ?? evaluation.status}
+            label={JUDGE_LABELS[evaluation.status] ?? '상태 확인 중'}
             icon={failed ? 'error' : 'hourglass_top'}
             tone={failed ? 'bg-error-container text-on-error-container' : 'bg-surface-container-high text-on-surface'}
           />
@@ -685,7 +668,7 @@ function JudgeSection({ judge, evaluation, action, readOnly = false }) {
       {failed && (
         <p className="font-body-sm text-body-sm text-on-surface-variant">
           {judgeFailureMessage(evaluation)} ({evaluation.attempt}/{evaluation.maxAttempts}회 사용)
-          {action === 'EXHAUSTED' && ' 평가 횟수를 모두 사용했어요. 이 revision은 반려할 수 있어요.'}
+          {action === 'EXHAUSTED' && ' 평가 횟수를 모두 사용했어요. 이 문항 버전은 반려할 수 있어요.'}
           {action === 'RETRY' && evaluation.status === 'UNKNOWN' && ' 이전 평가가 실제로 끝났을 수 있어 다시 평가하면 비용이 중복될 수 있어요.'}
         </p>
       )}
@@ -750,11 +733,11 @@ function QuestionReview({ question, judged }) {
       {judged && (
         <details className="rounded-xl bg-surface-container-low p-space-sm" open={notPassed.length > 0}>
           <summary className="cursor-pointer font-label-sm text-label-sm font-semibold text-on-surface">
-            {notPassed.length === 0 ? 'GPT Judge 7개 항목 모두 통과' : `GPT Judge 미통과·보류 ${notPassed.length}개 항목`}
+            {notPassed.length === 0 ? 'AI 평가 7개 항목 모두 통과' : `AI 평가 미통과·보류 ${notPassed.length}개 항목`}
           </summary>
           <ul className="mt-space-xs flex flex-col gap-space-xs">
             {items.map((item) => {
-              const verdict = VERDICTS[item.verdict] ?? VERDICTS.uncertain
+              const verdict = verdictMeta(item.verdict)
               return (
                 <li key={item.key} className="flex items-start gap-space-xs">
                   <MaterialIcon name={verdict.icon} className={`mt-0.5 text-[18px] ${verdict.className}`} />

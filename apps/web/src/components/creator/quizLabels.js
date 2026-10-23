@@ -10,8 +10,43 @@ export const PUBLICATION_LABELS = {
 // 승인 화면의 원문 검토 결과. revision 상세의 contentEdited가 true·false일 때만 보여 주고, null(원문 검토 없이 만든 Quiz)이면
 // 보여 주지 않는다.
 export const CONTENT_REVIEW_LABELS = {
-  true: { label: 'Creator가 수정한 원문', icon: 'edit_note', tone: 'bg-primary/10 text-primary' },
+  true: { label: '크리에이터가 수정한 원문', icon: 'edit_note', tone: 'bg-primary/10 text-primary' },
   false: { label: 'AI 원문 그대로 확정', icon: 'task_alt', tone: 'bg-surface-container-high text-on-surface' },
+}
+
+// 문항마다 평가하는 7개 항목(judge-api.md). 응답의 항목 키는 화면에 그대로 쓰지 않는다.
+export const JUDGE_ITEMS = [
+  ['textAnswerCorrect', '정답이 원문과 일치'],
+  ['uniqueAnswer', '정답이 하나'],
+  ['evidenceSupportsAnswer', '근거가 정답을 뒷받침'],
+  ['questionClarity', '질문이 명확'],
+  ['koreanQuality', '한국어 품질'],
+  ['distractorQuality', '오답 보기 품질'],
+  ['textFaithfulness', '원문 밖 내용 없음'],
+]
+
+export const VERDICTS = {
+  pass: { label: '통과', icon: 'check_circle', className: 'text-primary' },
+  fail: { label: '미통과', icon: 'cancel', className: 'text-error' },
+  uncertain: { label: '보류', icon: 'help', className: 'text-on-surface-variant' },
+}
+
+/** 판정 값이 없거나 모르는 값일 때. 실제 보류(uncertain)와 섞이지 않게 따로 둔다. */
+export const UNKNOWN_VERDICT = { label: '평가 결과 확인 필요', icon: 'help', className: 'text-on-surface-variant' }
+
+/** 판정 값의 표시 정보. 모르는 값은 원문 대신 {@link UNKNOWN_VERDICT}다. */
+export function verdictMeta(verdict) {
+  return Object.hasOwn(VERDICTS, verdict ?? '') ? VERDICTS[verdict] : UNKNOWN_VERDICT
+}
+
+/** 평가 항목 키를 화면 문구로 바꾼다. 모르는 키는 원문 대신 일반 문구를 쓴다. */
+export function judgeItemLabel(key) {
+  return JUDGE_ITEMS.find(([field]) => field === key)?.[1] ?? '평가 항목'
+}
+
+/** 판정 값을 화면 문구로 바꾼다. */
+export function verdictLabel(verdict) {
+  return verdictMeta(verdict).label
 }
 
 export const REVIEW_LABELS = {

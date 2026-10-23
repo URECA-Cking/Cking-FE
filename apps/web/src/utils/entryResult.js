@@ -1,3 +1,5 @@
+import { COMMON_ERROR_MESSAGES } from '../api/errorMessages.js'
+
 /**
  * 응모 처리 결과 코드별 사용자 문구.
  * 백엔드 EntryResultCode(10종) / EntryErrorCode와 1:1로 맞춘다.
@@ -9,24 +11,29 @@ export const ENTRY_RESULT = {
   EVENT_CLOSED: { tone: 'error', message: '응모가 마감된 이벤트예요.' },
   INSUFFICIENT_BALANCE: { tone: 'error', message: '보유한 응모권이 부족해요.' },
   INVALID_TICKET_COUNT: { tone: 'error', message: '응모 수량이 올바르지 않아요.' },
-  IDEMPOTENCY_CONFLICT: { tone: 'error', message: '같은 요청번호로 다른 내용이 전달됐어요. 다시 시도해주세요.' },
+  IDEMPOTENCY_CONFLICT: { tone: 'error', message: '이미 처리된 응모일 수 있어요. 응모 내역을 확인해주세요.' },
+  OWN_EVENT_ENTRY_NOT_ALLOWED: { tone: 'error', message: '내 이벤트에는 응모할 수 없어요.' },
   GATE_NOT_LOADED: { tone: 'retry', message: '응모 처리 준비 중이에요. 잠시 후 다시 시도해주세요.' },
   BALANCE_NOT_LOADED: { tone: 'retry', message: '잔액 정보를 준비하고 있어요. 잠시 후 다시 시도해주세요.' },
+  BALANCE_MAINTENANCE: { tone: 'retry', message: '응모권 잔액을 정리하는 중이에요. 잠시 후 다시 시도해주세요.' },
   SYSTEM_ERROR: { tone: 'error', message: '서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.' },
-  VALIDATION_FAILED: { tone: 'error', message: '요청 값이 올바르지 않아요.' },
-  NETWORK_ERROR: { tone: 'error', message: '백엔드 서버에 연결할 수 없어요.' },
+  VALIDATION_FAILED: { tone: 'error', message: '응모 내용을 확인해주세요.' },
+  NETWORK_ERROR: { tone: 'error', message: '연결이 불안정해 응모 결과를 확인하지 못했어요. 다시 시도해도 중복으로 차감되지 않아요.' },
 }
 
-/** 응답 envelope 또는 전송 예외를 화면에서 쓸 수 있는 {code, accepted, tone, message}로 정리한다. */
+/**
+ * 응답 envelope 또는 전송 예외를 화면에서 쓸 수 있는 {code, accepted, tone, message}로 정리한다.
+ * 응모 표 → 공통 표 순으로 고르고, 서버 문구는 쓰지 않는다.
+ */
 export function describeEntryResult(result) {
   const code = result?.code ?? (result?.ok ? 'SUCCESS' : 'SYSTEM_ERROR')
-  const known = ENTRY_RESULT[code]
+  const known = Object.hasOwn(ENTRY_RESULT, code) ? ENTRY_RESULT[code] : null
   const accepted = code === 'SUCCESS' || code === 'DUPLICATE_REPLAY'
   return {
     code,
     accepted,
     tone: known?.tone ?? (accepted ? 'success' : 'error'),
-    message: known?.message ?? result?.message ?? '응모 결과를 확인하지 못했어요.',
+    message: known?.message ?? (Object.hasOwn(COMMON_ERROR_MESSAGES, code) ? COMMON_ERROR_MESSAGES[code] : '응모 결과를 확인하지 못했어요.'),
   }
 }
 

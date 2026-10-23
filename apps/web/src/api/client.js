@@ -99,14 +99,8 @@ export async function probe(path, params) {
   }
 }
 
-/** 화면에 그대로 노출해도 되는 오류 문구로 정리한다. */
-export function describeError(error, fallback = '요청을 처리하지 못했습니다.') {
-  if (error instanceof ApiError) {
-    if (error.code === 'FORBIDDEN') return '이 기능을 사용할 권한이 없는 계정입니다.';
-    return error.message || fallback;
-  }
-  return fallback;
-}
+// 화면 오류 문구는 errorMessages.js가 정한다. 서버 message는 화면에 쓰지 않는다.
+export { describeError } from './errorMessages.js';
 
 /** 멱등 요청에 사용할 UUID v4. crypto.randomUUID가 없는 환경도 대비한다. */
 export function newRequestId() {

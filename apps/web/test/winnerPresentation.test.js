@@ -31,10 +31,10 @@ test('상태 필터는 이미 조회한 당첨 목록에서만 전환한다', ()
   assert.deepEqual(filterWinnersByStatus(winners, 'ALL').map((winner) => winner.winnerId), [1, 2, 3])
 })
 
-test('이벤트 목록으로 실제 제목을 보강하고 없으면 기존 식별자를 유지한다', () => {
+test('이벤트 목록으로 실제 제목을 보강하고 없으면 번호 대신 안내 문구를 쓴다', () => {
   const eventById = new Map([[10, { title: '가을 커피 기프트 이벤트' }]])
   assert.equal(winnerEventTitle(winners[0], eventById), '가을 커피 기프트 이벤트')
-  assert.equal(winnerEventTitle(winners[1], eventById), '이벤트 #11')
+  assert.equal(winnerEventTitle(winners[1], eventById), '이벤트 정보를 불러오지 못했어요')
 })
 
 test('당첨 순위를 사용자 표현으로 바꾼다', () => {

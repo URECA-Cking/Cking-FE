@@ -10,7 +10,6 @@ import AdminWinners, { AdminWinnerDetail } from './pages/admin/AdminWinnerDetail
 import { AdminEventDetailPage, AdminEventsPage } from './pages/admin/AdminEvents.jsx'
 import { AdminAbuseDetectionDetailPage, AdminAbuseDetectionListPage } from './pages/admin/AdminAbuseDetections.jsx'
 import { ReviewDetailPage, ReviewListPage } from './pages/admin/ReviewPages.jsx'
-import AdminSpaceTemplates from './pages/admin/AdminSpaceTemplates.jsx'
 import AdminCommentReports from './pages/admin/AdminCommentReports.jsx'
 import AdminSpaceCommentBlocks from './pages/admin/AdminSpaceCommentBlocks.jsx'
 import AdminTickets from './pages/admin/AdminTickets.jsx'
@@ -41,7 +40,6 @@ export default function App() {
       <Route path="/admin/redraws" element={protectedRoute(<AdminRedraws />)} />
       <Route path="/admin/redraws/:redrawRequestId" element={protectedRoute(<AdminRedrawDetailPage />)} />
       <Route path="/admin/dead-streams" element={protectedRoute(<AdminDeadStreams />)} />
-      <Route path="/admin/space-templates" element={protectedRoute(<AdminSpaceTemplates />)} />
       <Route path="/admin/comment-reports" element={protectedRoute(<AdminCommentReports />)} />
       <Route path="/admin/space-comment-blocks" element={protectedRoute(<AdminSpaceCommentBlocks />)} />
       <Route path="/admin/tickets" element={protectedRoute(<AdminTickets />)} />

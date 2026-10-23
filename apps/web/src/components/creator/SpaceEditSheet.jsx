@@ -107,8 +107,8 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
   const remainingDays = daysUntil(space.slugChangeableAt)
   // 공유 주소를 바꾼 지 14일이 안 지났다. 새 주소로는 못 바꾸고 이전 주소로 되돌리기만 된다(최종 판단은 BE).
   const slugLocked = remainingDays > 0
-  // 프로필 이미지·배너 URL은 입력칸이 없어도 PATCH에 필수라 현재 값을 그대로 보낸다(업로드한 이미지가 연결돼 있으면 BE가 무시한다).
-  const profileValid = Object.values(profile).every((value) => value.trim() && value.length <= MAX_TEXT)
+  // 소개만 필수다. 프로필 이미지·배너 URL은 입력칸이 없고, 승인 때 만든 스페이스는 이미지가 없을 수 있다(Cking-BE #754).
+  const profileValid = Boolean(profile.introText.trim()) && Object.values(profile).every((value) => value.length <= MAX_TEXT)
   // 방금 올린 사진은 미리보기(blob:) 주소로, 저장돼 있는 사진은 서버 주소가 http(s)일 때만 보여준다.
   const shownImage = photo.pendingKey === null ? null : (photo.previewUrl ?? toSafeHttpUrl(space.profileImageUrl))
   const imageBusy = photo.busy || banner.busy
@@ -150,11 +150,12 @@ function SpaceEditForm({ space, onSaved, registerGuard }) {
       })
       onSaved(pickFields(updated, PROFILE_FIELDS))
       // 저장된 사진·배너가 현재 이미지가 된다. 이후 저장에는 새 주소를 보내고 이미지는 다시 바꾸지 않은 상태로 둔다.
+      // 응답이 이미지 없음(null)이면 이전 주소를 남기지 않는다.
       setProfile((prev) => ({
         ...prev,
         introText: prev.introText === sentIntro ? (updated.introText ?? sentIntro.trim()) : prev.introText,
-        profileImageUrl: updated.profileImageUrl ?? prev.profileImageUrl,
-        bannerImageUrl: updated.bannerImageUrl ?? prev.bannerImageUrl,
+        profileImageUrl: updated.profileImageUrl ?? '',
+        bannerImageUrl: updated.bannerImageUrl ?? '',
       }))
       photo.reset()
       banner.reset()

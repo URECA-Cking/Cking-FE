@@ -203,6 +203,19 @@ test('소개만 바꾸면 확인 없이 소개만 저장하고 공유 주소 API
   } finally { await page.close() }
 })
 
+// 승인 때 만든 스페이스는 이미지가 없다(Cking-BE #754). 소개만 고쳐도 저장되고, 비어 있는 이미지 URL은 보내지 않는다.
+test('이미지가 없는 스페이스도 소개를 저장하고, 이미지 URL은 요청에 넣지 않는다', async () => {
+  const page = await screen({ space: { profileImageUrl: null, bannerImageUrl: null } })
+  try {
+    await page.evaluate(() => { window.patchBodies = []; const original = window.fetch; window.fetch = (url, options = {}) => { if (String(url).endsWith('/api/creator/space') && options.method === 'PATCH') window.patchBodies.push(JSON.parse(options.body)); return original(url, options) } })
+    await intro(page).fill('이미지 없는 소개')
+    assert.equal(await page.getByRole('button', { name: '저장', exact: true }).isDisabled(), false)
+    await page.getByRole('button', { name: '저장', exact: true }).click()
+    await page.waitForFunction(() => window.toasts.includes('스페이스 정보를 저장했어요.'))
+    assert.deepEqual(await page.evaluate(() => window.patchBodies), [{ introText: '이미지 없는 소개' }])
+  } finally { await page.close() }
+})
+
 test('저장 버튼은 하나이고 시트 내용의 맨 끝(공유 주소 아래)에 있다', async () => {
   const page = await screen()
   try {

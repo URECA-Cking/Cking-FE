@@ -20,13 +20,18 @@ test('기본 이미지로 되돌리려면 null을 명시해서 보낸다', () =>
   assert.equal(body.profileImageKey, null)
 })
 
-test('소개·프로필 이미지 URL·배너 URL은 사진 변경과 관계없이 항상 보낸다(BE에서 필수)', () => {
+test('소개와 값이 있는 이미지 URL은 사진 변경과 관계없이 보낸다', () => {
   for (const profileImageKey of [undefined, null, 'k']) {
     const body = spaceUpdateBody({ ...base, profileImageKey })
     assert.equal(body.introText, '소개')
     assert.equal(body.profileImageUrl, base.profileImageUrl)
     assert.equal(body.bannerImageUrl, base.bannerImageUrl)
   }
+})
+
+test('이미지가 없는 스페이스는 이미지 URL을 보내지 않아 BE가 그대로 둔다(Cking-BE #754)', () => {
+  const body = spaceUpdateBody({ introText: '소개', profileImageUrl: '', bannerImageUrl: '' })
+  assert.deepEqual(body, { introText: '소개' })
 })
 
 test('저장 응답에서 담당 필드만 고른다', () => {

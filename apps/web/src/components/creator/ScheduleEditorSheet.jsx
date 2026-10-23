@@ -145,12 +145,11 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
   const [endAt, setEndAt] = useState(() => toZonedInputValue(schedule ? new Date(schedule.endAt) : null, initialTimeZone))
   const [timeZone, setTimeZone] = useState(initialTimeZone)
   const [location, setLocation] = useState(schedule?.location ?? '')
-  const [imageUrl, setImageUrl] = useState(schedule?.imageUrl ?? '')
   const [externalUrl, setExternalUrl] = useState(schedule?.externalUrl ?? '')
   const [saving, setSaving] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  const snapshot = { scheduleType, title, description, startAt, endAt, timeZone, location, imageUrl, externalUrl }
+  const snapshot = { scheduleType, title, description, startAt, endAt, timeZone, location, externalUrl }
   const initial = useRef(snapshot)
   const dirty = JSON.stringify(initial.current) !== JSON.stringify(snapshot)
 
@@ -197,7 +196,8 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
       endAt: resolveInstant(endAt, initial.current.endAt, schedule?.endAt),
       timeZone,
       location: location.trim(),
-      imageUrl: imageUrl.trim(),
+      // 이미지 URL은 입력받지 않는다. 수정은 전체 필드 교체라 기존 값을 그대로 보내 지우지 않는다.
+      imageUrl: schedule?.imageUrl ?? '',
       externalUrl: externalUrl.trim(),
     }
     try {
@@ -300,18 +300,6 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
           maxLength={200}
           onChange={(event) => setLocation(event.target.value)}
           placeholder="예: 서울 성수동"
-          className={inputClass}
-        />
-      </label>
-
-      <label className="flex flex-col gap-1">
-        <span className="font-label-xs text-label-xs text-on-surface-variant">이미지 URL (선택)</span>
-        <input
-          type="text"
-          value={imageUrl}
-          maxLength={500}
-          onChange={(event) => setImageUrl(event.target.value)}
-          placeholder="https://..."
           className={inputClass}
         />
       </label>

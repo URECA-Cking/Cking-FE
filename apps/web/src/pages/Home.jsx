@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import InstallBanner from '../components/pwa/InstallBanner.jsx'
 import WinnerBanner from '../components/home/WinnerBanner.jsx'
 import StudioLink from '../components/home/StudioLink.jsx'
@@ -7,7 +7,6 @@ import NewsRow from '../components/home/NewsRow.jsx'
 import EntrySection from '../components/home/EntrySection.jsx'
 import MissionSection from '../components/home/MissionSection.jsx'
 import WelcomeQuest from '../components/home/WelcomeQuest.jsx'
-import WelcomeCreators from '../components/home/WelcomeCreators.jsx'
 import { LoadingBlock, ErrorBlock, InlineRetry } from '../components/ui/States.jsx'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
@@ -92,7 +91,6 @@ export default function Home() {
   const welcome = useWelcomeQuest(user?.memberId)
   const claimWelcome = useWelcomeClaim(welcome.claim)
   const [guideHidden, setGuideHidden] = useWelcomeGuideHidden(user?.memberId)
-  const creatorsRef = useRef(null)
   const questActive = isWelcomeQuestActive(welcome.quest)
   // 이번 화면에서 퀘스트가 진행 중인 것을 본 회원. 마지막 단계를 받는 순간 완료 화면이 바로 사라지지 않고,
   // 새로고침하거나 다시 들어올 때까지 완료 안내(웰컴 퀘스트 완료!)를 보여 주기 위해 기억한다.
@@ -105,11 +103,6 @@ export default function Home() {
   // 퀘스트 상태를 처음 받아 오는 동안은 신규 여부를 모른다. 응모 섹션이 떴다가 사라지지 않게 그 사이에는 응모를 그리지 않는다.
   const questPending = user?.memberId != null && welcome.quest === null && welcome.loading
   const questLoadFailed = user?.memberId != null && welcome.quest === null && !welcome.loading && Boolean(welcome.error)
-
-  /** 팔로우 단계를 하러 가는 사용자를 인기 크리에이터 섹션으로 부드럽게 스크롤한다. */
-  const goFollow = useCallback(() => {
-    creatorsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [])
 
   // 웰컴 보너스는 퀘스트가 끝난 뒤에도 받을 수 있으므로, 신규 대상이면 상태에 맞춰 출석 카드에 넘긴다.
   const bonus = welcome.quest?.eligible ? welcome.quest.bonus : null
@@ -146,10 +139,8 @@ export default function Home() {
             hidden={guideHidden}
             onHide={() => setGuideHidden(true)}
             onShow={() => setGuideHidden(false)}
-            onGoFollow={goFollow}
           />
           {attendance}
-          <WelcomeCreators sectionRef={creatorsRef} onFollowed={welcome.reload} />
         </>
       )}
 

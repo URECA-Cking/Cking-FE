@@ -1,6 +1,6 @@
-import React, { Suspense, lazy, useState } from 'react'
+import React, { Suspense, lazy, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import Home from '../../src/pages/Home.jsx'
 import UserContext from '../../src/context/userContext.js'
 import ToastContext from '../../src/context/toastContext.js'
@@ -10,6 +10,13 @@ import { clearAsyncCache } from '@cking/shared/useAsync'
 import ChunkErrorBoundary from '../../src/components/ui/ChunkErrorBoundary.jsx'
 
 const root = createRoot(document.getElementById('root'))
+
+/** 홈에서 다른 화면으로 보내는 동작을 확인하려고 현재 주소를 window.currentPath에 남긴다. */
+function LocationSpy() {
+  const location = useLocation()
+  useEffect(() => { window.currentPath = location.pathname + location.search }, [location])
+  return null
+}
 
 /**
  * 홈을 실제 컴포넌트 그대로 그리되, 로그인 상태(UserContext)·토스트·헤더 응모권만 대신하는 틀.
@@ -34,6 +41,7 @@ function Shell({ follows, memberId }) {
   }
   return (
     <MemoryRouter>
+      <LocationSpy />
       <ToastContext.Provider value={(message) => window.toasts.push(message)}>
         <MyTicketsContext.Provider value={{ refresh: () => { window.ticketRefreshes += 1 } }}>
           <UserContext.Provider value={value}>

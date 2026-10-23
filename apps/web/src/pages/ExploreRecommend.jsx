@@ -87,7 +87,7 @@ export default function ExploreRecommend() {
     <div className="page-enter flex flex-col w-full pb-8">
       <section className="mt-space-md flex flex-col">
         <div className="px-margin">
-          <SectionHeader icon="auto_awesome" title="나를 위한 추천" action="도킹 관리" actionTo="/onboarding/creators" />
+          <SectionHeader icon="auto_awesome" title="나를 위한 추천" />
         </div>
         <InterestEditor
           catalog={interests.data}

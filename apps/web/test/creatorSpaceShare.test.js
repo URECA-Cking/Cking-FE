@@ -35,18 +35,21 @@ const YOUTUBE_CHANNEL = {
  * - window.mySpaces: 내 Space 조회 응답을 순서대로 쓴다. 항목에 hold가 있으면 window.releaseMySpace()를 부를 때까지 응답을 늦춘다.
  * - window.shareReplies 항목에 hold가 있으면 window.releaseShare()를 부를 때까지 응답을 늦춘다(요청이 진행 중인 상태를 만들기 위해).
  * - window.shareCalls: 보상 API 호출 본문 기록.
+ * - window.latestVerification: 내 최근 구독 인증 응답. null이면 인증 내역 없음(404)으로 답한다. window.balanceReads: 잔액 조회 횟수.
  */
-async function screen({ missions = [{ ...MISSION }], mySpaces = [], youtubeChannel = null } = {}) {
+async function screen({ missions = [{ ...MISSION }], mySpaces = [], youtubeChannel = null, latestVerification = null } = {}) {
   const page = await browser.newPage()
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.route('**/*', (route) => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }) : route.abort())
   await page.goto('http://localhost/space-test')
-  await page.evaluate(({ initialMissions, initialMySpaces, initialYoutubeChannel }) => {
+  await page.evaluate(({ initialMissions, initialMySpaces, initialYoutubeChannel, initialLatestVerification }) => {
     window.missions = initialMissions
     window.mySpaces = initialMySpaces
     window.youtubeChannel = initialYoutubeChannel
+    window.latestVerification = initialLatestVerification
+    window.balanceReads = 0
     window.shareReplies = []
     window.shareCalls = []
     window.missionReads = 0
@@ -59,7 +62,10 @@ async function screen({ missions = [{ ...MISSION }], mySpaces = [], youtubeChann
       if (path === '/api/creator-spaces/test') {
         return Promise.resolve(envelope(200, 'SUCCESS', { creatorId: 11, creatorName: '테스트 크리에이터', slug: 'test', introText: '', profileImageUrl: null, bannerImageUrl: null, followerCount: 3 }))
       }
-      if (path === '/api/creators/11/tickets') return Promise.resolve(envelope(200, 'SUCCESS', { creatorId: 11, balance: 0 }))
+      if (path === '/api/creators/11/tickets') {
+        window.balanceReads += 1
+        return Promise.resolve(envelope(200, 'SUCCESS', { creatorId: 11, balance: 0 }))
+      }
       if (path === '/api/creators/11/missions' && options.method === 'GET') {
         window.missionReads += 1
         return Promise.resolve(envelope(200, 'SUCCESS', window.missions))
@@ -86,12 +92,14 @@ async function screen({ missions = [{ ...MISSION }], mySpaces = [], youtubeChann
           : Promise.resolve(envelope(409, 'CREATOR_CHANNEL_NOT_CONFIGURED', null, '채널 없음'))
       }
       if (path === '/api/creators/11/missions/6/subscription-verifications/me/latest') {
-        return Promise.resolve(envelope(404, 'VERIFICATION_NOT_FOUND', null, '인증 내역 없음'))
+        return window.latestVerification
+          ? Promise.resolve(envelope(200, 'SUCCESS', window.latestVerification))
+          : Promise.resolve(envelope(404, 'VERIFICATION_NOT_FOUND', null, '인증 내역 없음'))
       }
       if (path.includes('/calendar/schedules')) return Promise.resolve(envelope(200, 'SUCCESS', []))
       return Promise.resolve(envelope(200, 'SUCCESS', { items: [], page: 0, hasNext: false, totalElements: 0 }))
     }
-  }, { initialMissions: missions, initialMySpaces: mySpaces, initialYoutubeChannel: youtubeChannel })
+  }, { initialMissions: missions, initialMySpaces: mySpaces, initialYoutubeChannel: youtubeChannel, initialLatestVerification: latestVerification })
   await page.addScriptTag({ content: bundle })
   return { page, errors }
 }
@@ -111,6 +119,8 @@ const shareCalls = (page) => page.evaluate(() => window.shareCalls)
 // 버튼에는 응모권 장수(또는 완료·처리 중 같은 상태)만 보여서, 버튼 글자 대신 '공유 미션' 줄 안의 버튼으로 찾는다.
 const shareCard = (page) => page.locator('div.justify-between', { has: page.getByText('공유 미션', { exact: true }) }).locator(SHARE_BUTTON)
 // 같은 버튼 묶음을 데스크톱용·모바일용으로 두 번 그리고 테스트 틀에는 CSS가 없어 둘 다 보이므로 첫 번째를 쓴다.
+// 받은 공유 미션은 카드가 사라진다.
+const shareCardGone = (page) => page.getByText('공유 미션', { exact: true }).waitFor({ state: 'detached' })
 const headerShare = (page) => page.locator('button[aria-label="공유하기"]').first()
 const editSpaceButton = (page) => page.getByRole('button', { name: '스페이스 편집' }).first()
 
@@ -142,14 +152,106 @@ test('구독 인증 미션이 있으면 현재 Creator의 채널을 조회해 �
   } finally { await page.close() }
 })
 
-test('공유 시트를 끝내면 보상 API를 한 번 호출하고 카드가 완료로 바뀌며 응모권이 갱신된다', async () => {
+test('구독 인증 미션을 이미 받았으면 인증 카드를 숨기고 공개 채널도 조회하지 않는다', async () => {
+  const { page, errors } = await screen({
+    missions: [{ ...MISSION }, { ...YOUTUBE_SUBSCRIPTION_MISSION, completedToday: true }],
+    youtubeChannel: YOUTUBE_CHANNEL,
+  })
+  try {
+    await page.evaluate(() => window.renderSpace({ memberId: 1 }))
+    await page.getByText('공유 미션').waitFor()
+    await page.waitForTimeout(100)
+
+    assert.equal(await page.getByText('YouTube 구독 인증').count(), 0)
+    assert.equal(await page.evaluate(() => window.youtubeChannelReads), 0)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('본인 스페이스에서는 완료한 구독 인증 미션도 채널 확인용으로 카드를 보여 준다', async () => {
+  const { page, errors } = await screen({
+    missions: [{ ...MISSION }, { ...YOUTUBE_SUBSCRIPTION_MISSION, completedToday: true }],
+    mySpaces: [{ creatorId: 11 }],
+    youtubeChannel: YOUTUBE_CHANNEL,
+  })
+  try {
+    await page.evaluate(() => window.renderSpace({ memberId: 1, isCreator: true }))
+    await page.getByText('YouTube 구독 인증').waitFor()
+
+    assert.equal(await page.getByText('테스트 채널 · @test-channel').count(), 1)
+    assert.equal(await page.evaluate(() => window.youtubeChannelReads), 1)
+    assert.equal(await page.getByText('공유 미션').count(), 0)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('본인 스페이스를 다시 열어도 예전에 끝난 구독 인증으로 완료 안내를 띄우지 않는다', async () => {
+  const { page, errors } = await screen({
+    missions: [{ ...MISSION }, { ...YOUTUBE_SUBSCRIPTION_MISSION, completedToday: true }],
+    mySpaces: [{ creatorId: 11 }],
+    youtubeChannel: YOUTUBE_CHANNEL,
+    latestVerification: { status: 'VERIFIED', reasonCode: null },
+  })
+  try {
+    await page.evaluate(() => window.renderSpace({ memberId: 1, isCreator: true }))
+    await page.getByText('구독 인증이 완료되었어요').waitFor()
+    await page.waitForTimeout(300)
+
+    assert.equal(await page.getByText('YouTube 구독 인증').count(), 1)
+    assert.equal((await page.evaluate(() => window.toasts)).some((message) => message.includes('구독 인증 완료')), false)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('미션 목록은 미완료인데 처음 조회한 인증이 이미 VERIFIED면 카드를 숨기고 완료 안내는 띄우지 않는다', async () => {
+  const { page, errors } = await screen({
+    missions: [{ ...MISSION }, { ...YOUTUBE_SUBSCRIPTION_MISSION }],
+    youtubeChannel: YOUTUBE_CHANNEL,
+    latestVerification: { status: 'VERIFIED', reasonCode: null },
+  })
+  try {
+    await page.evaluate(() => window.renderSpace({ memberId: 1 }))
+    await page.waitForFunction(() => window.youtubeChannelReads > 0)
+    await page.getByText('YouTube 구독 인증').waitFor({ state: 'detached', timeout: 5000 })
+    await page.waitForTimeout(300)
+
+    assert.equal((await page.evaluate(() => window.toasts)).some((message) => message.includes('구독 인증 완료')), false)
+    assert.equal(await page.getByText('공유 미션', { exact: true }).count(), 1)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('구독 인증이 확인 중에서 완료로 바뀌면 인증 카드를 숨기고 잔액을 다시 읽는다', async () => {
+  const { page, errors } = await screen({
+    missions: [{ ...MISSION }, { ...YOUTUBE_SUBSCRIPTION_MISSION }],
+    youtubeChannel: YOUTUBE_CHANNEL,
+    latestVerification: { status: 'VERIFYING', reasonCode: null },
+  })
+  try {
+    await page.evaluate(() => window.renderSpace({ memberId: 1 }))
+    await page.getByText('구독 인증을 확인하고 있어요').waitFor()
+    const balanceReadsBefore = await page.evaluate(() => window.balanceReads)
+
+    // 카드는 확인 중일 때 주기적으로 다시 조회한다. 서버가 완료로 바꾸면 다음 조회에서 VERIFIED를 받는다.
+    await page.evaluate(() => { window.latestVerification = { status: 'VERIFIED', reasonCode: null } })
+    await page.getByText('YouTube 구독 인증').waitFor({ state: 'detached', timeout: 10000 })
+
+    assert.ok((await page.evaluate(() => window.toasts)).some((message) => message.includes('구독 인증 완료')))
+    assert.ok((await page.evaluate(() => window.balanceReads)) > balanceReadsBefore)
+    assert.ok((await page.evaluate(() => window.ticketRefreshes)) >= 1)
+    assert.equal(await page.getByText('공유 미션', { exact: true }).count(), 1)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
+test('공유 시트를 끝내면 보상 API를 한 번 호출하고 카드가 사라지며 응모권이 갱신된다', async () => {
   const { page, errors } = await screen()
   try {
     await page.evaluate(() => window.renderSpace({ memberId: 1 }))
     await useShareMode(page, 'sheet')
     await page.getByText('공유 미션').waitFor()
     await headerShare(page).click()
-    await page.getByText('완료', { exact: true }).waitFor()
+    await shareCardGone(page)
 
     const calls = await shareCalls(page)
     assert.equal(calls.length, 1)
@@ -181,20 +283,21 @@ test('공유 시트가 없는 환경에서 링크를 복사하면 보상 API를 
     await useShareMode(page, 'copy')
     await page.getByText('공유 미션').waitFor()
     await shareCard(page).click()
-    await page.getByText('완료', { exact: true }).waitFor()
+    await shareCardGone(page)
     assert.equal((await shareCalls(page)).length, 1)
     assert.ok((await page.evaluate(() => window.toasts)).includes('공유 링크를 복사했어요.'))
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
 
-test('이미 받은 미션과 비로그인에서는 보상 API를 호출하지 않는다', async () => {
+test('이미 받은 미션은 카드를 숨기고, 이미 받은 미션과 비로그인에서는 보상 API를 호출하지 않는다', async () => {
   const done = await screen({ missions: [{ ...MISSION, completedToday: true }] })
   try {
     await done.page.evaluate(() => window.renderSpace({ memberId: 1 }))
     await useShareMode(done.page, 'sheet')
-    await done.page.getByText('공유 미션').waitFor()
-    assert.equal(await shareCard(done.page).isDisabled(), true)
+    await done.page.waitForFunction(() => window.missionReads > 0)
+    await done.page.waitForTimeout(100)
+    assert.equal(await done.page.getByText('공유 미션').count(), 0)
     await headerShare(done.page).click()
     await done.page.waitForTimeout(300)
     assert.equal((await shareCalls(done.page)).length, 0)
@@ -252,7 +355,7 @@ test('크리에이터 계정이 바뀌면 새 계정의 본인 여부가 확인�
   } finally { await page.close() }
 })
 
-test('DUPLICATE_MISSION을 받아도 서버가 완료로 기록하기 전에는 완료로 바꾸지 않고, 확인되면 완료로 바꾼다', async () => {
+test('DUPLICATE_MISSION을 받아도 서버가 완료로 기록하기 전에는 카드를 남기고, 확인되면 카드를 숨긴다', async () => {
   const { page, errors } = await screen()
   try {
     await page.evaluate(() => {
@@ -265,27 +368,27 @@ test('DUPLICATE_MISSION을 받아도 서버가 완료로 기록하기 전에는 
 
     // 짧은 간격으로 몇 번 확인해도 서버가 미완료로 알리면 "다시 확인" 상태로 남는다.
     await page.getByRole('button', { name: '다시 확인' }).waitFor({ timeout: 15000 })
-    assert.equal(await page.getByText('완료', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('공유 미션', { exact: true }).count(), 1)
     assert.equal((await shareCalls(page)).length, 1)
 
-    // 서버가 완료로 기록한 뒤 다시 확인하면 완료로 바뀌고 응모권이 갱신된다.
+    // 서버가 완료로 기록한 뒤 다시 확인하면 카드가 사라지고 응모권이 갱신된다.
     await page.evaluate(() => { window.missions[0].completedToday = true })
     await page.getByRole('button', { name: '다시 확인' }).click()
-    await page.getByText('완료', { exact: true }).waitFor()
+    await shareCardGone(page)
     assert.equal(await page.evaluate(() => window.ticketRefreshes), 1)
     assert.equal((await shareCalls(page)).length, 1)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })
 
-test('같은 스페이스에서 회원이 바뀌면 이전 회원의 완료 표시가 남지 않고 새 회원도 정상 지급받는다', async () => {
+test('같은 스페이스에서 회원이 바뀌면 이전 회원의 완료 상태가 남지 않고 새 회원도 정상 지급받는다', async () => {
   const { page, errors } = await screen()
   try {
     await page.evaluate(() => window.renderSpace({ memberId: 1 }))
     await useShareMode(page, 'sheet')
     await page.getByText('공유 미션').waitFor()
     await headerShare(page).click()
-    await page.getByText('완료', { exact: true }).waitFor()
+    await shareCardGone(page)
     assert.equal((await shareCalls(page)).length, 1)
 
     // 서버에서 회원 2의 SHARE 미션은 아직 받지 않은 상태다.
@@ -295,7 +398,7 @@ test('같은 스페이스에서 회원이 바뀌면 이전 회원의 완료 표�
     assert.equal(await page.getByText('완료', { exact: true }).count(), 0)
 
     await headerShare(page).click()
-    await page.getByText('완료', { exact: true }).waitFor()
+    await shareCardGone(page)
     assert.equal((await shareCalls(page)).length, 2)
     assert.deepEqual(errors, [])
   } finally { await page.close() }

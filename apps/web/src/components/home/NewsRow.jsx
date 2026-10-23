@@ -10,7 +10,7 @@ const NO_LATEST = new Map()
 export default function NewsRow({ creators, latestByCreator, unreadCreatorIds = NO_UNREAD, latestPostAt = NO_LATEST }) {
   if (creators.length === 0) {
     return (
-      <Link to="/onboarding/creators" className="mx-margin mt-4 flex items-center justify-between gap-3 py-3 border-y border-on-surface/10">
+      <Link to="/explore" className="mx-margin mt-4 flex items-center justify-between gap-3 py-3 border-y border-on-surface/10">
         <span className="min-w-0">
           <span className="block font-label-md text-label-md text-on-surface line-clamp-2">좋아하는 크리에이터에 도킹해 보세요</span>
           <span className="block font-label-sm text-label-sm text-on-surface-variant font-normal line-clamp-2">새 소식이 여기에 모여요.</span>
@@ -28,7 +28,7 @@ export default function NewsRow({ creators, latestByCreator, unreadCreatorIds = 
           return <CreatorAvatarItem key={creator.creatorId} creator={creator} isNew={isNew} latestPostId={isNew ? latestByCreator.get(creator.creatorId)?.postId : null} />
         })}
         <Link
-          to="/onboarding/creators"
+          to="/explore"
           aria-label="크리에이터 추가"
           className="flex flex-col items-center flex-shrink-0 w-[4.5rem]"
         >

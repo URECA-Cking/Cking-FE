@@ -69,6 +69,12 @@ export default function InterestEditor({ catalog, catalogError, onRetryCatalog, 
     }
   }
 
+  // 편집은 현재 카탈로그에 있는 코드로 시작한다. 예전 코드가 저장돼 있으면 그대로 저장만 눌러도 변경으로 보고 정리한다.
+  function handleStartEdit() {
+    setPicked(active)
+    setEditing(true)
+  }
+
   function handleCancel() {
     setPicked(null)
     setEditing(false)
@@ -90,7 +96,7 @@ export default function InterestEditor({ catalog, catalogError, onRetryCatalog, 
         {!editing && (
           <button
             type="button"
-            onClick={() => setEditing(true)}
+            onClick={handleStartEdit}
             className="flex-shrink-0 flex items-center gap-1 px-3 h-8 rounded-full bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm active:scale-95 transition-all"
           >
             <MaterialIcon name="tune" className="text-[16px]" />

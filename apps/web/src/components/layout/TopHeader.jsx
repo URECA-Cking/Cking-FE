@@ -8,6 +8,7 @@ import UserContext from '../../context/userContext.js'
 import { useToast } from '../../context/useToast.js'
 import { useAppBack } from '../../hooks/useAppBack.js'
 import { useAsync } from '../../hooks/useAsync.js'
+import { ownSpaceCacheKey } from '../../hooks/useOwnCreatorId.js'
 import { getMySpace } from '../../api/creatorSpace.js'
 import { formatTicketBadge } from '../../utils/myTickets.js'
 import { ownPublicProfile } from '../../utils/publicProfile.js'
@@ -176,7 +177,7 @@ export function MyProfileLink() {
   const mySpace = useAsync(
     () => getMySpace().then((space) => ({ ...space, memberId })),
     [isCreator, memberId],
-    { enabled: isCreator && memberId != null, cacheKey: isCreator && memberId != null ? `own-space:${memberId}` : null },
+    { enabled: isCreator && memberId != null, cacheKey: isCreator && memberId != null ? ownSpaceCacheKey(memberId) : null },
   )
   const space = mySpace.data?.memberId === memberId ? mySpace.data : null
   const { photo } = ownPublicProfile(user, space)

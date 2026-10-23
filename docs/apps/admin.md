@@ -29,6 +29,8 @@
 
 Creator 신청 승인은 활성 Creator Space 템플릿이 있어야 한다. 없으면 `NO_ACTIVE_SPACE_TEMPLATE`, 있어도 주소 규칙이 잘못됐으면 `INVALID_ACTIVE_SPACE_TEMPLATE`(둘 다 409)로 BE가 막으므로, 심사 상세 화면이 템플릿 관리로 안내한다. 템플릿은 값을 복사해 쓰므로 활성 템플릿을 바꾸거나 수정해도 이미 만든 스페이스는 바뀌지 않는다. `slugRule` 형식 검증은 BE 규칙을 따라 화면에서 먼저 안내하고 최종 판단은 서버가 한다. 기본 프로필·배너 이미지는 URL 입력 대신 파일(JPEG·PNG, 5MB 이하, 프로필 200×200px·배너 600×200px 이상)을 선택하면 먼저 업로드하고, 응답의 `imageUrl`을 템플릿 추가·수정 요청에 넣어 저장한다. 업로드는 템플릿에 연결되지 않으므로 저장해야 반영되고, 올린 뒤 저장하지 않으면 서버가 24시간 뒤 정리할 수 있다(안내 문구를 화면에 보여 준다). 올리는 중에는 저장할 수 없다.
 
+추첨 상세의 검증 영역은 최근 검증에 대해 항목별 일치 체크리스트와 "최초 당첨자와 동일" 요약을 보여주고, 검증 이력 항목에는 같은 요약만 붙인다. BE가 `replayedWinners`를 내려주면 최초 당첨자(`GET /api/admin/drawings/{drawingId}/result`)와 `userId`·순위로 비교하는 표와 일치율을 추가로 표시하며, 필드가 없거나 `null`(`LEGACY_INTEGRITY` 등)이면 비교 표 없이 체크리스트만 보인다. 비교·판정 로직은 `src/utils/drawingVerification.js`에 있다.
+
 관리자 Winner 전체 목록·단건 조회 계약은 현재 제공되지 않는다. 따라서 `/admin/winners`는 모든 Drawing 결과를 순회하는 목록을 만들지 않고 추첨 관리로 안내하며, Winner 상세는 Drawing 결과가 전달한 범위와 상태 이력 API를 사용한다. 새로고침 뒤에도 기본 정보 전체를 복원할 수 있는 단건 조회 계약이 필요하다.
 
 관리자 라우트는 Admin 자체 세션 가드로 보호하며, `/api/me`의 `role === 'ADMIN'`을 확인한다. Admin은 Web의 페이지, `UserContext`, 팔로우 상태, 사용자·Creator 화면을 import하지 않는다.

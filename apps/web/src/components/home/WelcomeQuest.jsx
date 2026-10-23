@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import FilledCheck from './FilledCheck.jsx'
 import {
@@ -19,14 +19,14 @@ const STEPS = [
 ]
 
 /**
- * 단계 카드의 오른쪽 동작 문구를 정한다. 지급 요청 중이면 받는 중, 조건을 못 채운 팔로우는 하러가기다.
+ * 단계 카드의 오른쪽 동작 문구를 정한다. 지급 요청 중이면 받는 중, 조건을 못 채운 팔로우는 바로가기다.
  * 반환값이 null이면 동작이 없는 완료 상태다.
  */
 function actionLabel({ step, status, claiming }) {
   if (status === WELCOME_QUEST_STATUS.CLAIMED) return null
   if (claiming) return '받는 중...'
   if (step === WELCOME_QUEST_STEPS.QUIZ) return '도전하기'
-  if (status === WELCOME_QUEST_STATUS.NOT_MET) return '하러가기'
+  if (status === WELCOME_QUEST_STATUS.NOT_MET) return '바로가기'
   return '받기'
 }
 
@@ -140,11 +140,12 @@ function QuizCard({ disabled, message, onAnswer }) {
 /**
  * 신규 회원용 웰컴 퀘스트(히어로 + 시작 가이드). 단계 상태와 지급은 서버가 판정하고 이 컴포넌트는 표시와 요청만 한다.
  * - STEP 1은 처음 표시될 때 받을 수 있으면 회원당 한 번 자동으로 지급을 요청한다(실패하면 "받기"로 다시 누른다).
- * - STEP 2는 받을 수 있으면 지급을 요청하고, 아직 팔로우가 없으면 onGoFollow로 인기 크리에이터 섹션으로 보낸다.
+ * - STEP 2는 받을 수 있으면 지급을 요청하고, 아직 팔로우가 없으면 탐색 탭으로 보낸다. 팔로우한 뒤 홈으로 돌아오면 상태를 다시 불러와 받는다.
  * - STEP 3은 펼쳐서 OX 퀴즈를 보이고 고른 답을 서버에 보낸다. 정답은 이 화면이 알지 못한다.
  * 가이드를 닫으면(hidden) 히어로와 가이드는 빠지고 다시 보기 버튼만 남는다.
  */
-export default function WelcomeQuest({ memberId, nickname, quest, claimingSteps, onClaim, hidden, onHide, onShow, onGoFollow }) {
+export default function WelcomeQuest({ memberId, nickname, quest, claimingSteps, onClaim, hidden, onHide, onShow }) {
+  const navigate = useNavigate()
   const [quizOpen, setQuizOpen] = useState(false)
   const [quizMessage, setQuizMessage] = useState(null)
   // 자동 지급을 이미 시도한 회원. 실패한 뒤 상태가 다시 그려져도 같은 회원에게 반복해서 요청하지 않는다.
@@ -177,7 +178,7 @@ export default function WelcomeQuest({ memberId, nickname, quest, claimingSteps,
     if (step === WELCOME_QUEST_STEPS.QUIZ) {
       setQuizOpen((open) => !open)
     } else if (status === WELCOME_QUEST_STATUS.NOT_MET) {
-      onGoFollow()
+      navigate('/explore')
     } else {
       onClaim(step)
     }

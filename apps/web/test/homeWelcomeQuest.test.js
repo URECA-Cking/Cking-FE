@@ -64,7 +64,6 @@ async function boot(page, initialQuest) {
     window.toasts = []
     window.ticketRefreshes = 0
     window.requests = []
-    window.scrolled = 0
     window.failClaims = 0
     window.failComplete = false
     window.missionDone = false
@@ -73,7 +72,6 @@ async function boot(page, initialQuest) {
     window.winnersGate = null
     window.failEvents = false
     window.questFailures = 0
-    Element.prototype.scrollIntoView = () => { window.scrolled += 1 }
     const envelope = (status, code, data, message = null) => new Response(JSON.stringify({ code, data, message }), { status })
     const recommendations = {
       policyVersion: 'INTEREST_PERSONALIZED_V1',
@@ -133,19 +131,19 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText)
 /** 홈이 그려지고 웰컴 퀘스트 히어로가 보일 때까지 기다린다. */
 const waitWelcome = (page) => page.getByText('무료 응모권 4장').waitFor()
 
-test('신규 회원 홈은 웰컴 퀘스트, 출석, 인기 크리에이터 순서이고 응모 섹션은 숨긴다', async () => {
+test('신규 회원 홈은 웰컴 퀘스트, 출석 순서이고 인기 크리에이터와 응모 섹션은 숨긴다', async () => {
   const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
   try {
     await page.evaluate(() => window.renderHome([]))
     await waitWelcome(page)
     await page.getByText('DAILY CHECK-IN').waitFor()
-    await page.getByText('지금 팬들이 가장 많이 모이는 곳').waitFor()
 
     const text = await bodyText(page)
     const guide = text.indexOf('1분 만에 끝내는 시작 가이드')
     const attendance = text.indexOf('DAILY CHECK-IN')
-    const creators = text.indexOf('지금 팬들이 가장 많이 모이는 곳')
-    assert.ok(guide >= 0 && guide < attendance && attendance < creators, '퀘스트 → 출석 → 인기 크리에이터 순서')
+    assert.ok(guide >= 0 && guide < attendance, '퀘스트 → 출석 순서')
+    assert.equal(text.includes('지금 팬들이 가장 많이 모이는 곳'), false)
+    assert.equal(text.includes('크리에이터 둘러보기'), false)
     assert.equal(text.includes('마감 임박순'), false)
     assert.equal(await page.getByText('반가워요, 혁준님!').count(), 1)
     assert.deepEqual(errors, [])
@@ -183,21 +181,20 @@ test('STEP 1은 처음 표시될 때 한 번 자동으로 지급되고 응모권
   } finally { await page.close() }
 })
 
-test('STEP 2는 팔로우 전에는 추천 크리에이터로 이동시키고, 팔로우하면 받을 수 있다', async () => {
+test('STEP 2는 팔로우 전에는 바로가기로 탐색 탭에 보내고, 팔로우한 뒤 홈에 돌아오면 받을 수 있다', async () => {
   const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
   try {
     await page.evaluate(() => window.renderHome([]))
     await waitWelcome(page)
 
-    await page.getByRole('button', { name: /STEP 2/ }).click()
-    assert.equal(await page.evaluate(() => window.scrolled), 1)
+    await page.getByRole('button', { name: /STEP 2.*바로가기/ }).click()
+    await page.waitForFunction(() => window.currentPath === '/explore')
     assert.equal((await claims(page)).length, 0)
 
-    // 서버는 팔로우가 되면 FOLLOW를 받을 수 있는 상태로 알려 준다. 틀이 팔로우를 기록한 뒤 퀘스트 상태를 다시 불러온다.
-    await page.evaluate(() => { window.quest.items[1].status = 'CLAIMABLE'; window.following = true })
-    await page.getByRole('button', { name: '+ 도킹' }).first().click()
-    await page.waitForFunction(() => window.followCalls.length === 1)
-    await page.waitForFunction(() => window.requests.filter((request) => request.path === '/api/me/welcome-quest').length >= 2)
+    // 탐색에서 팔로우하면 서버는 FOLLOW를 받을 수 있는 상태로 알려 준다. 홈에 다시 들어오면 퀘스트 상태를 다시 불러온다.
+    await page.evaluate(() => { window.quest.items[1].status = 'CLAIMABLE'; window.following = true; window.unmountHome() })
+    await page.waitForFunction(() => !document.body.innerText.includes('무료 응모권 4장'))
+    await page.evaluate(() => window.renderHome([11]))
     await page.getByRole('button', { name: /STEP 2.*받기/ }).click()
     // STEP 1은 이미 받은 상태라, STEP 2까지 받으면 "지급 완료"가 두 곳에 보인다.
     await page.waitForFunction(() => document.body.innerText.split('응모권 +1장 지급 완료').length - 1 === 2)
@@ -274,7 +271,7 @@ test('가이드를 닫으면 출석이 위로 올라오고 새로고침 뒤에�
     assert.equal(await page.getByText('무료 응모권 4장').count(), 0)
     assert.equal(await page.evaluate(() => localStorage.getItem('cking.welcomeGuideHidden.7')), '1')
     const text = await bodyText(page)
-    assert.ok(text.indexOf('DAILY CHECK-IN') < text.indexOf('지금 팬들이 가장 많이 모이는 곳'))
+    assert.ok(text.indexOf('시작 가이드 다시 보기') < text.indexOf('DAILY CHECK-IN'))
 
     // 홈을 처음부터 다시 그려도(새로고침과 같음) 닫은 상태가 유지된다.
     await page.evaluate(() => window.renderHome([]))
@@ -337,21 +334,6 @@ test('같은 화면에서 회원이 바뀌면 이전 회원의 완료 유지 상
     })
     await page.getByText('마감 임박순').waitFor()
     assert.equal((await bodyText(page)).includes('웰컴 퀘스트 완료!'), false)
-    assert.deepEqual(errors, [])
-  } finally { await page.close() }
-})
-
-test('같은 화면에서 회원이 바뀌면 추천 크리에이터를 다시 조회한다', async () => {
-  const { page, errors } = await screen(quest({ SIGNUP: 'CLAIMED' }))
-  try {
-    await page.evaluate(() => window.renderHome([], 7))
-    await waitWelcome(page)
-    await page.getByRole('button', { name: '+ 도킹' }).first().waitFor()
-    const loads = () => page.evaluate(() => window.requests.filter((request) => request.path === '/api/me/creator-recommendations').length)
-    assert.equal(await loads(), 1)
-
-    await page.evaluate(() => window.renderHome([], 8))
-    await page.waitForFunction(() => window.requests.filter((request) => request.path === '/api/me/creator-recommendations').length === 2)
     assert.deepEqual(errors, [])
   } finally { await page.close() }
 })

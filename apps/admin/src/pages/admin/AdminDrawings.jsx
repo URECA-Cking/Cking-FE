@@ -563,10 +563,9 @@ function DrawingSection({
                   (history.data?.items?.length ? (
                     <div className="divide-y divide-slate-100 border-y border-slate-200">
                       {history.data.items.map((item) => (
-                        <VerificationRows
-                          key={item.verificationId}
-                          verification={item}
-                        />
+                        <div key={item.verificationId}>
+                          <VerificationRows verification={item} />
+                        </div>
                       ))}
                     </div>
                   ) : (

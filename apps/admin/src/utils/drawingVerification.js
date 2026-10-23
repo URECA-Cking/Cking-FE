@@ -1,9 +1,3 @@
-/** 새 Seed 독립 재실행 단계에서 실패했음을 뜻하는 BE failureCode 목록이다. */
-const INDEPENDENT_REPLAY_FAILURE_CODES = [
-  "REPLAY_RESULT_INVALID",
-  "INSUFFICIENT_CANDIDATES",
-];
-
 /** boolean 값들을 하나의 판정으로 합친다. 하나라도 false면 실패, 모두 true면 통과, 그 외는 알 수 없음이다. */
 function combine(values) {
   if (values.some((value) => value === false)) return "fail";
@@ -16,15 +10,14 @@ export function isLegacyVerification(verification) {
   return verification?.verificationMode === "LEGACY_INTEGRITY";
 }
 
-/** 원본 Seed 재현이 최초 당첨자·순위와 같았는지를 "same"/"different"/"unknown"으로 판정한다. */
+/**
+ * 원본 Seed 재현이 최초 당첨자·순위·상품과 같았는지를 "same"/"different"/"unknown"으로 판정한다.
+ * BE는 이 단계의 일치 여부를 resultHashMatched 하나로 판정한다. (ranksMatched는 새 Seed 재실행의 순위 연속성이다.)
+ */
 export function replaySameWinners(verification) {
   if (!verification || isLegacyVerification(verification)) return "unknown";
-  const result = combine([
-    verification.ranksMatched,
-    verification.resultHashMatched,
-  ]);
-  if (result === "pass") return "same";
-  if (result === "fail") return "different";
+  if (verification.resultHashMatched === true) return "same";
+  if (verification.resultHashMatched === false) return "different";
   return "unknown";
 }
 
@@ -33,42 +26,7 @@ export function verificationChecks(verification) {
   if (!verification || isLegacyVerification(verification)) return [];
   const expected = verification.expectedWinnerCount;
   const actual = verification.actualWinnerCount;
-  const independent = INDEPENDENT_REPLAY_FAILURE_CODES.includes(
-    verification.failureCode,
-  )
-    ? "fail"
-    : verification.status === "VERIFIED"
-      ? "pass"
-      : "unknown";
   return [
-    {
-      key: "seedReplay",
-      label: "원본 Seed 재현 — 당첨자·순위",
-      state: combine([verification.ranksMatched]),
-    },
-    {
-      key: "winnerCount",
-      label: "당첨 인원",
-      state: combine([verification.winnerCountMatched]),
-      detail:
-        expected == null || actual == null
-          ? null
-          : `기대 ${expected}명 / 재현 ${actual}명`,
-    },
-    {
-      key: "resultHash",
-      label: "결과 Hash",
-      state: combine([verification.resultHashMatched]),
-    },
-    {
-      key: "candidates",
-      label: "후보·제외 명단·중복 없음",
-      state: combine([
-        verification.candidatesMatched,
-        verification.exclusionsMatched,
-        verification.winnersUnique,
-      ]),
-    },
     {
       key: "integrity",
       label: "Snapshot·입력 무결성·알고리즘",
@@ -79,9 +37,32 @@ export function verificationChecks(verification) {
       ]),
     },
     {
-      key: "independentReplay",
-      label: "새 Seed 독립 재실행 (인원·규칙)",
-      state: independent,
+      key: "seedReplay",
+      label: "원본 Seed 재현 — 당첨자·순위·상품·결과 Hash",
+      state: combine([verification.resultHashMatched]),
+    },
+    {
+      key: "winnerCount",
+      label: "새 Seed 독립 재실행 — 당첨 인원",
+      state: combine([verification.winnerCountMatched]),
+      detail:
+        expected == null || actual == null
+          ? null
+          : `기대 ${expected}명 / 재실행 ${actual}명`,
+    },
+    {
+      key: "candidates",
+      label: "새 Seed 독립 재실행 — 후보·제외 명단·중복 없음",
+      state: combine([
+        verification.candidatesMatched,
+        verification.exclusionsMatched,
+        verification.winnersUnique,
+      ]),
+    },
+    {
+      key: "rankContinuity",
+      label: "새 Seed 독립 재실행 — 순위 연속(1..N)",
+      state: combine([verification.ranksMatched]),
     },
   ];
 }
@@ -90,20 +71,18 @@ export function verificationChecks(verification) {
 function sameWinner(original, replayed) {
   if (!original || !replayed) return false;
   if (original.userId !== replayed.userId) return false;
-  if (original.prizeKey != null && replayed.prizeKey != null) {
-    return original.prizeKey === replayed.prizeKey;
-  }
-  return true;
+  return (original.prizeKey ?? null) === (replayed.prizeKey ?? null);
 }
 
 /**
  * 최초 당첨자와 재현 당첨자를 순위별로 짝지어 비교한다.
- * 재현 당첨자 목록이 없으면(null·undefined) 비교할 수 없으므로 null을 반환한다.
+ * 최초·재현 당첨자 목록 중 하나라도 없으면(null·undefined, 로딩 중 포함) 비교할 수 없으므로 null을 반환한다.
  */
 export function compareWinners(originalWinners, replayedWinners) {
-  if (!Array.isArray(replayedWinners)) return null;
+  if (!Array.isArray(originalWinners) || !Array.isArray(replayedWinners))
+    return null;
   const originals = new Map(
-    (originalWinners ?? []).map((winner) => [winner.rankInDrawing, winner]),
+    originalWinners.map((winner) => [winner.rankInDrawing, winner]),
   );
   const replays = new Map(
     replayedWinners.map((winner) => [winner.rankInDrawing, winner]),

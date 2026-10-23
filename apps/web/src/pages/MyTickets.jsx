@@ -109,8 +109,8 @@ export default function MyTickets() {
         {summary.creators.length === 0 ? (
           <div className="flex flex-col items-start gap-space-xs">
             <p className="font-body-sm text-body-sm text-on-surface-variant">아직 도킹한 크리에이터가 없어요.</p>
-            <Link to="/onboarding/creators" className="font-label-sm text-label-sm text-primary font-semibold">
-              도킹할 크리에이터 고르기
+            <Link to="/explore" className="font-label-sm text-label-sm text-primary font-semibold">
+              도킹할 크리에이터 찾기
             </Link>
           </div>
         ) : (

@@ -186,28 +186,10 @@ export default function CreatorSpace() {
   const ticketBalance = balance.data?.balance ?? 0
   const likeMissions = useMemo(() => (missions ?? []).filter((mission) => mission.type === 'LIKE'), [missions])
   const shareMission = useMemo(() => (missions ?? []).find((mission) => mission.type === 'SHARE') ?? null, [missions])
-  // SHARE·YOUTUBE_SUBSCRIPTION은 한 번만 받는 미션이라 completedToday가 평생 완료 여부다(BE mission/api.md). 이미 받은 회원에게는 카드를 보여 주지 않는다.
-  const youtubeSubscriptionMission = useMemo(
-    () => (missions ?? []).find((mission) => mission.type === 'YOUTUBE_SUBSCRIPTION' && !mission.completedToday) ?? null,
+  const subscriptionMission = useMemo(
+    () => (missions ?? []).find((mission) => mission.type === 'YOUTUBE_SUBSCRIPTION') ?? null,
     [missions],
   )
-  // 채널 설정 시 생성되는 구독 인증 미션이 있는 경우에만 공개 채널을 조회한다.
-  // 채널 미설정 Creator의 Space를 열 때마다 409을 발생시키거나 재시도하지 않는다.
-  const youtubeChannel = useAsync(
-    async () => {
-      try {
-        return await getCreatorYoutubeChannel(creatorId)
-      } catch (channelError) {
-        // 데이터가 불일치해 미션만 남은 경우에는 카드를 숨긴다. 자동 재시도는 하지 않는다.
-        if (channelError instanceof ApiError && channelError.code === 'CREATOR_CHANNEL_NOT_CONFIGURED') return null
-        throw channelError
-      }
-    },
-    [creatorId, youtubeSubscriptionMission?.missionId],
-    { enabled: youtubeSubscriptionMission !== null },
-  )
-  // useAsync는 재조회 중 이전 data를 유지한다. Creator를 이동했을 때 이전 채널을 새 Space에 보이지 않게 응답의 소유 Creator를 확인한다.
-  const currentYoutubeChannel = isYoutubeChannelForCreator(youtubeChannel.data, creatorId) ? youtubeChannel.data : null
   const goLogin = () => navigate('/login', { state: { from: location.pathname + location.search } })
   /** 홈에서 넘어온 openPostId를 한 번 쓴 뒤 지워, 새로고침·뒤로 가기에서 상세가 다시 열리지 않게 한다. */
   function clearOpenPostId() {
@@ -281,6 +263,26 @@ export default function CreatorSpace() {
   // BE는 본인 Space 공유도 막지 않으므로 FE가 구분한다. 크리에이터는 내 Space 조회가 끝나야 본인 여부를 알 수 있다.
   const ownershipKnown = !isCreator || Boolean(mySpace.data)
   const shownShareMission = isMine || !ownershipKnown || shareMission?.completedToday ? null : shareMission
+  // SHARE·YOUTUBE_SUBSCRIPTION은 한 번만 받는 미션이라 completedToday가 평생 완료 여부다(BE mission/api.md). 이미 받은 회원에게는 카드를 보여 주지 않는다.
+  // 본인 Space에서는 설정한 채널(이름·링크)을 확인할 수 있도록 완료 여부와 관계없이 구독 인증 카드를 보여 준다.
+  const youtubeSubscriptionMission = subscriptionMission && (isMine || !subscriptionMission.completedToday) ? subscriptionMission : null
+  // 채널 설정 시 생성되는 구독 인증 미션이 있는 경우에만 공개 채널을 조회한다.
+  // 채널 미설정 Creator의 Space를 열 때마다 409을 발생시키거나 재시도하지 않는다.
+  const youtubeChannel = useAsync(
+    async () => {
+      try {
+        return await getCreatorYoutubeChannel(creatorId)
+      } catch (channelError) {
+        // 데이터가 불일치해 미션만 남은 경우에는 카드를 숨긴다. 자동 재시도는 하지 않는다.
+        if (channelError instanceof ApiError && channelError.code === 'CREATOR_CHANNEL_NOT_CONFIGURED') return null
+        throw channelError
+      }
+    },
+    [creatorId, youtubeSubscriptionMission?.missionId],
+    { enabled: youtubeSubscriptionMission !== null },
+  )
+  // useAsync는 재조회 중 이전 data를 유지한다. Creator를 이동했을 때 이전 채널을 새 Space에 보이지 않게 응답의 소유 Creator를 확인한다.
+  const currentYoutubeChannel = isYoutubeChannelForCreator(youtubeChannel.data, creatorId) ? youtubeChannel.data : null
   const shareUnconfirmed = shareChecking?.memberId === memberId && shareChecking?.creatorId === creatorId
     && Boolean(shownShareMission)
 

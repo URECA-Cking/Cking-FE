@@ -168,6 +168,23 @@ test('구독 인증 미션을 이미 받았으면 인증 카드를 숨기고 공
   } finally { await page.close() }
 })
 
+test('본인 스페이스에서는 완료한 구독 인증 미션도 채널 확인용으로 카드를 보여 준다', async () => {
+  const { page, errors } = await screen({
+    missions: [{ ...MISSION }, { ...YOUTUBE_SUBSCRIPTION_MISSION, completedToday: true }],
+    mySpaces: [{ creatorId: 11 }],
+    youtubeChannel: YOUTUBE_CHANNEL,
+  })
+  try {
+    await page.evaluate(() => window.renderSpace({ memberId: 1, isCreator: true }))
+    await page.getByText('YouTube 구독 인증').waitFor()
+
+    assert.equal(await page.getByText('테스트 채널 · @test-channel').count(), 1)
+    assert.equal(await page.evaluate(() => window.youtubeChannelReads), 1)
+    assert.equal(await page.getByText('공유 미션').count(), 0)
+    assert.deepEqual(errors, [])
+  } finally { await page.close() }
+})
+
 test('구독 인증이 확인 중에서 완료로 바뀌면 인증 카드를 숨기고 잔액을 다시 읽는다', async () => {
   const { page, errors } = await screen({
     missions: [{ ...MISSION }, { ...YOUTUBE_SUBSCRIPTION_MISSION }],

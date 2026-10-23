@@ -14,6 +14,21 @@ function writeCache(key, value, order) {
   responseCache.set(key, { value, order })
 }
 
+// 키별로 지금 그 키를 그리고 있는 화면들. updateAsyncCache가 바꾼 값을 같은 키의 다른 화면에도 바로 알린다.
+const cacheListeners = new Map()
+
+/**
+ * 저장 응답처럼 화면이 이미 아는 최신 값을 같은 키의 캐시와 그 키로 그린 다른 화면에 바로 반영한다.
+ * 캐시가 없으면 아무것도 하지 않는다. 일부 필드만으로 캐시를 만들면 다른 화면이 빠진 필드를 가진 값을 그리게 된다.
+ */
+export function updateAsyncCache(key, update) {
+  const current = readCache(key)
+  if (current === undefined) return
+  const next = update(current)
+  writeCache(key, next, (requestOrder += 1))
+  cacheListeners.get(key)?.forEach((listener) => listener(next))
+}
+
 // 캐시를 비운 횟수. 요청이 시작된 뒤 캐시가 비워졌다면 그 요청의 결과는 이전 세션의 것이라 저장하지도 화면에 쓰지도 않는다.
 let cacheEpoch = 0
 
@@ -59,6 +74,25 @@ export function createUseAsync(describeError) {
         alive.current = false
       }
     }, [])
+
+    // 다른 화면이 같은 키의 값을 바꾸면 그 값을 쓴다. 진행 중인 요청은 바꾸기 전의 값을 들고 있어 무효화한다.
+    useEffect(() => {
+      if (cacheKey == null) return undefined
+      const listener = (value) => {
+        requestSeq.current += 1
+        setData(value)
+        setLoading(false)
+        setError(null)
+        setErrorObject(null)
+      }
+      const listeners = cacheListeners.get(cacheKey) ?? new Set()
+      cacheListeners.set(cacheKey, listeners)
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+        if (listeners.size === 0) cacheListeners.delete(cacheKey)
+      }
+    }, [cacheKey])
 
     const run = useCallback(async () => {
       if (!enabled) {

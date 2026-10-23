@@ -21,6 +21,8 @@ import { useToast } from '../context/useToast.js'
 import { useMyTickets } from '../context/useMyTickets.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
+import { ownSpaceCacheKey } from '../hooks/useOwnCreatorId.js'
+import { updateAsyncCache } from '@cking/shared/useAsync'
 import { loadCreatorSpace } from '../api/creators.js'
 import { getCreatorSpace, getMySpace, spacePath, spaceShareUrl } from '../api/creatorSpace.js'
 import { completeShareMission, getCreatorMissions } from '../api/missions.js'
@@ -515,6 +517,8 @@ export default function CreatorSpace() {
   function handleSpaceSaved(updated) {
     mySpace.setData((current) => ({ ...current, ...updated }))
     setCreator((current) => (current ? { ...current, ...updated } : current))
+    // 헤더 프로필 사진(MyProfileLink)은 내 Space를 캐시로 따로 들고 있어 같은 저장 결과를 반영한다.
+    if (memberId !== null) updateAsyncCache(ownSpaceCacheKey(memberId), (current) => ({ ...current, ...updated }))
     // 공유 링크로 들어온 화면에서 slug를 바꾸면 이전 주소는 더 이상 열리지 않으므로 새 주소로 옮긴다.
     if (slugParam && updated.slug !== undefined) {
       if (updated.slug === slugParam) pendingSlugRef.current = null // 원래 주소로 되돌렸으면 예약해 둔 이동도 없앤다.

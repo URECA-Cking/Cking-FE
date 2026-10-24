@@ -29,6 +29,8 @@ export default function Login() {
     if (splashDone) return
     const onDone = () => setSplashDone(true)
     window.addEventListener(SPLASH_DONE_EVENT, onDone)
+    // 첫 렌더와 리스너 등록 사이에 스플래시가 끝났으면 이벤트를 이미 놓쳤으므로 한 번 더 확인한다.
+    if (isSplashDone()) onDone()
     return () => window.removeEventListener(SPLASH_DONE_EVENT, onDone)
   }, [splashDone])
 

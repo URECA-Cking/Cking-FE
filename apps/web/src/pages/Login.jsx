@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { oauthLoginUrl } from '../api/auth.js'
 import { saveLoginIntent } from '../utils/loginIntent.js'
-import { isSplashDone, prefersReducedMotion } from '../utils/splashState.js'
+import { SPLASH_DONE_EVENT, isSplashDone, prefersReducedMotion } from '../utils/splashState.js'
 import ThemedImage from '../components/ui/ThemedImage.jsx'
 import kakaoIcon from '@cking/shared/icons/kakao2.svg'
 
@@ -23,6 +23,17 @@ export default function Login() {
   // 스플래시가 이미 끝난 뒤에 이 화면이 뜬 경우(로그아웃 등)에만 왕관 연출을 한다. 첫 진입은 스플래시가 이어받는다.
   const [enter] = useState(() => isSplashDone() && !prefersReducedMotion())
 
+  // 소개 문구는 로고 연출이 끝난 뒤에 띄워 왕관 연출과 시선이 갈리지 않게 한다. 첫 진입은 스플래시가 끝날 때까지 기다린다.
+  const [splashDone, setSplashDone] = useState(isSplashDone)
+  useEffect(() => {
+    if (splashDone) return
+    const onDone = () => setSplashDone(true)
+    window.addEventListener(SPLASH_DONE_EVENT, onDone)
+    // 첫 렌더와 리스너 등록 사이에 스플래시가 끝났으면 이벤트를 이미 놓쳤으므로 한 번 더 확인한다.
+    if (isSplashDone()) onDone()
+    return () => window.removeEventListener(SPLASH_DONE_EVENT, onDone)
+  }, [splashDone])
+
   const redirectTo = location.state?.from ?? '/'
 
   function handleLogin(provider) {
@@ -42,6 +53,13 @@ export default function Login() {
             <img src="/cking-crown.png" alt="" className={`absolute inset-0 h-full w-full ${enter ? 'splash-crown' : ''}`} />
           </span>
         </h1>
+        <p
+          className={`mt-space-md text-[15px] leading-[22px] text-on-surface-variant ${
+            splashDone ? (enter ? 'login-tagline-in login-tagline-after-logo' : 'login-tagline-in') : 'invisible'
+          }`}
+        >
+          크리에이터 이벤트 응모부터 추첨까지 한 번에
+        </p>
       </div>
 
       <div className="flex flex-col gap-space-sm">

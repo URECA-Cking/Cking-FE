@@ -33,8 +33,13 @@ export const splashOnLoad =
 
 let splashDone = !splashOnLoad
 
+export const SPLASH_DONE_EVENT = 'cking:splash-done'
+
 export function markSplashDone() {
+  if (splashDone) return
   splashDone = true
+  // 스플래시 아래에 미리 그려진 화면(로그인 소개 문구 등)이 끝난 시점에 맞춰 이어서 연출하도록 알린다.
+  window.dispatchEvent(new Event(SPLASH_DONE_EVENT))
 }
 
 /** 스플래시가 끝났거나 아예 없었는가. 이후 화면에 들어올 때(예: 로그아웃 뒤 로그인 화면) 자체 연출을 쓸지 정하는 데 쓴다. */

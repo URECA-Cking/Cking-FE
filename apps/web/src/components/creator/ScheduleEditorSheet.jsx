@@ -4,6 +4,7 @@ import ConfirmSheet from '../ui/ConfirmSheet.jsx'
 import { CLOSE_ALLOW, CLOSE_BLOCK, CLOSE_CONFIRM, useCloseGuard } from '../../hooks/useCloseGuard.js'
 import { describeError } from '../../api/client.js'
 import { CALENDAR_ERROR_MESSAGES, SCHEDULE_TYPE_META, createSchedule, updateSchedule } from '../../api/calendar.js'
+import { DATE_INPUT_MAX, DATE_INPUT_MIN, DATE_INPUT_RANGE_MESSAGE, isDateInputInRange } from '../../utils/dateInputRange.js'
 
 const inputClass =
   'w-full px-3 py-2.5 rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none shadow-sm transition-all'
@@ -170,6 +171,8 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
     startAt &&
     endAt &&
     new Date(startAt) < new Date(endAt) &&
+    isDateInputInRange(startAt) &&
+    isDateInputInRange(endAt) &&
     startAtValid &&
     endAtValid &&
     !saving
@@ -252,6 +255,8 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
           <span className="font-label-xs text-label-xs text-on-surface-variant">시작</span>
           <input
             type="datetime-local"
+            min={DATE_INPUT_MIN}
+            max={DATE_INPUT_MAX}
             value={startAt}
             onChange={(event) => setStartAt(event.target.value)}
             className={inputClass}
@@ -261,6 +266,8 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
           <span className="font-label-xs text-label-xs text-on-surface-variant">종료</span>
           <input
             type="datetime-local"
+            min={DATE_INPUT_MIN}
+            max={DATE_INPUT_MAX}
             value={endAt}
             onChange={(event) => setEndAt(event.target.value)}
             className={inputClass}
@@ -276,6 +283,9 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
         <p className="font-label-xs text-label-xs text-error">
           종료 시각은 선택한 시간대의 서머타임 전환으로 존재하지 않는 시각이에요. 다른 시각을 입력해주세요.
         </p>
+      )}
+      {((startAt && !isDateInputInRange(startAt)) || (endAt && !isDateInputInRange(endAt))) && (
+        <p className="font-label-xs text-label-xs text-error">{DATE_INPUT_RANGE_MESSAGE}</p>
       )}
       {startAt && endAt && new Date(startAt) >= new Date(endAt) && (
         <p className="font-label-xs text-label-xs text-error">종료 시각은 시작 시각보다 늦어야 해요.</p>

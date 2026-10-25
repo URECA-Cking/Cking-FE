@@ -22,6 +22,7 @@ import {
   formatScheduleStart,
   moveMonthSelection,
   scheduleSpan,
+  sortBySpanStart,
 } from '../../utils/calendarGrid.js'
 
 const UPCOMING_DAYS = 60
@@ -308,7 +309,7 @@ export function UpcomingSchedules({ creatorId, onShowAll }) {
     [creatorId],
     { fallbackMessage: '다가오는 일정을 불러오지 못했어요.' },
   )
-  const upcoming = (data ?? []).slice(0, 2)
+  const upcoming = sortBySpanStart(data ?? []).slice(0, 2)
 
   return (
     <div className="flex flex-col gap-space-sm">

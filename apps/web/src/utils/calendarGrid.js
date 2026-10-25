@@ -27,6 +27,11 @@ export function scheduleSpan(schedule) {
   return { start: zonedDay(schedule.startAt, schedule.timeZone), end: zonedDay(schedule.endAt, schedule.timeZone) }
 }
 
+/** 달력에 놓이는 시작 순서(종일 일정은 그 날짜 0시)로 정렬한 새 배열. */
+export function sortBySpanStart(schedules) {
+  return schedules.slice().sort((a, b) => scheduleSpan(a).start - scheduleSpan(b).start)
+}
+
 /** 일정이 걸친 날짜 키 목록([rangeStart, rangeEnd) 안으로 자르고, endAt은 포함하지 않는다). */
 export function coveredDayKeys(schedule, rangeStart, rangeEnd) {
   const keys = []
@@ -84,9 +89,7 @@ export function formatScheduleRange(schedule) {
 
 /** after 이후에 시작하는 일정 중 가장 빠른 날(브라우저 시간대 기준)의 일정을 모두 시작 시각순으로(없으면 빈 배열). */
 export function findNextSchedules(schedules, after) {
-  const upcoming = schedules
-    .filter((schedule) => scheduleSpan(schedule).start > after)
-    .sort((a, b) => scheduleSpan(a).start - scheduleSpan(b).start)
+  const upcoming = sortBySpanStart(schedules.filter((schedule) => scheduleSpan(schedule).start > after))
   if (upcoming.length === 0) return []
   const firstDay = dayKey(scheduleSpan(upcoming[0]).start)
   return upcoming.filter((schedule) => dayKey(scheduleSpan(schedule).start) === firstDay)

@@ -86,6 +86,22 @@ test('종일을 켰다 끄면 입력해 둔 시각이 돌아오고 시간 일정
   } finally { await page.close() }
 })
 
+test('0시에 끝나는 일정을 종일로 바꾸면 그 전날을 마지막 날로 보고, 끄면 0시 끝으로 돌아온다', async () => {
+  const { page, editor } = await screen()
+  try {
+    const times = editor.locator('input[type="datetime-local"]')
+    await times.nth(0).fill('2026-10-10T22:00')
+    await times.nth(1).fill('2026-10-11T00:00')
+    await allDaySwitch(editor).click()
+    const dates = editor.locator('input[type="date"]')
+    assert.equal(await dates.nth(0).inputValue(), '2026-10-10')
+    assert.equal(await dates.nth(1).inputValue(), '2026-10-10')
+    await allDaySwitch(editor).click()
+    assert.equal(await times.nth(0).inputValue(), '2026-10-10T22:00')
+    assert.equal(await times.nth(1).inputValue(), '2026-10-11T00:00')
+  } finally { await page.close() }
+})
+
 test('저장된 종일 일정을 열면 마지막 날을 종료일로 보여 주고, 날짜만 바꿔 저장해도 종일로 보낸다', async () => {
   const schedule = {
     scheduleId: 7, scheduleType: 'BIRTHDAY', title: '생일', description: null,

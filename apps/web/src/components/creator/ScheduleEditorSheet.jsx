@@ -211,14 +211,17 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
   }
 
   // 종일을 켜면 날짜만 남기고, 끄면 켜기 전 시각을 되돌린다(처음부터 종일이면 0시~23시 59분).
+  // 0시에 끝나는 일정(예: 22:00~다음 날 0시)은 그 전날을 마지막 날로 본다.
   function changeAllDay(next) {
     if (next) {
-      times.current = { start: startAt.slice(11), end: endAt.slice(11) }
+      const endShifted = endAt.slice(11) === '00:00' && endAt > startAt
+      times.current = { start: startAt.slice(11), end: endAt.slice(11), endShifted }
       setStartAt(startAt.slice(0, 10))
-      setEndAt(endAt.slice(0, 10))
+      setEndAt(endShifted ? addDays(endAt.slice(0, 10), -1) : endAt.slice(0, 10))
     } else {
+      const restoredEnd = times.current.endShifted ? addDays(endAt, 1) : ''
       setStartAt(startAt && `${startAt}T${times.current.start || '00:00'}`)
-      setEndAt(endAt && `${endAt}T${times.current.end || '23:59'}`)
+      setEndAt(endAt && (restoredEnd ? `${restoredEnd}T00:00` : `${endAt}T${times.current.end || '23:59'}`))
     }
     setAllDay(next)
   }

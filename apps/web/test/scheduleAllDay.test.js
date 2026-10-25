@@ -3,7 +3,7 @@ process.env.TZ = 'America/Los_Angeles'
 
 const assert = (await import('node:assert/strict')).default
 const test = (await import('node:test')).default
-const { coveredDayKeys, findNextSchedules, formatScheduleRange, formatScheduleStart } = await import('../src/utils/calendarGrid.js')
+const { coveredDayKeys, findNextSchedules, formatScheduleRange, formatScheduleStart, sortBySpanStart } = await import('../src/utils/calendarGrid.js')
 
 const seoul = (startAt, endAt, allDay = true) => ({ scheduleId: 1, startAt, endAt, allDay, timeZone: 'Asia/Seoul' })
 const october = [new Date(2026, 9, 1), new Date(2026, 10, 1)]
@@ -29,4 +29,10 @@ test('다음 일정은 종일 일정을 그 날짜 0시에 시작하는 것으�
   const timed = { ...seoul('2026-10-09T15:00:00Z', '2026-10-09T16:00:00Z', false), scheduleId: 2 }
   const endOfOctober9 = new Date(2026, 9, 9, 23, 59, 59, 999)
   assert.deepEqual(findNextSchedules([timed, allDay], endOfOctober9).map((schedule) => schedule.scheduleId), [1])
+})
+
+test('정렬은 달력에 놓이는 시작 순서를 따른다(서울 10/11 종일은 로스앤젤레스 10/10 20:00 일정보다 뒤)', () => {
+  const allDay = seoul('2026-10-10T15:00:00Z', '2026-10-11T15:00:00Z')
+  const timed = { scheduleId: 2, startAt: '2026-10-11T03:00:00Z', endAt: '2026-10-11T04:00:00Z', allDay: false, timeZone: 'America/Los_Angeles' }
+  assert.deepEqual(sortBySpanStart([allDay, timed]).map((schedule) => schedule.scheduleId), [2, 1])
 })

@@ -7,6 +7,7 @@ import {
   findNextSchedules,
   moveMonthSelection,
   scheduleSpan,
+  sortBySpanStart,
 } from '../utils/calendarGrid.js'
 import { useAsync } from './useAsync.js'
 
@@ -54,7 +55,7 @@ export function useMonthCalendar(fetchSchedules, { fallbackMessage } = {}) {
     [cells, selectedKey],
   )
   const selectedSchedules = useMemo(
-    () => (schedulesByDay.get(selectedKey) ?? []).slice().sort((a, b) => scheduleSpan(a).start - scheduleSpan(b).start),
+    () => sortBySpanStart(schedulesByDay.get(selectedKey) ?? []),
     [schedulesByDay, selectedKey],
   )
   // 고른 날에 일정이 없으면 조회 범위 안에서 선택일 이후 가장 가까운 날의 일정을 모두 보여준다.

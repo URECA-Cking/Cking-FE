@@ -61,8 +61,8 @@ export default function NewsFeed({ creators, posts }) {
               ) : (
                 <span className="flex min-h-0 flex-1 items-start gap-2">
                   <span className="min-w-0 flex-1">
-                    <span className={`font-label-md text-label-md font-extrabold text-on-surface break-keep ${subtitle || thumb ? 'line-clamp-2' : 'line-clamp-3'}`}>{title}</span>
-                    {subtitle && <span className="mt-1 font-label-sm text-label-sm text-on-surface-variant font-normal line-clamp-1">{subtitle}</span>}
+                    <span className={`font-label-md text-label-md font-extrabold text-on-surface break-keep [overflow-wrap:anywhere] ${subtitle || thumb ? 'line-clamp-2' : 'line-clamp-3'}`}>{title}</span>
+                    {subtitle && <span className="mt-1 font-label-sm text-label-sm text-on-surface-variant font-normal line-clamp-1 [overflow-wrap:anywhere]">{subtitle}</span>}
                   </span>
                   {thumb && (
                     <img className="h-14 w-14 flex-shrink-0 rounded-lg object-cover bg-surface-container-high" src={thumb} alt="" loading="lazy" decoding="async" />

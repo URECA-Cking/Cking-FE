@@ -24,6 +24,7 @@ import { formatNumber } from '../utils/format.js'
 import { allocatePrizeKey } from '../utils/eventPrizeKeys.js'
 import { validateEventBannerImage } from '../utils/imageValidation.js'
 import { toSafeHttpUrl } from '../utils/safeUrl.js'
+import { DATE_INPUT_MAX, DATE_INPUT_MIN, DATE_INPUT_RANGE_MESSAGE, isDateInputInRange } from '../utils/dateInputRange.js'
 
 // 화면에는 이해하기 쉬운 이름을 표시하고 API에는 DrawMethod 값을 전달한다.
 const DRAW_METHOD_LABELS = {
@@ -283,6 +284,8 @@ function EventFormBody({ eventId, isEdit, target }) {
   /** 백엔드와 동일한 규칙으로 미리 검증해 불필요한 400 왕복을 줄인다. */
   function validate() {
     if (!form.title.trim()) return '제목을 입력해주세요.'
+    if (!form.startAt || !form.endAt) return '시작/종료 시각을 모두 입력해주세요.'
+    if (!isDateInputInRange(form.startAt) || !isDateInputInRange(form.endAt)) return DATE_INPUT_RANGE_MESSAGE
     const startAt = toInstant(form.startAt)
     const endAt = toInstant(form.endAt)
     if (!startAt || !endAt) return '시작/종료 시각을 모두 입력해주세요.'
@@ -486,6 +489,8 @@ function EventFormBody({ eventId, isEdit, target }) {
             <input
               id="event-start"
               type="datetime-local"
+              min={DATE_INPUT_MIN}
+              max={DATE_INPUT_MAX}
               className={`${inputClass} min-w-0`}
               value={form.startAt}
               onChange={(e) => updateField('startAt', e.target.value)}
@@ -498,6 +503,8 @@ function EventFormBody({ eventId, isEdit, target }) {
             <input
               id="event-end"
               type="datetime-local"
+              min={DATE_INPUT_MIN}
+              max={DATE_INPUT_MAX}
               className={`${inputClass} min-w-0`}
               value={form.endAt}
               onChange={(e) => updateField('endAt', e.target.value)}

@@ -320,6 +320,7 @@ function QuizSheet({ creatorId, memberId, quizId, authenticated, sessionLoading,
       {!loading && !attempt && closed && <p role="status" className="rounded-xl bg-surface-container p-space-md">마감된 Quiz예요. 신규 응시는 할 수 없어요.</p>}
       {!loading && !attempt && !closed && !mine.error && !detail.error && detail.data && (
         <div className="flex flex-1 flex-col gap-space-md">
+          <QuizSourceVideo videoId={detail.data.videoId} />
           {question && (
             <div role="group" aria-labelledby="quiz-question" key={question.questionNo} className="flex flex-1 flex-col gap-space-sm">
               <h2
@@ -397,6 +398,45 @@ function QuizSheet({ creatorId, memberId, quizId, authenticated, sessionLoading,
         </div>
       )}
     </QuizScreen>
+  )
+}
+
+/** Quiz를 만든 YouTube 영상. 썸네일로 어떤 영상인지 알아보고, 누르면 YouTube에서 연다. */
+function QuizSourceVideo({ videoId }) {
+  const [thumbnailFailed, setThumbnailFailed] = useState(false)
+  if (!videoId) return null
+  const id = encodeURIComponent(videoId)
+  return (
+    <a
+      href={`https://www.youtube.com/watch?v=${id}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="이 영상으로 만든 Quiz예요. YouTube에서 보기"
+      className="flex items-center gap-space-sm rounded-xl bg-surface-container-low p-2 pr-space-md active:scale-[0.98] transition-all"
+    >
+      {thumbnailFailed ? (
+        <span className="flex aspect-video w-24 shrink-0 items-center justify-center rounded-lg bg-surface-container-high text-on-surface-variant">
+          <MaterialIcon name="smart_display" className="text-[24px]" />
+        </span>
+      ) : (
+        <img
+          src={`https://i.ytimg.com/vi/${id}/mqdefault.jpg`}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onError={() => setThumbnailFailed(true)}
+          className="aspect-video w-24 shrink-0 rounded-lg bg-surface-container-high object-cover"
+        />
+      )}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="font-label-sm text-label-sm font-semibold text-on-surface">이 영상으로 만든 Quiz예요</span>
+        <span className="inline-flex items-center gap-1 font-label-xs text-label-xs font-semibold text-primary">
+          YouTube에서 보기
+          <MaterialIcon name="open_in_new" className="text-[14px]" />
+        </span>
+      </span>
+    </a>
   )
 }
 
@@ -551,6 +591,8 @@ function QuizResult({ creatorId, quizId, attempt, onUpdate, onRewardPaid }) {
           </button>
         )}
       </div>
+
+      <QuizSourceVideo videoId={attempt.videoId} />
 
       {attempt.questions.map((question) => (
         <div key={question.questionNo} className="flex flex-col gap-space-xs">

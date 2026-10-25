@@ -47,6 +47,7 @@ export function scheduleTypeMeta(type) {
  * @property {string} [description]
  * @property {Date} startAt
  * @property {Date} endAt
+ * @property {boolean} [allDay] true면 startAt·endAt은 timeZone 기준 0시(endAt은 마지막 날 다음 날 0시)
  * @property {string} timeZone IANA 지역명(예: Asia/Seoul). 자유 입력 시 VALIDATION_FAILED 위험이 크다.
  * @property {string} [location]
  * @property {string} [imageUrl]
@@ -61,6 +62,7 @@ function toScheduleRequestBody(fields) {
     description: fields.description || null,
     startAt: fields.startAt.toISOString(),
     endAt: fields.endAt.toISOString(),
+    allDay: Boolean(fields.allDay),
     timeZone: fields.timeZone,
     location: fields.location || null,
     imageUrl: fields.imageUrl || null,

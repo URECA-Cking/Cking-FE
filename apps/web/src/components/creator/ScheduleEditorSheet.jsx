@@ -307,8 +307,8 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
         </span>
       </button>
 
-      <div className="grid grid-cols-2 gap-space-sm">
-        <label className="flex flex-col gap-1">
+      <div className="grid grid-cols-1 gap-space-sm md:grid-cols-2">
+        <label className="flex min-w-0 flex-col gap-1">
           <span className="font-label-xs text-label-xs text-on-surface-variant">{allDay ? '시작일' : '시작'}</span>
           <input
             type={allDay ? 'date' : 'datetime-local'}
@@ -316,10 +316,10 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
             max={allDay ? DATE_INPUT_MAX.slice(0, 10) : DATE_INPUT_MAX}
             value={startAt}
             onChange={(event) => setStartAt(event.target.value)}
-            className={inputClass}
+            className={`${inputClass} min-w-0`}
           />
         </label>
-        <label className="flex flex-col gap-1">
+        <label className="flex min-w-0 flex-col gap-1">
           <span className="font-label-xs text-label-xs text-on-surface-variant">{allDay ? '종료일' : '종료'}</span>
           <input
             type={allDay ? 'date' : 'datetime-local'}
@@ -327,7 +327,7 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
             max={allDay ? DATE_INPUT_MAX.slice(0, 10) : DATE_INPUT_MAX}
             value={endAt}
             onChange={(event) => setEndAt(event.target.value)}
-            className={inputClass}
+            className={`${inputClass} min-w-0`}
           />
         </label>
       </div>

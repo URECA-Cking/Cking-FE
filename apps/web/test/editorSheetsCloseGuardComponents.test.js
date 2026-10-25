@@ -150,3 +150,28 @@ test('일정 등록: 날짜가 2000~2099년 밖(다섯 자리 연도)이면 범�
     assert.equal(await editor.getByRole('button', { name: '일정 등록', exact: true }).isDisabled(), false)
   } finally { await page.close() }
 })
+
+test('일정 등록: 날짜·시각 입력이 칸보다 넓게 그려져도(iOS 26) 좁은 화면에서 시트가 옆으로 넘치지 않는다', async () => {
+  const page = await screen('schedule')
+  try {
+    await page.setViewportSize({ width: 402, height: 874 })
+    await page.addStyleTag({ content: 'input[type="datetime-local"], input[type="date"] { min-width: 230px; }' })
+    const editor = page.getByRole('dialog', { name: '일정 등록' })
+    await editor.waitFor()
+    const layout = () => editor.evaluate((dialog) => {
+      const scroller = dialog.querySelector('.overflow-y-auto')
+      const inputs = [...dialog.querySelectorAll('input[type="datetime-local"], input[type="date"]')]
+      return {
+        sheetOverflow: scroller.scrollWidth - scroller.clientWidth,
+        inputOverflow: Math.max(...inputs.map((input) => input.getBoundingClientRect().right - input.parentElement.getBoundingClientRect().right)),
+        sameRow: inputs[0].getBoundingClientRect().top === inputs[1].getBoundingClientRect().top,
+      }
+    })
+    const narrow = await layout()
+    assert.ok(narrow.sheetOverflow <= 1, `시트 가로 넘침 ${narrow.sheetOverflow}px`)
+    assert.ok(narrow.inputOverflow <= 1, `입력칸이 칸 밖으로 ${narrow.inputOverflow}px`)
+    assert.equal(narrow.sameRow, false)
+    await page.setViewportSize({ width: 1280, height: 900 })
+    assert.equal((await layout()).sameRow, true)
+  } finally { await page.close() }
+})

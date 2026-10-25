@@ -129,3 +129,24 @@ test('일정 등록: 작성 중 뒤로가기도 확인 시트를 거친다', asy
     assert.equal(await page.evaluate(() => window.closeCount), 0)
   } finally { await page.close() }
 })
+
+test('일정 등록: 날짜가 2000~2099년 밖(다섯 자리 연도)이면 범위를 안내하고 저장할 수 없다', async () => {
+  const page = await screen('schedule')
+  try {
+    const editor = page.getByRole('dialog', { name: '일정 등록' })
+    await editor.waitFor()
+    await editor.locator('input[type="text"]').first().fill('먼 미래 일정')
+    const inputs = editor.locator('input[type="datetime-local"]')
+    await inputs.nth(0).fill('2026-10-10T10:00')
+    // 브라우저 날짜 입력은 10000년 같은 다섯 자리 연도를 값으로 받는다. React 입력처럼 값을 바꿔 그 상황을 만든다.
+    await inputs.nth(1).evaluate((element) => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(element, '10000-12-25T01:01')
+      element.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await editor.getByText('날짜는 2000년부터 2099년 사이로 입력해주세요.').waitFor()
+    assert.equal(await editor.getByRole('button', { name: '일정 등록', exact: true }).isDisabled(), true)
+    await inputs.nth(1).fill('2026-10-10T12:00')
+    assert.equal(await editor.getByText('날짜는 2000년부터 2099년 사이로 입력해주세요.').count(), 0)
+    assert.equal(await editor.getByRole('button', { name: '일정 등록', exact: true }).isDisabled(), false)
+  } finally { await page.close() }
+})

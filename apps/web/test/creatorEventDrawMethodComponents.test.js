@@ -120,6 +120,21 @@ for (const method of ['UNIFORM', 'WEIGHTED']) {
   })
 }
 
+test('종료 시각이 2000~2099년 밖(다섯 자리 연도)이면 저장하지 않고 범위를 안내한다', async () => {
+  const page = await openForm()
+  try {
+    // 브라우저 날짜 입력은 10000년 같은 다섯 자리 연도를 값으로 받는다. React 입력처럼 값을 바꿔 그 상황을 만든다.
+    await page.locator('#event-end').evaluate(element => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(element, '10000-12-25T01:01')
+      element.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    assert.equal(await page.locator('#event-end').inputValue(), '10000-12-25T01:01')
+    await page.getByRole('button', { name: '이벤트 초안 작성' }).click()
+    await page.getByText('날짜는 2000년부터 2099년 사이로 입력해주세요.').waitFor()
+    assert.deepEqual(await callsTo(page, 'POST', '/api/creator/events'), [])
+  } finally { await page.close() }
+})
+
 test('모바일 너비에서 두 방식의 한국어 이름을 표시한다', async () => {
   const page = await openForm()
   try {

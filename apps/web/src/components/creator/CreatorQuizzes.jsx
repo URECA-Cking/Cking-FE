@@ -424,6 +424,7 @@ function QuizSourceVideo({ videoId }) {
           alt=""
           loading="lazy"
           decoding="async"
+          referrerPolicy="no-referrer"
           onError={() => setThumbnailFailed(true)}
           className="aspect-video w-24 shrink-0 rounded-lg bg-surface-container-high object-cover"
         />

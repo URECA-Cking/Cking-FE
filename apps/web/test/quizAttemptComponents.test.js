@@ -259,6 +259,7 @@ test('출처 영상이 있으면 문항과 결과 화면에 썸네일과 YouTube
     assert.equal(await sourceVideo(p).getAttribute('target'), '_blank')
     const thumbnail = sourceVideo(p).locator('img')
     assert.equal(await thumbnail.getAttribute('src'), 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg')
+    assert.equal(await thumbnail.getAttribute('referrerpolicy'), 'no-referrer')
     await p.waitForFunction(() => document.querySelector('[role="dialog"] a img')?.naturalWidth > 0)
     await pick(p, 1, 0, '질문 2')
     assert.equal(await sourceVideo(p).count(), 1)
@@ -267,6 +268,7 @@ test('출처 영상이 있으면 문항과 결과 화면에 썸네일과 YouTube
     await submit(p).click()
     await p.getByText('내 점수', { exact: true }).waitFor()
     assert.equal(await sourceVideo(p).getAttribute('href'), 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    assert.equal(await sourceVideo(p).locator('img').getAttribute('src'), 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg')
   } finally { await p.close() }
 })
 

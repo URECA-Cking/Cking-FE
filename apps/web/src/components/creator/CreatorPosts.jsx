@@ -474,7 +474,7 @@ function PostGridTile({ post, onOpen, onImageError }) {
         </span>
       ) : post.content && !(post.imageCount > 0) ? (
         <span className="flex h-full w-full items-center justify-center bg-surface-container-low p-3 text-center md:p-5">
-          <span className="line-clamp-6 min-w-0 [overflow-wrap:anywhere] font-body-sm text-body-sm text-on-surface md:text-body-md">{post.content}</span>
+          <span className="line-clamp-6 [overflow-wrap:anywhere] font-body-sm text-body-sm text-on-surface md:text-body-md">{post.content}</span>
         </span>
       ) : (
         <span className="flex h-full w-full items-center justify-center text-on-surface-variant">

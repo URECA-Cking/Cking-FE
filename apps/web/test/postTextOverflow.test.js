@@ -43,8 +43,12 @@ async function screen() {
   return page
 }
 
-/** 긴 글자가 든 요소의 내용 폭이 상자 폭을 넘지 않는지(가로로 잘리거나 밖으로 나가지 않는지) 본다. */
-const overflowing = (locator) => locator.evaluate((element) => element.scrollWidth - element.clientWidth)
+/** 긴 글자가 든 요소의 내용이 자기 상자를 넘거나, 요소 자체가 부모(카드·칸) 밖으로 넓어진 만큼(px). */
+const overflowing = (locator) => locator.evaluate((element) => {
+  const box = element.getBoundingClientRect()
+  const parent = element.parentElement.getBoundingClientRect()
+  return Math.max(element.scrollWidth - element.clientWidth, box.right - parent.right, parent.left - box.left)
+})
 
 test('홈 새 게시물 카드 제목은 긴 글자도 카드 폭 안에서 줄을 바꾼다', async () => {
   const page = await screen()

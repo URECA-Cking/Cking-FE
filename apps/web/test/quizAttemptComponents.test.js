@@ -53,7 +53,7 @@ async function screen(props = {}) {
         if (window.submitMode === 'network') throw TypeError('Failed to fetch')
         const body = JSON.parse(options.body)
         return response({
-          attemptId: 1, title: '팬 Quiz', questionCount: 3, correctCount: 2, submittedAt: '2026-10-19T01:00:00Z',
+          attemptId: 1, title: '팬 Quiz', videoId: window.videoId, questionCount: 3, correctCount: 2, submittedAt: '2026-10-19T01:00:00Z',
           questions: questions.map((q) => ({
             questionNo: q.questionNo, question: q.question, options: q.options.map((o) => o.text),
             selectedOptionIndex: body.answers[q.questionNo].selectedOptionIndex, correctOptionIndex: 0, explanation: '해설',
@@ -63,7 +63,7 @@ async function screen(props = {}) {
       }
       if (path.endsWith('/my-attempt')) return response(null, 404, 'QUIZ_ATTEMPT_NOT_FOUND')
       if (path === '/api/creators/10/quizzes') return response({ items: [{ quizId: 1, title: '팬 Quiz', questionCount: 3 }], hasNext: false, page: 0 })
-      if (path === '/api/creators/10/quizzes/1') return response({ quizId: 1, title: '팬 Quiz', revisionId: 100, questions })
+      if (path === '/api/creators/10/quizzes/1') return response({ quizId: 1, title: '팬 Quiz', revisionId: 100, videoId: window.videoId, questions })
       throw Error(path)
     }
   })
@@ -243,5 +243,43 @@ test('응시 모달은 초점을 안에 가두고 Escape로 닫으면 열었던 
     await p.keyboard.press('Escape')
     await p.getByRole('dialog').waitFor({ state: 'detached' })
     assert.equal(await p.evaluate(() => document.activeElement?.textContent.includes('팬 Quiz')), true)
+  } finally { await p.close() }
+})
+
+const sourceVideo = (page) => page.getByRole('link', { name: '이 영상으로 만든 Quiz예요. YouTube에서 보기' })
+const PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')
+
+test('출처 영상이 있으면 문항과 결과 화면에 썸네일과 YouTube 링크를 보여준다', async () => {
+  const p = await screen()
+  try {
+    await p.evaluate(() => { window.videoId = 'dQw4w9WgXcQ' })
+    await p.route('https://i.ytimg.com/**', (r) => r.fulfill({ contentType: 'image/png', body: PIXEL }))
+    await openQuiz(p)
+    assert.equal(await sourceVideo(p).getAttribute('href'), 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    assert.equal(await sourceVideo(p).getAttribute('target'), '_blank')
+    const thumbnail = sourceVideo(p).locator('img')
+    assert.equal(await thumbnail.getAttribute('src'), 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg')
+    await p.waitForFunction(() => document.querySelector('[role="dialog"] a img')?.naturalWidth > 0)
+    await pick(p, 1, 0, '질문 2')
+    assert.equal(await sourceVideo(p).count(), 1)
+    await pick(p, 2, 0, '질문 3')
+    await pick(p, 3, 0)
+    await submit(p).click()
+    await p.getByText('내 점수', { exact: true }).waitFor()
+    assert.equal(await sourceVideo(p).getAttribute('href'), 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+  } finally { await p.close() }
+})
+
+test('썸네일을 받지 못하면 아이콘으로 바꾸고, 출처 영상이 없으면 카드를 그리지 않는다', async () => {
+  const p = await screen()
+  try {
+    await p.evaluate(() => { window.videoId = 'dQw4w9WgXcQ' })
+    await openQuiz(p)
+    await sourceVideo(p).locator('img').waitFor({ state: 'detached' })
+    assert.equal(await sourceVideo(p).getByText('smart_display').count(), 1)
+    await closeButton(p).click()
+    await p.evaluate(() => { window.videoId = undefined })
+    await openQuiz(p)
+    assert.equal(await sourceVideo(p).count(), 0)
   } finally { await p.close() }
 })

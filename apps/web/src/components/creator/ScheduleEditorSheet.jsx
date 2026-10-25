@@ -98,6 +98,13 @@ function isZonedInputValueValid(value, timeZone) {
   return toZonedInputValue(zonedInputValueToDate(value, timeZone), timeZone) === value
 }
 
+/** 'YYYY-MM-DD'에 days일을 더한 날짜. 형식이 다르면 빈 문자열. */
+function addDays(date, days) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return ''
+  const [year, month, day] = date.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10)
+}
+
 /**
  * 크리에이터 일정 생성·수정(Cking-BE docs/domains/calendar/api.md).
  * - PATCH는 전체 필드 교체라서 수정 시에도 항상 모든 필드를 다시 보낸다.
@@ -140,17 +147,24 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
   const [title, setTitle] = useState(schedule?.title ?? '')
   const [description, setDescription] = useState(schedule?.description ?? '')
   const initialTimeZone = schedule?.timeZone ?? 'Asia/Seoul'
-  const [startAt, setStartAt] = useState(() =>
-    toZonedInputValue(schedule ? new Date(schedule.startAt) : null, initialTimeZone),
-  )
-  const [endAt, setEndAt] = useState(() => toZonedInputValue(schedule ? new Date(schedule.endAt) : null, initialTimeZone))
+  const [allDay, setAllDay] = useState(Boolean(schedule?.allDay))
+  // 종일이면 입력은 날짜만 받고 종료일은 마지막 날(포함)이다.
+  const [startAt, setStartAt] = useState(() => {
+    const value = toZonedInputValue(schedule ? new Date(schedule.startAt) : null, initialTimeZone)
+    return schedule?.allDay ? value.slice(0, 10) : value
+  })
+  const [endAt, setEndAt] = useState(() => {
+    const value = toZonedInputValue(schedule ? new Date(schedule.endAt) : null, initialTimeZone)
+    return schedule?.allDay ? addDays(value.slice(0, 10), -1) : value
+  })
   const [timeZone, setTimeZone] = useState(initialTimeZone)
+  const times = useRef({ start: '', end: '' })
   const [location, setLocation] = useState(schedule?.location ?? '')
   const [externalUrl, setExternalUrl] = useState(schedule?.externalUrl ?? '')
   const [saving, setSaving] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  const snapshot = { scheduleType, title, description, startAt, endAt, timeZone, location, externalUrl }
+  const snapshot = { scheduleType, title, description, allDay, startAt, endAt, timeZone, location, externalUrl }
   const initial = useRef(snapshot)
   const dirty = JSON.stringify(initial.current) !== JSON.stringify(snapshot)
 
@@ -163,16 +177,23 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registerGuard, saving, dirty])
 
-  const startAtValid = isZonedInputValueValid(startAt, timeZone)
-  const endAtValid = isZonedInputValueValid(endAt, timeZone)
+  // 종일 일정은 timeZone 기준 첫날 0시 ~ 마지막 날 다음 날 0시로 저장한다(BE 계약).
+  const startValue = allDay ? startAt && `${startAt}T00:00` : startAt
+  const nextDay = allDay ? addDays(endAt, 1) : ''
+  const endValue = allDay ? nextDay && `${nextDay}T00:00` : endAt
+  const startInRange = isDateInputInRange(allDay ? startValue : startAt)
+  const endInRange = isDateInputInRange(allDay ? endAt && `${endAt}T00:00` : endAt)
+  const startAtValid = isZonedInputValueValid(startValue, timeZone)
+  const endAtValid = isZonedInputValueValid(endValue, timeZone)
+  const ordered = new Date(startValue) < new Date(endValue)
 
   const canSubmit =
     title.trim().length > 0 &&
     startAt &&
     endAt &&
-    new Date(startAt) < new Date(endAt) &&
-    isDateInputInRange(startAt) &&
-    isDateInputInRange(endAt) &&
+    ordered &&
+    startInRange &&
+    endInRange &&
     startAtValid &&
     endAtValid &&
     !saving
@@ -181,11 +202,25 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
   // 가리킬 수 있어, 바뀌지 않은 시각·시간대를 다시 변환하면 원래 Instant를 잃을 수 있다(zonedInputValueToDate는
   // 입력마다 독립적으로 추정하므로 어느 쪽이었는지 기억하지 못한다). 그래서 시각·시간대 필드를
   // 이번에 건드리지 않았으면 재변환하지 않고 저장된 Instant를 그대로 보존한다.
-  function resolveInstant(currentValue, originalValue, originalInstant) {
-    if (schedule && currentValue === originalValue && timeZone === initial.current.timeZone) {
+  function resolveInstant(currentValue, originalValue, zonedValue, originalInstant) {
+    const unchanged = currentValue === originalValue && timeZone === initial.current.timeZone && allDay === initial.current.allDay
+    if (schedule && unchanged) {
       return new Date(originalInstant)
     }
-    return zonedInputValueToDate(currentValue, timeZone)
+    return zonedInputValueToDate(zonedValue, timeZone)
+  }
+
+  // 종일을 켜면 날짜만 남기고, 끄면 켜기 전 시각을 되돌린다(처음부터 종일이면 0시~23시 59분).
+  function changeAllDay(next) {
+    if (next) {
+      times.current = { start: startAt.slice(11), end: endAt.slice(11) }
+      setStartAt(startAt.slice(0, 10))
+      setEndAt(endAt.slice(0, 10))
+    } else {
+      setStartAt(startAt && `${startAt}T${times.current.start || '00:00'}`)
+      setEndAt(endAt && `${endAt}T${times.current.end || '23:59'}`)
+    }
+    setAllDay(next)
   }
 
   async function submit() {
@@ -195,8 +230,9 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
       scheduleType,
       title: title.trim(),
       description: description.trim(),
-      startAt: resolveInstant(startAt, initial.current.startAt, schedule?.startAt),
-      endAt: resolveInstant(endAt, initial.current.endAt, schedule?.endAt),
+      startAt: resolveInstant(startAt, initial.current.startAt, startValue, schedule?.startAt),
+      endAt: resolveInstant(endAt, initial.current.endAt, endValue, schedule?.endAt),
+      allDay,
       timeZone,
       location: location.trim(),
       // 이미지 URL은 입력받지 않는다. 수정은 전체 필드 교체라 기존 값을 그대로 보내 지우지 않는다.
@@ -250,24 +286,42 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
         />
       </label>
 
+      <button
+        type="button"
+        role="switch"
+        aria-checked={allDay}
+        onClick={() => changeAllDay(!allDay)}
+        className="flex items-center justify-between gap-space-sm text-left"
+      >
+        <span className="font-label-sm text-label-sm font-semibold text-on-surface">종일</span>
+        <span
+          aria-hidden="true"
+          className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${allDay ? 'bg-primary' : 'bg-outline'}`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${allDay ? 'translate-x-5' : 'translate-x-0'}`}
+          />
+        </span>
+      </button>
+
       <div className="grid grid-cols-2 gap-space-sm">
         <label className="flex flex-col gap-1">
-          <span className="font-label-xs text-label-xs text-on-surface-variant">시작</span>
+          <span className="font-label-xs text-label-xs text-on-surface-variant">{allDay ? '시작일' : '시작'}</span>
           <input
-            type="datetime-local"
-            min={DATE_INPUT_MIN}
-            max={DATE_INPUT_MAX}
+            type={allDay ? 'date' : 'datetime-local'}
+            min={allDay ? DATE_INPUT_MIN.slice(0, 10) : DATE_INPUT_MIN}
+            max={allDay ? DATE_INPUT_MAX.slice(0, 10) : DATE_INPUT_MAX}
             value={startAt}
             onChange={(event) => setStartAt(event.target.value)}
             className={inputClass}
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="font-label-xs text-label-xs text-on-surface-variant">종료</span>
+          <span className="font-label-xs text-label-xs text-on-surface-variant">{allDay ? '종료일' : '종료'}</span>
           <input
-            type="datetime-local"
-            min={DATE_INPUT_MIN}
-            max={DATE_INPUT_MAX}
+            type={allDay ? 'date' : 'datetime-local'}
+            min={allDay ? DATE_INPUT_MIN.slice(0, 10) : DATE_INPUT_MIN}
+            max={allDay ? DATE_INPUT_MAX.slice(0, 10) : DATE_INPUT_MAX}
             value={endAt}
             onChange={(event) => setEndAt(event.target.value)}
             className={inputClass}
@@ -284,11 +338,13 @@ function ScheduleEditorForm({ schedule, onClose, onSaved, registerGuard }) {
           종료 시각은 선택한 시간대의 서머타임 전환으로 존재하지 않는 시각이에요. 다른 시각을 입력해주세요.
         </p>
       )}
-      {((startAt && !isDateInputInRange(startAt)) || (endAt && !isDateInputInRange(endAt))) && (
+      {((startAt && !startInRange) || (endAt && !endInRange)) && (
         <p className="font-label-xs text-label-xs text-error">{DATE_INPUT_RANGE_MESSAGE}</p>
       )}
-      {startAt && endAt && new Date(startAt) >= new Date(endAt) && (
-        <p className="font-label-xs text-label-xs text-error">종료 시각은 시작 시각보다 늦어야 해요.</p>
+      {startAt && endAt && startInRange && endInRange && !ordered && (
+        <p className="font-label-xs text-label-xs text-error">
+          {allDay ? '종료일은 시작일보다 빠를 수 없어요.' : '종료 시각은 시작 시각보다 늦어야 해요.'}
+        </p>
       )}
 
       <label className="flex flex-col gap-1">

@@ -19,8 +19,9 @@ import {
   coveredDayKeys,
   dayKey,
   formatScheduleRange,
-  formatScheduleTime,
+  formatScheduleStart,
   moveMonthSelection,
+  scheduleSpan,
 } from '../../utils/calendarGrid.js'
 
 const UPCOMING_DAYS = 60
@@ -332,7 +333,7 @@ export function UpcomingSchedules({ creatorId, onShowAll }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
           {upcoming.map((schedule) => {
             const meta = scheduleTypeMeta(schedule.scheduleType)
-            const start = new Date(schedule.startAt)
+            const start = scheduleSpan(schedule).start
             return (
               <button
                 key={schedule.scheduleId}
@@ -348,7 +349,7 @@ export function UpcomingSchedules({ creatorId, onShowAll }) {
                 <span className="flex flex-col min-w-0">
                   <span className="font-label-md text-label-md font-semibold text-on-surface truncate">{schedule.title}</span>
                   <span className="font-label-xs text-label-xs text-on-surface-variant">
-                    {meta.label} · {formatScheduleTime(schedule.startAt)}
+                    {meta.label} · {formatScheduleStart(schedule)}
                   </span>
                 </span>
               </button>

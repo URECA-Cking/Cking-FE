@@ -1,6 +1,6 @@
 import MaterialIcon from '../ui/MaterialIcon.jsx'
 import { scheduleTypeMeta } from '../../api/calendar.js'
-import { WEEKDAYS, dayKey, formatScheduleTime } from '../../utils/calendarGrid.js'
+import { WEEKDAYS, dayKey, formatScheduleStart, scheduleSpan } from '../../utils/calendarGrid.js'
 
 // 내 캘린더와 크리에이터 스페이스 캘린더가 함께 쓰는 표시 컴포넌트.
 // 상태(선택한 날짜·조회 데이터)는 각 화면이 들고 있고, 여기서는 받은 값을 그리기만 한다.
@@ -107,7 +107,7 @@ export function SelectedDayHeader({ month, selectedDate, isToday }) {
  * 누르면 그 날짜로 이동한다. schedules는 같은 날의 일정을 시작 시각순으로 담은 비어 있지 않은 배열이다.
  */
 export function NextSchedulePreview({ schedules, onSelect }) {
-  const start = new Date(schedules[0].startAt)
+  const start = scheduleSpan(schedules[0]).start
   return (
     <button
       type="button"
@@ -127,7 +127,7 @@ export function NextSchedulePreview({ schedules, onSelect }) {
           <div className="flex flex-col min-w-0 flex-1">
             <span className="font-label-md text-label-md font-bold text-on-surface truncate">{schedule.title}</span>
             <span className="font-label-xs text-label-xs text-on-surface-variant truncate">
-              {formatScheduleTime(schedule.startAt)}
+              {formatScheduleStart(schedule)}
               {schedule.creatorName ? ` · ${schedule.creatorName}` : ''}
             </span>
           </div>

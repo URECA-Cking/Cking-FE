@@ -6,6 +6,7 @@ import {
   dayKey,
   findNextSchedules,
   moveMonthSelection,
+  scheduleSpan,
 } from '../utils/calendarGrid.js'
 import { useAsync } from './useAsync.js'
 
@@ -53,7 +54,7 @@ export function useMonthCalendar(fetchSchedules, { fallbackMessage } = {}) {
     [cells, selectedKey],
   )
   const selectedSchedules = useMemo(
-    () => (schedulesByDay.get(selectedKey) ?? []).slice().sort((a, b) => new Date(a.startAt) - new Date(b.startAt)),
+    () => (schedulesByDay.get(selectedKey) ?? []).slice().sort((a, b) => scheduleSpan(a).start - scheduleSpan(b).start),
     [schedulesByDay, selectedKey],
   )
   // 고른 날에 일정이 없으면 조회 범위 안에서 선택일 이후 가장 가까운 날의 일정을 모두 보여준다.
@@ -76,7 +77,7 @@ export function useMonthCalendar(fetchSchedules, { fallbackMessage } = {}) {
 
   // 월 경계를 넘는 일정도 따라가도록 보이는 달과 선택 날짜를 함께 옮긴다.
   function selectSchedule(schedule) {
-    const target = new Date(schedule.startAt)
+    const target = scheduleSpan(schedule).start
     setMonth(new Date(target.getFullYear(), target.getMonth(), 1))
     setSelectedKey(dayKey(target))
   }

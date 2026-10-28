@@ -42,6 +42,8 @@ async function screen({ edit = false, bannerImageUrl = null, uploadError = null 
     window.calls = []; window.toasts = []; window.uploadError = uploadError; window.createError = null
     window.fetch = async (url, options = {}) => {
       const path = new URL(url).pathname, method = options.method ?? 'GET'
+      // 예약 API가 없는 환경(404)처럼 두어 기존 업로드 경로를 검증한다(FE #445)
+      if (path === '/api/uploads') return new Response(JSON.stringify({ code: 'RESOURCE_NOT_FOUND', data: null, message: null }), { status: 404 })
       window.calls.push({ path, method, body: typeof options.body === 'string' ? JSON.parse(options.body) : options.body ? 'form' : undefined })
       const response = (data, status = 200, code = 'SUCCESS') => new Response(JSON.stringify({ code, data, message: code }), { status })
       if (path === '/api/creator/events/banner-images') {

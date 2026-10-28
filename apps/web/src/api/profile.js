@@ -1,6 +1,7 @@
 import { ApiError, apiClient, describeError } from './client.js'
 import { getMe } from './auth.js'
 import { JPEG_PNG_IMAGE_TYPES } from '../utils/imageMime.js'
+import { uploadImage } from './imageUpload.js'
 
 // 내 프로필 API(Cking-BE #518 닉네임 정책, #519 프로필 사진 업로드 및 내 프로필 수정 API, docs/domains/member/api.md).
 
@@ -17,6 +18,10 @@ export function getMyProfile() {
 
 /** POST /api/me/profile-images — 이미지 1장 업로드 → { imageKey }. 24시간 안에 프로필에 연결하지 않으면 서버가 지운다. */
 export function uploadProfileImage(file) {
+  return uploadImage('MEMBER_PROFILE', file, legacyUploadProfileImage)
+}
+
+function legacyUploadProfileImage(file) {
   const form = new FormData()
   form.append('image', file)
   return apiClient.post('/api/me/profile-images', form)

@@ -1,4 +1,5 @@
 import { ApiError, apiClient } from './client';
+import { uploadImage } from './imageUpload.js';
 import { describeCreatorWriteError } from './creatorProfile.js';
 
 // 크리에이터 운영(이벤트 CRUD·승인 요청) API. 호출자는 Access JWT로 식별하며, Creator가 아니면 FORBIDDEN이다.
@@ -7,6 +8,10 @@ import { describeCreatorWriteError } from './creatorProfile.js';
 // POST /api/creator/events/banner-images - 배너 이미지 1장 업로드 → { imageKey }.
 // 생성·수정의 bannerImageKey로 연결하며, 24시간 안에 연결하지 않으면 서버가 지운다.
 export function uploadEventBannerImage(file) {
+  return uploadImage('EVENT_BANNER', file, legacyUploadEventBannerImage);
+}
+
+function legacyUploadEventBannerImage(file) {
   const form = new FormData();
   form.append('image', file);
   return apiClient.post('/api/creator/events/banner-images', form);

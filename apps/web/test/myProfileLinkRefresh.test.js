@@ -48,6 +48,7 @@ async function screen() {
     window.fetch = (url, options = {}) => {
       const path = new URL(String(url), location.href).pathname
       const method = options.method ?? 'GET'
+      if (path === '/api/uploads') return Promise.resolve(envelope(404, 'RESOURCE_NOT_FOUND', null))
       if (path === '/api/creator-spaces/test') return Promise.resolve(envelope(200, 'SUCCESS', { ...window.space }))
       if (path === '/api/creator/space/profile-images') return Promise.resolve(envelope(200, 'SUCCESS', { imageKey: 'profile-new' }))
       if (path === '/api/creator/space') {

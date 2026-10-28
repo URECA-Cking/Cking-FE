@@ -3,8 +3,14 @@
 // 예약 API가 없는 환경(404)에서는 기존 업로드 함수를 쓰고, 한 번 404를 받으면 그 뒤로는 바로 기존 업로드를 쓴다.
 // 이 파일은 의존성을 주입받아 Vite 없이 node 테스트에서 돌린다. 실제 연결은 imageUpload.js.
 
-export const POLL_INTERVAL_MS = 500
 export const POLL_TIMEOUT_MS = 30000
+
+/** 평소 처리는 p95 약 2.2초라 3초까지는 촘촘히 보고, 밀릴 때는 간격을 늘려 확인 요청이 앱 부하가 되지 않게 한다. */
+export function pollDelayMs(elapsedMs) {
+  if (elapsedMs < 3000) return 500
+  if (elapsedMs < 6000) return 1000
+  return 2000
+}
 
 /** 정규화 실패는 용도별 기존 오류 코드로 바꿔 화면의 기존 문구를 그대로 쓴다. */
 export const INVALID_IMAGE_CODES = {
@@ -19,13 +25,14 @@ export function createImageUploader({ post, get, put, sleep, now, ApiError }) {
   let pipelineAvailable = true
 
   async function waitReady(purpose, uploadId) {
-    const deadline = now() + POLL_TIMEOUT_MS
+    const start = now()
+    const deadline = start + POLL_TIMEOUT_MS
     for (;;) {
       const upload = await get(`/api/uploads/${encodeURIComponent(uploadId)}`)
       if (upload.status === 'READY') return upload.imageKey
       if (upload.status === 'FAILED') throw new ApiError(INVALID_IMAGE_CODES[purpose], undefined, 400)
       if (now() >= deadline) throw new ApiError('IMAGE_PROCESSING_BUSY', undefined, 503)
-      await sleep(POLL_INTERVAL_MS)
+      await sleep(pollDelayMs(now() - start))
     }
   }
 

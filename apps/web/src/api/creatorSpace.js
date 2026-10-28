@@ -1,4 +1,5 @@
 import { ApiError, apiClient, describeError } from './client';
+import { uploadImage } from './imageUpload.js';
 import { getAccessToken } from './authToken.js';
 import { spaceUpdateBody } from '../utils/spaceProfile.js';
 
@@ -37,6 +38,10 @@ export async function updateMySpace(fields) {
 
 // POST /api/creator/space/profile-images - 프로필 사진 1장 업로드 → { imageKey }. 24시간 안에 연결하지 않으면 서버가 지운다.
 export function uploadSpaceProfileImage(file) {
+  return uploadImage('CREATOR_SPACE_PROFILE', file, legacyUploadSpaceProfileImage);
+}
+
+function legacyUploadSpaceProfileImage(file) {
   const form = new FormData();
   form.append('image', file);
   return apiClient.post('/api/creator/space/profile-images', form);
@@ -44,6 +49,10 @@ export function uploadSpaceProfileImage(file) {
 
 // POST /api/creator/space/banner-images - 배너 이미지 1장 업로드 → { imageKey }. 24시간 안에 연결하지 않으면 서버가 지운다.
 export function uploadSpaceBannerImage(file) {
+  return uploadImage('CREATOR_SPACE_BANNER', file, legacyUploadSpaceBannerImage);
+}
+
+function legacyUploadSpaceBannerImage(file) {
   const form = new FormData();
   form.append('image', file);
   return apiClient.post('/api/creator/space/banner-images', form);

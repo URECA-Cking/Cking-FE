@@ -29,6 +29,7 @@ async function screen({bannerOnly=false,bannerUrl=null,brokenBanner=false,failUp
    const path=new URL(String(url),location.href).pathname,method=options.method??'GET'
    const reply=(data,status=200)=>new Response(JSON.stringify({code:status===200?'SUCCESS':'SYSTEM_ERROR',data,message:'upload failed'}),{status})
    const body=typeof options.body==='string'?JSON.parse(options.body):null
+   if(path==='/api/uploads')return new Response(JSON.stringify({code:'RESOURCE_NOT_FOUND',data:null,message:null}),{status:404})
    window.calls.push({path,method,body})
    if(path.endsWith('/profile-images'))return reply({imageKey:'profile-new'},failUpload?500:200)
    if(path.endsWith('/banner-images'))return reply({imageKey:'banner-new'},failUpload?500:200)

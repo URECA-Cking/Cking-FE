@@ -13,7 +13,7 @@ class ApiError extends Error {
 const file = { type: 'image/jpeg', size: 1234 }
 
 function uploader({ post, statuses = [], putOk = true } = {}) {
-  const calls = { post: [], get: [], put: [], legacy: 0 }
+  const calls = { post: [], get: [], put: [], sleep: [], legacy: 0 }
   let clock = 0
   const upload = createImageUploader({
     post: async (path, body) => {
@@ -28,7 +28,7 @@ function uploader({ post, statuses = [], putOk = true } = {}) {
       calls.put.push({ url, headers, body })
       return { ok: putOk, status: putOk ? 200 : 403 }
     },
-    sleep: async (ms) => { clock += ms },
+    sleep: async (ms) => { calls.sleep.push(ms); clock += ms },
     now: () => clock,
     ApiError,
   })
@@ -66,7 +66,17 @@ test('처리가 제한 시간 안에 끝나지 않으면 처리 지연 오류로
   const { upload, calls } = uploader()
 
   await assert.rejects(upload(), (error) => error.code === 'IMAGE_PROCESSING_BUSY')
-  assert.ok(calls.get.length >= POLL_TIMEOUT_MS / 500)
+  assert.equal(calls.sleep.reduce((sum, ms) => sum + ms, 0), POLL_TIMEOUT_MS)
+})
+
+// 0.5초 고정이면 처리가 밀릴 때 업로드당 확인이 60번이 된다(개발 서버 16건/초에서 초당 약 555건)
+test('상태 확인 간격은 3초까지 0.5초, 6초까지 1초, 그 뒤 2초로 늘어난다', async () => {
+  const { upload, calls } = uploader()
+
+  await assert.rejects(upload())
+  assert.deepEqual(calls.sleep.slice(0, 9), [500, 500, 500, 500, 500, 500, 1000, 1000, 1000])
+  assert.ok(calls.sleep.slice(9).every((ms) => ms === 2000))
+  assert.equal(calls.get.length, 22)
 })
 
 test('저장소가 PUT을 거절하면 상태를 확인하지 않고 실패한다', async () => {

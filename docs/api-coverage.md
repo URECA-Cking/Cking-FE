@@ -12,6 +12,7 @@
 | POST | `/api/auth/token`, `/api/auth/refresh`, `/api/auth/logout` | Web | OAuth Login Code 교환·갱신·로그아웃 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
 | GET | `/oauth2/authorization/{provider}` | Web | OAuth 로그인 시작 페이지 이동 | 연동 | [Auth](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md) |
 | - | 공통 HTTP·오류 규약 | Web | `apps/web/src/api/client.js`: Bearer JWT, `credentials: include`, 401 1회 갱신 | 연동 | [API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md) |
+| POST/GET | `/api/uploads`, `/api/uploads/{uploadId}` | Web | 이미지 업로드 5곳(프로필 사진, 스페이스 프로필 사진·배너, 이벤트 배너, 게시물 이미지)의 기본 경로. 용도(`purpose`)·형식·크기로 예약하고, 응답의 `uploadUrl`에 `headers`만 붙여 원본을 S3로 직접 PUT한 뒤 상태가 `READY`면 `imageKey`를 받는다. 상태 확인 간격은 3초까지 0.5초, 6초까지 1초, 그 뒤 2초다. `FAILED`는 용도별 기존 이미지 오류 코드로, PUT 응답이 2xx가 아니거나 30초를 넘기면 `IMAGE_PROCESSING_BUSY`로 바꾼다. 예약이 404면 용도별 업로드 API(`/api/me/profile-images`, `/api/creator/space/profile-images`·`banner-images`, `/api/creator/events/banner-images`, `/api/creator/posts/images`)로 올리고, 새로고침 전까지는 예약 없이 그 API를 쓴다(`apps/web/src/api/imageUploadFlow.js`) | 연동 | [ImageUploadController](https://github.com/URECA-Cking/Cking-BE/blob/develop/src/main/java/kr/co/cking/upload/presentation/ImageUploadController.java) |
 
 ## Web — PUBLIC / USER
 

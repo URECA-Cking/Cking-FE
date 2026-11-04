@@ -48,12 +48,12 @@ export function createImageUploader({ post, get, put, sleep, now, ApiError }) {
       }
       throw error
     }
-    // 원본 전송 실패(주소 만료, 연결 끊김)는 처리 지연과 안내가 달라 따로 알린다.
+    // 원본 전송 실패는 처리 지연과 안내가 달라 따로 알린다. 연결 끊김은 공용 API 클라이언트와 같은 NETWORK_ERROR.
     let response
     try {
       response = await put(created.uploadUrl, created.headers, file)
     } catch {
-      throw new ApiError('IMAGE_UPLOAD_FAILED', undefined, 0)
+      throw new ApiError('NETWORK_ERROR')
     }
     if (!response.ok) throw new ApiError('IMAGE_UPLOAD_FAILED', undefined, response.status)
     return { imageKey: await waitReady(purpose, created.uploadId) }

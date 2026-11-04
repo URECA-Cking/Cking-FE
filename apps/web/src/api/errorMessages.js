@@ -16,7 +16,7 @@ export const COMMON_ERROR_MESSAGES = {
   FORBIDDEN: '이 기능을 사용할 권한이 없는 계정입니다.',
   UPLOAD_TOO_LARGE: '파일이 너무 커요. 5MB 이하로 올려주세요.',
   IMAGE_PROCESSING_BUSY: '지금 이미지를 처리하는 요청이 많아요. 잠시 뒤에 다시 시도해주세요.',
-  IMAGE_UPLOAD_FAILED: '사진을 올리지 못했어요. 연결을 확인하고 다시 시도해주세요.',
+  IMAGE_UPLOAD_FAILED: '사진을 올리지 못했어요. 다시 시도해주세요.',
   PROFILE_SETUP_REQUIRED: '먼저 닉네임을 설정해주세요.',
   ACTIVITY_NAME_SETUP_REQUIRED: '먼저 활동명을 설정해주세요. 스페이스 편집에서 정할 수 있어요.',
   COMMENT_RESTRICTED: '댓글 작성이 제한되어 있어요.',

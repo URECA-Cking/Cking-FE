@@ -87,10 +87,10 @@ test('저장소가 PUT을 거절하면 상태를 확인하지 않고 원본 업�
   assert.equal(calls.get.length, 0)
 })
 
-test('원본을 보내는 중 연결이 끊기면 원본 업로드 실패로 알린다', async () => {
+test('원본을 보내는 중 연결이 끊기면 연결 오류로 알린다', async () => {
   const { upload, calls } = uploader({ putError: new TypeError('Failed to fetch') })
 
-  await assert.rejects(upload(), (error) => error.code === 'IMAGE_UPLOAD_FAILED')
+  await assert.rejects(upload(), (error) => error.code === 'NETWORK_ERROR')
   assert.equal(calls.get.length, 0)
 })
 

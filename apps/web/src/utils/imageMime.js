@@ -14,3 +14,13 @@ export function isSupportedJpegOrPng(file) {
   if (!FALLBACK_MIME_TYPES.has(contentType)) return false
   return SUPPORTED_FILENAME_PATTERN.test((file?.name ?? '').trim())
 }
+
+/** 예약 API(POST /api/uploads)는 image/jpeg·image/png만 받는다. 위 판정에서 확장자로 통과한 파일은 형식 값을 확장자로 채운다. */
+export function uploadContentType(file) {
+  const contentType = (file?.type ?? '').trim().toLowerCase()
+  if (SUPPORTED_MIME_TYPES.has(contentType) || !FALLBACK_MIME_TYPES.has(contentType)) return contentType
+  const name = (file?.name ?? '').trim()
+  if (/\.png$/i.test(name)) return 'image/png'
+  if (/\.jpe?g$/i.test(name)) return 'image/jpeg'
+  return contentType
+}

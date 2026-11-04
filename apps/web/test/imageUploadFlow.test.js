@@ -12,7 +12,7 @@ class ApiError extends Error {
 
 const file = { type: 'image/jpeg', size: 1234 }
 
-function uploader({ post, statuses = [], putOk = true, putError } = {}) {
+function uploader({ post, statuses = [], putOk = true, putError, uploadFile = file } = {}) {
   const calls = { post: [], get: [], put: [], sleep: [], legacy: 0 }
   let clock = 0
   const upload = createImageUploader({
@@ -22,7 +22,9 @@ function uploader({ post, statuses = [], putOk = true, putError } = {}) {
     },
     get: async (path) => {
       calls.get.push(path)
-      return statuses.shift() ?? { status: 'PENDING' }
+      const next = statuses.shift() ?? { status: 'PENDING' }
+      if (next instanceof Error) throw next
+      return next
     },
     put: async (url, headers, body) => {
       calls.put.push({ url, headers, body })
@@ -34,7 +36,7 @@ function uploader({ post, statuses = [], putOk = true, putError } = {}) {
     ApiError,
   })
   const legacy = async () => { calls.legacy += 1; return { imageKey: 'legacy-key' } }
-  return { upload: (purpose = 'POST_IMAGE') => upload(purpose, file, legacy), calls }
+  return { upload: (purpose = 'POST_IMAGE') => upload(purpose, uploadFile, legacy), calls }
 }
 
 // Cking-BE #780: 예약 → 받은 헤더 그대로 S3 PUT → READY면 기존과 같은 imageKey
@@ -99,4 +101,39 @@ test('예약이 다른 이유로 실패하면 기존 업로드로 넘어가지 �
 
   await assert.rejects(upload('MEMBER_PROFILE'), (error) => error.code === 'CREATOR_PROFILE_MANAGED_IN_SPACE')
   assert.equal(calls.legacy, 0)
+})
+
+// #457: 일부 기기는 JPEG·PNG의 형식 값을 비우거나 octet-stream으로 준다. 파일 검사는 확장자로 통과하므로 예약에도 같은 형식을 보낸다
+test('형식 값이 비었거나 octet-stream이면 확장자로 형식을 채워 예약한다', async () => {
+  for (const [uploadFile, want] of [
+    [{ type: '', name: 'a.JPG', size: 1 }, 'image/jpeg'],
+    [{ type: 'application/octet-stream', name: 'b.png', size: 1 }, 'image/png'],
+    [{ type: 'image/png', name: 'c.jpg', size: 1 }, 'image/png'],
+  ]) {
+    const { upload, calls } = uploader({ uploadFile, statuses: [{ status: 'READY', imageKey: 'k' }] })
+    await upload()
+    assert.equal(calls.post[0].body.contentType, want)
+  }
+})
+
+test('상태 확인이 연결 끊김·서버 오류로 실패해도 제한 시간 안에서 다시 확인한다', async () => {
+  const { upload, calls } = uploader({ statuses: [
+    new ApiError('NETWORK_ERROR'), new ApiError('INTERNAL_SERVER_ERROR', '', 503), { status: 'READY', imageKey: 'post-images/1/a.jpg' },
+  ] })
+
+  assert.deepEqual(await upload(), { imageKey: 'post-images/1/a.jpg' })
+  assert.equal(calls.get.length, 3)
+})
+
+test('상태 확인이 4xx면 다시 확인하지 않고 그 오류를 알린다', async () => {
+  const { upload, calls } = uploader({ statuses: [new ApiError('FORBIDDEN', '', 403)] })
+
+  await assert.rejects(upload(), (error) => error.code === 'FORBIDDEN')
+  assert.equal(calls.get.length, 1)
+})
+
+test('상태 확인이 계속 연결 끊김이면 제한 시간 뒤 연결 오류로 알린다', async () => {
+  const { upload } = uploader({ statuses: Array.from({ length: 40 }, () => new ApiError('NETWORK_ERROR')) })
+
+  await assert.rejects(upload(), (error) => error.code === 'NETWORK_ERROR')
 })

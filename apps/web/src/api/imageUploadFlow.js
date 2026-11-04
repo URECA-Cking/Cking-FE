@@ -6,14 +6,14 @@
 export const POLL_TIMEOUT_MS = 30000
 
 /** 평소 처리는 p95 약 2.2초라 3초까지는 촘촘히 보고, 밀릴 때는 간격을 늘려 확인 요청이 앱 부하가 되지 않게 한다. */
-export function pollDelayMs(elapsedMs) {
+function pollDelayMs(elapsedMs) {
   if (elapsedMs < 3000) return 500
   if (elapsedMs < 6000) return 1000
   return 2000
 }
 
 /** 정규화 실패는 용도별 기존 오류 코드로 바꿔 화면의 기존 문구를 그대로 쓴다. */
-export const INVALID_IMAGE_CODES = {
+const INVALID_IMAGE_CODES = {
   MEMBER_PROFILE: 'INVALID_PROFILE_IMAGE',
   CREATOR_SPACE_PROFILE: 'INVALID_SPACE_PROFILE_IMAGE',
   CREATOR_SPACE_BANNER: 'INVALID_SPACE_BANNER_IMAGE',

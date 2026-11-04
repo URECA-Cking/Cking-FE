@@ -21,7 +21,7 @@ export const POST_LIMITS = {
   imageTypes: JPEG_PNG_IMAGE_TYPES,
 }
 
-/** 이미지 1장 업로드 → { imageKey }. 24시간 안에 게시글에 연결하지 않으면 서버가 삭제한다. */
+/** 이미지 1장 업로드 → { imageKey }. 사전 서명 업로드(/api/uploads)를 먼저 쓰고, 그 API가 없는 환경(404)은 POST /api/creator/posts/images로 올린다. 24시간 안에 게시글에 연결하지 않으면 서버가 삭제한다. */
 export function uploadPostImage(file) {
   return uploadImage('POST_IMAGE', file, legacyUploadPostImage)
 }

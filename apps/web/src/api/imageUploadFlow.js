@@ -48,8 +48,14 @@ export function createImageUploader({ post, get, put, sleep, now, ApiError }) {
       }
       throw error
     }
-    const response = await put(created.uploadUrl, created.headers, file)
-    if (!response.ok) throw new ApiError('IMAGE_PROCESSING_BUSY', undefined, response.status)
+    // 원본 전송 실패(주소 만료, 연결 끊김)는 처리 지연과 안내가 달라 따로 알린다.
+    let response
+    try {
+      response = await put(created.uploadUrl, created.headers, file)
+    } catch {
+      throw new ApiError('IMAGE_UPLOAD_FAILED', undefined, 0)
+    }
+    if (!response.ok) throw new ApiError('IMAGE_UPLOAD_FAILED', undefined, response.status)
     return { imageKey: await waitReady(purpose, created.uploadId) }
   }
 }

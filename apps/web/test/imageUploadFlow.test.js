@@ -12,7 +12,7 @@ class ApiError extends Error {
 
 const file = { type: 'image/jpeg', size: 1234 }
 
-function uploader({ post, statuses = [], putOk = true } = {}) {
+function uploader({ post, statuses = [], putOk = true, putError } = {}) {
   const calls = { post: [], get: [], put: [], sleep: [], legacy: 0 }
   let clock = 0
   const upload = createImageUploader({
@@ -26,6 +26,7 @@ function uploader({ post, statuses = [], putOk = true } = {}) {
     },
     put: async (url, headers, body) => {
       calls.put.push({ url, headers, body })
+      if (putError) throw putError
       return { ok: putOk, status: putOk ? 200 : 403 }
     },
     sleep: async (ms) => { calls.sleep.push(ms); clock += ms },
@@ -79,10 +80,17 @@ test('상태 확인 간격은 3초까지 0.5초, 6초까지 1초, 그 뒤 2초�
   assert.equal(calls.get.length, 22)
 })
 
-test('저장소가 PUT을 거절하면 상태를 확인하지 않고 실패한다', async () => {
+test('저장소가 PUT을 거절하면 상태를 확인하지 않고 원본 업로드 실패로 알린다', async () => {
   const { upload, calls } = uploader({ putOk: false })
 
-  await assert.rejects(upload(), (error) => error.status === 403)
+  await assert.rejects(upload(), (error) => error.code === 'IMAGE_UPLOAD_FAILED' && error.status === 403)
+  assert.equal(calls.get.length, 0)
+})
+
+test('원본을 보내는 중 연결이 끊기면 원본 업로드 실패로 알린다', async () => {
+  const { upload, calls } = uploader({ putError: new TypeError('Failed to fetch') })
+
+  await assert.rejects(upload(), (error) => error.code === 'IMAGE_UPLOAD_FAILED')
   assert.equal(calls.get.length, 0)
 })
 

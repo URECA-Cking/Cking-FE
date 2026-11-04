@@ -36,7 +36,8 @@ export async function updateMySpace(fields) {
   return apiClient.patch('/api/creator/space', spaceUpdateBody(fields));
 }
 
-// POST /api/creator/space/profile-images - 프로필 사진 1장 업로드 → { imageKey }. 24시간 안에 연결하지 않으면 서버가 지운다.
+// 프로필 사진 1장 업로드 → { imageKey }. 사전 서명 업로드(/api/uploads)를 먼저 쓰고,
+// 그 API가 없는 환경(404)은 POST /api/creator/space/profile-images로 올린다. 24시간 안에 연결하지 않으면 서버가 지운다.
 export function uploadSpaceProfileImage(file) {
   return uploadImage('CREATOR_SPACE_PROFILE', file, legacyUploadSpaceProfileImage);
 }
@@ -47,7 +48,8 @@ function legacyUploadSpaceProfileImage(file) {
   return apiClient.post('/api/creator/space/profile-images', form);
 }
 
-// POST /api/creator/space/banner-images - 배너 이미지 1장 업로드 → { imageKey }. 24시간 안에 연결하지 않으면 서버가 지운다.
+// 배너 이미지 1장 업로드 → { imageKey }. 사전 서명 업로드(/api/uploads)를 먼저 쓰고,
+// 그 API가 없는 환경(404)은 POST /api/creator/space/banner-images로 올린다. 24시간 안에 연결하지 않으면 서버가 지운다.
 export function uploadSpaceBannerImage(file) {
   return uploadImage('CREATOR_SPACE_BANNER', file, legacyUploadSpaceBannerImage);
 }

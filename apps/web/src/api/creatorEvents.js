@@ -5,7 +5,8 @@ import { describeCreatorWriteError } from './creatorProfile.js';
 // 크리에이터 운영(이벤트 CRUD·승인 요청) API. 호출자는 Access JWT로 식별하며, Creator가 아니면 FORBIDDEN이다.
 // 배너는 Cking-BE docs/domains/event/banner-api.md를 따른다. 응답의 bannerImageUrl은 배너가 없으면 null이다.
 
-// POST /api/creator/events/banner-images - 배너 이미지 1장 업로드 → { imageKey }.
+// 배너 이미지 1장 업로드 → { imageKey }. 사전 서명 업로드(/api/uploads)를 먼저 쓰고,
+// 그 API가 없는 환경(404)은 POST /api/creator/events/banner-images로 올린다.
 // 생성·수정의 bannerImageKey로 연결하며, 24시간 안에 연결하지 않으면 서버가 지운다.
 export function uploadEventBannerImage(file) {
   return uploadImage('EVENT_BANNER', file, legacyUploadEventBannerImage);

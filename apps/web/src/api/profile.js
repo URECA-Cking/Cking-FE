@@ -16,7 +16,7 @@ export function getMyProfile() {
   return getMe()
 }
 
-/** POST /api/me/profile-images — 이미지 1장 업로드 → { imageKey }. 24시간 안에 프로필에 연결하지 않으면 서버가 지운다. */
+/** 이미지 1장 업로드 → { imageKey }. 사전 서명 업로드(/api/uploads)를 먼저 쓰고, 그 API가 없는 환경(404)은 POST /api/me/profile-images로 올린다. 24시간 안에 프로필에 연결하지 않으면 서버가 지운다. */
 export function uploadProfileImage(file) {
   return uploadImage('MEMBER_PROFILE', file, legacyUploadProfileImage)
 }

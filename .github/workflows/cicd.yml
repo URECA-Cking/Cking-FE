@@ -32,7 +32,7 @@ jobs:
       - run: npm run test
       - run: npm run build
 
-  # 배포 워크플로는 develop에 머지된 뒤에야 실행되어, 오류가 배포 때 드러난다.
+  # 배포 job은 develop·main에 머지된 뒤에야 실행되어, 오류가 배포 때 드러난다.
   actionlint:
     runs-on: ubuntu-latest
     steps:

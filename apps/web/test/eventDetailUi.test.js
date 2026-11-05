@@ -149,6 +149,14 @@ for(const [status,displayStatus] of [['SCHEDULED','UPCOMING'],['CLOSED','CLOSED'
  const p=await screen({status,displayStatus})
  try{await p.getByText('Event title',{exact:true}).waitFor();assert.equal(await mainButton(p).isDisabled(),true);assert.equal((await posts(p)).length,0)}finally{await p.close()}
 })
+test('deadline passed before the server closes shows a closed notice, not the ticket guide, to a ticket holder',async()=>{
+ const p=await screen({clockTime:'2026-10-20T00:01:01Z',endAt:'2026-10-20T00:01:00Z'})
+ try{
+  await p.getByText('응모가 마감됐어요.',{exact:true}).waitFor()
+  assert.equal(await p.getByText('미션·출석으로 응모권을 받을 수 있어요.',{exact:true}).count(),0)
+  assert.equal(await mainButton(p).isDisabled(),true)
+ }finally{await p.close()}
+})
 test('missing event explains it is gone and offers other events instead of a useless retry',async()=>{
  const p=await screen({notFound:true})
  try{

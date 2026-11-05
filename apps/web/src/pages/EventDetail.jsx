@@ -479,7 +479,11 @@ export default function EventDetail() {
                           ? '내 이벤트인지 확인하는 중이에요.'
                           : ownSpaceError
                             ? '내 이벤트인지 확인하지 못했어요.'
-                            : '미션·출석으로 응모권을 받을 수 있어요.'}
+                            : deadlinePassed
+                              ? '응모가 마감됐어요.'
+                              : !hasAnyTicket
+                                ? '미션·출석으로 응모권을 받을 수 있어요.'
+                                : '지금은 응모할 수 없어요.'}
                 </p>
                 {ownSpaceError && !isOwnEvent && isEntryOpen(event) && (
                   <button type="button" onClick={reloadOwnSpace} className="self-start text-label-sm underline text-on-surface-variant">다시 확인</button>

@@ -19,6 +19,7 @@ export const COMMON_ERROR_MESSAGES = {
   IMAGE_UPLOAD_FAILED: '사진을 올리지 못했어요. 다시 시도해주세요.',
   PROFILE_SETUP_REQUIRED: '먼저 닉네임을 설정해주세요.',
   ACTIVITY_NAME_SETUP_REQUIRED: '먼저 활동명을 설정해주세요. 스페이스 편집에서 정할 수 있어요.',
+  CREATOR_NOT_ACTIVE: '크리에이터 활동이 제한되어 있어요. 기존 콘텐츠와 기록은 확인할 수 있어요.',
   COMMENT_RESTRICTED: '댓글 작성이 제한되어 있어요.',
   SPACE_COMMENT_BLOCKED: '이 스페이스에서는 댓글을 쓸 수 없어요. 다른 스페이스에서는 쓸 수 있어요.',
   POST_FOLLOWERS_ONLY: '팬에게만 공개된 게시글이에요.',

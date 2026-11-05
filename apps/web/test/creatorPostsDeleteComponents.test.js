@@ -52,7 +52,7 @@ async function screen() {
   }, post)
   await page.addScriptTag({ content: bundle })
   await page.getByRole('button', { name: /^게시글 삭제할 게시글/ }).click()
-  await page.getByRole('button', { name: '게시글 메뉴' }).click()
+  await page.getByRole('dialog', { name: '게시글 상세' }).getByRole('button', { name: '게시글 메뉴' }).last().click()
   await page.getByRole('button', { name: '삭제', exact: true }).click()
   return page
 }
@@ -99,6 +99,6 @@ test('삭제가 실패하면 시트가 닫히고 게시글은 그대로 남는�
     await sheet.waitFor({ state: 'detached' })
     assert.deepEqual(await page.evaluate(() => window.deleteCalls), ['/api/creator/posts/5'])
     assert.equal((await page.evaluate(() => window.toasts)).length, 1)
-    assert.equal(await page.getByRole('button', { name: '게시글 메뉴' }).count(), 1)
+    assert.equal(await page.getByRole('dialog', { name: '게시글 상세' }).getByRole('button', { name: '게시글 메뉴' }).last().isVisible(), true)
   } finally { await page.close() }
 })

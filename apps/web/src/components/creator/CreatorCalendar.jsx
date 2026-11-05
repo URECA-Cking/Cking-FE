@@ -105,7 +105,7 @@ function ScheduleCard({ schedule, calendar, manage }) {
  * 일정이 있는 날에 점을 찍어 고른 날의 일정을 보여준다.
  * 내 스페이스(isMine)면 일정 등록·수정·삭제도 여기서 한다(POST·PATCH·DELETE /api/creator/calendar/schedules).
  */
-export default function CreatorCalendar({ creatorId, isMine = false }) {
+export default function CreatorCalendar({ creatorId, isMine = false, canOperate = true }) {
   const navigate = useNavigate()
   const location = useLocation()
   const showToast = useToast()
@@ -177,7 +177,7 @@ export default function CreatorCalendar({ creatorId, isMine = false }) {
 
   return (
     <div className="flex flex-col gap-space-md px-margin py-space-sm md:mx-auto md:w-full md:max-w-3xl">
-      {isMine && <CreateFab label="새 일정 등록" onClick={() => setEditor({ schedule: null })} />}
+      {isMine && canOperate && <CreateFab label="새 일정 등록" onClick={() => setEditor({ schedule: null })} />}
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -225,7 +225,7 @@ export default function CreatorCalendar({ creatorId, isMine = false }) {
             isMine
               ? {
                   busy: deletingId === schedule.scheduleId,
-                  onEdit: () => setEditor({ schedule }),
+                  onEdit: canOperate ? () => setEditor({ schedule }) : null,
                   onDelete: () => setDeleteTarget(schedule),
                 }
               : null

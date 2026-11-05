@@ -14,6 +14,8 @@ Web과 Creator 기능은 `apps/web/src/`에 있으며 독립 Web workspace에서
 | 온보딩·공개 Space | `/onboarding`, `/onboarding/creators`, `/creators/:creatorId`, `/space/:slug`, `/events/:eventId` | 관심 분야·추천, 팔로우, Creator Space, 이벤트·응모 |
 | Creator 운영 | `/creator/events/new`, `/creator/events/:eventId/edit` | 이벤트 작성·수정. 이벤트 목록·일정 관리는 내 스페이스의 이벤트·캘린더 탭에서 한다 |
 
+마이페이지의 크리에이터 전환 신청은 활동명·활동 분야·소개·증빙 HTTPS URL·활동 계획·플랫폼·정책 동의를 담은 신청서를 제출한다. `NEEDS_REVISION`이면 신청 단건의 초안을 불러와 수정한 뒤 재제출한다. Creator는 YouTube 채널 설정에서 Google 계정 연결을 시작하고, 복귀 결과와 서버의 인증 상태를 확인한다. 수동 채널 설정만으로 구독 인증 미션이 열리지는 않는다. `/api/me`의 `creatorCanOperate`가 false이면 새 게시글·일정·이벤트·Quiz 작성과 게시를 제한하고, 기존 콘텐츠 조회·삭제·게시 중지·마감 경로는 유지한다. 마이페이지의 제한 사유는 본인 자격 조회의 `publicNotice`만 표시한다.
+
 `/studio*`는 내 스페이스로 리다이렉트한다. `/space/:slug`와 `/events/:eventId`는 비로그인 조회를 허용한다. 이벤트 상세는 비로그인이면 응모권·응모 현황·내 당첨 호출을 생략하고, 응모 버튼이 로그인 화면으로 보내며 로그인 뒤 이벤트 상세로 돌아온다. BE의 `GET /api/events/{eventId}`는 비로그인 공개로 전환됐다(Cking-BE#714). 그래도 조회가 거절되면 오류 화면에 "로그인하고 확인하기" 버튼을 보여 준다. 그 밖의 사용자 경로는 `RequireUser`, Creator 운영은 추가로 `RequireRole role="creator"`를 사용한다.
 
 로그인한 팬의 `GET /api/me`에서 `profileConfigured=false`이면 앱의 모든 경로(공개 조회 경로 포함)에서 `/profile/edit`로 보내 닉네임을 먼저 설정한다. 설정 화면의 뒤로 가기는 확인 후 로그아웃하고, 닉네임 저장이 성공하면 남은 온보딩 또는 원래 진입하려던 경로로 이동한다. 비로그인 공개 조회와 크리에이터 계정에는 이 제한을 적용하지 않는다.

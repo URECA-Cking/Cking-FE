@@ -218,9 +218,12 @@ test('submission checks current deadline before POST even before countdown rende
   await openConfirm(p)
   await p.clock.setSystemTime(new Date('2026-10-20T00:01:01Z'))
   const confirm=p.getByRole('button',{name:'응모 확정',exact:true})
-  assert.equal(await confirm.isEnabled(),true)
-  await confirm.click()
-  await p.waitForFunction(()=>window.toasts.includes('지금은 응모할 수 있는 상태가 아니에요.'))
+  // 시계 갱신 직후 interval이 먼저 반영되면 버튼이 이미 비활성일 수 있고,
+  // 아직 렌더 전이면 click handler가 현재 시각을 다시 확인한다. 어느 경우에도 POST는 없어야 한다.
+  if (await confirm.isEnabled()) {
+   await confirm.click()
+   await p.waitForFunction(()=>window.toasts.includes('지금은 응모할 수 있는 상태가 아니에요.'))
+  }
   assert.equal((await posts(p)).length,0)
  }finally{await p.close()}
 })

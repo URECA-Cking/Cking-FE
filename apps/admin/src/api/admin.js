@@ -142,6 +142,8 @@ export async function getCreatorApplications({ status, page = 0, size = 20 } = {
   return get('/api/admin/creator-applications', { status, page, size });
 }
 
+export function getCreatorApplication(applicationId) { return get(`/api/admin/creator-applications/${applicationId}`) }
+
 /** 페이지 기반 관리자 목록을 모두 읽어 Dashboard 집계에 사용할 항목을 반환한다. */
 async function getAllPages(loadPage, size = 100) {
   const items = []
@@ -187,6 +189,14 @@ export async function approveCreatorApplication(applicationId) {
 export async function rejectCreatorApplication(applicationId, rejectReason) {
   return post(`/api/admin/creator-applications/${applicationId}/reject`, { rejectReason });
 }
+
+export function requestCreatorApplicationRevision(applicationId, revisionReason) { return post(`/api/admin/creator-applications/${applicationId}/request-revision`, { revisionReason }) }
+export function getManagedCreators({ status, page = 0, size = 20 } = {}) { return get('/api/admin/creators', { status, page, size }) }
+export function getManagedCreator(creatorId) { return get(`/api/admin/creators/${creatorId}`) }
+export function getCreatorStatusHistory(creatorId, { page = 0, size = 20 } = {}) { return get(`/api/admin/creators/${creatorId}/status-history`, { page, size }) }
+export function suspendCreator(creatorId, body) { return post(`/api/admin/creators/${creatorId}/suspend`, body) }
+export function reactivateCreator(creatorId, body) { return post(`/api/admin/creators/${creatorId}/reactivate`, body) }
+export function revokeCreator(creatorId, body) { return post(`/api/admin/creators/${creatorId}/revoke`, body) }
 
 /** 신고된 댓글을 댓글별로 모아 최근 신고 순으로 조회한다. status(PENDING·RESOLVED·REJECTED)를 생략하면 전체다. */
 export async function getCommentReports({ status, page = 0, size = 20 } = {}) {

@@ -59,7 +59,7 @@ const smallButtonClass =
 export default function QuizGenerationPanel(props) {
   return <GenerationSession key={props.creatorId} {...props} />
 }
-function GenerationSession({ creatorId, onSucceeded, onReview }) {
+function GenerationSession({ creatorId, onSucceeded, onReview, canOperate = true }) {
   const showToast = useToast()
   const storage = browserStorage()
   // 저장된 생성 요청 { requestId, input, generationId, savedAt }. 작업 ID가 없으면 응답을 받지 못한 요청이다.
@@ -101,7 +101,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
   const tracking = generationId !== null && (currentJob === null || (isActiveJob(currentJob) && !isAwaitingContentReview(currentJob)))
   const pollStopped = pollFailures >= POLL_FAILURE_MAX
   // 결과를 확인하지 못한 요청이 있거나, 진행 중이거나 상태를 아직 모르는 작업이 있으면 새 생성을 막는다.
-  const canStart = !submitting && !recovering && !recoveryError && !reviewBusy && ((stored === null && recovered === null) || (generationId !== null && currentJob !== null && !isActiveJob(currentJob)))
+  const canStart = canOperate && !submitting && !recovering && !recoveryError && !reviewBusy && ((stored === null && recovered === null) || (generationId !== null && currentJob !== null && !isActiveJob(currentJob)))
 
   const clearDraft = useCallback(id => {
     reviewDrafts.delete(id)
@@ -372,7 +372,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
       <CreateFab label="AI Quiz 생성" onClick={() => openForm(EMPTY_FORM)} disabled={!canStart} />
 
       {recoveryError && <div role="alert"><p>{recoveryError}</p><button onClick={() => generationId ? openReview() : recoverCurrent()}>다시 확인</button></div>}
-      {reviewJob?.generationId === generationId && <QuizContentReviewSheet key={reviewJob.generationId} creatorId={creatorId} job={reviewJob} storage={storage} drafts={reviewDrafts}
+      {reviewJob?.generationId === generationId && <QuizContentReviewSheet key={reviewJob.generationId} creatorId={creatorId} job={reviewJob} storage={storage} drafts={reviewDrafts} canOperate={canOperate}
         onClose={() => setReviewJob(null)} onResult={result => acceptReviewResult(result, reviewJob.generationId)}
         onRefresh={refreshReview} onInaccessible={async error => {
           if (!alive.current || generationRef.current !== reviewJob.generationId) return
@@ -444,7 +444,7 @@ function GenerationSession({ creatorId, onSucceeded, onReview }) {
             {generationFailureMessage(currentJob)} 다시 생성하면 새 요청으로 처리돼요.
           </p>
           <div className="flex gap-2">
-            <button type="button" onClick={() => openForm(displayInput)} className={`${smallButtonClass} bg-primary text-on-primary`}>
+            <button type="button" onClick={() => openForm(displayInput)} disabled={!canOperate} className={`${smallButtonClass} bg-primary text-on-primary disabled:opacity-50`}>
               다시 생성
             </button>
             <button type="button" onClick={dismiss} className={`${smallButtonClass} bg-surface-container text-on-surface`}>

@@ -25,6 +25,14 @@ export function updateMyYoutubeChannel({ channelName, channelHandle }) {
   return apiClient.put('/api/creator/youtube-channel', { channelName, channelHandle })
 }
 
+export function startYoutubeChannelConnection(channelHandle) {
+  return apiClient.post('/api/creator/youtube-channel/connections', { channelHandle })
+}
+
+export function getYoutubeChannelConnection() {
+  return apiClient.get('/api/creator/youtube-channel/connection')
+}
+
 export function submitSubscriptionVerification({ creatorId, missionId, requestId, image }) {
   const form = new FormData()
   form.append('requestId', requestId)
@@ -60,6 +68,11 @@ export const SUBSCRIPTION_VERIFICATION_ERROR_MESSAGES = {
   IDEMPOTENCY_CONFLICT: '같은 제출 요청에 다른 이미지가 사용됐어요. 새로 시도해주세요.',
   INVALID_STATE: '처리 중인 구독 인증이 있어 현재 YouTube 채널을 변경할 수 없어요.',
   CHANNEL_HANDLE_CONFLICT: '이미 사용 중인 채널 아이디예요.',
+  CHANNEL_CONNECTION_REQUIRED: '인증된 채널을 바꾸려면 YouTube 계정을 다시 연결해주세요.',
+  CHANNEL_ALREADY_CONNECTED: '다른 크리에이터가 이미 연결한 채널이에요.',
+  CHANNEL_CONNECTION_INVALID: 'YouTube 연결 정보가 만료됐어요. 다시 시도해주세요.',
+  CHANNEL_CONNECTION_MISMATCH: '입력한 채널과 로그인한 YouTube 계정이 일치하지 않아요.',
+  CHANNEL_CONNECTION_UNAVAILABLE: 'YouTube 연결을 지금 사용할 수 없어요. 잠시 후 다시 시도해주세요.',
   VALIDATION_FAILED: '입력값 또는 파일 형식을 확인해주세요.',
 }
 

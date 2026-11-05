@@ -9,6 +9,7 @@ import { useTheme } from '../context/useTheme.js'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
+import { useProfileSetupRedirect } from '../hooks/useProfileSetupRedirect.js'
 import { getMyCreatorApplications } from '../api/creatorApplications.js'
 import { getMySpace, spacePath } from '../api/creatorSpace.js'
 import { getMyCreatorProfile } from '../api/creatorProfile.js'
@@ -49,6 +50,7 @@ export default function MyPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const showToast = useToast()
   const { user, isCreator, isAdmin, canOperateCreator, creatorStatus, capabilities, clearUser, refreshCapabilities } = useUser()
+  const redirectToProfileSetup = useProfileSetupRedirect()
   const { isDark, toggleTheme } = useTheme()
 
   const [applicationSheetOpen, setApplicationSheetOpen] = useState(false)
@@ -63,7 +65,7 @@ export default function MyPage() {
   // 프로필 카드, 스페이스 편집 진입점, 내 스페이스 메뉴가 같은 응답을 쓴다.
   const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator, fallbackMessage: '내 스페이스를 불러오지 못했어요.' })
   const myCreatorProfile = useAsync(() => getMyCreatorProfile(), [isCreator], { enabled: isCreator })
-  const myCreatorStatus = useAsync(getMyCreatorStatus, [isCreator], { enabled: isCreator })
+  const myCreatorStatus = useAsync(getMyCreatorStatus, [isCreator, canOperateCreator], { enabled: isCreator && !canOperateCreator })
   const profile = ownPublicProfile(user, mySpace.data, myCreatorProfile.data)
   const spaceEditTarget = mySpace.data ? spacePath(mySpace.data.slug) : null
   const latestApplication = applications.data?.items?.[0] ?? null
@@ -167,8 +169,7 @@ export default function MyPage() {
         </section>
       )}
 
-      {/* 크리에이터 전환 블록은 신청 전(안내·신청 버튼)과 심사 대기(PENDING, 신청일·심사 대기 중) 동안만 보인다.
-          승인·반려로 처리된 뒤에는 숨긴다(이슈 #259). */}
+      {/* 크리에이터 전환 블록은 신청 전과 심사 중에 표시한다. 보완 요청·거절 후에는 신청서 보완 또는 새 신청서를 제출할 수 있다. */}
       {!isCreator && (!latestApplication || hasPending || latestApplication?.status === 'NEEDS_REVISION' || latestApplication?.status === 'REJECTED') && (
         <section className="flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
           <div className="flex items-center gap-1.5">
@@ -211,7 +212,7 @@ export default function MyPage() {
         </section>
       )}
 
-      <CreatorApplicationSheet open={applicationSheetOpen} application={latestApplication?.status === 'NEEDS_REVISION' ? latestApplication : null} onClose={() => setApplicationSheetOpen(false)} onDone={async () => { setApplicationSheetOpen(false); await Promise.all([applications.reload(), refreshCapabilities()]) }} />
+      <CreatorApplicationSheet open={applicationSheetOpen} application={latestApplication?.status === 'NEEDS_REVISION' ? latestApplication : null} onClose={() => setApplicationSheetOpen(false)} onProfileSetupRequired={redirectToProfileSetup} onDone={async () => { setApplicationSheetOpen(false); await Promise.all([applications.reload(), refreshCapabilities()]) }} />
 
       <section className="flex flex-col rounded-2xl bg-surface-container-lowest shadow-card overflow-hidden">
         <Link

@@ -17,10 +17,6 @@ export function getCreatorYoutubeChannel(creatorId) {
   return apiClient.get(`/api/creators/${creatorId}/youtube-channel`)
 }
 
-export function getMyYoutubeChannel() {
-  return apiClient.get('/api/creator/youtube-channel')
-}
-
 export function updateMyYoutubeChannel({ channelName, channelHandle }) {
   return apiClient.put('/api/creator/youtube-channel', { channelName, channelHandle })
 }

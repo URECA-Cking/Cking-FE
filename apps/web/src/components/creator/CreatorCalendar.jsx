@@ -76,15 +76,15 @@ function ScheduleCard({ schedule, calendar, manage }) {
           </button>
         )}
         {manage && (
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <button
+          <div className={`mt-2 grid gap-2 ${manage.onEdit ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {manage.onEdit && <button
               type="button"
               disabled={manage.busy}
               onClick={manage.onEdit}
               className="h-10 rounded-xl bg-surface-container font-label-sm text-label-sm font-semibold text-on-surface transition-all active:scale-[0.98] disabled:opacity-40"
             >
               수정
-            </button>
+            </button>}
             <button
               type="button"
               disabled={manage.busy}

@@ -7,14 +7,15 @@ import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.js
 import Pagination from '../../components/Pagination.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { approveCreatorApplication, approveEvent, getAllCreatorApplications, getAllPendingEvents, getCreatorApplication, getCreatorApplications, rejectCreatorApplication, rejectEvent, requestCreatorApplicationRevision } from '../../api/admin.js'
+import { approveCreatorApplication, approveEvent, getAllPendingEvents, getCreatorApplication, getCreatorApplications, rejectCreatorApplication, rejectEvent, requestCreatorApplicationRevision } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
+import { REVIEW_STATUS_META } from '../../utils/eventStatus.js'
 import { toSafeHttpUrl } from '@cking/shared/safeUrl'
 
 const CONFIG = {
   creators: {
-    title: 'Creator 신청 관리', description: 'Creator 권한 신청을 검토하고 승인하거나 거절합니다.', listPath: '/admin/reviews/creators', loadList: async () => ({ items: await getAllCreatorApplications() }), loadDetail: async () => ({ items: await getAllCreatorApplications() }), itemId: (item) => item.applicationId,
+    title: 'Creator 신청 관리', description: 'Creator 권한 신청을 검토하고 승인하거나 거절합니다.', listPath: '/admin/reviews/creators', itemId: (item) => item.applicationId,
     empty: '현재 검토할 Creator 신청이 없습니다.', searchPlaceholder: '신청 ID 또는 신청자 검색', matches: (item, term) => [item.applicationId, item.applicantName, item.applicantUserId].some((value) => String(value ?? '').toLowerCase().includes(term)),
     subject: (item) => `${item.applicantName}님의 Creator 신청`, status: (item) => item.status,
   },
@@ -117,7 +118,7 @@ export function ReviewDetailPage({ type }) {
         {item.submittedForm ? <ApplicationFormRows title={`제출된 신청서 · ${item.submissionVersion ?? 0}차`} form={item.submittedForm} /> : <DetailInfoRows title="신청서" rows={[["제출 상태", "신청서 미제출"]]} />}
         <DetailInfoRows title="처리 정보" rows={[["처리 시간", item.reviewedAt ? formatDateTime(item.reviewedAt) : '-'], ['처리자', item.reviewedBy ? `#${item.reviewedBy}` : '-'], ['보완 사유', item.revisionReason ?? '-'], ['거절 사유', item.rejectReason ?? '-']]} />
         {item.submissions?.map((submission) => <ApplicationFormRows key={submission.version} title={`제출 이력 · ${submission.version}차 · ${formatDateTime(submission.submittedAt)}`} form={submission.form} />)}
-        {item.reviews?.length > 0 && <DetailInfoRows title="심사 이력" rows={item.reviews.map((review) => [review.action, `${review.reason ?? '-'} · ${formatDateTime(review.createdAt)}`])} />}
+        {item.reviews?.length > 0 && <DetailInfoRows title="심사 이력" rows={item.reviews.map((review) => [REVIEW_STATUS_META[review.action]?.label ?? '처리 결과 확인 필요', `${review.reason ?? '-'} · ${formatDateTime(review.createdAt)}`])} />}
       </> : <>
         <DetailInfoRows title="진행 정보" rows={[["시작일", formatDateTime(item.startAt)], ['종료일', formatDateTime(item.endAt)], ['당첨 인원', `${formatNumber(item.winnerCount)}명`], ['추첨 방식', item.drawMethod], ['승인 요청 차수', `${item.approvalRound}차`]]} />
         {item.prizes?.length > 0 && <DetailInfoRows title="상품" rows={item.prizes.map((prize) => [prize.displayName, `${formatNumber(prize.quantity)}개`])} />}
@@ -128,7 +129,7 @@ export function ReviewDetailPage({ type }) {
       {type === 'creators' && pending && <button type="button" onClick={() => setAction('revision')} className="h-10 rounded-md border border-amber-300 bg-amber-50 px-4 text-sm font-semibold text-amber-800">보완 요청</button>}
       {pending && <button type="button" onClick={() => setAction('approve')} disabled={type === 'creators' && !item.submittedForm} className="h-10 rounded-md bg-pink-700 px-4 text-sm font-semibold text-white hover:bg-pink-800 disabled:opacity-50">승인</button>}
     </div>}
-    {action && <ConfirmModal action={action === 'revision' ? 'reject' : action} title={action === 'revision' ? '신청서 보완 요청' : undefined} reasonLabel={action === 'revision' ? '보완 요청 사유' : undefined} reasonMaxLength={action === 'revision' ? 500 : undefined} confirmLabel={action === 'revision' ? '보완 요청하기' : undefined} subject={config.subject(item)} busy={busy} onCancel={() => setAction(null)} onConfirm={(reason) => void decide(reason)} />}
+    {action && <ConfirmModal action={action === 'revision' ? 'reject' : action} title={action === 'revision' ? '신청서 보완 요청' : undefined} message={action === 'revision' ? '신청서에서 보완할 내용을 작성해 전달합니다. 신청자는 보완 후 다시 제출할 수 있습니다.' : undefined} reasonLabel={action === 'revision' ? '보완 요청 사유' : undefined} reasonMaxLength={action === 'revision' ? 500 : undefined} confirmLabel={action === 'revision' ? '보완 요청하기' : undefined} confirmTone={action === 'revision' ? 'bg-amber-600 hover:bg-amber-700' : undefined} busyLabel={action === 'revision' ? '보완 요청 처리 중...' : undefined} subject={config.subject(item)} busy={busy} onCancel={() => setAction(null)} onConfirm={(reason) => void decide(reason)} />}
   </div>
 }
 

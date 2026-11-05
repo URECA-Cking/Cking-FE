@@ -10,18 +10,18 @@ const INPUT = 'mt-1 w-full rounded-xl bg-surface-container px-3 py-2.5 text-body
 const PLATFORMS = { YOUTUBE: 'YouTube', INSTAGRAM: 'Instagram', TIKTOK: 'TikTok', BLOG: '블로그', OTHER: '기타' }
 const EMPTY_FORM = { preferredActivityName: '', categoryCodes: [], introduction: '', evidenceUrls: [''], activityPlan: '', platforms: [], agreeToCreatorPolicy: false }
 
-export default function CreatorApplicationSheet({ open, application, onClose, onDone }) {
+export default function CreatorApplicationSheet({ open, application, onClose, onDone, onProfileSetupRequired }) {
   const interests = useAsync(getInterests, [open], { enabled: open, fallbackMessage: '활동 분야를 불러오지 못했어요.' })
   const revising = application?.status === 'NEEDS_REVISION'
   const detail = useAsync(() => getMyCreatorApplication(application.applicationId), [open, application?.applicationId], { enabled: open && revising, fallbackMessage: '신청서를 불러오지 못했어요.' })
   return <BottomSheet open={open} onClose={onClose} closeOnBack eyebrow="Creator" title={revising ? '크리에이터 신청 보완' : '크리에이터 전환 신청'}>
     {detail.loading || interests.loading ? <LoadingBlock label="신청서를 준비하는 중..." /> : detail.error ? <ErrorBlock message={detail.error} onRetry={detail.reload} /> : interests.error ? <ErrorBlock message={interests.error} onRetry={interests.reload} /> : (
-      <ApplicationForm key={revising ? `${application.applicationId}:${detail.data?.submissionVersion}` : 'new'} application={revising ? detail.data : null} categories={interests.data?.items ?? []} onDone={onDone} />
+      <ApplicationForm key={revising ? `${application.applicationId}:${detail.data?.submissionVersion}` : 'new'} application={revising ? detail.data : null} categories={interests.data?.items ?? []} onDone={onDone} onProfileSetupRequired={onProfileSetupRequired} />
     )}
   </BottomSheet>
 }
 
-function ApplicationForm({ application, categories, onDone }) {
+function ApplicationForm({ application, categories, onDone, onProfileSetupRequired }) {
   const showToast = useToast()
   const [form, setForm] = useState(() => {
     const saved = application?.draftForm ?? application?.submittedForm ?? {}
@@ -45,7 +45,10 @@ function ApplicationForm({ application, categories, onDone }) {
       if (application) { await updateCreatorApplication(application.applicationId, payload); await resubmitCreatorApplication(application.applicationId); showToast('보완 신청서를 다시 제출했어요.') }
       else { await applyCreator(payload); showToast('크리에이터 전환 신청이 접수됐어요.') }
       onDone()
-    } catch (reason) { setError(describeCreatorApplicationError(reason)) }
+    } catch (reason) {
+      if (onProfileSetupRequired?.(reason)) return
+      setError(describeCreatorApplicationError(reason))
+    }
     finally { setSaving(false) }
   }
 

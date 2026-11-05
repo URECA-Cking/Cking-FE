@@ -85,13 +85,13 @@ npm run test:e2e:admin
 | 이벤트 상세 · 응모 | `/events/:eventId` | `GET /api/events/{id}`, `GET /api/events/{id}/entry-status`, `POST /api/events/{id}/entries`, `GET /api/events/{id}/winners` |
 | 내 응모 | `/my-entries` | `GET /api/creators/{id}/tickets/history`, `GET /api/events/{id}/winners` |
 | 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH /api/me/notifications/{id}/read`, `PATCH /api/me/notifications/read` |
-| 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/creator/applications/me`, `POST /api/creator/applications` |
+| 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/creator/applications/me`, `POST /api/creator/applications`, `GET·PATCH /api/creator/applications/{id}`, `POST .../resubmit`, `GET /api/creator/me/status`, `POST /api/creator/youtube-channel/connections`, `GET .../connection` |
 | 이벤트 관리 (내 스페이스 이벤트 탭) | `/:slug` | `GET /api/creator/events`, `DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
 | 이벤트 작성 | `/creator/events/new` | `POST /api/creator/events` |
 | 이벤트 수정 | `/creator/events/:eventId/edit` | `GET /api/creator/events`, `PATCH /api/creator/events/{id}` |
 | 일정 관리 (내 스페이스 캘린더 탭) | `/:slug` | `POST·PATCH·DELETE /api/creator/calendar/schedules(/{id})` |
 | 내 캘린더 | `/my-calendar` | `GET /api/me/calendar/schedules`, `PUT·DELETE /api/me/calendar/schedules/{id}` |
-| 관리자 콘솔 | `/admin` | `GET /api/admin/events/pending`, `POST .../approve·reject`, `GET /api/admin/creator-applications`, `POST .../approve·reject`, `GET .../closing-status`, `GET .../snapshot`, `POST .../drawings`, `GET /api/admin/drawings/{id}`, `GET .../result` |
+| 관리자 콘솔 | `/admin` | `GET /api/admin/events/pending`, `POST .../approve·reject`, `GET /api/admin/creator-applications`, `GET /api/admin/creator-applications/{id}`, `POST .../approve·reject·request-revision`, `GET /api/admin/creators`, `GET .../{id}·/status-history`, `POST .../suspend·reactivate·revoke`, `GET .../closing-status`, `GET .../snapshot`, `POST .../drawings`, `GET /api/admin/drawings/{id}`, `GET .../result` |
 
 최신 백엔드 API 인덱스와의 대조 결과, 화면·API별 연동 상태와 역할별 흐름은
 [`docs/api-coverage.md`](docs/api-coverage.md)에서 관리한다.

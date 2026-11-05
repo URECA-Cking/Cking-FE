@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import BottomSheet from '../components/ui/BottomSheet.jsx'
 import { BackHeader } from '../components/layout/TopHeader.jsx'
-import { LoadingBlock, ErrorBlock, StatusPill, Spinner } from '../components/ui/States.jsx'
+import { LoadingBlock, ErrorBlock, Spinner } from '../components/ui/States.jsx'
 import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useMyTickets } from '../context/useMyTickets.js'
@@ -20,7 +20,7 @@ import { getMyWinners } from '../api/myWinners.js'
 import { newRequestId } from '../api/client.js'
 import { eventBannerSrc } from '../data/eventBanners.js'
 import { useCreatorProfile } from '../hooks/useCreatorProfile.js'
-import { formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '../utils/format.js'
+import { formatDateWithWeekday, formatDday, formatEventDate, formatNumber, totalPrizeQuantity } from '../utils/format.js'
 import { displayStatusMeta, eventStatusMeta, isEntryOpen } from '../utils/eventStatus.js'
 import { groupWinnersByDraw, isActiveWin, winnerStatusMeta } from '../utils/winnerPresentation.js'
 import {
@@ -95,7 +95,7 @@ export default function EventDetail() {
   // requestId·내용으로 다시 확인할 수 있게 현재 이벤트의 미확정 요청을 남겨 둔다.
   const [pendingEntry, setPendingEntry] = useState(null)
 
-  const { data: event, loading, error, reload, setData: setEvent } = useAsync(
+  const { data: event, loading, error, errorObject, reload, setData: setEvent } = useAsync(
     () => getEvent(eventId),
     [eventId, authenticated],
     { enabled: !sessionLoading, fallbackMessage: '이벤트 상세를 불러오지 못했습니다.' },
@@ -173,7 +173,9 @@ export default function EventDetail() {
     ? anonymous ? '로그인하고 응모하기' : '응모하기'
     : isOwnEvent && isEntryOpen(event)
       ? '내 이벤트에는 응모할 수 없어요'
-      : '응모할 수 없는 상태예요'
+      : !anonymous && !hasAnyTicket && isEntryOpen(event) && !deadlinePassed
+        ? '응모권이 없어요'
+        : '응모할 수 없는 상태예요'
   // 응모 성공으로 잔액이 줄어들 수 있으므로, 실제로 쓸 수량은 렌더 시점에 한도 범위로 맞춘다.
   const selectedCount = clampEntryCount(ticketCount, balance)
 
@@ -187,6 +189,17 @@ export default function EventDetail() {
   }
 
   if (error || !event) {
+    // 없거나 삭제된 이벤트는 다시 시도해도 같으므로 재시도 대신 다른 이벤트로 가는 길을 연다.
+    if (errorObject?.code === 'EVENT_NOT_FOUND') {
+      return (
+        <div className="flex flex-col w-full min-h-screen pt-safe justify-center gap-3">
+          <ErrorBlock message="없는 이벤트예요." />
+          <Link to="/explore?tab=event" className="self-center px-4 py-2 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-semibold active:scale-95 transition-all">
+            이벤트 둘러보기
+          </Link>
+        </div>
+      )
+    }
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe justify-center gap-3">
         <ErrorBlock message={error ?? '이벤트를 찾을 수 없어요.'} onRetry={reload} />
@@ -204,9 +217,21 @@ export default function EventDetail() {
   }
 
   const status = displayStatusMeta(event.displayStatus)
-  const statusDetail = eventStatusMeta(event.status)
   const closed = event.displayStatus === 'CLOSED'
   const dday = formatDday(event.endAt, { closed })
+  // 이 이벤트에 쓴 응모권 수(조회 중·실패·시작 전 상태 포함). 내 응모 카드의 두 배치가 함께 쓴다.
+  const myEntryValue = entryStatus.status?.myTicketCount != null ? (
+    <span>{formatNumber(entryStatus.status.myTicketCount)}장</span>
+  ) : event.displayStatus === 'UPCOMING' ? (
+    <span className="text-on-surface-variant text-body-sm">응모 시작 전</span>
+  ) : entryStatus.failed ? (
+    <span className="inline-flex items-center gap-1">
+      <span className="text-on-surface-variant text-body-sm">조회하지 못했어요.</span>
+      <button type="button" onClick={entryStatus.retry} className="text-label-sm underline">다시 확인</button>
+    </span>
+  ) : (
+    <span className="text-on-surface-variant text-body-sm">확인 중...</span>
+  )
 
   function finishPrizeDrag(event) {
     if (prizeDragRef.current?.id !== event.pointerId) return
@@ -370,7 +395,11 @@ export default function EventDetail() {
             <span
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-label-xs text-label-xs shadow-md ${status.tone}`}
             >
-              {status.label} {!closed && dday}
+              {/* 마감 뒤에는 "종료" 대신 마감 처리 중·추첨 완료·결과 공개처럼 더 구체적인 단계를 보여 준다(제목 옆 상태 알약을 이 배지로 합쳤다). */}
+              {/* 마감 시각이 지났는데 서버가 아직 OPEN이면(마감 배치 대기) "응모 진행 중" 대신 마감 처리 중으로 보여 준다. */}
+              {closed || deadlinePassed
+                ? eventStatusMeta(event.status === 'OPEN' ? 'CLOSING' : event.status).label
+                : `${status.label} ${dday}`}
             </span>
             <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface-glass backdrop-blur-md text-on-surface font-label-xs text-label-xs shadow-sm">
               {formatNumber(event.winnerCount)}명 추첨
@@ -394,7 +423,6 @@ export default function EventDetail() {
                 {creator.name}
               </Link>
               <CreatorVerifiedBadge />
-              <StatusPill label={statusDetail.label} tone={statusDetail.tone} className="ml-auto" />
             </div>
             <h2 className="font-headline-md text-headline-md font-extrabold text-on-surface tracking-tight">
               {event.title}
@@ -406,23 +434,34 @@ export default function EventDetail() {
             )}
           </div>
 
-          <section aria-label="내 응모" className="flex flex-wrap items-center justify-center gap-2 self-center w-fit max-w-full px-6 py-3 rounded-xl bg-surface-container-low text-primary font-title-md text-title-md font-bold">
-            <span>내 응모</span>
-            {anonymous ? (
-              <span className="text-on-surface-variant text-body-sm">로그인하면 확인할 수 있어요</span>
-            ) : entryStatus.status?.myTicketCount != null ? (
-              <span>{formatNumber(entryStatus.status.myTicketCount)}장</span>
-            ) : event.displayStatus === 'UPCOMING' ? (
-              <span className="text-on-surface-variant text-body-sm">응모 시작 전</span>
-            ) : entryStatus.failed ? (
-              <>
-                <span className="text-on-surface-variant text-body-sm">조회하지 못했어요.</span>
-                <button type="button" onClick={entryStatus.retry} className="text-label-sm underline">다시 확인</button>
-              </>
-            ) : (
-              <span className="text-on-surface-variant text-body-sm">확인 중...</span>
-            )}
-          </section>
+          {anonymous || closed ? (
+            <section aria-label="내 응모" className="flex flex-wrap items-center justify-between gap-2 p-space-md rounded-2xl bg-surface-container-low text-primary font-title-md text-title-md font-bold">
+              <span className="font-label-md text-label-md text-on-surface">내 응모</span>
+              {anonymous ? <span className="text-on-surface-variant text-body-sm">로그인하면 확인할 수 있어요</span> : myEntryValue}
+            </section>
+          ) : (
+            // 명세 §3.9: 이 이벤트에 쓴 응모권과 지금 쓸 수 있는 응모권(크리에이터·공용)을 한 카드에 나란히 보여 준다.
+            <div role="group" aria-label="응모권 현황" className="grid grid-cols-3 divide-x divide-outline-variant/40 py-space-md rounded-2xl bg-surface-container-low text-center">
+              <section aria-label="내 응모" className="flex flex-col items-center gap-1 px-2 text-primary font-title-md text-title-md font-bold">
+                {myEntryValue}
+                <span className="font-label-xs text-label-xs font-normal text-on-surface-variant">내 응모</span>
+              </section>
+              {[
+                [COUPON_TYPE.CREATOR, 'local_activity', '크리에이터'],
+                [COUPON_TYPE.COMMON, 'confirmation_number', '공용'],
+              ].map(([type, icon, label]) => (
+                <div key={type} aria-label={`보유 ${label} 응모권`} className="flex flex-col items-center gap-1 px-2">
+                  <span className={`font-title-md text-title-md font-bold ${balances[type] > 0 ? 'text-on-surface' : 'text-on-surface-variant/50'}`}>
+                    {formatNumber(balances[type])}장
+                  </span>
+                  <span className="inline-flex items-center gap-0.5 font-label-xs text-label-xs text-on-surface-variant">
+                    <MaterialIcon name={icon} className="text-[14px]" />
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {remaining !== null && (
             <div className="rounded-2xl bg-surface-container-low p-space-lg text-center" role="timer" aria-label="이벤트 마감 카운트다운">
@@ -444,9 +483,9 @@ export default function EventDetail() {
           <section aria-label="응모기간" className="p-space-md rounded-2xl bg-surface-container-low flex items-start justify-between gap-4">
             <h3 className="font-label-md text-label-md text-on-surface font-bold shrink-0">응모기간</h3>
             <div className="text-right font-body-sm text-body-sm text-on-surface-variant">
-              <span>{formatEventDate(event.startAt).replace(/^\d{2,4}[.\-/년]\s*/, '')}</span>
+              <span>{formatDateWithWeekday(event.startAt)}</span>
               <span className="mx-1">~</span>
-              <span>{formatEventDate(event.endAt).replace(/^\d{2,4}[.\-/년]\s*/, '')}</span>
+              <span>{formatDateWithWeekday(event.endAt)}</span>
             </div>
           </section>
 
@@ -466,7 +505,11 @@ export default function EventDetail() {
                           ? '내 이벤트인지 확인하는 중이에요.'
                           : ownSpaceError
                             ? '내 이벤트인지 확인하지 못했어요.'
-                            : '보유한 응모권이 없어 응모할 수 없어요.'}
+                            : deadlinePassed
+                              ? '응모가 마감됐어요.'
+                              : !hasAnyTicket
+                                ? '미션·출석으로 응모권을 받을 수 있어요.'
+                                : '지금은 응모할 수 없어요.'}
                 </p>
                 {ownSpaceError && !isOwnEvent && isEntryOpen(event) && (
                   <button type="button" onClick={reloadOwnSpace} className="self-start text-label-sm underline text-on-surface-variant">다시 확인</button>

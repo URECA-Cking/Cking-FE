@@ -6,9 +6,12 @@ import {
   canHandle,
   reasonLabel,
   reasonSummary,
+  reportDetailsLabel,
+  reportHandlerLabel,
   reportStatusLabel,
   viewAfterRefresh,
 } from '../src/utils/commentReport.js'
+import { nameWithId } from '../src/utils/format.js'
 
 test('신고 사유는 아는 코드를 한국어로, 모르는 코드는 그대로 보여준다', () => {
   assert.equal(reasonLabel('ABUSE'), '욕설·혐오')
@@ -28,6 +31,28 @@ test('사유별 신고 수는 정해진 순서로 합치고 건수가 없거나 
 
 test('모르는 사유는 아는 사유 뒤에 코드순으로 둔다', () => {
   assert.equal(reasonSummary({ ZZZ: 1, AAA: 2, ABUSE: 1 }), '욕설·혐오 1 · AAA 2 · ZZZ 1')
+})
+
+test('기타 신고가 받은 내용보다 많으면 최근 내용임을 밝힌다', () => {
+  const details = Array.from({ length: 20 }, (_, index) => `내용 ${index}`)
+  assert.equal(reportDetailsLabel({ reportDetails: details, reasonCounts: { OTHER: 25 } }), '기타 내용 최근 20건')
+  assert.equal(reportDetailsLabel({ reportDetails: details, reasonCounts: { OTHER: 20 } }), '기타 내용 20건')
+  assert.equal(reportDetailsLabel({ reportDetails: ['내용'], reasonCounts: {} }), '기타 내용 1건')
+  assert.equal(reportDetailsLabel({ reportDetails: ['내용'] }), '기타 내용 1건')
+})
+
+test('처리한 관리자는 회원 ID로 보여주고 처리한 적 없으면 비어 있다', () => {
+  assert.equal(reportHandlerLabel({ handledBy: 9 }), '관리자 #9')
+  assert.equal(reportHandlerLabel({ handledBy: null }), null)
+  assert.equal(reportHandlerLabel({}), null)
+  assert.equal(reportHandlerLabel(undefined), null)
+})
+
+test('이름 옆에 ID를 붙이고 이름이 없으면 ID를, 둘 다 없으면 대시를 보여준다', () => {
+  assert.deepEqual(nameWithId('닉네임', 7), { name: '닉네임', idLabel: '#7' })
+  assert.deepEqual(nameWithId(null, 7), { name: '#7', idLabel: null })
+  assert.deepEqual(nameWithId('닉네임', null), { name: '닉네임', idLabel: null })
+  assert.deepEqual(nameWithId(undefined, undefined), { name: '-', idLabel: null })
 })
 
 test('처리 상태는 문구로 바꾸고 모르는 상태는 그대로 보여준다', () => {

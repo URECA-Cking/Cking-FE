@@ -874,7 +874,7 @@ export default function CreatorSpace() {
                   <span className="flex h-5 w-5 items-center justify-center"><MaterialIcon name="bolt" className="text-primary text-[22px]" /></span>
                   <h2 className="font-title-md text-title-md text-on-surface">오늘의 미션</h2>
                 </div>
-                <span className="font-label-xs text-label-xs text-on-surface-variant">좋아요 미션은 매일 00:00 갱신</span>
+                <span className="font-label-xs text-label-xs text-on-surface-variant">좋아요 미션은 매일 09시 갱신</span>
               </div>
               {missionList}
             </div>

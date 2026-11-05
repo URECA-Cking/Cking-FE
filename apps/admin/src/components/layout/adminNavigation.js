@@ -28,6 +28,7 @@ export const ADMIN_NAVIGATION = [
       { label: '구독 인증 재사용', icon: 'image_search', to: '/admin/subscription-verifications/image-reuse', matches: (location) => location.pathname === '/admin/subscription-verifications/image-reuse' },
       { label: '신고 관리', icon: 'flag', to: '/admin/comment-reports', matches: (location) => location.pathname === '/admin/comment-reports' },
       { label: '제재 관리', icon: 'block', to: '/admin/space-comment-blocks', matches: (location) => location.pathname === '/admin/space-comment-blocks' },
+      { label: '필터링 내역', icon: 'filter_alt', to: '/admin/filtered-comments', matches: (location) => location.pathname === '/admin/filtered-comments' },
       { label: 'Dead Stream', icon: 'warning', to: '/admin/dead-streams', matches: (location) => location.pathname === '/admin/dead-streams' },
       { label: '응모권 관리', icon: 'confirmation_number', to: '/admin/tickets', matches: (location) => location.pathname === '/admin/tickets' },
     ],

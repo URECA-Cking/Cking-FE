@@ -6,6 +6,14 @@ export const formatEventDate = formatDateTime
 export const formatShortDate = formatDateTime
 export const formatRelativeTime = formatDateTime
 
+/** 연도 없이 요일을 붙인 "12월 1일(월) 09:00" (브라우저 시간대). 값이 없거나 잘못되면 '-'. */
+export function formatDateWithWeekday(value) {
+  const date = new Date(value)
+  if (!value || Number.isNaN(date.getTime())) return '-'
+  const pad = (number) => String(number).padStart(2, '0')
+  return `${date.getMonth() + 1}월 ${date.getDate()}일(${'일월화수목금토'[date.getDay()]}) ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 /** 종료까지 남은 일수를 "D-3" / "D-DAY" / "종료"로 표현한다. */
 export function formatDday(endAt, { closed = false } = {}) {
   if (closed) return '종료'

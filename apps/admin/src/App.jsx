@@ -11,6 +11,7 @@ import { AdminEventDetailPage, AdminEventsPage } from './pages/admin/AdminEvents
 import { AdminAbuseDetectionDetailPage, AdminAbuseDetectionListPage } from './pages/admin/AdminAbuseDetections.jsx'
 import { ReviewDetailPage, ReviewListPage } from './pages/admin/ReviewPages.jsx'
 import AdminCommentReports from './pages/admin/AdminCommentReports.jsx'
+import AdminFilteredComments from './pages/admin/AdminFilteredComments.jsx'
 import AdminSpaceCommentBlocks from './pages/admin/AdminSpaceCommentBlocks.jsx'
 import AdminTickets from './pages/admin/AdminTickets.jsx'
 import AdminSubscriptionImageReuse from './pages/admin/AdminSubscriptionImageReuse.jsx'
@@ -45,6 +46,7 @@ export default function App() {
       <Route path="/admin/dead-streams" element={protectedRoute(<AdminDeadStreams />)} />
       <Route path="/admin/comment-reports" element={protectedRoute(<AdminCommentReports />)} />
       <Route path="/admin/space-comment-blocks" element={protectedRoute(<AdminSpaceCommentBlocks />)} />
+      <Route path="/admin/filtered-comments" element={protectedRoute(<AdminFilteredComments />)} />
       <Route path="/admin/tickets" element={protectedRoute(<AdminTickets />)} />
       <Route path="/admin/subscription-verifications/image-reuse" element={protectedRoute(<AdminSubscriptionImageReuse />)} />
       <Route path="*" element={<Navigate to="/admin" replace />} />

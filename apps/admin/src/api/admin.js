@@ -213,6 +213,11 @@ export async function rejectCommentReports(commentId) {
   return post(`/api/admin/comment-reports/${commentId}/reject`)
 }
 
+/** AI가 가린 댓글을 신고 여부와 상관없이 최근 판정 순으로 조회한다. */
+export async function getFilteredComments({ page = 0, size = 20 } = {}) {
+  return get('/api/admin/filtered-comments', { page, size })
+}
+
 /** 지정 회원의 Creator 전용 또는 공용 응모권 Redis·MySQL 잔액을 비교 조회한다. */
 export function getAdminTicketBalance({ memberId, couponType, creatorId }) {
   return get('/api/admin/tickets/balance', { memberId, couponType, ...(couponType === 'CREATOR' ? { creatorId } : {}) })

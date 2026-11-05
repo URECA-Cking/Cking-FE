@@ -493,8 +493,8 @@ export default function PostComments({ creatorId, postId, authenticated, followi
           onGone={(error) => {
             setReportingId(null)
             showToast(COMMENT_REPORT_ERROR_MESSAGES[error.code] ?? '신고할 수 없는 댓글이에요.', { icon: 'error' })
-            // 삭제된 댓글이면 목록에서도 사라지도록 서버 목록과 다시 맞춘다.
-            if (error.code === 'RESOURCE_NOT_FOUND') refreshQuietly()
+            // 삭제됐거나 가려진 댓글이면 목록도 그 상태로 보이도록 서버 목록과 다시 맞춘다.
+            if (error.code === 'RESOURCE_NOT_FOUND' || error.code === 'COMMENT_REPORT_ALREADY_FILTERED') refreshQuietly()
             // 팔로우가 풀려 글을 더 볼 수 없으면 이미 떠 있는 상세와 댓글을 부모가 닫고 권한을 다시 확인한다.
             if (error.code === 'POST_FOLLOWERS_ONLY') onPostRestricted?.()
           }}

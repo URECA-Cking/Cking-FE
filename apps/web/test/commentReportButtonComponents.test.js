@@ -63,6 +63,30 @@ test('남의 댓글에만 신고 버튼이 보이고 본인·가려진 댓글에
   } finally { await page.close() }
 })
 
+test('신고 사이 이미 가려진 댓글은 안내하고 시트를 닫은 뒤 댓글 목록을 다시 읽는다', async () => {
+  const page = await screen()
+  try {
+    await page.evaluate(() => {
+      const list = window.fetch
+      window.commentLoads = 0
+      window.fetch = async (url, options) => {
+        const path = new URL(url).pathname
+        if (path.endsWith('/reports')) {
+          return new Response(JSON.stringify({ code: 'COMMENT_REPORT_ALREADY_FILTERED', data: null, message: '이미 필터링된 댓글입니다.' }),
+            { status: 409, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (path.endsWith('/comments')) window.commentLoads += 1
+        return list(url, options)
+      }
+    })
+    await reportButtons(page).click()
+    await page.getByLabel('욕설·혐오').check()
+    await page.getByRole('button', { name: '신고하기' }).click()
+    await page.waitForFunction(() => window.toasts.includes('이미 가려진 댓글이에요.') && window.commentLoads > 0)
+    assert.equal(await page.getByRole('button', { name: '신고하기' }).count(), 0)
+  } finally { await page.close() }
+})
+
 test('관리자에게는 개인정보 차단·관리자 숨김 댓글을 포함해 모든 필터링 댓글에 원문 보기 버튼이 보인다', async () => {
   const page = await screen({ isAdmin: true })
   try {

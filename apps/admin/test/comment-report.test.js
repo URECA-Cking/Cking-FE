@@ -6,6 +6,7 @@ import {
   canHandle,
   reasonLabel,
   reasonSummary,
+  reportDetailsLabel,
   reportHandlerLabel,
   reportStatusLabel,
   viewAfterRefresh,
@@ -29,6 +30,14 @@ test('사유별 신고 수는 정해진 순서로 합치고 건수가 없거나 
 
 test('모르는 사유는 아는 사유 뒤에 코드순으로 둔다', () => {
   assert.equal(reasonSummary({ ZZZ: 1, AAA: 2, ABUSE: 1 }), '욕설·혐오 1 · AAA 2 · ZZZ 1')
+})
+
+test('기타 신고가 받은 내용보다 많으면 최근 내용임을 밝힌다', () => {
+  const details = Array.from({ length: 20 }, (_, index) => `내용 ${index}`)
+  assert.equal(reportDetailsLabel({ reportDetails: details, reasonCounts: { OTHER: 25 } }), '기타 내용 최근 20건')
+  assert.equal(reportDetailsLabel({ reportDetails: details, reasonCounts: { OTHER: 20 } }), '기타 내용 20건')
+  assert.equal(reportDetailsLabel({ reportDetails: ['내용'], reasonCounts: {} }), '기타 내용 1건')
+  assert.equal(reportDetailsLabel({ reportDetails: ['내용'] }), '기타 내용 1건')
 })
 
 test('처리한 관리자는 회원 ID로 보여주고 처리한 적 없으면 비어 있다', () => {

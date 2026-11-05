@@ -17,6 +17,7 @@ import {
   actionSuccessMessage,
   canHandle,
   reasonSummary,
+  reportDetailsLabel,
   reportHandlerLabel,
   reportStatusLabel,
   viewAfterRefresh,
@@ -182,6 +183,12 @@ function actionErrorMessage(error) {
   return describeError(error, '조치를 처리하지 못했습니다.')
 }
 
+function ReportHandledInfo({ item }) {
+  const handler = reportHandlerLabel(item)
+  if (!handler) return null
+  return <p className="mt-1 text-xs text-slate-500">최근 처리 {handler}<br />{formatDateTime(item.handledAt)}</p>
+}
+
 function ReportTable({ items, busy, onAction, onSanction }) {
   return (
     <div className="overflow-x-auto">
@@ -214,7 +221,7 @@ function ReportTable({ items, busy, onAction, onSanction }) {
                 <p className="mt-0.5 text-xs text-slate-500">{reasonSummary(item.reasonCounts)}</p>
                 {item.reportDetails?.length > 0 && (
                   <details className="mt-1 text-xs text-slate-600">
-                    <summary className="cursor-pointer">기타 내용 {item.reportDetails.length}건</summary>
+                    <summary className="cursor-pointer">{reportDetailsLabel(item)}</summary>
                     <ul className="mt-1 flex flex-col gap-1">
                       {item.reportDetails.map((detail, index) => (
                         <li key={index} className="whitespace-pre-wrap break-words rounded bg-slate-50 px-2 py-1">{detail}</li>
@@ -234,9 +241,7 @@ function ReportTable({ items, busy, onAction, onSanction }) {
                     <CommentFilterReason reasons={item.filterReasons} filterStatus={item.filterStatus} />
                   </div>
                 )}
-                {reportHandlerLabel(item) && (
-                  <p className="mt-1 text-xs text-slate-500">최근 처리 {reportHandlerLabel(item)}<br />{formatDateTime(item.handledAt)}</p>
-                )}
+                <ReportHandledInfo item={item} />
               </td>
               <td className="px-4 py-3 text-slate-600">{formatDateTime(item.latestReportedAt)}</td>
               <td className="px-5 py-3 text-right">

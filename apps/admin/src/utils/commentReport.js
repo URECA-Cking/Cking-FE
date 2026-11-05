@@ -20,6 +20,12 @@ export function reportStatusLabel(status) {
   return REPORT_STATUS_META[status]?.label ?? status ?? '-'
 }
 
+/** 기타 신고 내용 펼치기 문구. BE는 최근 내용만 일부 주므로, 기타 신고가 더 많으면 최근 내용임을 밝힌다. */
+export function reportDetailsLabel(item) {
+  const count = item?.reportDetails?.length ?? 0
+  return Number(item?.reasonCounts?.OTHER) > count ? `기타 내용 최근 ${count}건` : `기타 내용 ${count}건`
+}
+
 /** 가장 최근에 신고를 처리한 관리자 문구. 처리한 적 없으면 null이다. 관리자 계정은 닉네임이 없어 회원 ID로 보여준다. */
 export function reportHandlerLabel(item) {
   return item?.handledBy == null ? null : `관리자 #${item.handledBy}`

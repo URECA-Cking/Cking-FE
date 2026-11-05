@@ -11,6 +11,7 @@ import {
   reportStatusLabel,
   viewAfterRefresh,
 } from '../src/utils/commentReport.js'
+import { nameWithId } from '../src/utils/format.js'
 
 test('신고 사유는 아는 코드를 한국어로, 모르는 코드는 그대로 보여준다', () => {
   assert.equal(reasonLabel('ABUSE'), '욕설·혐오')
@@ -45,6 +46,13 @@ test('처리한 관리자는 회원 ID로 보여주고 처리한 적 없으면 �
   assert.equal(reportHandlerLabel({ handledBy: null }), null)
   assert.equal(reportHandlerLabel({}), null)
   assert.equal(reportHandlerLabel(undefined), null)
+})
+
+test('이름 옆에 ID를 붙이고 이름이 없으면 ID를, 둘 다 없으면 대시를 보여준다', () => {
+  assert.deepEqual(nameWithId('닉네임', 7), { name: '닉네임', idLabel: '#7' })
+  assert.deepEqual(nameWithId(null, 7), { name: '#7', idLabel: null })
+  assert.deepEqual(nameWithId('닉네임', null), { name: '닉네임', idLabel: null })
+  assert.deepEqual(nameWithId(undefined, undefined), { name: '-', idLabel: null })
 })
 
 test('처리 상태는 문구로 바꾸고 모르는 상태는 그대로 보여준다', () => {

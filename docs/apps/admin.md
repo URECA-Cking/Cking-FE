@@ -17,9 +17,9 @@
 | `/admin/dead-streams` | Dead Stream 조회·replay |
 | `/admin/subscription-verifications/image-reuse` | Verification ID 기준 구독 인증 이미지 재사용 탐지 결과 조회 |
 | `/admin/tickets` | 회원별 Creator 전용·공용 응모권 잔액 비교, 변동 이력 조회, DB 기준 수동 재동기화 |
-| `/admin/comment-reports` | 신고 관리: 신고된 게시글 댓글 목록(처리 상태 필터, 작성자·스페이스 이름, 기타 신고 내용, 최근 처리)과 댓글 숨김·신고 반려, 처리 상태와 무관한 댓글 삭제·작성자 제재(이 스페이스에서만 / 모든 스페이스) |
+| `/admin/comment-reports` | 신고 관리: 신고된 게시글 댓글 목록(처리 상태 필터, 작성자·스페이스 이름과 ID, 기타 신고 내용, 최근 처리)과 댓글 숨김·신고 반려, 처리 상태와 무관한 댓글 삭제·작성자 제재(이 스페이스에서만 / 모든 스페이스) |
 | `/admin/space-comment-blocks` | 제재 관리: 걸려 있는 댓글 작성 제재를 `스페이스 차단`(모든 스페이스의 차단, 크리에이터·회원 ID 필터)과 `플랫폼 제한`(관리자 수동 제한과 #643 이전의 자동 경고, 회원 ID 필터) 탭으로 나눠 보고 해제. 둘 다 "차단·제한 중만 보기" 지원. 선택한 탭은 `?scope=platform`으로 주소에 남고, 한 번 연 탭은 숨기기만 해서 필터가 유지되며 좌우 방향키로 탭을 옮긴다. 경로는 스페이스 차단만 다루던 때 주소를 지키려고 그대로 둔다 |
-| `/admin/filtered-comments` | 필터링 내역: AI가 자동으로 가린 댓글과 필터링 사유를 신고 여부와 상관없이 최근 판정 순으로 조회. 수정 후 재판정 전인 댓글은 `다시 확인 중`으로 표시하며, 차단 해제 같은 조치는 하지 않는다 |
+| `/admin/filtered-comments` | 필터링 내역: AI가 자동으로 가린 댓글과 필터링 사유, 작성자·스페이스 이름과 ID를 신고 여부와 상관없이 최근 판정 순으로 조회. 수정 후 재판정 전인 댓글은 `다시 확인 중`으로 표시하며, 차단 해제 같은 조치는 하지 않는다 |
 
 `/admin/reviews/events`는 `PENDING_APPROVAL` 상태만 처리하는 심사 큐다. Creator 신청 목록은 선택한 상태를 서버에 전달하고 20개 단위로 페이지를 이동하며, 이름·ID 검색은 서버 계약이 없어 현재 페이지 범위임을 화면에 표시한다. `/admin/events`와 `/admin/drawings`는 상태·보관 여부·페이지를 서버에 전달해 한 페이지씩 조회한다. 추첨 관리는 `CLOSED`·`DRAW_COMPLETED`·`PUBLISHED` 중 하나를 선택해 조회한다. Dashboard의 마감 처리 중 건수는 `CLOSING` 조회의 `totalElements`를 사용하고, 운영 Event 표는 `CLOSING`·`OPEN`·`CLOSED`·`DRAW_COMPLETED` 상태의 첫 페이지에서 최대 8건만 보인다. 보관함은 `archiveStatus=ARCHIVED`로 결과 공개(`PUBLISHED`) Event만 별도 조회하며, 상세는 `GET /api/admin/events/{eventId}/operation`으로 Event·Snapshot·INITIAL Drawing 요약을 한 번에 조회한다. 보관은 추첨·당첨 기록을 삭제하지 않고 사용자·Creator 화면, 응모, 내 당첨, 알림에서 Event를 제외한다. `SCHEDULED`는 오픈 예정 상태로 표시하되, `OPEN`부터 시작하는 실제 운영 흐름과는 구분하고 별도 관리자 작업을 노출하지 않는다. 심사 이력 필드의 제공 범위는 해당 API 계약을 확인한 뒤 결정한다.
 

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import ConfirmModal from '../../components/ConfirmModal.jsx'
 import CommentFilterReason from '../../components/CommentFilterReason.jsx'
 import CommentSanctionModal from '../../components/CommentSanctionModal.jsx'
+import NameWithId from '../../components/NameWithId.jsx'
 import Pagination from '../../components/Pagination.jsx'
 import { AdminPageHeader } from '../../components/AdminContent.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock, StatusPill } from '../../components/States.jsx'
@@ -212,8 +213,8 @@ function ReportTable({ items, busy, onAction, onSanction }) {
                 <p className="line-clamp-4 whitespace-pre-wrap break-words" title={item.content}>{item.content}</p>
               </td>
               <td className="max-w-[200px] px-4 py-3 text-xs text-slate-600">
-                <p>작성자 <span className="text-sm text-slate-800">{item.authorName ?? '-'}</span></p>
-                <p className="mt-0.5">스페이스 <span className="text-sm text-slate-800">{item.creatorName ?? '-'}</span></p>
+                <p>작성자 <span className="text-sm text-slate-800"><NameWithId name={item.authorName} id={item.authorMemberId} /></span></p>
+                <p className="mt-0.5">스페이스 <span className="text-sm text-slate-800"><NameWithId name={item.creatorName} id={item.creatorId} /></span></p>
                 <p className="mt-0.5 line-clamp-2 break-words" title={item.postPreview}>게시글 {item.postPreview ?? '-'}</p>
               </td>
               <td className="max-w-[220px] px-4 py-3 text-slate-700">

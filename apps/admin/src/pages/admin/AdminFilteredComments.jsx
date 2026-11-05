@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import CommentFilterReason from '../../components/CommentFilterReason.jsx'
+import NameWithId from '../../components/NameWithId.jsx'
 import Pagination from '../../components/Pagination.jsx'
 import { AdminPageHeader } from '../../components/AdminContent.jsx'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.jsx'
@@ -78,11 +79,11 @@ function FilteredCommentTable({ items }) {
               <td className="max-w-[200px] px-4 py-3 text-slate-700">
                 <CommentFilterReason reasons={item.filterReasons} filterStatus={item.filterStatus} />
               </td>
-              <td className="px-4 py-3 text-slate-700">{item.authorName ?? '-'}</td>
+              <td className="px-4 py-3 text-slate-700"><NameWithId name={item.authorName} id={item.authorMemberId} /></td>
               <td className="max-w-[200px] px-4 py-3 text-slate-600">
                 <p className="line-clamp-2 break-words" title={item.postPreview}>{item.postPreview}</p>
               </td>
-              <td className="px-4 py-3 text-slate-700">{item.creatorName ?? '-'}</td>
+              <td className="px-4 py-3 text-slate-700"><NameWithId name={item.creatorName} id={item.creatorId} /></td>
               <td className="px-5 py-3 text-slate-600">{formatDateTime(item.filteredAt)}</td>
             </tr>
           ))}

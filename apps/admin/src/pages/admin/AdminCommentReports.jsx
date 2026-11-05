@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import ConfirmModal from '../../components/ConfirmModal.jsx'
+import CommentFilterReason from '../../components/CommentFilterReason.jsx'
 import CommentSanctionModal from '../../components/CommentSanctionModal.jsx'
 import Pagination from '../../components/Pagination.jsx'
 import { AdminPageHeader } from '../../components/AdminContent.jsx'
@@ -215,6 +216,11 @@ function ReportTable({ items, busy, onAction, onSanction }) {
                   {item.hiddenByAdmin && <span className="rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-800">관리자 숨김</span>}
                   {item.blocked && <span className="rounded bg-violet-50 px-1.5 py-0.5 text-xs text-violet-800">AI 필터 차단</span>}
                 </div>
+                {item.blocked && (
+                  <div className="mt-1 max-w-[180px] text-xs text-slate-600">
+                    <CommentFilterReason reasons={item.filterReasons} filterStatus={item.filterStatus} />
+                  </div>
+                )}
               </td>
               <td className="px-4 py-3 text-slate-600">{formatDateTime(item.latestReportedAt)}</td>
               <td className="px-5 py-3 text-right">

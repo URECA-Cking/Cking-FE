@@ -332,6 +332,32 @@ for(const theme of ['dark','light'])test(`accepted additional entries refresh my
  }finally{await p.close()}
 })
 
+test('open event shows usable creator and common tickets beside my entries, one status badge and weekday dates; closed event hides balances',async()=>{
+ const open=await screen({balance:5,myTicketCount:2})
+ try{
+  const summary=open.getByRole('group',{name:'응모권 현황',exact:true})
+  await summary.getByRole('region',{name:'내 응모',exact:true}).getByText('2장',{exact:true}).waitFor()
+  assert.equal(await summary.getByLabel('보유 크리에이터 응모권',{exact:true}).textContent(),'5장local_activity크리에이터')
+  assert.equal(await summary.getByLabel('보유 공용 응모권',{exact:true}).textContent(),'0장confirmation_number공용')
+  assert.equal(await open.getByText('응모 진행 중',{exact:true}).count(),0)
+  assert.match(await open.getByRole('region',{name:'응모기간',exact:true}).textContent(),/\d+월 \d+일\([일월화수목금토]\) \d{2}:\d{2}/)
+ }finally{await open.close()}
+ const closed=await screen({status:'CLOSED',displayStatus:'CLOSED'})
+ try{
+  await closed.getByText('마감됨',{exact:true}).waitFor()
+  assert.equal(await closed.getByRole('group',{name:'응모권 현황',exact:true}).count(),0)
+  await closed.getByRole('region',{name:'내 응모',exact:true}).waitFor()
+ }finally{await closed.close()}
+})
+test('deadline passed while server status is still OPEN shows closing-in-progress badge, not in-progress',async()=>{
+ for(const displayStatus of ['CLOSED','IN_PROGRESS']){
+  const p=await screen({status:'OPEN',displayStatus,endAt:'2020-01-01T00:00:00Z'})
+  try{
+   await p.getByText('마감 처리 중',{exact:true}).waitFor()
+   assert.equal(await p.getByText(/^응모 진행 중/).count(),0,displayStatus)
+  }finally{await p.close()}
+ }
+})
 test('result-published event hides the closed-entry notice, closed event keeps it',async()=>{
  const notice=/응모가 마감된 이벤트예요/
  const closed=await screen({status:'CLOSED',displayStatus:'CLOSED'})

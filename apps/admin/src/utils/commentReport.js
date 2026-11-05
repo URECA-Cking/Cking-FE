@@ -20,6 +20,11 @@ export function reportStatusLabel(status) {
   return REPORT_STATUS_META[status]?.label ?? status ?? '-'
 }
 
+/** 가장 최근에 신고를 처리한 관리자 문구. 처리한 적 없으면 null이다. 관리자 계정은 닉네임이 없어 회원 ID로 보여준다. */
+export function reportHandlerLabel(item) {
+  return item?.handledBy == null ? null : `관리자 #${item.handledBy}`
+}
+
 /** 모르는 사유 코드는 코드 그대로 보여준다. */
 export function reasonLabel(code) {
   return REPORT_REASON_LABELS[code] ?? code

@@ -114,6 +114,7 @@ export function reportComment(creatorId, postId, commentId, { reason, detail }) 
 export const COMMENT_REPORT_ERROR_MESSAGES = {
   COMMENT_REPORT_LIMIT_EXCEEDED: '짧은 시간에 너무 많이 신고했어요. 잠시 뒤에 다시 시도해주세요.',
   COMMENT_REPORT_OWN_COMMENT: '내가 쓴 댓글은 신고할 수 없어요.',
+  COMMENT_REPORT_ALREADY_FILTERED: '이미 가려진 댓글이에요.',
   POST_FOLLOWERS_ONLY: '팬에게만 공개된 게시글이에요.',
   RESOURCE_NOT_FOUND: '댓글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
   VALIDATION_FAILED: '신고 사유를 확인해주세요. 기타는 1~200자의 내용이 필요해요.',

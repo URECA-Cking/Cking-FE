@@ -17,6 +17,7 @@ import {
   actionSuccessMessage,
   canHandle,
   reasonSummary,
+  reportHandlerLabel,
   reportStatusLabel,
   viewAfterRefresh,
 } from '../../utils/commentReport.js'
@@ -184,11 +185,12 @@ function actionErrorMessage(error) {
 function ReportTable({ items, busy, onAction, onSanction }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[960px] text-left text-sm">
+      <table className="w-full min-w-[1080px] text-left text-sm">
         <thead className="bg-slate-50 text-xs font-medium text-slate-500">
           <tr>
-            <th className="px-5 py-3">댓글</th>
-            <th className="px-4 py-3">원문</th>
+            <th className="px-5 py-3">댓글 번호</th>
+            <th className="px-4 py-3">댓글 내용</th>
+            <th className="px-4 py-3">작성 정보</th>
             <th className="px-4 py-3">신고</th>
             <th className="px-4 py-3">상태</th>
             <th className="px-4 py-3">최근 신고</th>
@@ -198,17 +200,28 @@ function ReportTable({ items, busy, onAction, onSanction }) {
         <tbody className="divide-y divide-slate-100">
           {items.map((item) => (
             <tr key={item.commentId} className="align-top hover:bg-slate-50">
-              <td className="px-5 py-3 text-slate-700">
-                <p className="font-medium text-slate-900">#{item.commentId}</p>
-                <p className="mt-0.5 text-xs text-slate-500">게시글 #{item.postId} · Creator #{item.creatorId}</p>
-                <p className="text-xs text-slate-500">작성 회원 #{item.authorMemberId}</p>
-              </td>
+              <td className="px-5 py-3 font-medium text-slate-900">#{item.commentId}</td>
               <td className="max-w-xs px-4 py-3 text-slate-800">
                 <p className="line-clamp-4 whitespace-pre-wrap break-words" title={item.content}>{item.content}</p>
               </td>
-              <td className="px-4 py-3 text-slate-700">
+              <td className="max-w-[200px] px-4 py-3 text-xs text-slate-600">
+                <p>작성자 <span className="text-sm text-slate-800">{item.authorName ?? '-'}</span></p>
+                <p className="mt-0.5">스페이스 <span className="text-sm text-slate-800">{item.creatorName ?? '-'}</span></p>
+                <p className="mt-0.5 line-clamp-2 break-words" title={item.postPreview}>게시글 {item.postPreview ?? '-'}</p>
+              </td>
+              <td className="max-w-[220px] px-4 py-3 text-slate-700">
                 <p>총 {item.reportCount}건 · 접수 {item.pendingReportCount}건</p>
                 <p className="mt-0.5 text-xs text-slate-500">{reasonSummary(item.reasonCounts)}</p>
+                {item.reportDetails?.length > 0 && (
+                  <details className="mt-1 text-xs text-slate-600">
+                    <summary className="cursor-pointer">기타 내용 {item.reportDetails.length}건</summary>
+                    <ul className="mt-1 flex flex-col gap-1">
+                      {item.reportDetails.map((detail, index) => (
+                        <li key={index} className="whitespace-pre-wrap break-words rounded bg-slate-50 px-2 py-1">{detail}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </td>
               <td className="px-4 py-3">
                 <StatusPill label={reportStatusLabel(item.status)} tone={REPORT_STATUS_META[item.status]?.tone} />
@@ -220,6 +233,9 @@ function ReportTable({ items, busy, onAction, onSanction }) {
                   <div className="mt-1 max-w-[180px] text-xs text-slate-600">
                     <CommentFilterReason reasons={item.filterReasons} filterStatus={item.filterStatus} />
                   </div>
+                )}
+                {reportHandlerLabel(item) && (
+                  <p className="mt-1 text-xs text-slate-500">최근 처리 {reportHandlerLabel(item)}<br />{formatDateTime(item.handledAt)}</p>
                 )}
               </td>
               <td className="px-4 py-3 text-slate-600">{formatDateTime(item.latestReportedAt)}</td>

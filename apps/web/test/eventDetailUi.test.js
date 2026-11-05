@@ -15,13 +15,13 @@ test.before(async()=>{
  browser=await chromium.launch({headless:true,...executablePath?{executablePath}:{}})
 })
 test.after(async()=>{await browser?.close();assert.deepEqual(errors,[])})
-async function screen({guest=false,holdSpace=false,spaceFail=false,ownCreatorId=null,balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,width=375,endAt='2099-01-01T00:00:00Z',clockTime=null,myTicketCount=5,failStatus=false,prizes=[{prizeKey:'GRAND',displayName:'Grand prize',priority:1,quantity:2,weight:99}],winners=null,myWinners=[]}={}){
+async function screen({guest=false,holdSpace=false,spaceFail=false,ownCreatorId=null,balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,notFound=false,width=375,endAt='2099-01-01T00:00:00Z',clockTime=null,myTicketCount=5,failStatus=false,prizes=[{prizeKey:'GRAND',displayName:'Grand prize',priority:1,quantity:2,weight:99}],winners=null,myWinners=[]}={}){
  const p=await browser.newPage({viewport:{width,height:1000}})
  p.on('pageerror',e=>errors.push(e.message))
  if(clockTime)await p.clock.install({time:new Date(clockTime)})
  await p.route('**/*',r=>r.request().isNavigationRequest()?r.fulfill({contentType:'text/html',body:'<div id="root"></div>'}):r.abort())
  await p.goto('http://localhost/event-test')
- await p.evaluate(({guest,holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes,winners,myWinners})=>{
+ await p.evaluate(({guest,holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,notFound,endAt,myTicketCount,failStatus,prizes,winners,myWinners})=>{
   window.guest=guest;window.holdSpace=holdSpace;window.spaceFail=spaceFail;window.ownCreatorId=ownCreatorId;window.calls=[];window.toasts=[];window.entryCode='SUCCESS';window.holdEntry=false
   const record={eventId:16,creatorId:1,title:'Event title',description,status,displayStatus,startAt:'2026-01-01T00:00:00Z',endAt,winnerCount:1,drawMethod:'WEIGHTED',myTicketBalance:guest?null:balance,myCommonTicketBalance:guest?null:0,prizes}
   const acceptedRequests=new Set()
@@ -42,7 +42,7 @@ async function screen({guest=false,holdSpace=false,spaceFail=false,ownCreatorId=
    }
    if(path==='/api/events/16'){
     if(window.holdBalance)await new Promise(resolve=>window.releaseBalance=resolve)
-    return failDetail?(guest?reply(null,'UNAUTHORIZED',401):reply(null,'SYSTEM_ERROR',500)):reply({...record,myTicketBalance:window.nextBalance??record.myTicketBalance})
+    return notFound?reply(null,'EVENT_NOT_FOUND',404):failDetail?(guest?reply(null,'UNAUTHORIZED',401):reply(null,'SYSTEM_ERROR',500)):reply({...record,myTicketBalance:window.nextBalance??record.myTicketBalance})
    }
    if(path==='/api/events/16/entry-status')return failStatus&&!window.retryStatus?reply(null,'SYSTEM_ERROR',500):reply({eventId:16,participantCount:7,totalTicketCount:20,myTicketCount,realtime:true})
    if(path==='/api/creator/space'){
@@ -54,12 +54,12 @@ async function screen({guest=false,holdSpace=false,spaceFail=false,ownCreatorId=
    if(path==='/api/creators')return reply({items:[{creatorId:1,creatorName:'Creator',slug:'creator',profileImageUrl:null}],totalPages:1})
    return reply(null)
   }
- },{guest,holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,endAt,myTicketCount,failStatus,prizes,winners,myWinners})
+ },{guest,holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,notFound,endAt,myTicketCount,failStatus,prizes,winners,myWinners})
  await p.addStyleTag({content:styles});await p.addScriptTag({content:bundle})
- await p.getByRole('button',{name:failDetail?'다시 시도':'뒤로가기',exact:true}).waitFor()
+ await (notFound?p.getByRole('link',{name:'이벤트 둘러보기',exact:true}):p.getByRole('button',{name:failDetail?'다시 시도':'뒤로가기',exact:true})).waitFor()
  return p
 }
-const mainButton=p=>p.getByRole('button',{name:/^응모하기$|응모할 수 없는 상태예요/})
+const mainButton=p=>p.getByRole('button',{name:/^응모하기$|응모할 수 없는 상태예요|^응모권이 없어요$/})
 async function openConfirm(p){await mainButton(p).click();await p.getByRole('dialog').waitFor();const select=p.getByRole('button',{name:/^\d+장으로 응모하기$/});if(await select.count())await select.click();await p.getByRole('dialog',{name:'응모 확인',exact:true}).waitFor()}
 const posts=p=>p.evaluate(()=>window.calls.filter(x=>x.method==='POST'))
 test('detail UI removes decorations and keeps title/date/introduction/prizes on mobile and desktop',async()=>{
@@ -93,8 +93,8 @@ test('detail UI removes decorations and keeps title/date/introduction/prizes on 
 test('empty introduction and zero tickets keep empty layout and prevent requests',async()=>{
  const p=await screen({balance:0,description:null})
  try{
-  await p.getByText('보유한 응모권이 없어 응모할 수 없어요.',{exact:true}).waitFor()
-  assert.equal(await mainButton(p).isDisabled(),true)
+  await p.getByText('미션·출석으로 응모권을 받을 수 있어요.',{exact:true}).waitFor()
+  assert.equal(await p.getByRole('button',{name:'응모권이 없어요',exact:true}).isDisabled(),true)
   for(const label of ['크리에이터 미션 하러 가기','출석 미션 하러 가기'])assert.equal(await p.getByRole('link',{name:label}).count(),0)
   assert.equal(await p.getByText('Event introduction',{exact:true}).count(),0)
   assert.equal((await posts(p)).length,0)
@@ -148,6 +148,24 @@ test('uncertain failure can close and reopen then replay the same request',async
 for(const [status,displayStatus] of [['SCHEDULED','UPCOMING'],['CLOSED','CLOSED']])test(`unavailable ${displayStatus} keeps entry blocked`,async()=>{
  const p=await screen({status,displayStatus})
  try{await p.getByText('Event title',{exact:true}).waitFor();assert.equal(await mainButton(p).isDisabled(),true);assert.equal((await posts(p)).length,0)}finally{await p.close()}
+})
+test('deadline passed before the server closes shows a closed notice, not the ticket guide, to a ticket holder',async()=>{
+ const p=await screen({clockTime:'2026-10-20T00:01:01Z',endAt:'2026-10-20T00:01:00Z'})
+ try{
+  await p.getByText('응모가 마감됐어요.',{exact:true}).waitFor()
+  assert.equal(await p.getByText('미션·출석으로 응모권을 받을 수 있어요.',{exact:true}).count(),0)
+  assert.equal(await mainButton(p).isDisabled(),true)
+ }finally{await p.close()}
+})
+test('missing event explains it is gone and offers other events instead of a useless retry',async()=>{
+ const p=await screen({notFound:true})
+ try{
+  await p.getByText('없는 이벤트예요.',{exact:true}).waitFor()
+  assert.equal(await p.getByRole('button',{name:'다시 시도',exact:true}).count(),0)
+  await p.getByRole('link',{name:'이벤트 둘러보기',exact:true}).click()
+  await p.waitForFunction(()=>!document.body.innerText.includes('없는 이벤트예요.'))
+  assert.equal((await posts(p)).length,0)
+ }finally{await p.close()}
 })
 test('detail request error keeps retry feedback',async()=>{
  const p=await screen({failDetail:true})

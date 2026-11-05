@@ -95,7 +95,7 @@ export default function EventDetail() {
   // requestId·내용으로 다시 확인할 수 있게 현재 이벤트의 미확정 요청을 남겨 둔다.
   const [pendingEntry, setPendingEntry] = useState(null)
 
-  const { data: event, loading, error, reload, setData: setEvent } = useAsync(
+  const { data: event, loading, error, errorObject, reload, setData: setEvent } = useAsync(
     () => getEvent(eventId),
     [eventId, authenticated],
     { enabled: !sessionLoading, fallbackMessage: '이벤트 상세를 불러오지 못했습니다.' },
@@ -173,7 +173,9 @@ export default function EventDetail() {
     ? anonymous ? '로그인하고 응모하기' : '응모하기'
     : isOwnEvent && isEntryOpen(event)
       ? '내 이벤트에는 응모할 수 없어요'
-      : '응모할 수 없는 상태예요'
+      : !anonymous && !hasAnyTicket && isEntryOpen(event) && !deadlinePassed
+        ? '응모권이 없어요'
+        : '응모할 수 없는 상태예요'
   // 응모 성공으로 잔액이 줄어들 수 있으므로, 실제로 쓸 수량은 렌더 시점에 한도 범위로 맞춘다.
   const selectedCount = clampEntryCount(ticketCount, balance)
 
@@ -187,6 +189,17 @@ export default function EventDetail() {
   }
 
   if (error || !event) {
+    // 없거나 삭제된 이벤트는 다시 시도해도 같으므로 재시도 대신 다른 이벤트로 가는 길을 연다.
+    if (errorObject?.code === 'EVENT_NOT_FOUND') {
+      return (
+        <div className="flex flex-col w-full min-h-screen pt-safe justify-center gap-3">
+          <ErrorBlock message="없는 이벤트예요." />
+          <Link to="/explore?tab=event" className="self-center px-4 py-2 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-semibold active:scale-95 transition-all">
+            이벤트 둘러보기
+          </Link>
+        </div>
+      )
+    }
     return (
       <div className="flex flex-col w-full min-h-screen pt-safe justify-center gap-3">
         <ErrorBlock message={error ?? '이벤트를 찾을 수 없어요.'} onRetry={reload} />
@@ -466,7 +479,11 @@ export default function EventDetail() {
                           ? '내 이벤트인지 확인하는 중이에요.'
                           : ownSpaceError
                             ? '내 이벤트인지 확인하지 못했어요.'
-                            : '보유한 응모권이 없어 응모할 수 없어요.'}
+                            : deadlinePassed
+                              ? '응모가 마감됐어요.'
+                              : !hasAnyTicket
+                                ? '미션·출석으로 응모권을 받을 수 있어요.'
+                                : '지금은 응모할 수 없어요.'}
                 </p>
                 {ownSpaceError && !isOwnEvent && isEntryOpen(event) && (
                   <button type="button" onClick={reloadOwnSpace} className="self-start text-label-sm underline text-on-surface-variant">다시 확인</button>

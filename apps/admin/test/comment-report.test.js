@@ -6,6 +6,7 @@ import {
   canHandle,
   reasonLabel,
   reasonSummary,
+  reportHandlerLabel,
   reportStatusLabel,
   viewAfterRefresh,
 } from '../src/utils/commentReport.js'
@@ -28,6 +29,13 @@ test('사유별 신고 수는 정해진 순서로 합치고 건수가 없거나 
 
 test('모르는 사유는 아는 사유 뒤에 코드순으로 둔다', () => {
   assert.equal(reasonSummary({ ZZZ: 1, AAA: 2, ABUSE: 1 }), '욕설·혐오 1 · AAA 2 · ZZZ 1')
+})
+
+test('처리한 관리자는 회원 ID로 보여주고 처리한 적 없으면 비어 있다', () => {
+  assert.equal(reportHandlerLabel({ handledBy: 9 }), '관리자 #9')
+  assert.equal(reportHandlerLabel({ handledBy: null }), null)
+  assert.equal(reportHandlerLabel({}), null)
+  assert.equal(reportHandlerLabel(undefined), null)
 })
 
 test('처리 상태는 문구로 바꾸고 모르는 상태는 그대로 보여준다', () => {

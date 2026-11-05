@@ -95,8 +95,8 @@ export function UserProvider({ children }) {
   }, [markSignedOut])
 
   const capabilities = useMemo(() => {
-    if (status === 'loading') return { isCreator: false, isAdmin: false, checked: false }
-    return { isCreator: Boolean(user?.creator), isAdmin: user?.role === 'ADMIN', checked: true }
+    if (status === 'loading') return { isCreator: false, isAdmin: false, canOperateCreator: false, creatorStatus: null, checked: false }
+    return { isCreator: Boolean(user?.creator), isAdmin: user?.role === 'ADMIN', canOperateCreator: Boolean(user?.creator) && user?.creatorCanOperate !== false, creatorStatus: user?.creatorStatus ?? (user?.creator ? 'ACTIVE' : null), checked: true }
   }, [user, status])
 
   const followedCreators = useMemo(
@@ -169,6 +169,8 @@ export function UserProvider({ children }) {
     capabilities,
     isCreator: capabilities.isCreator,
     isAdmin: capabilities.isAdmin,
+    canOperateCreator: capabilities.canOperateCreator,
+    creatorStatus: capabilities.creatorStatus,
     loadUser,
     clearUser,
     restore,

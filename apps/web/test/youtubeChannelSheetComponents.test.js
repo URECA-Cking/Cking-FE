@@ -37,6 +37,7 @@ async function screen(putReply) {
         if ((options.method ?? 'GET') === 'PUT') { window.puts.push(JSON.parse(options.body)); return respond(reply) }
         return respond({ status: 409, code: 'CREATOR_CHANNEL_NOT_CONFIGURED', message: '미설정' })
       }
+      if (path === '/api/creator/youtube-channel/connection') return respond({ data: { verificationStatus: 'NOT_CONNECTED', channel: null } })
       throw new Error(`예상하지 않은 API 요청 ${path}`)
     }
   }, putReply)
@@ -48,7 +49,7 @@ async function screen(putReply) {
 const fillAndSave = async (page) => {
   await page.getByPlaceholder('채널명을 입력해주세요').fill('내 채널')
   await page.getByLabel('채널 아이디').fill('Example')
-  await page.getByRole('button', { name: '채널 설정하고 미션 생성' }).click()
+  await page.getByRole('button', { name: '채널 설정 저장' }).click()
 }
 
 test('입력 칸은 "채널 아이디"로 보이고 "handle"·"핸들명" 문구는 없다', async () => {
@@ -68,7 +69,7 @@ test('이미 쓰는 채널 아이디면 에러 토스트만 뜨고, 입력값은
     assert.deepEqual(await page.evaluate(() => window.toasts), [{ message: '이미 사용 중인 채널 아이디예요.', icon: 'error' }])
     assert.equal(await page.getByRole('alert').count(), 0)
     assert.equal(await page.getByLabel('채널 아이디').inputValue(), 'Example')
-    assert.equal(await page.getByRole('button', { name: '채널 설정하고 미션 생성' }).isDisabled(), false)
+    assert.equal(await page.getByRole('button', { name: '채널 설정 저장' }).isDisabled(), false)
   } finally { await page.close() }
 })
 
@@ -87,7 +88,7 @@ test('정상 저장은 기존처럼 성공 토스트를 띄운다', async () => 
   try {
     await fillAndSave(page)
     await page.waitForFunction(() => window.toasts.length === 1)
-    assert.deepEqual(await page.evaluate(() => window.toasts), [{ message: 'YouTube 채널을 설정했어요. 구독 인증 미션이 생성되었어요.', icon: 'check_circle' }])
+    assert.deepEqual(await page.evaluate(() => window.toasts), [{ message: 'YouTube 채널을 설정했어요. 소유권을 인증하면 미션을 열 수 있어요.', icon: 'check_circle' }])
     assert.deepEqual(await page.evaluate(() => window.puts), [{ channelName: '내 채널', channelHandle: 'Example' }])
   } finally { await page.close() }
 })

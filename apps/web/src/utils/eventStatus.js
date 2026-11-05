@@ -20,6 +20,7 @@ export const EVENT_STATUS_META = {
 
 export const CREATOR_APPLICATION_STATUS_META = {
   PENDING: { label: '심사 대기', tone: 'bg-gold-badge-bg text-gold-badge', icon: 'hourglass_top' },
+  NEEDS_REVISION: { label: '보완 요청', tone: 'bg-gold-badge-bg text-gold-badge', icon: 'edit_note' },
   APPROVED: { label: '승인됨', tone: 'bg-berry-tint text-primary', icon: 'verified' },
   REJECTED: { label: '거절됨', tone: 'bg-error-container text-on-error-container', icon: 'block' },
 }

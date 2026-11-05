@@ -15,14 +15,15 @@ test.before(async()=>{
  browser=await chromium.launch({headless:true,...executablePath?{executablePath}:{}})
 })
 test.after(async()=>{await browser?.close();assert.deepEqual(errors,[])})
-async function screen({guest=false,holdSpace=false,spaceFail=false,ownCreatorId=null,balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,notFound=false,width=375,endAt='2099-01-01T00:00:00Z',clockTime=null,myTicketCount=5,failStatus=false,prizes=[{prizeKey:'GRAND',displayName:'Grand prize',priority:1,quantity:2,weight:99}],winners=null,myWinners=[]}={}){
+async function screen({guest=false,holdSpace=false,spaceFail=false,ownCreatorId=null,balance=5,description='Event introduction',status='OPEN',displayStatus='IN_PROGRESS',failDetail=false,notFound=false,width=375,endAt='2099-01-01T00:00:00Z',clockTime=null,freezeClock=false,myTicketCount=5,failStatus=false,prizes=[{prizeKey:'GRAND',displayName:'Grand prize',priority:1,quantity:2,weight:99}],winners=null,myWinners=[]}={}){
  const p=await browser.newPage({viewport:{width,height:1000}})
  p.on('pageerror',e=>errors.push(e.message))
  if(clockTime)await p.clock.install({time:new Date(clockTime)})
  await p.route('**/*',r=>r.request().isNavigationRequest()?r.fulfill({contentType:'text/html',body:'<div id="root"></div>'}):r.abort())
  await p.goto('http://localhost/event-test')
- await p.evaluate(({guest,holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,notFound,endAt,myTicketCount,failStatus,prizes,winners,myWinners})=>{
+ await p.evaluate(({guest,holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,notFound,endAt,freezeClock,myTicketCount,failStatus,prizes,winners,myWinners})=>{
   window.guest=guest;window.holdSpace=holdSpace;window.spaceFail=spaceFail;window.ownCreatorId=ownCreatorId;window.calls=[];window.toasts=[];window.entryCode='SUCCESS';window.holdEntry=false
+  if(freezeClock)window.setInterval=()=>0
   const record={eventId:16,creatorId:1,title:'Event title',description,status,displayStatus,startAt:'2026-01-01T00:00:00Z',endAt,winnerCount:1,drawMethod:'WEIGHTED',myTicketBalance:guest?null:balance,myCommonTicketBalance:guest?null:0,prizes}
   const acceptedRequests=new Set()
   window.fetch=async(url,options={})=>{
@@ -54,7 +55,7 @@ async function screen({guest=false,holdSpace=false,spaceFail=false,ownCreatorId=
    if(path==='/api/creators')return reply({items:[{creatorId:1,creatorName:'Creator',slug:'creator',profileImageUrl:null}],totalPages:1})
    return reply(null)
   }
- },{guest,holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,notFound,endAt,myTicketCount,failStatus,prizes,winners,myWinners})
+ },{guest,holdSpace,spaceFail,ownCreatorId,balance,description,status,displayStatus,failDetail,notFound,endAt,freezeClock,myTicketCount,failStatus,prizes,winners,myWinners})
  await p.addStyleTag({content:styles});await p.addScriptTag({content:bundle})
  await (notFound?p.getByRole('link',{name:'이벤트 둘러보기',exact:true}):p.getByRole('button',{name:failDetail?'다시 시도':'뒤로가기',exact:true})).waitFor()
  return p
@@ -230,12 +231,13 @@ test('deadline disables final confirmation while its popup stays open',async()=>
  }finally{await p.close()}
 })
 
-test('submission checks current deadline before POST even before countdown renders',async()=>{
- const p=await screen({clockTime:'2026-10-20T00:00:00Z',endAt:'2026-10-20T00:01:00Z'})
+test('submission checks current deadline before POST even when the countdown has not rerendered',async()=>{
+ const p=await screen({clockTime:'2026-10-20T00:00:00Z',endAt:'2026-10-20T00:01:00Z',freezeClock:true})
  try{
   await openConfirm(p)
   await p.clock.setSystemTime(new Date('2026-10-20T00:01:01Z'))
   const confirm=p.getByRole('button',{name:'응모 확정',exact:true})
+  // 카운트다운 state는 열려 있던 시각에 고정해 버튼은 활성화돼 있지만, submit handler는 Date.now()를 다시 확인해야 한다.
   assert.equal(await confirm.isEnabled(),true)
   await confirm.click()
   await p.waitForFunction(()=>window.toasts.includes('지금은 응모할 수 있는 상태가 아니에요.'))

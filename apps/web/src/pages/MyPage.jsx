@@ -1,6 +1,6 @@
 import CreatorVerifiedBadge from '../components/ui/CreatorVerifiedBadge.jsx'
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import MaterialIcon from '../components/ui/MaterialIcon.jsx'
 import ProfilePhoto from '../components/ui/ProfilePhoto.jsx'
 import MySpaceLink from '../components/creator/MySpaceLink.jsx'
@@ -10,12 +10,13 @@ import { useToast } from '../context/useToast.js'
 import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { useProfileSetupRedirect } from '../hooks/useProfileSetupRedirect.js'
-import { applyCreator, getMyCreatorApplications } from '../api/creatorApplications.js'
-import { describeError } from '../api/client.js'
+import { getMyCreatorApplications } from '../api/creatorApplications.js'
 import { getMySpace, spacePath } from '../api/creatorSpace.js'
 import { getMyCreatorProfile } from '../api/creatorProfile.js'
+import { getMyCreatorStatus } from '../api/creatorStatus.js'
 import { formatDateTime } from '../utils/format.js'
 import { OPEN_SPACE_EDIT_STATE, activityNameMissing, needsNicknameSetup, ownPublicProfile } from '../utils/publicProfile.js'
+import CreatorApplicationSheet from '../components/creator/CreatorApplicationSheet.jsx'
 
 const ADMIN_BASE_URL = import.meta.env.VITE_ADMIN_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5174' : null)
 
@@ -46,12 +47,13 @@ function SetupBanner({ to, state, title, description }) {
  */
 export default function MyPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const showToast = useToast()
+  const { user, isCreator, isAdmin, canOperateCreator, creatorStatus, capabilities, clearUser, refreshCapabilities } = useUser()
   const redirectToProfileSetup = useProfileSetupRedirect()
-  const { user, isCreator, isAdmin, capabilities, clearUser, refreshCapabilities } = useUser()
   const { isDark, toggleTheme } = useTheme()
 
-  const [applying, setApplying] = useState(false)
+  const [applicationSheetOpen, setApplicationSheetOpen] = useState(false)
 
   const applications = useAsync(
     () => getMyCreatorApplications({ size: 5 }),
@@ -63,30 +65,21 @@ export default function MyPage() {
   // 프로필 카드, 스페이스 편집 진입점, 내 스페이스 메뉴가 같은 응답을 쓴다.
   const mySpace = useAsync(() => getMySpace(), [isCreator], { enabled: isCreator, fallbackMessage: '내 스페이스를 불러오지 못했어요.' })
   const myCreatorProfile = useAsync(() => getMyCreatorProfile(), [isCreator], { enabled: isCreator })
+  const myCreatorStatus = useAsync(getMyCreatorStatus, [isCreator, canOperateCreator], { enabled: isCreator && !canOperateCreator })
   const profile = ownPublicProfile(user, mySpace.data, myCreatorProfile.data)
   const spaceEditTarget = mySpace.data ? spacePath(mySpace.data.slug) : null
   const latestApplication = applications.data?.items?.[0] ?? null
   const hasPending = latestApplication?.status === 'PENDING'
+  const legacyPendingNeedsForm = hasPending && !latestApplication?.submissionVersion
 
-  async function handleApplyCreator() {
-    setApplying(true)
-    try {
-      const result = await applyCreator()
-      showToast(
-        result?.status === 'PENDING'
-          ? '크리에이터 전환 신청이 접수됐어요. 관리자 승인을 기다려주세요.'
-          : result?.status === 'APPROVED'
-            ? '이미 크리에이터로 승인된 계정이에요.'
-            : '크리에이터 전환 신청 결과를 확인하지 못했어요. 신청 상태를 다시 확인해주세요.',
-      )
-      await Promise.all([applications.reload(), refreshCapabilities()])
-    } catch (err) {
-      if (redirectToProfileSetup(err)) return
-      showToast(describeError(err, '크리에이터 전환 신청에 실패했습니다.'), { icon: 'error' })
-    } finally {
-      setApplying(false)
-    }
-  }
+  useEffect(() => {
+    const result = searchParams.get('youtubeConnection')
+    if (!result) return
+    const message = { success: 'YouTube 채널 소유권 인증이 완료됐어요.', cancelled: 'YouTube 연결을 취소했어요.', mismatch: '입력한 채널과 로그인한 YouTube 계정이 일치하지 않아요.', conflict: '다른 크리에이터가 이미 연결한 채널이에요.', in_progress: '기존 인증을 처리하고 있어요. 잠시 후 다시 확인해주세요.' }[result] ?? 'YouTube 연결을 완료하지 못했어요. 다시 시도해주세요.'
+    showToast(message, { icon: result === 'success' ? undefined : 'error' })
+    const next = new URLSearchParams(searchParams); next.delete('youtubeConnection'); setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, showToast])
+
 
   async function handleLogout() {
     await clearUser()
@@ -122,7 +115,7 @@ export default function MyPage() {
         <div className="flex shrink-0 flex-col gap-1.5">
           {/* 크리에이터는 Member 프로필을 바꿀 수 없다(BE가 막는다). 공개 프로필은 스페이스 편집에서 바꾼다. */}
           {isCreator ? (
-            spaceEditTarget ? (
+            spaceEditTarget && canOperateCreator ? (
               <Link to={spaceEditTarget} state={OPEN_SPACE_EDIT_STATE} className={primaryActionClass}>
                 스페이스 편집
               </Link>
@@ -168,9 +161,16 @@ export default function MyPage() {
         />
       )}
 
-      {/* 크리에이터 전환 블록은 신청 전(안내·신청 버튼)과 심사 대기(PENDING, 신청일·심사 대기 중) 동안만 보인다.
-          승인·반려로 처리된 뒤에는 숨긴다(이슈 #259). */}
-      {!isCreator && (!latestApplication || hasPending) && (
+      {isCreator && !canOperateCreator && (
+        <section className="rounded-2xl bg-error-container p-space-md text-on-error-container">
+          <p className="font-label-md text-label-md font-bold">크리에이터 활동이 제한되었어요.</p>
+          <p className="mt-1 font-body-sm text-body-sm">현재 상태: {creatorStatus === 'REVOKED' ? '자격 박탈' : '활동 정지'}. 기존 콘텐츠와 기록은 확인할 수 있어요.</p>
+          {myCreatorStatus.data?.publicNotice && <p className="mt-2 font-body-sm text-body-sm">{myCreatorStatus.data.publicNotice}</p>}
+        </section>
+      )}
+
+      {/* 크리에이터 전환 블록은 신청 전과 심사 중에 표시한다. 보완 요청·거절 후에는 신청서 보완 또는 새 신청서를 제출할 수 있다. */}
+      {!isCreator && (!latestApplication || hasPending || latestApplication?.status === 'NEEDS_REVISION' || latestApplication?.status === 'REJECTED') && (
         <section className="flex flex-col gap-space-sm p-space-md rounded-2xl bg-surface-container-lowest shadow-card">
           <div className="flex items-center gap-1.5">
             <CreatorVerifiedBadge />
@@ -184,10 +184,16 @@ export default function MyPage() {
 
           {!applications.loading && !applications.error && (
             <>
-              {hasPending ? (
+              {legacyPendingNeedsForm ? (
+                <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">이전에 접수한 신청서에 활동 정보가 없어요. 신청서를 작성해야 심사를 받을 수 있어요.</p>
+              ) : hasPending ? (
                 <p className="font-label-sm text-label-sm text-on-surface-variant">
                   신청일 {formatDateTime(latestApplication.requestedAt)}
                 </p>
+              ) : latestApplication?.status === 'NEEDS_REVISION' ? (
+                <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">신청서 보완이 필요해요. {latestApplication.revisionReason && `사유: ${latestApplication.revisionReason}`} 보완한 뒤 다시 제출해주세요.</p>
+              ) : latestApplication?.status === 'REJECTED' ? (
+                <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">이전 신청이 거절됐어요.{latestApplication.rejectReason && ` 사유: ${latestApplication.rejectReason}`} 새 신청서를 작성할 수 있어요.</p>
               ) : (
                 <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
                   크리에이터가 되면 직접 이벤트를 작성하고 응모를 운영할 수 있어요.
@@ -195,16 +201,18 @@ export default function MyPage() {
               )}
               <button
                 type="button"
-                onClick={handleApplyCreator}
-                disabled={applying || hasPending}
+                onClick={() => setApplicationSheetOpen(true)}
+                disabled={hasPending && !legacyPendingNeedsForm}
                 className="w-full h-11 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold active:scale-[0.98] transition-all disabled:opacity-50"
               >
-                {hasPending ? '심사 대기 중' : applying ? '신청 중...' : '크리에이터 전환 신청하기'}
+                {legacyPendingNeedsForm ? '신청서 작성하기' : hasPending ? '심사 대기 중' : latestApplication?.status === 'NEEDS_REVISION' ? '신청서 보완하기' : latestApplication?.status === 'REJECTED' ? '새 신청서 작성하기' : '크리에이터 전환 신청하기'}
               </button>
             </>
           )}
         </section>
       )}
+
+      <CreatorApplicationSheet open={applicationSheetOpen} application={latestApplication?.status === 'NEEDS_REVISION' ? latestApplication : null} onClose={() => setApplicationSheetOpen(false)} onProfileSetupRequired={redirectToProfileSetup} onDone={async () => { setApplicationSheetOpen(false); await Promise.all([applications.reload(), refreshCapabilities()]) }} />
 
       <section className="flex flex-col rounded-2xl bg-surface-container-lowest shadow-card overflow-hidden">
         <Link

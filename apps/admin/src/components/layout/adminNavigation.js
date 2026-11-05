@@ -8,6 +8,7 @@ export const ADMIN_NAVIGATION = [
     label: '심사 관리',
     items: [
       { label: 'Creator 신청', icon: 'how_to_reg', to: '/admin/reviews/creators', matches: (location) => /^\/admin\/reviews\/creators(?:\/|$)/.test(location.pathname) },
+      { label: 'Creator 자격', icon: 'badge', to: '/admin/creators', matches: (location) => /^\/admin\/creators(?:\/|$)/.test(location.pathname) },
       { label: '이벤트 승인', icon: 'fact_check', to: '/admin/reviews/events', matches: (location) => /^\/admin\/reviews\/events(?:\/|$)/.test(location.pathname) },
     ],
   },

@@ -76,15 +76,15 @@ function ScheduleCard({ schedule, calendar, manage }) {
           </button>
         )}
         {manage && (
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <button
+          <div className={`mt-2 grid gap-2 ${manage.onEdit ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {manage.onEdit && <button
               type="button"
               disabled={manage.busy}
               onClick={manage.onEdit}
               className="h-10 rounded-xl bg-surface-container font-label-sm text-label-sm font-semibold text-on-surface transition-all active:scale-[0.98] disabled:opacity-40"
             >
               수정
-            </button>
+            </button>}
             <button
               type="button"
               disabled={manage.busy}
@@ -105,7 +105,7 @@ function ScheduleCard({ schedule, calendar, manage }) {
  * 일정이 있는 날에 점을 찍어 고른 날의 일정을 보여준다.
  * 내 스페이스(isMine)면 일정 등록·수정·삭제도 여기서 한다(POST·PATCH·DELETE /api/creator/calendar/schedules).
  */
-export default function CreatorCalendar({ creatorId, isMine = false }) {
+export default function CreatorCalendar({ creatorId, isMine = false, canOperate = true }) {
   const navigate = useNavigate()
   const location = useLocation()
   const showToast = useToast()
@@ -177,7 +177,7 @@ export default function CreatorCalendar({ creatorId, isMine = false }) {
 
   return (
     <div className="flex flex-col gap-space-md px-margin py-space-sm md:mx-auto md:w-full md:max-w-3xl">
-      {isMine && <CreateFab label="새 일정 등록" onClick={() => setEditor({ schedule: null })} />}
+      {isMine && canOperate && <CreateFab label="새 일정 등록" onClick={() => setEditor({ schedule: null })} />}
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -225,7 +225,7 @@ export default function CreatorCalendar({ creatorId, isMine = false }) {
             isMine
               ? {
                   busy: deletingId === schedule.scheduleId,
-                  onEdit: () => setEditor({ schedule }),
+                  onEdit: canOperate ? () => setEditor({ schedule }) : null,
                   onDelete: () => setDeleteTarget(schedule),
                 }
               : null

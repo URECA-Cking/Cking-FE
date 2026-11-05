@@ -15,6 +15,7 @@ import AdminFilteredComments from './pages/admin/AdminFilteredComments.jsx'
 import AdminSpaceCommentBlocks from './pages/admin/AdminSpaceCommentBlocks.jsx'
 import AdminTickets from './pages/admin/AdminTickets.jsx'
 import AdminSubscriptionImageReuse from './pages/admin/AdminSubscriptionImageReuse.jsx'
+import AdminCreatorStatuses, { AdminCreatorStatusDetail } from './pages/admin/AdminCreatorStatuses.jsx'
 
 /** 관리자 도메인의 고정 URL과 로그인 보호 라우트를 등록한다. */
 export default function App() {
@@ -34,6 +35,8 @@ export default function App() {
       <Route path="/admin/abuse-detections/:detectionId" element={protectedRoute(<AdminAbuseDetectionDetailPage />)} />
       <Route path="/admin/reviews/creators" element={protectedRoute(<ReviewListPage type="creators" />)} />
       <Route path="/admin/reviews/creators/:reviewId" element={protectedRoute(<ReviewDetailPage type="creators" />)} />
+      <Route path="/admin/creators" element={protectedRoute(<AdminCreatorStatuses />)} />
+      <Route path="/admin/creators/:creatorId" element={protectedRoute(<AdminCreatorStatusDetail />)} />
       <Route path="/admin/reviews/events" element={protectedRoute(<ReviewListPage type="events" />)} />
       <Route path="/admin/reviews/events/:reviewId" element={protectedRoute(<ReviewDetailPage type="events" />)} />
       <Route path="/admin/winners" element={protectedRoute(<AdminWinners />)} />

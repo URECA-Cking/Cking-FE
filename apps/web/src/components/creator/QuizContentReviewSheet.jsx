@@ -7,7 +7,7 @@ import { readReviewDraft, saveReviewDraft, clearReviewDraft, validateReviewText 
 // 근거 종류. 응답 값은 화면에 그대로 쓰지 않는다.
 const EVIDENCE_TYPE_LABELS = { SPEECH: '말한 내용', VISUAL: '화면 내용' }
 
-export default function QuizContentReviewSheet({ creatorId, job, storage, drafts, onClose, onResult, onRefresh, onInaccessible }) {
+export default function QuizContentReviewSheet({ creatorId, job, storage, drafts, onClose, onResult, onRefresh, onInaccessible, canOperate = true }) {
   const content = job.content
   const [draft, setDraft] = useState(() => drafts.get(job.generationId) ?? readReviewDraft(storage, creatorId, job.generationId) ?? { text: content.aiContentText, pendingText: null })
   const [confirming, setConfirming] = useState(false)
@@ -19,7 +19,7 @@ export default function QuizContentReviewSheet({ creatorId, job, storage, drafts
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   function change(next) { drafts.set(job.generationId, next); setDraft(next); saveReviewDraft(storage, creatorId, job.generationId, next) }
   async function act(cancel) {
-    if (inFlight.current) return
+    if (inFlight.current || (!cancel && !canOperate)) return
     const text = draft.pendingText ?? draft.text
     const invalid = validateReviewText(text, content.maxLength)
     if (!cancel && invalid) { setError(invalid); return }
@@ -48,7 +48,7 @@ export default function QuizContentReviewSheet({ creatorId, job, storage, drafts
     <div className="flex flex-col gap-space-md">
       <p className="font-body-sm text-body-sm text-on-surface-variant">AI가 만든 원문과 근거는 실제 영상과 다를 수 있어요. 영상을 확인하고 원문을 확정해 주세요.</p>
       <label className="flex flex-col gap-2">원문
-        <textarea aria-label="검토 원문" value={draft.text} disabled={busy || draft.pendingText !== null} rows={12}
+        <textarea aria-label="검토 원문" value={draft.text} disabled={!canOperate || busy || draft.pendingText !== null} rows={12}
           onChange={event => { change({ text: event.target.value, pendingText: null }); setConfirming(false) }}
           className="rounded-xl bg-surface-container-low p-space-md text-on-surface" />
       </label>
@@ -59,7 +59,7 @@ export default function QuizContentReviewSheet({ creatorId, job, storage, drafts
       {error && <p role="alert" className="text-error">{error}</p>}
       {draft.pendingText !== null && <p>확정 응답을 확인하기 전에는 원문을 변경할 수 없어요. 같은 원문으로 다시 확인해 주세요.</p>}
       {confirming && <p role="alert">확정하면 원문을 다시 바꿀 수 없어요. 이 원문으로 문항을 생성할까요?</p>}
-      <button disabled={busy || Boolean(validateReviewText(draft.text, content.maxLength))} className="rounded-xl bg-primary p-3 text-on-primary"
+      <button disabled={!canOperate || busy || Boolean(validateReviewText(draft.text, content.maxLength))} className="rounded-xl bg-primary p-3 text-on-primary"
         onClick={() => confirming || draft.pendingText !== null ? act(false) : setConfirming(true)}>
         {busy ? '처리 중...' : draft.pendingText !== null ? '같은 원문으로 다시 확인' : confirming ? '확정하고 문항 생성' : '원문 확정'}
       </button>

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useNavigate, useLocation } from 'react-router-dom'
 import CreatorEventForm from '../../src/pages/CreatorEventForm.jsx'
+import UserContext from '../../src/context/userContext.js'
 import ToastContext from '../../src/context/toastContext.js'
 import '../../src/index.css'
 function NavigationProbe() {
@@ -13,6 +14,7 @@ function NavigationProbe() {
 createRoot(document.getElementById('root')).render(
   <MemoryRouter initialEntries={['/previous', window.eventPath]} initialIndex={1}>
     <NavigationProbe />
+    <UserContext.Provider value={{ canOperateCreator: window.canOperateCreator ?? true }}>
     <ToastContext.Provider value={message => window.toasts.push(message)}>
       <Routes>
         <Route path="/creator/events/new" element={<CreatorEventForm />} />
@@ -21,5 +23,6 @@ createRoot(document.getElementById('root')).render(
         <Route path="/previous" element={<p>이전 화면</p>} />
       </Routes>
     </ToastContext.Provider>
+    </UserContext.Provider>
   </MemoryRouter>,
 )

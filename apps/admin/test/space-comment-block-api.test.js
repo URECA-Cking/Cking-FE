@@ -4,6 +4,7 @@ import {
   createPlatformSanction,
   createSpaceCommentBlock,
   deleteComment,
+  getFilteredComments,
   getPlatformSanctions,
   getSpaceCommentBlocks,
   releasePlatformSanction,
@@ -54,6 +55,17 @@ test('댓글 삭제는 DELETE로 댓글 ID만 보내고 본문 없는 204 응답
     assert.equal(requests[0].url.pathname, '/api/admin/comments/500')
     assert.equal(requests[0].options.body, undefined)
     assert.equal(requests[0].options.headers.Authorization, 'Bearer admin-token')
+  })
+})
+
+test('필터링 내역은 페이지와 크기를 보내 조회한다', async () => {
+  const page = { items: [{ commentId: 500, filterReasons: ['spam:link'] }], page: 1, size: 20, totalElements: 21, totalPages: 2, hasNext: false }
+  await withFetch([success(page)], async (requests) => {
+    assert.deepEqual(await getFilteredComments({ page: 1, size: 20 }), page)
+    assert.equal(requests[0].options.method, 'GET')
+    assert.equal(requests[0].url.pathname, '/api/admin/filtered-comments')
+    assert.equal(requests[0].url.searchParams.get('page'), '1')
+    assert.equal(requests[0].url.searchParams.get('size'), '20')
   })
 })
 

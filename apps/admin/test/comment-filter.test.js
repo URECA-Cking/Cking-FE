@@ -5,6 +5,8 @@ import { filterReasonLabel, filterReasonSummary, isFilterRecheckPending } from '
 test('필터링 사유는 세부 항목을 아는 코드를 먼저 풀어 쓴다', () => {
   assert.equal(filterReasonLabel('spam:link'), '링크')
   assert.equal(filterReasonLabel('privacy:phone'), '전화번호')
+  assert.equal(filterReasonLabel('privacy:rrn'), '주민등록번호')
+  assert.equal(filterReasonLabel('privacy:account'), 'SNS 계정')
 })
 
 test('유형 코드는 유형 문구로 보여주고 두 모델 코드는 같은 문구다', () => {

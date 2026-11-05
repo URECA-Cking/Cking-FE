@@ -16,6 +16,8 @@ const REASON_DETAIL_LABELS = {
   'privacy:phone': '전화번호',
   'privacy:email': '이메일',
   'privacy:address': '주소',
+  'privacy:rrn': '주민등록번호',
+  'privacy:account': 'SNS 계정',
   'spam:link': '링크',
 }
 

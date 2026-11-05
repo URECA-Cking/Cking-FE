@@ -349,6 +349,15 @@ test('open event shows usable creator and common tickets beside my entries, one 
   await closed.getByRole('region',{name:'내 응모',exact:true}).waitFor()
  }finally{await closed.close()}
 })
+test('deadline passed while server status is still OPEN shows closing-in-progress badge, not in-progress',async()=>{
+ for(const displayStatus of ['CLOSED','IN_PROGRESS']){
+  const p=await screen({status:'OPEN',displayStatus,endAt:'2020-01-01T00:00:00Z'})
+  try{
+   await p.getByText('마감 처리 중',{exact:true}).waitFor()
+   assert.equal(await p.getByText(/^응모 진행 중/).count(),0,displayStatus)
+  }finally{await p.close()}
+ }
+})
 test('result-published event hides the closed-entry notice, closed event keeps it',async()=>{
  const notice=/응모가 마감된 이벤트예요/
  const closed=await screen({status:'CLOSED',displayStatus:'CLOSED'})

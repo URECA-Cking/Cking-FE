@@ -217,7 +217,6 @@ export default function EventDetail() {
   }
 
   const status = displayStatusMeta(event.displayStatus)
-  const statusDetail = eventStatusMeta(event.status)
   const closed = event.displayStatus === 'CLOSED'
   const dday = formatDday(event.endAt, { closed })
   // 이 이벤트에 쓴 응모권 수(조회 중·실패·시작 전 상태 포함). 내 응모 카드의 두 배치가 함께 쓴다.
@@ -397,7 +396,10 @@ export default function EventDetail() {
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-label-xs text-label-xs shadow-md ${status.tone}`}
             >
               {/* 마감 뒤에는 "종료" 대신 마감 처리 중·추첨 완료·결과 공개처럼 더 구체적인 단계를 보여 준다(제목 옆 상태 알약을 이 배지로 합쳤다). */}
-              {closed ? statusDetail.label : `${status.label} ${dday}`}
+              {/* 마감 시각이 지났는데 서버가 아직 OPEN이면(마감 배치 대기) "응모 진행 중" 대신 마감 처리 중으로 보여 준다. */}
+              {closed || deadlinePassed
+                ? eventStatusMeta(event.status === 'OPEN' ? 'CLOSING' : event.status).label
+                : `${status.label} ${dday}`}
             </span>
             <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface-glass backdrop-blur-md text-on-surface font-label-xs text-label-xs shadow-sm">
               {formatNumber(event.winnerCount)}명 추첨

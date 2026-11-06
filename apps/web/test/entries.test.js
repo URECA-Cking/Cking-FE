@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { createApiTransport } from '@cking/shared/api'
+
 import {
   describeEntryResult,
   requiresSameRequestRetry,
@@ -53,4 +55,23 @@ test('멱등 재전송 성공은 미확정 요청 보관 대상이 아니다', (
   const outcome = describeEntryResult({ ok: true, code: 'DUPLICATE_REPLAY' })
 
   assert.equal(requiresSameRequestRetry(outcome), false)
+})
+
+test('ALB가 본문 없이 돌려준 5xx도 같은 requestId로 다시 보낼 결과로 본다', async () => {
+  const previousFetch = globalThis.fetch
+  try {
+    for (const status of [502, 503, 504]) {
+      globalThis.fetch = async () => new Response('<html><body>Bad Gateway</body></html>', {
+        status,
+        headers: { 'Content-Type': 'text/html' },
+      })
+      const send = createApiTransport({ getAccessToken: () => 'access' })
+      const outcome = describeEntryResult(await send('/api/events/1/entries', { method: 'POST', body: {} }))
+
+      assert.equal(outcome.code, 'SYSTEM_ERROR', `HTTP ${status}`)
+      assert.equal(requiresSameRequestRetry(outcome), true, `HTTP ${status}`)
+    }
+  } finally {
+    globalThis.fetch = previousFetch
+  }
 })

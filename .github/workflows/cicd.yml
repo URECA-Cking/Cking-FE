@@ -61,10 +61,10 @@ jobs:
         include:
           - app: web
             s3_bucket: dev-cking-frontend-551372961758
-            cloudfront_distribution_id: E2NQPJU059830V
+            domain: dev.cking.co.kr
           - app: admin
             s3_bucket: dev-cking-admin-551372961758-ap-northeast-2-an
-            cloudfront_distribution_id: E341I8SNV2CFXS
+            domain: dev-admin.cking.co.kr
     # 배포는 취소하지 않는다. S3 동기화 도중 끊기면 일부 파일만 바뀐 상태로 남는다.
     concurrency:
       group: cd-deploy-dev-${{ matrix.app }}
@@ -75,7 +75,7 @@ jobs:
       ADMIN_BASE_URL: https://dev-admin.cking.co.kr
       APP: ${{ matrix.app }}
       S3_BUCKET: ${{ matrix.s3_bucket }}
-      CLOUDFRONT_DISTRIBUTION_ID: ${{ matrix.cloudfront_distribution_id }}
+      DOMAIN: ${{ matrix.domain }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -117,6 +117,19 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # 다시 만들면 배포 ID가 바뀌므로 도메인으로 찾는다. 버킷을 바꾸기 전에 찾아, 없으면 아무것도 바꾸지 않고 멈춘다.
+      - name: CloudFront 배포 찾기
+        id: cdn
+        if: steps.latest.outputs.skip != 'true'
+        run: |
+          ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Aliases.Items && contains(Aliases.Items, '$DOMAIN')].Id" --output text)
+          if ! [[ "$ID" =~ ^E[A-Z0-9]+$ ]]; then
+            echo "::error::$DOMAIN 의 CloudFront 배포를 하나로 찾지 못했다: ${ID:-없음}"
+            exit 1
+          fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
       - name: S3 동기화
         if: steps.latest.outputs.skip != 'true'
         # 해시가 붙은 파일(assets/)을 먼저 올리고 지우지 않는다. 배포 전에 연 화면과 서비스 워커가 캐시한 이전 index.html이
@@ -128,6 +141,8 @@ jobs:
       - name: CloudFront 캐시 무효화
         if: steps.latest.outputs.skip != 'true'
         # JS·CSS는 파일명에 해시가 붙어 캐시를 타지 않지만 index.html은 이름이 고정이다.
+        env:
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ steps.cdn.outputs.id }}
         run: |
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
             --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \

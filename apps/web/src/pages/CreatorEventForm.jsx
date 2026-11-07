@@ -5,6 +5,7 @@ import { BackHeader } from '../components/layout/TopHeader.jsx'
 import { LoadingBlock, ErrorBlock } from '../components/ui/States.jsx'
 import ConfirmSheet from '../components/ui/ConfirmSheet.jsx'
 import { useToast } from '../context/useToast.js'
+import { useUser } from '../context/useUser.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { useAppBack } from '../hooks/useAppBack.js'
 import { Spinner } from '../components/ui/States.jsx'
@@ -120,6 +121,8 @@ function defaultRange() {
  */
 export default function CreatorEventForm() {
   const { eventId } = useParams()
+  const { canOperateCreator } = useUser()
+  if (!canOperateCreator) return <div className="flex min-h-screen flex-col pt-safe"><BackHeader title="이벤트 관리" /><div className="p-space-md text-on-surface" role="status">크리에이터 활동이 제한되어 이벤트를 작성하거나 수정할 수 없어요.</div></div>
   return <EventFormLoader key={eventId ? `edit:${eventId}` : 'create'} eventId={eventId} />
 }
 

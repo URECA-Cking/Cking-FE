@@ -437,7 +437,7 @@ test('공유 보상 안내는 일일 초기화가 아니라 좋아요 미션에�
     await page.evaluate(() => window.renderSpace({ memberId: 1 }))
     await page.getByText('공유 미션').waitFor()
     const text = await page.evaluate(() => document.body.innerText)
-    assert.ok(text.includes('좋아요 미션은 매일 00:00 갱신'))
+    assert.ok(text.includes('좋아요 미션은 매일 09시 갱신'))
     // 응모권 장수는 버튼에 보이고, 공유 미션 줄에는 한 번만 받을 수 있다는 안내만 둔다. 일일 초기화는 좋아요 미션에만 안내한다.
     assert.ok(/공유 미션/.test(text))
     assert.ok(text.includes('한 번만 받을 수 있어요'))

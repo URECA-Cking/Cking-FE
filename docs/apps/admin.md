@@ -17,10 +17,13 @@
 | `/admin/dead-streams` | Dead Stream 조회·replay |
 | `/admin/subscription-verifications/image-reuse` | Verification ID 기준 구독 인증 이미지 재사용 탐지 결과 조회 |
 | `/admin/tickets` | 회원별 Creator 전용·공용 응모권 잔액 비교, 변동 이력 조회, DB 기준 수동 재동기화 |
-| `/admin/comment-reports` | 신고 관리: 신고된 게시글 댓글 목록(처리 상태 필터)과 댓글 숨김·신고 반려, 처리 상태와 무관한 댓글 삭제·작성자 제재(이 스페이스에서만 / 모든 스페이스) |
+| `/admin/comment-reports` | 신고 관리: 신고된 게시글 댓글 목록(처리 상태 필터, 작성자·스페이스 이름과 ID, 기타 신고 내용, 최근 처리)과 댓글 숨김·신고 반려, 처리 상태와 무관한 댓글 삭제·작성자 제재(이 스페이스에서만 / 모든 스페이스) |
 | `/admin/space-comment-blocks` | 제재 관리: 걸려 있는 댓글 작성 제재를 `스페이스 차단`(모든 스페이스의 차단, 크리에이터·회원 ID 필터)과 `플랫폼 제한`(관리자 수동 제한과 #643 이전의 자동 경고, 회원 ID 필터) 탭으로 나눠 보고 해제. 둘 다 "차단·제한 중만 보기" 지원. 선택한 탭은 `?scope=platform`으로 주소에 남고, 한 번 연 탭은 숨기기만 해서 필터가 유지되며 좌우 방향키로 탭을 옮긴다. 경로는 스페이스 차단만 다루던 때 주소를 지키려고 그대로 둔다 |
+| `/admin/filtered-comments` | 필터링 내역: AI가 자동으로 가린 댓글과 필터링 사유, 작성자·스페이스 이름과 ID를 신고 여부와 상관없이 최근 판정 순으로 조회. 수정 후 재판정 전인 댓글은 `다시 확인 중`으로 표시하며, 차단 해제 같은 조치는 하지 않는다 |
 
 `/admin/reviews/events`는 `PENDING_APPROVAL` 상태만 처리하는 심사 큐다. Creator 신청 목록은 선택한 상태를 서버에 전달하고 20개 단위로 페이지를 이동하며, 이름·ID 검색은 서버 계약이 없어 현재 페이지 범위임을 화면에 표시한다. `/admin/events`와 `/admin/drawings`는 상태·보관 여부·페이지를 서버에 전달해 한 페이지씩 조회한다. 추첨 관리는 `CLOSED`·`DRAW_COMPLETED`·`PUBLISHED` 중 하나를 선택해 조회한다. Dashboard의 마감 처리 중 건수는 `CLOSING` 조회의 `totalElements`를 사용하고, 운영 Event 표는 `CLOSING`·`OPEN`·`CLOSED`·`DRAW_COMPLETED` 상태의 첫 페이지에서 최대 8건만 보인다. 보관함은 `archiveStatus=ARCHIVED`로 결과 공개(`PUBLISHED`) Event만 별도 조회하며, 상세는 `GET /api/admin/events/{eventId}/operation`으로 Event·Snapshot·INITIAL Drawing 요약을 한 번에 조회한다. 보관은 추첨·당첨 기록을 삭제하지 않고 사용자·Creator 화면, 응모, 내 당첨, 알림에서 Event를 제외한다. `SCHEDULED`는 오픈 예정 상태로 표시하되, `OPEN`부터 시작하는 실제 운영 흐름과는 구분하고 별도 관리자 작업을 노출하지 않는다. 심사 이력 필드의 제공 범위는 해당 API 계약을 확인한 뒤 결정한다.
+
+Creator 신청 심사는 단건 조회에서 제출된 신청서·제출 버전·심사 이력을 표시하고, `PENDING`에서 보완 요청을 할 수 있다. `NEEDS_REVISION`에서는 거절만 허용한다. `/admin/creators`는 자격 상태별 서버 페이지 조회와 단건 이력 조회를 제공한다. 정지·해제·박탈 명령은 같은 `requestId`와 본문으로 재시도해 중복 변경을 막는다. 변경 버튼은 `VITE_CREATOR_STATUS_MANAGEMENT_ENABLED=true`로 빌드한 경우에만 나타난다. BE의 `cking.creator.status-management.enabled`도 활성화된 환경에서만 true로 빌드한다. 기본값은 두 곳 모두 false다.
 
 댓글 신고는 댓글 단위로 모아 보여주며, 한 댓글의 접수(PENDING) 신고를 숨김(RESOLVED)이나 반려(REJECTED)로 한 번에 처리한다. 숨김은 되돌리는 API가 없어 확인 창에서 이를 안내하고, 이미 처리된 댓글은 조치 버튼을 막는다. BE가 `COMMENT_REPORT_ALREADY_HANDLED`(409)나 404를 돌려주면(다른 관리자가 먼저 처리했거나 댓글이 삭제됨) 확인 창을 닫고 목록을 다시 읽는다. 댓글 원문이 그대로 보이는 관리자 전용 화면이며 신고자 정보는 BE가 주지 않는다.
 
@@ -36,7 +39,7 @@ Creator 신청을 승인하면 BE가 기본값(기본 소개 문구, 이미지 �
 
 독립 Admin은 Web OAuth를 재사용하지 않는다. [Cking-BE Auth API](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/domains/auth/api.md)의 관리자 전용 ID/PW 로그인 `POST /api/auth/admin/login`으로 `role=ADMIN` Access JWT와 `ADMIN_WEB` 전용 Refresh Cookie를 발급받는다. Access JWT는 Admin 전용 `sessionStorage` 키에만 두며, 로그인·세션 복원 뒤 `/api/me`의 `role === 'ADMIN'`을 다시 확인한다. 갱신·로그아웃은 각각 `POST /api/admin/auth/refresh`, `POST /api/admin/auth/logout`으로 분리하고 `credentials: 'include'`로 관리자 Refresh Cookie를 전송한다. 관리자 API의 401은 관리자 refresh 후 한 번만 재시도하며, 복구하지 못하면 로컬 관리자 토큰을 지우고 접근을 차단한다. Logout은 진행 중인 refresh가 끝난 뒤 호출하고, Logout 시작 이전 세대의 refresh 응답은 Access Token을 저장하지 못하게 한다. 403은 refresh하지 않는다. 해당 Cookie와 Origin 계약도 Auth API 정본을 따른다. `/api/admin/**`는 ADMIN JWT로 인증·인가한다.
 
-Admin은 `develop` 배포 때 Web과 함께 `dev-admin.cking.co.kr`로 배포한다. 별도 S3·CloudFront·DNS는 [Cking-Infra #3](https://github.com/URECA-Cking/Cking-Infra/issues/3)에서, 해당 Origin의 BE CORS·Refresh Origin 허용은 [Cking-BE #465](https://github.com/URECA-Cking/Cking-BE/issues/465)에서 구성했다.
+Admin은 `develop` 배포 때 Web과 함께 `dev-admin.cking.co.kr`로 배포한다. 별도 S3·CloudFront·DNS는 [Cking-Infra #3](https://github.com/URECA-Cking/Cking-Infra/issues/3)에서, 해당 Origin의 BE CORS·Refresh Origin 허용은 [Cking-BE #465](https://github.com/URECA-Cking/Cking-BE/issues/465)에서 구성했다. `main` 배포 때는 운영 API 주소(`https://api.cking.co.kr`)로 빌드해 `admin.cking.co.kr`로 배포한다. 운영 CloudFront와 FE 배포 역할은 [Cking-Infra #120](https://github.com/URECA-Cking/Cking-Infra/pull/120)에서, 운영 BE의 CORS·관리자 Refresh Origin 허용은 [Cking-BE #682](https://github.com/URECA-Cking/Cking-BE/pull/682)에서 구성했다.
 
 HTTP 전송·토큰 저장소·MaterialIcon·포맷터·조회 훅은 `packages/shared`를 사용한다. 관리자 전용 refresh/로그아웃 URL, `AdminSessionContext`, 운영 정책과 상태는 Admin 앱에 둔다.
 

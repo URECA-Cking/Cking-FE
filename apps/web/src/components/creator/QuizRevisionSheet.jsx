@@ -87,7 +87,7 @@ export default function QuizRevisionSheet(props) {
   return <QuizReview key={`${props.creatorId}:${props.quizId}`} {...props} />
 }
 
-function QuizReview({ creatorId, quizId, initialRevisionId, onClose, onChanged }) {
+function QuizReview({ creatorId, quizId, initialRevisionId, onClose, onChanged, canOperate = true }) {
   // 마감은 Revision이 아닌 Quiz의 최종 상태다. 늦은 게시 상태 응답으로 되돌리지 않는다.
   const [closedResult, setClosedResult] = useState(null)
   const [staleQuiz, setStaleQuiz] = useState(null)
@@ -145,6 +145,7 @@ function QuizReview({ creatorId, quizId, initialRevisionId, onClose, onChanged }
             <RevisionReview
               key={revisionId}
               creatorId={creatorId}
+              canOperate={canOperate}
               quiz={shownQuiz}
               revisionId={revisionId}
               publicationPending={staleQuiz === quiz.data}
@@ -311,7 +312,7 @@ function useJudgeEvaluation(creatorId, quizId, revisionId, onRevisionStale) {
   }
 }
 
-function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionSaved, publicationPending, onPublicationStale }) {
+function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionSaved, publicationPending, onPublicationStale, canOperate }) {
   const showToast = useToast()
   const quizId = quiz.quizId
   const revision = useAsync(() => getMyQuizRevision(quizId, revisionId), [quizId, revisionId], {
@@ -342,13 +343,13 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
   const composed = data?.origin === 'CREATOR_COMPOSED'
   const closed = quiz.publicationStatus === 'CLOSED'
   const blocked = closed || publicationPending
-  const approvable = !blocked && data !== staleData && (composed ? data.latest && !data.contentLocked && data.reviewStatus === 'PENDING_REVIEW' && !!data.revisionSha256 : canApprove(data, evaluation))
-  const publishable = !blocked && data !== staleData && canPublish(quiz, data)
+  const approvable = canOperate && !blocked && data !== staleData && (composed ? data.latest && !data.contentLocked && data.reviewStatus === 'PENDING_REVIEW' && !!data.revisionSha256 : canApprove(data, evaluation))
+  const publishable = canOperate && !blocked && data !== staleData && canPublish(quiz, data)
   const publication = PUBLICATION_LABELS[closed ? 'CLOSED' : quiz.publicationStatus] ?? PUBLICATION_LABELS.NOT_PUBLISHED
   const judgedByNo = new Map((evaluation?.status === 'SUCCEEDED' ? evaluation.questions ?? [] : []).map((item) => [item.questionNo, item]))
 
   async function run(kind, task, successMessage, { forgetJudge = false } = {}) {
-    if (blocked || actionInFlight.current || data === staleData) return
+    if (blocked || actionInFlight.current || data === staleData || (!canOperate && !['close', 'unpublish'].includes(kind))) return
     actionInFlight.current = true
     setBusy(kind)
     try {
@@ -383,7 +384,7 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
   if (!data && revision.error) return <ErrorBlock message={revision.error} onRetry={revision.reload} />
   if (!data) return null
 
-  if (editing && !blocked) return <QuizCompositionPanel creatorId={creatorId} quizId={quizId} revision={data} onClose={() => setEditing(false)} onSaved={onCompositionSaved} onQuizClosed={() => {
+  if (editing && !blocked && canOperate) return <QuizCompositionPanel creatorId={creatorId} quizId={quizId} revision={data} onClose={() => setEditing(false)} onSaved={onCompositionSaved} onQuizClosed={() => {
     onPublicationStale({ publicationStatus: 'CLOSED' })
     setEditing(false)
     onChanged()
@@ -494,17 +495,17 @@ function RevisionReview({ creatorId, quiz, revisionId, onChanged, onCompositionS
 
       {data.contentLocked && <p className="rounded-xl bg-surface-container p-space-sm">최초 게시된 Quiz는 게시를 취소해도 읽기 전용이에요. 다른 내용은 새 Quiz로 생성해 주세요.</p>}
       {data === staleData && revision.error && <ErrorBlock message="최신 상태를 확인하지 못했어요. 이전 내용의 승인은 중단했습니다." onRetry={() => { revision.reload(); onChanged() }} />}
-      {!blocked && data.canEdit === true && data.latest && data.contentLocked === false && (
+      {canOperate && !blocked && data.canEdit === true && data.latest && data.contentLocked === false && (
         <button type="button" className={`${buttonClass} bg-primary text-on-primary`} disabled={busy !== null || data === staleData} onClick={() => setEditing(true)}>최종 문항 선택·편집</button>
       )}
       {composed && <p className="font-body-sm text-body-sm text-on-surface-variant">크리에이터 구성본이에요. 원본 AI 평가 결과는 참고용이며 최종 내용은 크리에이터가 책임 승인합니다.</p>}
       {/* GPT Judge */}
       {!composed && (action !== 'DECIDED' || evaluation) && (
-        <JudgeSection judge={judge} evaluation={evaluation} action={action} readOnly={blocked || busy !== null} />
+        <JudgeSection judge={judge} evaluation={evaluation} action={action} readOnly={!canOperate || blocked || busy !== null} />
       )}
 
       {/* 승인·반려 */}
-      {!blocked && data.reviewStatus === 'PENDING_REVIEW' && (
+      {canOperate && !blocked && data.reviewStatus === 'PENDING_REVIEW' && (
         <section className={sectionClass} aria-label="승인과 반려">
           <span className="font-label-md text-label-md font-semibold text-on-surface">검토 결정</span>
           {!approvable && (

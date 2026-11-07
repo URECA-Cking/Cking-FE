@@ -1,5 +1,6 @@
 import MaterialIcon from "./MaterialIcon.jsx";
 import {
+  CREATOR_STATUS_META,
   REVIEW_STATUS_META,
   drawingStatusMeta,
   eventStatusMeta,
@@ -24,6 +25,8 @@ export default function StatusBadge({ status, type = "auto", className = "" }) {
   const meta =
     type === "review"
       ? (REVIEW_STATUS_META[status] ?? eventStatusMeta(status))
+      : type === "creator"
+        ? (CREATOR_STATUS_META[status] ?? eventStatusMeta(status))
       : type === "redraw-review"
         ? (REDRAW_REVIEW_META[status] ?? eventStatusMeta(status))
         : type === "redraw-execution"

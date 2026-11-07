@@ -36,7 +36,8 @@ npm run dev:admin
 
 루트에서 `npm run lint`(shared/Web/Admin), `npm run test`(shared/Web/Admin), `npm run build`(Web/Admin)를 실행합니다.
 `develop`에 머지되면 Web(`apps/web/dist`)은 `dev.cking.co.kr`, Admin(`apps/admin/dist`)은 `dev-admin.cking.co.kr`로 배포됩니다.
-`main`에 머지되면 같은 방식으로 운영 주소(API `api.cking.co.kr`)로 빌드해 Web은 `cking.co.kr`, Admin은 `admin.cking.co.kr`로 배포됩니다. 운영 CloudFront 배포는 도메인으로 찾습니다.
+`main`에 머지되면 같은 방식으로 운영 주소(API `api.cking.co.kr`)로 빌드해 Web은 `cking.co.kr`, Admin은 `admin.cking.co.kr`로 배포됩니다. CloudFront 배포는 개발·운영 모두 도메인으로 찾습니다.
+배포 job은 저장소 변수 `DEPLOY_ENABLED`가 `true`일 때만 돕니다.
 배포 job은 버킷을 바꾸기 직전에 이 커밋이 브랜치의 최신인지 확인하고, 아니면 건너뜁니다(늦게 끝난 옛 실행이 새 배포를 덮지 않게). 그래서 옛 실행을 다시 실행해도 배포되지 않으며, 되돌릴 때는 되돌리는 커밋을 머지합니다.
 해시가 붙은 파일(`assets/`)은 먼저 올리고 지우지 않습니다. 배포 전에 연 화면과 서비스 워커가 캐시한 이전 `index.html`이 이전 해시 파일을 계속 찾기 때문입니다. `index.html` 등 이름이 고정된 파일은 그다음에 바꿉니다. 남는 이전 파일은 배포마다 최대 약 1.3MB(웹 0.84MB, 관리자 0.48MB, 2026-10-22 개발 버킷 기준)입니다.
 기존 `npm run dev`와 `npm run preview`도 Web 앱을 실행합니다.
@@ -84,13 +85,13 @@ npm run test:e2e:admin
 | 이벤트 상세 · 응모 | `/events/:eventId` | `GET /api/events/{id}`, `GET /api/events/{id}/entry-status`, `POST /api/events/{id}/entries`, `GET /api/events/{id}/winners` |
 | 내 응모 | `/my-entries` | `GET /api/creators/{id}/tickets/history`, `GET /api/events/{id}/winners` |
 | 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH /api/me/notifications/{id}/read`, `PATCH /api/me/notifications/read` |
-| 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/creator/applications/me`, `POST /api/creator/applications` |
+| 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/creator/applications/me`, `POST /api/creator/applications`, `GET·PATCH /api/creator/applications/{id}`, `POST .../resubmit`, `GET /api/creator/me/status`, `POST /api/creator/youtube-channel/connections`, `GET .../connection` |
 | 이벤트 관리 (내 스페이스 이벤트 탭) | `/:slug` | `GET /api/creator/events`, `DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
 | 이벤트 작성 | `/creator/events/new` | `POST /api/creator/events` |
 | 이벤트 수정 | `/creator/events/:eventId/edit` | `GET /api/creator/events`, `PATCH /api/creator/events/{id}` |
 | 일정 관리 (내 스페이스 캘린더 탭) | `/:slug` | `POST·PATCH·DELETE /api/creator/calendar/schedules(/{id})` |
 | 내 캘린더 | `/my-calendar` | `GET /api/me/calendar/schedules`, `PUT·DELETE /api/me/calendar/schedules/{id}` |
-| 관리자 콘솔 | `/admin` | `GET /api/admin/events/pending`, `POST .../approve·reject`, `GET /api/admin/creator-applications`, `POST .../approve·reject`, `GET .../closing-status`, `GET .../snapshot`, `POST .../drawings`, `GET /api/admin/drawings/{id}`, `GET .../result` |
+| 관리자 콘솔 | `/admin` | `GET /api/admin/events/pending`, `POST .../approve·reject`, `GET /api/admin/creator-applications`, `GET /api/admin/creator-applications/{id}`, `POST .../approve·reject·request-revision`, `GET /api/admin/creators`, `GET .../{id}·/status-history`, `POST .../suspend·reactivate·revoke`, `GET .../closing-status`, `GET .../snapshot`, `POST .../drawings`, `GET /api/admin/drawings/{id}`, `GET .../result` |
 
 최신 백엔드 API 인덱스와의 대조 결과, 화면·API별 연동 상태와 역할별 흐름은
 [`docs/api-coverage.md`](docs/api-coverage.md)에서 관리한다.

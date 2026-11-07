@@ -14,7 +14,7 @@ test.before(async()=>{
  browser=await chromium.launch({headless:true,...exe?{executablePath:exe}:{}})
 })
 test.after(async()=>browser?.close())
-async function screen({active=initial,stored=false,draft=null,storageFail=false,omit=false}={}){
+async function screen({active=initial,stored=false,draft=null,storageFail=false,omit=false,canOperate=true}={}){
  const page=await browser.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message))
  await page.route('**/*',r=>r.request().isNavigationRequest()?r.fulfill({contentType:'text/html',body:'<div id="root"></div>'}):r.abort())
  await page.goto('http://localhost/quiz-content-review')
@@ -37,11 +37,22 @@ async function screen({active=initial,stored=false,draft=null,storageFail=false,
    return response(window.active)
   }
  },{active,stored,draft,storageFail,omit})
- await page.addScriptTag({content:bundle});await page.evaluate(()=>window.renderQuiz('generation'))
+ await page.addScriptTag({content:bundle});await page.evaluate(value=>window.renderQuiz('generation',value),canOperate)
  return {page,errors}
 }
 async function open(page){await page.getByRole('button',{name:'원문 검토하기',exact:true}).click();await page.getByRole('textbox',{name:'검토 원문'}).waitFor()}
 async function confirm(page){await page.getByRole('button',{name:'원문 확정',exact:true}).click();await page.getByRole('button',{name:'확정하고 문항 생성',exact:true}).click()}
+test('활동 제한 중에는 원문 확정과 새 생성이 막히고 기존 생성 취소는 허용한다',async()=>{
+ const {page,errors}=await screen({canOperate:false});try{
+  await open(page)
+  assert.equal(await page.getByRole('button',{name:'원문 확정',exact:true}).isDisabled(),true)
+  assert.equal(await page.getByRole('button',{name:'AI Quiz 생성',exact:false}).isDisabled(),true)
+  await page.getByRole('button',{name:'생성 취소',exact:true}).last().click()
+  await page.getByText('Quiz 생성을 취소했어요.',{exact:false}).waitFor()
+  assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.path.endsWith('/content-confirmation')).length),0)
+  assert.deepEqual(errors,[])
+ }finally{await page.close()}
+})
 for(const edited of [true,false])test(`검토 복구 후 ${edited?'수정':'그대로'} 확정 원문을 전송하고 생성 완료한다`,async()=>{
  const {page,errors}=await screen();try{
  await open(page);if(edited)await page.getByRole('textbox',{name:'검토 원문'}).fill('  수정 원문\r\n')

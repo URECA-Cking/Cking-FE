@@ -22,15 +22,16 @@ test.after(async () => {
 })
 
 /** Creator 이벤트 생성·수정 API를 흉내 내고 해당 폼을 브라우저에 연다. */
-async function openForm(edit = false) {
+async function openForm(edit = false, canOperate = true) {
   const page = await browser.newPage()
   page.on('pageerror', error => pageErrors.push(error.message))
   await page.route('**/*', route => route.request().isNavigationRequest()
     ? route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' })
     : route.abort())
   await page.goto('http://localhost/event-form')
-  await page.evaluate(editMode => {
+  await page.evaluate(({ editMode, canOperate }) => {
     window.eventPath = editMode ? '/creator/events/28/edit' : '/creator/events/new'
+    window.canOperateCreator = canOperate
     window.calls = []
     window.toasts = []
     window.failApproval = false
@@ -59,8 +60,9 @@ async function openForm(edit = false) {
       }
       throw Error(`${method} ${path}`)
     }
-  }, edit)
+  }, { editMode: edit, canOperate })
   await page.addScriptTag({ content: bundle })
+  if (!canOperate) return page
   await page.getByRole('textbox', { name: '제목', exact: false }).waitFor()
   if (!edit) {
     await page.getByRole('textbox', { name: '제목', exact: false }).fill('새 이벤트')
@@ -70,6 +72,15 @@ async function openForm(edit = false) {
   }
   return page
 }
+
+test('활동 제한 중 이벤트 작성 주소에 직접 들어와도 저장 폼을 열지 않는다', async () => {
+  const page = await openForm(false, false)
+  try {
+    await page.getByRole('status').getByText('크리에이터 활동이 제한되어 이벤트를 작성하거나 수정할 수 없어요.').waitFor()
+    assert.equal(await page.getByRole('textbox', { name: '제목', exact: false }).count(), 0)
+    assert.equal((await callsTo(page, 'POST', '/api/creator/events')).length, 0)
+  } finally { await page.close() }
+})
 
 /** 모의 API가 받은 지정 메서드·경로의 요청만 반환한다. */
 function callsTo(page, method, path) {

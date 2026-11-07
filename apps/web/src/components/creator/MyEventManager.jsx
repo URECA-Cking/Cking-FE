@@ -22,7 +22,7 @@ const PAGE_SIZE = 50
  * 수정 · 승인 요청(POST .../approval-request) · 수동 마감(POST /events/{id}/close) · 삭제(DELETE)를 실행한다.
  * 각 동작의 허용 상태는 백엔드 도메인 규칙과 동일하게 맞췄다.
  */
-export default function MyEventManager() {
+export default function MyEventManager({ canOperate = true }) {
   const navigate = useNavigate()
   const showToast = useToast()
   const [busyId, setBusyId] = useState(null)
@@ -82,7 +82,7 @@ export default function MyEventManager() {
 
   return (
     <div className="flex flex-col gap-space-md">
-      <CreateFab label="새 이벤트 작성" to="/creator/events/new" />
+      {canOperate && <CreateFab label="새 이벤트 작성" to="/creator/events/new" />}
 
       {loading && <LoadingBlock label="내 이벤트를 불러오는 중..." />}
       {!loading && error && <ErrorBlock message={error} onRetry={reload} />}
@@ -111,7 +111,7 @@ export default function MyEventManager() {
         <div className="flex flex-col gap-1">
           <button
             type="button"
-            disabled={!editable || busy}
+            disabled={!canOperate || !editable || busy}
             onClick={() => {
               navigate(`/creator/events/${menuEvent.eventId}/edit`)
               setMenuTarget(null)
@@ -122,7 +122,7 @@ export default function MyEventManager() {
           </button>
           <button
             type="button"
-            disabled={!canRequestApproval || busy}
+            disabled={!canOperate || !canRequestApproval || busy}
             onClick={async () => {
               const target = menuEvent
               setMenuTarget(null)

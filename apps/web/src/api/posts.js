@@ -21,7 +21,7 @@ export const POST_LIMITS = {
   imageTypes: JPEG_PNG_IMAGE_TYPES,
 }
 
-/** 이미지 1장 업로드 → { imageKey }. 24시간 안에 게시글에 연결하지 않으면 서버가 삭제한다. */
+/** 이미지 1장 업로드 → { imageKey }. 사전 서명 업로드(/api/uploads)를 먼저 쓰고, 그 API가 없는 환경(404)은 POST /api/creator/posts/images로 올린다. 24시간 안에 게시글에 연결하지 않으면 서버가 삭제한다. */
 export function uploadPostImage(file) {
   return uploadImage('POST_IMAGE', file, legacyUploadPostImage)
 }
@@ -114,6 +114,7 @@ export function reportComment(creatorId, postId, commentId, { reason, detail }) 
 export const COMMENT_REPORT_ERROR_MESSAGES = {
   COMMENT_REPORT_LIMIT_EXCEEDED: '짧은 시간에 너무 많이 신고했어요. 잠시 뒤에 다시 시도해주세요.',
   COMMENT_REPORT_OWN_COMMENT: '내가 쓴 댓글은 신고할 수 없어요.',
+  COMMENT_REPORT_ALREADY_FILTERED: '이미 가려진 댓글이에요.',
   POST_FOLLOWERS_ONLY: '팬에게만 공개된 게시글이에요.',
   RESOURCE_NOT_FOUND: '댓글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
   VALIDATION_FAILED: '신고 사유를 확인해주세요. 기타는 1~200자의 내용이 필요해요.',

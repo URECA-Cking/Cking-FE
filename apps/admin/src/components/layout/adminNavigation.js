@@ -8,6 +8,7 @@ export const ADMIN_NAVIGATION = [
     label: '심사 관리',
     items: [
       { label: 'Creator 신청', icon: 'how_to_reg', to: '/admin/reviews/creators', matches: (location) => /^\/admin\/reviews\/creators(?:\/|$)/.test(location.pathname) },
+      { label: 'Creator 자격', icon: 'badge', to: '/admin/creators', matches: (location) => /^\/admin\/creators(?:\/|$)/.test(location.pathname) },
       { label: '이벤트 승인', icon: 'fact_check', to: '/admin/reviews/events', matches: (location) => /^\/admin\/reviews\/events(?:\/|$)/.test(location.pathname) },
     ],
   },
@@ -27,6 +28,7 @@ export const ADMIN_NAVIGATION = [
       { label: '구독 인증 재사용', icon: 'image_search', to: '/admin/subscription-verifications/image-reuse', matches: (location) => location.pathname === '/admin/subscription-verifications/image-reuse' },
       { label: '신고 관리', icon: 'flag', to: '/admin/comment-reports', matches: (location) => location.pathname === '/admin/comment-reports' },
       { label: '제재 관리', icon: 'block', to: '/admin/space-comment-blocks', matches: (location) => location.pathname === '/admin/space-comment-blocks' },
+      { label: '필터링 내역', icon: 'filter_alt', to: '/admin/filtered-comments', matches: (location) => location.pathname === '/admin/filtered-comments' },
       { label: 'Dead Stream', icon: 'warning', to: '/admin/dead-streams', matches: (location) => location.pathname === '/admin/dead-streams' },
       { label: '응모권 관리', icon: 'confirmation_number', to: '/admin/tickets', matches: (location) => location.pathname === '/admin/tickets' },
     ],

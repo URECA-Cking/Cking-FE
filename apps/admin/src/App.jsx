@@ -11,9 +11,11 @@ import { AdminEventDetailPage, AdminEventsPage } from './pages/admin/AdminEvents
 import { AdminAbuseDetectionDetailPage, AdminAbuseDetectionListPage } from './pages/admin/AdminAbuseDetections.jsx'
 import { ReviewDetailPage, ReviewListPage } from './pages/admin/ReviewPages.jsx'
 import AdminCommentReports from './pages/admin/AdminCommentReports.jsx'
+import AdminFilteredComments from './pages/admin/AdminFilteredComments.jsx'
 import AdminSpaceCommentBlocks from './pages/admin/AdminSpaceCommentBlocks.jsx'
 import AdminTickets from './pages/admin/AdminTickets.jsx'
 import AdminSubscriptionImageReuse from './pages/admin/AdminSubscriptionImageReuse.jsx'
+import AdminCreatorStatuses, { AdminCreatorStatusDetail } from './pages/admin/AdminCreatorStatuses.jsx'
 
 /** 관리자 도메인의 고정 URL과 로그인 보호 라우트를 등록한다. */
 export default function App() {
@@ -33,6 +35,8 @@ export default function App() {
       <Route path="/admin/abuse-detections/:detectionId" element={protectedRoute(<AdminAbuseDetectionDetailPage />)} />
       <Route path="/admin/reviews/creators" element={protectedRoute(<ReviewListPage type="creators" />)} />
       <Route path="/admin/reviews/creators/:reviewId" element={protectedRoute(<ReviewDetailPage type="creators" />)} />
+      <Route path="/admin/creators" element={protectedRoute(<AdminCreatorStatuses />)} />
+      <Route path="/admin/creators/:creatorId" element={protectedRoute(<AdminCreatorStatusDetail />)} />
       <Route path="/admin/reviews/events" element={protectedRoute(<ReviewListPage type="events" />)} />
       <Route path="/admin/reviews/events/:reviewId" element={protectedRoute(<ReviewDetailPage type="events" />)} />
       <Route path="/admin/winners" element={protectedRoute(<AdminWinners />)} />
@@ -42,6 +46,7 @@ export default function App() {
       <Route path="/admin/dead-streams" element={protectedRoute(<AdminDeadStreams />)} />
       <Route path="/admin/comment-reports" element={protectedRoute(<AdminCommentReports />)} />
       <Route path="/admin/space-comment-blocks" element={protectedRoute(<AdminSpaceCommentBlocks />)} />
+      <Route path="/admin/filtered-comments" element={protectedRoute(<AdminFilteredComments />)} />
       <Route path="/admin/tickets" element={protectedRoute(<AdminTickets />)} />
       <Route path="/admin/subscription-verifications/image-reuse" element={protectedRoute(<AdminSubscriptionImageReuse />)} />
       <Route path="*" element={<Navigate to="/admin" replace />} />

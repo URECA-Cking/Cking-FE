@@ -34,7 +34,7 @@ function modalSize(ratio, hasMedia) {
 const NO_LOCAL_CHANGES = { created: [], updated: {}, deleted: [] }
 
 /** 크리에이터 게시물 목록과 상세, 작성·수정·삭제 및 좋아요 상태를 관리한다. */
-export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, memberId, followDisabled, onFollow, onLogin, onMissionAwarded, initialPostId = null, onInitialPostOpened, onLeaveToOrigin }) {
+export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, authenticated, following, isMine, canOperate = true, memberId, followDisabled, onFollow, onLogin, onMissionAwarded, initialPostId = null, onInitialPostOpened, onLeaveToOrigin }) {
   const [extraState, setExtraState] = useState({ pages: [], loading: false, error: '' })
   const [detail, setDetail] = useState(null)
   const [mediaRatio, setMediaRatio] = useState(1)
@@ -329,7 +329,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
     <div className="flex flex-col pb-space-md pt-space-sm">
       {/* 목록이 보일 때만 쓰기를 열어, 저장한 글이 화면에 반영되지 못하는 상태를 만들지 않는다. */}
       {isMine && !first.loading && !first.error && page && (
-        <CreateFab label="새 게시글" onClick={() => setEditor({ post: null })} />
+        canOperate && <CreateFab label="새 게시글" onClick={() => setEditor({ post: null })} />
       )}
       {(first.loading || (!page && !first.error)) && <LoadingBlock label="게시글을 불러오는 중..." />}
       {!first.loading && first.error && <ErrorBlock message={first.error} onRetry={reloadFirst} />}
@@ -412,7 +412,7 @@ export default function CreatorPosts({ creatorId, creatorName, profileImageUrl, 
                   lockedLabel={lockedLabel}
                   lockedDisabled={followDisabled}
                   isMine={isMine}
-                  onEdit={() => editFromDetail(detail.post)}
+                  onEdit={canOperate ? () => editFromDetail(detail.post) : null}
                   onDelete={() => setConfirmingDelete(detail.post)}
                   deleting={deletingId === detail.post.postId}
                   onMediaRatio={setMediaRatio}

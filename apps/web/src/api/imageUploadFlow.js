@@ -3,22 +3,28 @@
 // 예약 API가 없는 환경(404)에서는 기존 업로드 함수를 쓰고, 한 번 404를 받으면 그 뒤로는 바로 기존 업로드를 쓴다.
 // 이 파일은 의존성을 주입받아 Vite 없이 node 테스트에서 돌린다. 실제 연결은 imageUpload.js.
 
+import { uploadContentType } from '../utils/imageMime.js'
+
 export const POLL_TIMEOUT_MS = 30000
 
 /** 평소 처리는 p95 약 2.2초라 3초까지는 촘촘히 보고, 밀릴 때는 간격을 늘려 확인 요청이 앱 부하가 되지 않게 한다. */
-export function pollDelayMs(elapsedMs) {
+function pollDelayMs(elapsedMs) {
   if (elapsedMs < 3000) return 500
   if (elapsedMs < 6000) return 1000
   return 2000
 }
 
 /** 정규화 실패는 용도별 기존 오류 코드로 바꿔 화면의 기존 문구를 그대로 쓴다. */
-export const INVALID_IMAGE_CODES = {
+const INVALID_IMAGE_CODES = {
   MEMBER_PROFILE: 'INVALID_PROFILE_IMAGE',
   CREATOR_SPACE_PROFILE: 'INVALID_SPACE_PROFILE_IMAGE',
   CREATOR_SPACE_BANNER: 'INVALID_SPACE_BANNER_IMAGE',
   EVENT_BANNER: 'INVALID_EVENT_BANNER_IMAGE',
   POST_IMAGE: 'INVALID_POST_IMAGE',
+}
+
+function isRetryable(error) {
+  return error?.code === 'NETWORK_ERROR' || (typeof error?.status === 'number' && error.status >= 500)
 }
 
 export function createImageUploader({ post, get, put, sleep, now, ApiError }) {
@@ -28,7 +34,15 @@ export function createImageUploader({ post, get, put, sleep, now, ApiError }) {
     const start = now()
     const deadline = start + POLL_TIMEOUT_MS
     for (;;) {
-      const upload = await get(`/api/uploads/${encodeURIComponent(uploadId)}`)
+      let upload
+      try {
+        upload = await get(`/api/uploads/${encodeURIComponent(uploadId)}`)
+      } catch (error) {
+        // 연결 끊김·서버 오류는 한 번 실패해도 처리는 계속되므로 제한 시간 안에서 다시 확인한다. 4xx는 다시 봐도 같다.
+        if (!isRetryable(error) || now() >= deadline) throw error
+        await sleep(pollDelayMs(now() - start))
+        continue
+      }
       if (upload.status === 'READY') return upload.imageKey
       if (upload.status === 'FAILED') throw new ApiError(INVALID_IMAGE_CODES[purpose], undefined, 400)
       if (now() >= deadline) throw new ApiError('IMAGE_PROCESSING_BUSY', undefined, 503)
@@ -40,7 +54,7 @@ export function createImageUploader({ post, get, put, sleep, now, ApiError }) {
     if (!pipelineAvailable) return legacyUpload(file)
     let created
     try {
-      created = await post('/api/uploads', { purpose, contentType: file.type, size: file.size })
+      created = await post('/api/uploads', { purpose, contentType: uploadContentType(file), size: file.size })
     } catch (error) {
       if (error?.status === 404) {
         pipelineAvailable = false
@@ -48,8 +62,14 @@ export function createImageUploader({ post, get, put, sleep, now, ApiError }) {
       }
       throw error
     }
-    const response = await put(created.uploadUrl, created.headers, file)
-    if (!response.ok) throw new ApiError('IMAGE_PROCESSING_BUSY', undefined, response.status)
+    // 원본 전송 실패는 처리 지연과 안내가 달라 따로 알린다. 연결 끊김은 공용 API 클라이언트와 같은 NETWORK_ERROR.
+    let response
+    try {
+      response = await put(created.uploadUrl, created.headers, file)
+    } catch {
+      throw new ApiError('NETWORK_ERROR')
+    }
+    if (!response.ok) throw new ApiError('IMAGE_UPLOAD_FAILED', undefined, response.status)
     return { imageKey: await waitReady(purpose, created.uploadId) }
   }
 }

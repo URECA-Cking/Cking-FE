@@ -23,7 +23,8 @@ function describeReportError(error) {
  *
  * @param {{ creatorId: number, postId: number, commentId: number,
  *   onClose: () => void, onReported: () => void, onGone: (error: ApiError) => void }} props
- *   onGone: 댓글이 삭제됐거나 볼 수 없게 된 경우(RESOURCE_NOT_FOUND, POST_FOLLOWERS_ONLY)라 신고할 수 없을 때 부른다.
+ *   onGone: 댓글이 삭제됐거나 가려졌거나 볼 수 없게 된 경우(RESOURCE_NOT_FOUND, COMMENT_REPORT_ALREADY_FILTERED,
+ *   POST_FOLLOWERS_ONLY)라 신고할 수 없을 때 부른다.
  */
 export default function CommentReportSheet({ creatorId, postId, commentId, onClose, onReported, onGone }) {
   const [reason, setReason] = useState(null)
@@ -44,7 +45,7 @@ export default function CommentReportSheet({ creatorId, postId, commentId, onClo
       onReported()
     } catch (reportError) {
       const code = reportError instanceof ApiError ? reportError.code : null
-      if (code === 'RESOURCE_NOT_FOUND' || code === 'POST_FOLLOWERS_ONLY') {
+      if (code === 'RESOURCE_NOT_FOUND' || code === 'COMMENT_REPORT_ALREADY_FILTERED' || code === 'POST_FOLLOWERS_ONLY') {
         onGone(reportError)
         return
       }

@@ -4,6 +4,11 @@ export const CREATOR_APPLICATION_STATUS_META = {
     tone: "bg-gold-badge-bg text-gold-badge",
     icon: "hourglass_top",
   },
+  NEEDS_REVISION: {
+    label: "보완 요청",
+    tone: "bg-amber-100 text-amber-800",
+    icon: "edit_note",
+  },
   APPROVED: {
     label: "승인됨",
     tone: "bg-berry-tint text-primary",
@@ -17,6 +22,7 @@ export const CREATOR_APPLICATION_STATUS_META = {
 };
 export const REVIEW_STATUS_META = {
   PENDING: CREATOR_APPLICATION_STATUS_META.PENDING,
+  NEEDS_REVISION: CREATOR_APPLICATION_STATUS_META.NEEDS_REVISION,
   PENDING_APPROVAL: {
     label: "승인 대기",
     tone: "bg-gold-badge-bg text-gold-badge",
@@ -25,6 +31,12 @@ export const REVIEW_STATUS_META = {
   APPROVED: CREATOR_APPLICATION_STATUS_META.APPROVED,
   REJECTED: CREATOR_APPLICATION_STATUS_META.REJECTED,
 };
+
+export const CREATOR_STATUS_META = {
+  ACTIVE: { label: '활동 가능', tone: 'bg-berry-tint text-primary', icon: 'check_circle' },
+  SUSPENDED: { label: '활동 정지', tone: 'bg-gold-badge-bg text-gold-badge', icon: 'pause_circle' },
+  REVOKED: { label: '자격 박탈', tone: 'bg-error-container text-on-error-container', icon: 'block' },
+}
 const EVENT_STATUS_META = {
   SCHEDULED: {
     label: "예정",

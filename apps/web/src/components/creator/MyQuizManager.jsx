@@ -15,7 +15,7 @@ import { creatorQuizErrorMessage } from '../../utils/quizJobs.js'
  * (GET /api/creator/quizzes)에서 Quiz를 골라 문항 검토 → GPT Judge 평가 → 승인·반려 → 게시·게시 중지를 한다.
  * 팬이 보는 응시 화면은 CreatorQuizzes가 맡는다.
  */
-export default function MyQuizManager({ creatorId }) {
+export default function MyQuizManager({ creatorId, canOperate = true }) {
   const [open, setOpen] = useState(null)
   const { data, loading, error, reload } = useAsync(
     () => getMyQuizzes({ page: 0, size: QUIZ_PAGE_SIZE }),
@@ -56,6 +56,7 @@ export default function MyQuizManager({ creatorId }) {
     <div className="flex flex-col gap-space-sm px-margin py-space-sm">
       <QuizGenerationPanel
         creatorId={creatorId}
+        canOperate={canOperate}
         onSucceeded={reload}
         onReview={(job) => setOpen({ quizId: job.quizId, revisionId: job.revisionId })}
       />
@@ -111,6 +112,7 @@ export default function MyQuizManager({ creatorId }) {
           creatorId={creatorId}
           quizId={open.quizId}
           initialRevisionId={open.revisionId}
+          canOperate={canOperate}
           onClose={() => setOpen(null)}
           onChanged={reload}
         />

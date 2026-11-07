@@ -7,14 +7,15 @@ import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../components/States.js
 import Pagination from '../../components/Pagination.jsx'
 import { useToast } from '../../context/useToast.js'
 import { useAsync } from '../../hooks/useAsync.js'
-import { approveCreatorApplication, approveEvent, getAllCreatorApplications, getAllPendingEvents, getCreatorApplications, rejectCreatorApplication, rejectEvent } from '../../api/admin.js'
+import { approveCreatorApplication, approveEvent, getAllPendingEvents, getCreatorApplication, getCreatorApplications, rejectCreatorApplication, rejectEvent, requestCreatorApplicationRevision } from '../../api/admin.js'
 import { describeError } from '../../api/client.js'
 import { formatDateTime, formatNumber } from '../../utils/format.js'
+import { REVIEW_STATUS_META } from '../../utils/eventStatus.js'
 import { toSafeHttpUrl } from '@cking/shared/safeUrl'
 
 const CONFIG = {
   creators: {
-    title: 'Creator 신청 관리', description: 'Creator 권한 신청을 검토하고 승인하거나 거절합니다.', listPath: '/admin/reviews/creators', loadList: async () => ({ items: await getAllCreatorApplications() }), loadDetail: async () => ({ items: await getAllCreatorApplications() }), itemId: (item) => item.applicationId,
+    title: 'Creator 신청 관리', description: 'Creator 권한 신청을 검토하고 승인하거나 거절합니다.', listPath: '/admin/reviews/creators', itemId: (item) => item.applicationId,
     empty: '현재 검토할 Creator 신청이 없습니다.', searchPlaceholder: '신청 ID 또는 신청자 검색', matches: (item, term) => [item.applicationId, item.applicantName, item.applicantUserId].some((value) => String(value ?? '').toLowerCase().includes(term)),
     subject: (item) => `${item.applicantName}님의 Creator 신청`, status: (item) => item.status,
   },
@@ -50,7 +51,7 @@ export function ReviewListPage({ type }) {
     <section className="rounded-lg border border-slate-200 bg-white">
       <div className="flex flex-wrap items-end gap-3 border-b border-slate-200 p-4">
         <label className="min-w-64 flex-1 text-xs font-medium text-slate-600">{type === 'creators' ? '현재 페이지 검색' : '검색'}<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={config.searchPlaceholder} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-pink-600 focus:ring-1 focus:ring-pink-600" /></label>
-        {type === 'creators' ? <label className="w-36 text-xs font-medium text-slate-600">상태<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(0) }} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600"><option value="">전체</option><option value="PENDING">승인 대기</option><option value="APPROVED">승인 완료</option><option value="REJECTED">거절</option></select></label> : <span className="h-9 rounded-md bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">승인 대기 심사 큐</span>}
+        {type === 'creators' ? <label className="w-36 text-xs font-medium text-slate-600">상태<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(0) }} className="mt-1.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-pink-600"><option value="">전체</option><option value="PENDING">승인 대기</option><option value="NEEDS_REVISION">보완 요청</option><option value="APPROVED">승인 완료</option><option value="REJECTED">거절</option></select></label> : <span className="h-9 rounded-md bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">승인 대기 심사 큐</span>}
         <button type="button" onClick={() => void reload()} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">새로고침</button>
       </div>
       {loading && <LoadingBlock label="목록을 불러오는 중..." />}
@@ -78,11 +79,11 @@ export function ReviewDetailPage({ type }) {
     ? location.state.reviewItem
     : null
   const { data, loading, error, reload } = useAsync(
-    () => selectedItem ? Promise.resolve(null) : config.loadDetail(),
+    () => type === 'creators' ? getCreatorApplication(reviewId) : selectedItem ? Promise.resolve(null) : config.loadDetail(),
     [type, reviewId, selectedItem ? config.itemId(selectedItem) : null],
     { fallbackMessage: '상세 정보를 불러오지 못했습니다.' },
   )
-  const item = selectedItem ?? data?.items?.find((candidate) => String(config.itemId(candidate)) === reviewId)
+  const item = type === 'creators' ? data : selectedItem ?? data?.items?.find((candidate) => String(config.itemId(candidate)) === reviewId)
 
   async function decide(reason) {
     if (!item || !action) return
@@ -90,10 +91,11 @@ export function ReviewDetailPage({ type }) {
     try {
       if (type === 'creators') {
         if (action === 'approve') await approveCreatorApplication(item.applicationId)
+        else if (action === 'revision') await requestCreatorApplicationRevision(item.applicationId, reason)
         else await rejectCreatorApplication(item.applicationId, reason)
       } else if (action === 'approve') await approveEvent(item.eventId)
       else await rejectEvent(item.eventId, reason)
-      showToast(action === 'approve' ? '승인 처리했습니다.' : '거절 처리했습니다.')
+      showToast(action === 'approve' ? '승인 처리했습니다.' : action === 'revision' ? '보완을 요청했습니다.' : '거절 처리했습니다.')
       navigate(config.listPath, { replace: true })
     } catch (err) {
       showToast(describeError(err, '심사 처리에 실패했습니다.'), { icon: 'error' })
@@ -104,8 +106,38 @@ export function ReviewDetailPage({ type }) {
   if (error) return <ErrorBlock message={error} onRetry={reload} />
   if (!item) return <div className="mx-auto max-w-6xl"><EmptyBlock message="현재 목록에서 해당 심사 대상을 찾을 수 없습니다." /><Link to={config.listPath} className="text-sm font-medium text-pink-700">목록으로 돌아가기</Link></div>
   const pending = config.status(item) === 'PENDING' || config.status(item) === 'PENDING_APPROVAL'
+  const revisionPending = type === 'creators' && item.status === 'NEEDS_REVISION'
   const basicRows = type === 'creators'
     ? [['Application ID', item.applicationId], ['신청자', item.applicantName], ['Member ID', item.applicantUserId], ['신청 상태', <StatusBadge key="creator-status" status={item.status} />], ['신청 시간', formatDateTime(item.requestedAt)]]
     : [['Event ID', item.eventId], ['이벤트명', item.title], ['Creator', item.creatorName ?? `#${item.creatorId}`], ['상태', <StatusBadge key="event-status" status={item.status} />], ['승인 요청일', formatDateTime(item.requestedAt)], ['배너', <EventBannerPreview key="event-banner" url={item.bannerImageUrl} />]]
-  return <div className="mx-auto flex w-full max-w-4xl flex-col gap-6"><div><Link to={config.listPath} className="text-sm font-medium text-pink-700 hover:text-pink-800">← {config.title} 목록</Link><h1 className="mt-3 text-xl font-semibold text-slate-950">{type === 'creators' ? 'Creator 신청 상세' : '이벤트 승인 상세'}</h1></div><section className="border-y border-slate-200 bg-white"><DetailInfoRows title="기본 정보" rows={basicRows} />{type === 'creators' ? <DetailInfoRows title="처리 정보" rows={[['처리 시간', item.reviewedAt ? formatDateTime(item.reviewedAt) : '-'], ['처리자', item.reviewedBy ? `#${item.reviewedBy}` : '-'], ['거절 사유', item.rejectReason ?? '-']]} /> : <><DetailInfoRows title="진행 정보" rows={[['시작일', formatDateTime(item.startAt)], ['종료일', formatDateTime(item.endAt)], ['당첨 인원', `${formatNumber(item.winnerCount)}명`], ['추첨 방식', item.drawMethod], ['승인 요청 차수', `${item.approvalRound}차`]]} />{item.prizes?.length > 0 && <DetailInfoRows title="상품" rows={item.prizes.map((prize) => [prize.displayName, `${formatNumber(prize.quantity)}개`])} />}</>}</section>{pending && <div className="flex justify-end gap-2"><button type="button" onClick={() => setAction('reject')} className="h-10 rounded-md border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800 hover:bg-red-100">거절</button><button type="button" onClick={() => setAction('approve')} className="h-10 rounded-md bg-pink-700 px-4 text-sm font-semibold text-white hover:bg-pink-800">승인</button></div>}{action && <ConfirmModal action={action} subject={config.subject(item)} busy={busy} onCancel={() => setAction(null)} onConfirm={(reason) => void decide(reason)} />}</div>
+  return <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+    <div><Link to={config.listPath} className="text-sm font-medium text-pink-700 hover:text-pink-800">← {config.title} 목록</Link><h1 className="mt-3 text-xl font-semibold text-slate-950">{type === 'creators' ? 'Creator 신청 상세' : '이벤트 승인 상세'}</h1></div>
+    <section className="border-y border-slate-200 bg-white">
+      <DetailInfoRows title="기본 정보" rows={basicRows} />
+      {type === 'creators' ? <>
+        {item.submittedForm ? <ApplicationFormRows title={`제출된 신청서 · ${item.submissionVersion ?? 0}차`} form={item.submittedForm} /> : <DetailInfoRows title="신청서" rows={[["제출 상태", "신청서 미제출"]]} />}
+        <DetailInfoRows title="처리 정보" rows={[["처리 시간", item.reviewedAt ? formatDateTime(item.reviewedAt) : '-'], ['처리자', item.reviewedBy ? `#${item.reviewedBy}` : '-'], ['보완 사유', item.revisionReason ?? '-'], ['거절 사유', item.rejectReason ?? '-']]} />
+        {item.submissions?.map((submission) => <ApplicationFormRows key={submission.version} title={`제출 이력 · ${submission.version}차 · ${formatDateTime(submission.submittedAt)}`} form={submission.form} />)}
+        {item.reviews?.length > 0 && <DetailInfoRows title="심사 이력" rows={item.reviews.map((review) => [REVIEW_STATUS_META[review.action]?.label ?? '처리 결과 확인 필요', `${review.reason ?? '-'} · ${formatDateTime(review.createdAt)}`])} />}
+      </> : <>
+        <DetailInfoRows title="진행 정보" rows={[["시작일", formatDateTime(item.startAt)], ['종료일', formatDateTime(item.endAt)], ['당첨 인원', `${formatNumber(item.winnerCount)}명`], ['추첨 방식', item.drawMethod], ['승인 요청 차수', `${item.approvalRound}차`]]} />
+        {item.prizes?.length > 0 && <DetailInfoRows title="상품" rows={item.prizes.map((prize) => [prize.displayName, `${formatNumber(prize.quantity)}개`])} />}
+      </>}
+    </section>
+    {(pending || revisionPending) && <div className="flex justify-end gap-2">
+      <button type="button" onClick={() => setAction('reject')} className="h-10 rounded-md border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800 hover:bg-red-100">거절</button>
+      {type === 'creators' && pending && <button type="button" onClick={() => setAction('revision')} className="h-10 rounded-md border border-amber-300 bg-amber-50 px-4 text-sm font-semibold text-amber-800">보완 요청</button>}
+      {pending && <button type="button" onClick={() => setAction('approve')} disabled={type === 'creators' && !item.submittedForm} className="h-10 rounded-md bg-pink-700 px-4 text-sm font-semibold text-white hover:bg-pink-800 disabled:opacity-50">승인</button>}
+    </div>}
+    {action && <ConfirmModal action={action === 'revision' ? 'reject' : action} title={action === 'revision' ? '신청서 보완 요청' : undefined} message={action === 'revision' ? '신청서에서 보완할 내용을 작성해 전달합니다. 신청자는 보완 후 다시 제출할 수 있습니다.' : undefined} reasonLabel={action === 'revision' ? '보완 요청 사유' : undefined} reasonMaxLength={action === 'revision' ? 500 : undefined} confirmLabel={action === 'revision' ? '보완 요청하기' : undefined} confirmTone={action === 'revision' ? 'bg-amber-600 hover:bg-amber-700' : undefined} busyLabel={action === 'revision' ? '보완 요청 처리 중...' : undefined} subject={config.subject(item)} busy={busy} onCancel={() => setAction(null)} onConfirm={(reason) => void decide(reason)} />}
+  </div>
+}
+
+function ApplicationFormRows({ title, form }) {
+  if (!form) return <DetailInfoRows title={title} rows={[["신청서", "신청서가 없습니다."]]} />
+  const links = (form.evidenceUrls ?? []).map((url) => {
+    const safeUrl = toSafeHttpUrl(url)
+    return safeUrl?.startsWith('https:') ? <a key={url} href={safeUrl} target="_blank" rel="noreferrer" className="block break-all text-pink-700 underline">{url}</a> : <span key={url} className="block break-all">{url}</span>
+  })
+  return <DetailInfoRows title={title} rows={[["희망 활동명", form.preferredActivityName], ['활동 분야', form.categoryCodes?.join(', ') || '-'], ['소개', form.introduction], ['증빙 URL', links], ['활동 계획', form.activityPlan], ['플랫폼', form.platforms?.join(', ') || '-'], ['정책 동의', form.agreeToCreatorPolicy ? '동의' : '미동의']]} />
 }

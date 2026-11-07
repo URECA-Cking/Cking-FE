@@ -142,6 +142,8 @@ export async function getCreatorApplications({ status, page = 0, size = 20 } = {
   return get('/api/admin/creator-applications', { status, page, size });
 }
 
+export function getCreatorApplication(applicationId) { return get(`/api/admin/creator-applications/${applicationId}`) }
+
 /** 페이지 기반 관리자 목록을 모두 읽어 Dashboard 집계에 사용할 항목을 반환한다. */
 async function getAllPages(loadPage, size = 100) {
   const items = []
@@ -188,6 +190,14 @@ export async function rejectCreatorApplication(applicationId, rejectReason) {
   return post(`/api/admin/creator-applications/${applicationId}/reject`, { rejectReason });
 }
 
+export function requestCreatorApplicationRevision(applicationId, revisionReason) { return post(`/api/admin/creator-applications/${applicationId}/request-revision`, { revisionReason }) }
+export function getManagedCreators({ status, page = 0, size = 20 } = {}) { return get('/api/admin/creators', { status, page, size }) }
+export function getManagedCreator(creatorId) { return get(`/api/admin/creators/${creatorId}`) }
+export function getCreatorStatusHistory(creatorId, { page = 0, size = 20 } = {}) { return get(`/api/admin/creators/${creatorId}/status-history`, { page, size }) }
+export function suspendCreator(creatorId, body) { return post(`/api/admin/creators/${creatorId}/suspend`, body) }
+export function reactivateCreator(creatorId, body) { return post(`/api/admin/creators/${creatorId}/reactivate`, body) }
+export function revokeCreator(creatorId, body) { return post(`/api/admin/creators/${creatorId}/revoke`, body) }
+
 /** 신고된 댓글을 댓글별로 모아 최근 신고 순으로 조회한다. status(PENDING·RESOLVED·REJECTED)를 생략하면 전체다. */
 export async function getCommentReports({ status, page = 0, size = 20 } = {}) {
   return get('/api/admin/comment-reports', { status, page, size })
@@ -201,6 +211,11 @@ export async function hideReportedComment(commentId) {
 /** 그 댓글의 접수 신고를 모두 반려한다. 댓글은 그대로 보인다. 이미 반려했으면 처리 수 0으로 성공하고, 숨긴 댓글은 409다. */
 export async function rejectCommentReports(commentId) {
   return post(`/api/admin/comment-reports/${commentId}/reject`)
+}
+
+/** AI가 가린 댓글을 신고 여부와 상관없이 최근 판정 순으로 조회한다. */
+export async function getFilteredComments({ page = 0, size = 20 } = {}) {
+  return get('/api/admin/filtered-comments', { page, size })
 }
 
 /** 지정 회원의 Creator 전용 또는 공용 응모권 Redis·MySQL 잔액을 비교 조회한다. */

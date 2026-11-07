@@ -117,7 +117,10 @@ export default function CreatorSpace() {
   const showToast = useToast()
   const { refresh: refreshMyTickets } = useMyTickets() // 좋아요 미션 적립 뒤 헤더의 총 응모권 개수를 갱신한다
   const location = useLocation()
-  const { user, status, isCreator, isFollowing, toggleFollow, followsReady, pendingFollowIds } = useUser()
+  const { user, status, isCreator, canOperateCreator, creatorStatus, isFollowing, toggleFollow, followsReady, pendingFollowIds } = useUser()
+  // 구 버전 세션과 컴포넌트 테스트의 Context에는 새 필드가 없을 수 있다.
+  // 명시적으로 false를 받은 경우만 활동 제한으로 처리한다.
+  const canOperate = canOperateCreator !== false
   const authenticated = status === 'authenticated'
   const sessionLoading = status === 'loading'
   // 로그인 상태를 복원하는 동안(loading)에는 로그인 안내를 띄우지 않아 로그인 사용자에게 깜빡이지 않게 한다.
@@ -229,14 +232,14 @@ export default function CreatorSpace() {
   const openSpaceEditRequested = Boolean(location.state?.openSpaceEdit)
   useEffect(() => {
     if (!isMine || !openSpaceEditRequested) return
-    setEditOpen(true)
+    if (canOperate) setEditOpen(true)
     navigate(`${location.pathname}${location.search}${location.hash}`, {
       replace: true,
       state: { ...location.state, openSpaceEdit: false },
       preventScrollReset: true,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMine, openSpaceEditRequested])
+  }, [isMine, canOperate, openSpaceEditRequested])
   // 편집 시트에서 slug를 바꾸면 주소 이동은 시트를 닫은 뒤로 미룬다. 시트가 열려 있는 동안 replace하면 시트가 쌓은 history 항목이
   // 새 주소로 바뀌어, 닫을 때 되돌린 위치(이전 slug의 항목)로 돌아가 뒤로가기에서 더는 열리지 않는 주소가 나타난다.
   const pendingSlugRef = useRef(null)
@@ -629,7 +632,7 @@ export default function CreatorSpace() {
           <span className="font-label-md text-label-md font-semibold">{pendingFollowIds.has(creator.creatorId) ? '처리 중...' : following ? '도킹 중' : '도킹'}</span>
         </button>
       )}
-      {isMine && (
+      {isMine && canOperate && (
         <button
           type="button"
           onClick={() => setEditOpen(true)}
@@ -639,7 +642,7 @@ export default function CreatorSpace() {
           <span className="whitespace-nowrap font-label-md text-label-md font-semibold">스페이스 편집</span>
         </button>
       )}
-      {isMine && (
+      {isMine && canOperate && (
         <button
           type="button"
           onClick={() => setYoutubeChannelSettingsOpen(true)}
@@ -871,7 +874,7 @@ export default function CreatorSpace() {
                   <span className="flex h-5 w-5 items-center justify-center"><MaterialIcon name="bolt" className="text-primary text-[22px]" /></span>
                   <h2 className="font-title-md text-title-md text-on-surface">오늘의 미션</h2>
                 </div>
-                <span className="font-label-xs text-label-xs text-on-surface-variant">좋아요 미션은 매일 00:00 갱신</span>
+                <span className="font-label-xs text-label-xs text-on-surface-variant">좋아요 미션은 매일 09시 갱신</span>
               </div>
               {missionList}
             </div>
@@ -903,8 +906,9 @@ export default function CreatorSpace() {
           <div className="flex flex-col gap-space-sm px-margin py-space-sm">{missionList}</div>
         )}
 
+        {isMine && !canOperate && <div className="mx-margin rounded-xl bg-error-container p-space-md text-on-error-container" role="status"><p className="font-label-md font-bold">크리에이터 활동이 제한되었어요.</p><p className="font-body-sm">{creatorStatus === 'REVOKED' ? '자격 박탈' : '활동 정지'} 상태입니다. 기존 콘텐츠 조회·삭제·마감은 계속할 수 있어요.</p></div>}
         {tab === 'quiz' && isMine && (
-          <MyQuizManager key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}`} creatorId={creator.creatorId} />
+          <MyQuizManager key={`${creator.creatorId}:${user?.memberId ?? 'anonymous'}`} creatorId={creator.creatorId} canOperate={canOperate} />
         )}
 
         {tab === 'quiz' && !isMine && (
@@ -922,7 +926,7 @@ export default function CreatorSpace() {
 
         {tab === 'blocks' && isMine && <MyCommentBlocks />}
 
-        {tab === 'calendar' && <CreatorCalendar creatorId={creator.creatorId} isMine={isMine} />}
+        {tab === 'calendar' && <CreatorCalendar creatorId={creator.creatorId} isMine={isMine} canOperate={canOperate} />}
 
         {tab === 'posts' && sessionLoading && <LoadingBlock label="로그인 상태를 확인하는 중..." />}
 
@@ -936,6 +940,7 @@ export default function CreatorSpace() {
             authenticated={authenticated}
             following={following}
             isMine={isMine}
+            canOperate={canOperate}
             memberId={user?.memberId ?? null}
             followDisabled={authenticated && !following && (!followsReady || pendingFollowIds.has(creator.creatorId) || (isCreator && !mySpace.data))}
             onFollow={handleFollow}
@@ -949,7 +954,7 @@ export default function CreatorSpace() {
         {tab === 'events' && (
           <div className="flex flex-col gap-space-md px-margin py-space-sm">
             {isMine ? (
-              <MyEventManager />
+              <MyEventManager canOperate={canOperate} />
             ) : creator.eventsError ? (
               <ErrorBlock message="이벤트를 불러오지 못했어요." onRetry={reload} />
             ) : events.length > 0 ? (
@@ -974,7 +979,7 @@ export default function CreatorSpace() {
           balance={ticketBalance}
         />
       )}
-      {isMine && (
+      {isMine && canOperate && (
         <SpaceEditSheet
           open={editOpen}
           onClose={closeSpaceEdit}
@@ -986,6 +991,7 @@ export default function CreatorSpace() {
       {isMine && (
         <YoutubeChannelSheet
           open={youtubeChannelSettingsOpen}
+          canOperate={canOperate}
           onClose={() => {
             setYoutubeChannelSettingsOpen(false)
             youtubeChannel.reload()

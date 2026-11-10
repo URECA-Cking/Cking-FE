@@ -1,153 +1,117 @@
-# Cking-FE
+<div align="center">
+  <img src="./docs/assets/readme/fe/cking-logo.png" alt="CKing 로고" width="420" />
 
-Cking 팬덤 래플 서비스의 프론트엔드입니다. npm workspaces로 앱을 관리하며,
-Web 앱은 `apps/web`, 관리자 앱은 `apps/admin`에 있습니다. React + Vite + Tailwind CSS로 만들었고,
-화면 구성은 `stitch/` 시안(Fandom Editorial Luxe 디자인 시스템)을 따릅니다.
-표시되는 값은 별도로 표기한 항목을 빼고 모두 백엔드(`Cking-BE`)의 실제 응답입니다.
+  <h3>크리에이터와 팬을 연결하는 참여형 플랫폼, CKing</h3>
 
-## Workspace 구조
+  <p>
+    크리에이터 탐색과 도킹부터 콘텐츠·미션 참여, 응모권 획득, 이벤트 응모와 당첨 결과 확인까지.<br />
+    CKing의 사용자·크리에이터 서비스와 관리자 콘솔을 구현한 프론트엔드 저장소입니다.
+  </p>
+
+  <p><a href="https://cking.co.kr"><img alt="서비스 종료" src="https://img.shields.io/badge/SERVICE_ENDED-cking.co.kr-6B7280?style=for-the-badge&logo=googlechrome&logoColor=white" /></a></p>
+  <p><a href="https://github.com/URECA-Cking/Cking-BE"><img alt="백엔드 저장소" src="https://img.shields.io/badge/BACKEND-Repository-282C3B?style=for-the-badge&logo=github&logoColor=white" /></a></p>
+  <p><a href="https://github.com/URECA-Cking/Cking-Infra"><img alt="인프라 저장소" src="https://img.shields.io/badge/INFRASTRUCTURE-Repository-282C3B?style=for-the-badge&logo=github&logoColor=white" /></a></p>
+  <p><a href="https://youtu.be/WEKKLaadHcM"><img alt="시연 영상" src="https://img.shields.io/badge/DEMO-YouTube-D62D52?style=for-the-badge&logo=youtube&logoColor=white" /></a></p>
+  <p>서비스는 종료되었습니다. 시연은 DEMO 영상에서 볼 수 있습니다.</p>
+</div>
+
+<br />
+
+## 주요 서비스 화면
+
+서비스의 실제 UI 캡처를 기능별로 정리했습니다. 사용자·크리에이터 화면은 `apps/web`, 운영자 콘솔은 `apps/admin`에서 제공합니다.
+
+### 핵심 서비스
+
+|                  미⁠션⁠·⁠응⁠모⁠권                   |                  이⁠벤⁠트⁠ ⁠응⁠모                   |                당⁠첨⁠ ⁠결⁠과⁠·⁠알⁠림                |
+| :---: | :---: | :---: |
+| <img src="./docs/assets/readme/fe/welcome-quest.png" alt="웰컴 퀘스트 및 출석 응모권 화면" width="220" /> | <img src="./docs/assets/readme/fe/event-entry.png" alt="이벤트 응모권 선택 화면" width="220" /> | <img src="./docs/assets/readme/fe/notifications.png" alt="당첨 및 응모권 지급 알림 화면" width="220" /> |
+
+### 크리에이터·AI 기능
+
+|           맞⁠춤⁠ ⁠크⁠리⁠에⁠이⁠터⁠ ⁠추⁠천           |       C⁠r⁠e⁠a⁠t⁠o⁠r⁠ ⁠S⁠p⁠a⁠c⁠e⁠ ⁠·⁠ ⁠게⁠시⁠물       |       Y⁠o⁠u⁠T⁠u⁠b⁠e⁠ ⁠구⁠독⁠ ⁠인⁠증⁠ ⁠미⁠션        |                  A⁠I⁠ ⁠퀴⁠즈⁠ ⁠미⁠션                  |
+| :---: | :---: | :---: | :---: |
+| <img src="./docs/assets/readme/fe/recommendations.png" alt="맞춤 크리에이터 추천 화면" width="220" /> | <img src="./docs/assets/readme/fe/creator-space.png" alt="Creator Space 게시물 및 댓글 화면" width="220" /> | <img src="./docs/assets/readme/fe/youtube-verification.png" alt="YouTube 구독 인증 화면" width="220" /> | <img src="./docs/assets/readme/fe/ai-quiz.png" alt="AI 퀴즈 응시 화면" width="220" /> |
+
+<br />
+
+## 기술 스택
+
+| 분류 | 사용 기술 |
+| :--- | :--- |
+| Frontend | ![React 19](https://img.shields.io/badge/React_19-20232A?style=flat-square&logo=react&logoColor=61DAFB) ![Vite 8](https://img.shields.io/badge/Vite_8-646CFF?style=flat-square&logo=vite&logoColor=white) ![Tailwind CSS 3](https://img.shields.io/badge/Tailwind_CSS_3-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white) ![React Router 7](https://img.shields.io/badge/React_Router_7-CA4245?style=flat-square&logo=reactrouter&logoColor=white) |
+| Architecture | ![npm Workspaces](https://img.shields.io/badge/npm_Workspaces-CB3837?style=flat-square&logo=npm&logoColor=white) ![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=flat-square&logo=pwa&logoColor=white) ![OAuth2](https://img.shields.io/badge/OAuth2-394E67?style=flat-square) ![JWT](https://img.shields.io/badge/JWT-394E67?style=flat-square&logo=jsonwebtokens&logoColor=white) |
+| Quality | ![Oxlint](https://img.shields.io/badge/Oxlint-21293A?style=flat-square) ![Node Test](https://img.shields.io/badge/Node_Test-339933?style=flat-square&logo=nodedotjs&logoColor=white) ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=flat-square&logo=playwright&logoColor=white) |
+| Deploy | ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white) ![Amazon S3](https://img.shields.io/badge/Amazon_S3-569A31?style=flat-square&logo=amazons3&logoColor=white) ![CloudFront](https://img.shields.io/badge/CloudFront-232F3E?style=flat-square&logo=amazonaws&logoColor=white) |
+
+<br />
+
+## 프로젝트 구조
 
 ```text
-apps/web/      사용자·Creator Web 앱
-apps/admin/    독립 관리자 앱
-packages/shared/  두 앱이 사용하는 HTTP 전송·토큰 저장소·아이콘·포맷터·비동기 조회 훅
-package.json   npm workspaces 및 루트 명령
+CKing-FE/
+├── apps/
+│   ├── web/                       # 팬·크리에이터 서비스 (Vite)
+│   │   ├── public/                # 정적 자산 · PWA manifest / service worker
+│   │   └── src/
+│   │       ├── api/               # 사용자·크리에이터 API 모듈
+│   │       ├── components/        # 기능별 UI·레이아웃
+│   │       ├── context/           # 세션 · 테마 · 토스트
+│   │       ├── hooks/             # 비동기 조회 · 연결 상태
+│   │       ├── pages/             # 홈 · 탐색 · 이벤트 · Creator Space
+│   │       ├── pwa/               # PWA 설치·등록
+│   │       └── utils/             # 상태 · 날짜 · 표시 유틸리티
+│   └── admin/                     # 독립 관리자 서비스 (Vite)
+│       └── src/
+│           ├── api/               # 관리자 전용 API
+│           ├── components/        # 관리자 공통 UI·레이아웃
+│           └── pages/admin/       # 심사 · 운영 · 추첨 · 이상 행동
+├── packages/shared/              # HTTP 전송 · 토큰 · 아이콘 · 공통 Hooks
+├── docs/                         # FE 아키텍처 · API 연동 · 검증 문서
+└── package.json                  # npm Workspaces 및 공통 스크립트
 ```
 
-`npm run build`는 Web과 Admin을 함께 빌드합니다.
+Web과 Admin은 각각 라우팅·인증 상태·도메인 코드를 소유하며, 실제 공통 로직만 `packages/shared`로 분리합니다. 자세한 구조는 [FE 아키텍처 문서](docs/architecture.md)를 참고하세요.
 
-## 실행
+<br />
+
+## 로컬 실행 및 개발 가이드
+
+### 1. 사전 준비
+
+Node.js 및 npm, 연동할 [CKing-BE](https://github.com/URECA-Cking/Cking-BE) 서버를 준비합니다.
+
+### 2. 환경변수 설정
 
 ```bash
 npm ci
+cp apps/web/.env.example apps/web/.env
+```
+
+| 변수 | 설명 |
+| :--- | :--- |
+| `VITE_API_PROXY_TARGET` | 개발 서버가 `/api`를 전달할 BE 주소 (기본 `http://localhost:8080`) |
+| `VITE_API_BASE_URL` | API 기준 주소. 비워두면 동일 출처 요청과 Vite 프록시 사용 |
+| `VITE_ADMIN_BASE_URL` | Web에서 이동하는 관리자 콘솔 주소 (기본 `http://localhost:5174`) |
+
+### 3. 개발 서버 실행
+
+```bash
+# 팬·크리에이터 Web — http://localhost:5173
 npm run dev:web
+
+# 관리자 콘솔 — http://localhost:5174 (다른 터미널)
 npm run dev:admin
 ```
 
-- Web 개발 서버: http://localhost:5173
-- Admin 개발 서버: http://localhost:5174
-- `/api` 요청은 vite 프록시가 백엔드로 전달합니다(기본 `http://localhost:8080`).
-  같은 출처 요청이 되어 Refresh Cookie(`Path=/api/auth`)도 그대로 오갑니다.
-- 로그인(OAuth)은 API 호출이 아니라 백엔드 주소로의 페이지 이동이라 프록시를 거치지 않습니다.
-  로컬 백엔드는 `local,oauth` 프로필과 `JWT_SECRET`, OAuth Client 환경변수로 실행해야 합니다(`Cking-BE` README 참고).
-- 환경변수는 `apps/web/.env.example`을 `apps/web/.env`로 복사해 사용하세요.
-- 백엔드·로그인 없이 화면만 볼 때는 개발 서버 주소 끝에 `?mock=1`(팬), `?mock=creator`(크리에이터), `?mock=empty`(팔로우·이벤트 없음)를 붙입니다.
-  `apps/web/src/dev/mockApi.js`가 `fetch`만 더미로 바꾸고, 개발 모드에서만 불러와 배포 빌드에는 들어가지 않습니다. `?mock=0`으로 끕니다.
+Google·Kakao OAuth 로그인은 페이지 이동 방식이므로 백엔드 OAuth 설정이 필요합니다. 로컬에서 UI만 확인하려면 Web 주소에 `?mock=1`(팬), `?mock=creator`(크리에이터), `?mock=empty`(빈 상태)를 붙일 수 있습니다. Mock API는 개발 모드에만 로드됩니다.
 
-루트에서 `npm run lint`(shared/Web/Admin), `npm run test`(shared/Web/Admin), `npm run build`(Web/Admin)를 실행합니다.
-`develop`에 머지되면 Web(`apps/web/dist`)은 `dev.cking.co.kr`, Admin(`apps/admin/dist`)은 `dev-admin.cking.co.kr`로 배포됩니다.
-`main`에 머지되면 같은 방식으로 운영 주소(API `api.cking.co.kr`)로 빌드해 Web은 `cking.co.kr`, Admin은 `admin.cking.co.kr`로 배포됩니다. CloudFront 배포는 개발·운영 모두 도메인으로 찾습니다.
-배포 job은 저장소 변수 `DEPLOY_ENABLED`가 `true`일 때만 돕니다.
-배포 job은 버킷을 바꾸기 직전에 이 커밋이 브랜치의 최신인지 확인하고, 아니면 건너뜁니다(늦게 끝난 옛 실행이 새 배포를 덮지 않게). 그래서 옛 실행을 다시 실행해도 배포되지 않으며, 되돌릴 때는 되돌리는 커밋을 머지합니다.
-해시가 붙은 파일(`assets/`)은 먼저 올리고 지우지 않습니다. 배포 전에 연 화면과 서비스 워커가 캐시한 이전 `index.html`이 이전 해시 파일을 계속 찾기 때문입니다. `index.html` 등 이름이 고정된 파일은 그다음에 바꿉니다. 남는 이전 파일은 배포마다 최대 약 1.3MB(웹 0.84MB, 관리자 0.48MB, 2026-10-22 개발 버킷 기준)입니다.
-기존 `npm run dev`와 `npm run preview`도 Web 앱을 실행합니다.
-
-### 로컬 Admin E2E
-
-실제 개발 배포 환경의 관리자 인증 흐름은 필요할 때만 Playwright로 확인한다. 이 테스트는 CI나 `npm run test`에 포함하지 않는다.
-
-```powershell
-$env:E2E_ADMIN_LOGIN_ID='<관리자 로그인 ID>'
-$env:E2E_ADMIN_PASSWORD='<관리자 비밀번호>'
-npm run test:e2e:admin
-```
-
-최초 한 번은 `npx playwright install chromium`으로 로컬 브라우저를 설치한다. 기본 대상은 `https://dev-admin.cking.co.kr`이며, `E2E_ADMIN_BASE_URL`과 `E2E_ADMIN_API_BASE_URL`로 다른 개발 환경을 지정할 수 있다.
-
-| 변수 | 설명 |
-| --- | --- |
-| `VITE_API_PROXY_TARGET` | 개발 서버가 `/api`를 전달할 백엔드 주소 (기본 `http://localhost:8080`). `VITE_API_BASE_URL`이 비어 있으면 OAuth 로그인도 이 주소로 이동 |
-| `VITE_API_BASE_URL` | API 기준 주소. 비우면 같은 출처로 요청(프록시 사용). 값이 있으면 OAuth 로그인도 이 주소로 이동 |
-| `VITE_ADMIN_BASE_URL` | Web의 관리자 콘솔 진입 주소. 로컬 기본값은 `http://localhost:5174` |
-
-백엔드는 더미 데이터 시더(`local` + `seed` 프로필)로 사용자 15명과 크리에이터 3명을 만듭니다.
-
-## 웹앱(PWA)
-
-- `apps/web/public/manifest.webmanifest` — standalone 실행, 기본(다크) 테마·배경 색상(실행 중에는 선택한 모드에 맞춰 `theme-color` 갱신), 바로가기(내 응모/알림)
-- `apps/web/public/sw.js` — 앱 셸은 stale-while-revalidate, `/api`는 네트워크 우선(오프라인일 때만 마지막 성공 응답). Access JWT가 붙은 요청은 캐시하지 않음
-- 홈 화면 설치 배너(`InstallBanner`)는 standalone 실행 시 숨기며 모바일에서만 표시한다. iOS Safari·iOS Chrome·Android Chrome·Android 삼성 인터넷별로 자동 감지한 설치 절차를 `설치 방법 보기`로 접어 제공한다. Android 앱 내 브라우저는 외부 브라우저로 연 뒤 설치하도록 안내하며, `beforeinstallprompt` 지원 환경에서는 사용자의 버튼 동작으로 설치 팝업을 연다.
-- 아이콘은 디자인 원본(CKing 로고)에서 만든 PNG를 `apps/web/public/icons/`에 직접 두고 쓴다(생성 스크립트 없음)
-
-서비스 워커는 프로덕션 빌드에서만 등록됩니다. 설치 동작을 확인하려면 `npm run build && npm run preview`.
-
-## 화면과 연동된 API
-
-| 화면 | 경로 | 사용하는 백엔드 API |
-| --- | --- | --- |
-| 로그인 | `/login` | `GET /oauth2/authorization/{google\|kakao}` (페이지 이동) |
-| 로그인 콜백 | `/oauth/callback` | `POST /api/auth/token`, `GET /api/me`(닉네임 미설정 팬은 `/profile/edit`, 설정 후 신규 가입자 `onboardingCompleted=false`면 `/onboarding`으로 이동), `GET /api/me/follows` (모든 페이지) |
-| 온보딩(관심 분야 → 크리에이터 추천) | `/onboarding` | `GET /api/interests`, `GET·PUT /api/me/interests`, `GET /api/me/creator-recommendations`, `GET /api/creators?keyword`, `GET /api/me/follows`, `PUT·DELETE /api/creators/{id}/follow`, `PUT /api/me/onboarding/complete`(시작하기·나중에 할게) |
-| 관심 크리에이터 관리 | `/onboarding/creators` | 위 온보딩의 크리에이터 단계만 다시 연다 |
-| 홈 | `/` | `GET /api/creators`, `GET /api/events`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/creators/{id}/posts`(팔로우한 크리에이터별 최근 3건, 최대 10명), `GET /api/missions`, `POST /api/missions/{missionId}/complete`, `GET /api/tickets/common/history`(출석 도장 7칸), `GET /api/me/winners`(수령 대기 건수 배너), `GET /api/events/{id}/entries/me`(보이는 응모 티켓 3장의 응모 여부), `GET /api/events/{id}/entry-status`(티켓의 참여자 수) |
-| 탐색 | `/explore` | `GET /api/creators`(`openEventCount`), `GET /api/events`, `GET /api/events/counts`, `GET /api/me/creator-recommendations`, `POST /api/me/creator-recommendation-events`, `GET /api/creators/{id}/similar`, `GET·PUT /api/me/interests`, `GET /api/interests`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `PUT·DELETE /api/creators/{id}/follow` |
-| 크리에이터 스페이스 | `/creators/:creatorId`, `/space/:slug` | `GET /api/creators/{id}/space`, `GET /api/creator-spaces/{slug}`, `GET /api/creators/{id}/posts`, `GET /api/creators/{id}/posts/{postId}`, (본인) `GET·PATCH /api/creator/space`, `PATCH /api/creator/space/slug`, `GET /api/events?creatorId=`, `GET /api/creators/{id}/tickets`, `.../tickets/history`, `GET·POST .../missions`, YouTube 구독 인증 채널·제출·상태 조회 API, `GET /api/creators/{id}/calendar/schedules`, (로그인 시) `GET /api/me/calendar/schedules`, `PUT·DELETE /api/me/calendar/schedules/{id}` |
-| 이벤트 상세 · 응모 | `/events/:eventId` | `GET /api/events/{id}`, `GET /api/events/{id}/entry-status`, `POST /api/events/{id}/entries`, `GET /api/events/{id}/winners` |
-| 내 응모 | `/my-entries` | `GET /api/creators/{id}/tickets/history`, `GET /api/events/{id}/winners` |
-| 알림 | `/notifications` | `GET /api/me/notifications`, `PATCH /api/me/notifications/{id}/read`, `PATCH /api/me/notifications/read` |
-| 마이페이지 | `/my-page` | `GET /api/creators`, `GET /api/me/follows`, `GET /api/creators/{id}/tickets`, `GET /api/creator/applications/me`, `POST /api/creator/applications`, `GET·PATCH /api/creator/applications/{id}`, `POST .../resubmit`, `GET /api/creator/me/status`, `POST /api/creator/youtube-channel/connections`, `GET .../connection` |
-| 이벤트 관리 (내 스페이스 이벤트 탭) | `/:slug` | `GET /api/creator/events`, `DELETE /api/creator/events/{id}`, `POST .../approval-request`, `POST /api/events/{id}/close` |
-| 이벤트 작성 | `/creator/events/new` | `POST /api/creator/events` |
-| 이벤트 수정 | `/creator/events/:eventId/edit` | `GET /api/creator/events`, `PATCH /api/creator/events/{id}` |
-| 일정 관리 (내 스페이스 캘린더 탭) | `/:slug` | `POST·PATCH·DELETE /api/creator/calendar/schedules(/{id})` |
-| 내 캘린더 | `/my-calendar` | `GET /api/me/calendar/schedules`, `PUT·DELETE /api/me/calendar/schedules/{id}` |
-| 관리자 콘솔 | `/admin` | `GET /api/admin/events/pending`, `POST .../approve·reject`, `GET /api/admin/creator-applications`, `GET /api/admin/creator-applications/{id}`, `POST .../approve·reject·request-revision`, `GET /api/admin/creators`, `GET .../{id}·/status-history`, `POST .../suspend·reactivate·revoke`, `GET .../closing-status`, `GET .../snapshot`, `POST .../drawings`, `GET /api/admin/drawings/{id}`, `GET .../result` |
-
-최신 백엔드 API 인덱스와의 대조 결과, 화면·API별 연동 상태와 역할별 흐름은
-[`docs/api-coverage.md`](docs/api-coverage.md)에서 관리한다.
-
-### 로그인과 권한
-
-Google·Kakao OAuth로 로그인하고 Access JWT로 호출자를 식별합니다(`Cking-BE` `docs/domains/auth/api.md`).
-요청에 `userId`를 보내지 않습니다.
-
-1. 로그인 화면에서 `/oauth2/authorization/{provider}`로 이동합니다. 돌아갈 화면은 `sessionStorage`에 잠시 맡겨 둡니다. 크리에이터 전환 신청은 로그인 후 마이페이지에서 합니다.
-2. 백엔드가 `/oauth/callback?code=...`(실패 시 `?error=...`)로 돌려보내면, Login Code를 `POST /api/auth/token`으로 Access JWT와 교환합니다.
-3. Access JWT는 `sessionStorage`에 두고 모든 요청에 `Authorization: Bearer`로 붙입니다(`credentials: 'include'`).
-4. 401을 받으면 `POST /api/auth/refresh`(HttpOnly Refresh Cookie)로 한 번 갱신 후 재시도하고, 실패하면 로그인 화면으로 보냅니다. 동시에 여러 요청이 401을 받아도 갱신은 한 번만 합니다.
-5. 새로고침·새 탭에서는 Refresh Cookie로 조용히 재발급해 로그인을 유지합니다. 로그아웃은 `POST /api/auth/logout`입니다.
-
-사용자 정보와 권한은 `GET /api/me` 응답을 그대로 씁니다.
-
-- 크리에이터: `creator`
-- 관리자: `role === 'ADMIN'`
-
-### 응모 처리
-
-응모는 `POST /api/events/{eventId}/entries`에 UUID 멱등키(`requestId`)를 함께 보냅니다.
-같은 응모 시도에서 재시도할 때는 같은 `requestId`를 유지해 중복 차감이 생기지 않게 하고,
-백엔드가 돌려주는 결과 코드 10종(`SUCCESS`, `DUPLICATE_REPLAY`, `INSUFFICIENT_BALANCE`,
-`EVENT_NOT_OPEN`, `EVENT_CLOSED`, `INVALID_TICKET_COUNT`, `IDEMPOTENCY_CONFLICT`,
-`GATE_NOT_LOADED`, `BALANCE_NOT_LOADED`, `SYSTEM_ERROR`)을 각각의 문구로 안내합니다.
-
-## 백엔드 API는 있으나 아직 프론트에 연동하지 않은 부분
-
-| 항목 | 상황 | 프론트엔드 처리 |
-| --- | --- | --- |
-| 내 응모 목록 | `GET /api/events/{id}/entries/me` 제공됨 | 아직 응모권 원장의 `SPEND` + `eventId` 기록을 이벤트 단위로 모아 재구성 |
-| 출석·좋아요 미션 | 조회·완료 API 제공됨 | 화면에는 남기되 아직 프론트 연동 전이라 "준비 중"으로 표시 |
-| 전체 게시물 피드 | 전체 피드 API 없음 | 홈의 샘플 피드를 제거하고 크리에이터 스페이스 게시물 탭에서 공개 Post API를 조회 |
-| 누적 응모 건수 | 공개 API가 제공하지 않음 | 대신 당첨 인원·상품 구성 등 실제 값이 있는 항목을 노출 |
-| 결과 공개(PUBLISHED 전환) | 관리자 공개 API 제공됨 | 관리자 콘솔에 아직 공개 기능이 없어 결과 공개 API를 연동해야 함 |
-
-## 구조
-
-```
-apps/web/src/
-  api/        백엔드 엔드포인트별 호출 모듈 (+ creators/myEntries 같은 조합 조회)
-  components/ 레이아웃·카드·시트 등 공용 UI
-  context/    로그인 세션(UserContext), 토스트, 화면 모드(ThemeContext, 다크/일반)
-  data/       이벤트 배너·이미지 헬퍼
-  hooks/      useAsync(조회 공통), useOnline
-  pages/      화면 (admin/ 하위 포함)
-  pwa/        서비스 워커 등록, 설치 프롬프트
-  utils/      날짜·숫자 포맷, 상태 매핑
-```
-
-## 검사
+### 4. 검사 및 빌드
 
 ```bash
 npm run lint
-npm run build:web
+npm run test
 npm run build
 ```
+
+Web은 PWA를 지원하며, 서비스 워커 등록·설치 동작은 프로덕션 빌드에서만 확인할 수 있습니다. 자세한 검증·배포 절차는 [개발 문서](docs/README.md)와 [Admin 앱 문서](docs/apps/admin.md)를 참고하세요.

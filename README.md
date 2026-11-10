@@ -31,7 +31,7 @@
 
 | 맞춤 크리에이터 추천 | Creator Space · 게시물 | YouTube 구독 인증 미션 | AI 퀴즈 미션 |
 | :---: | :---: | :---: | :---: |
-| <img src="./docs/assets/readme/fe/recommendations.png" alt="맞춤 크리에이터 추천 화면" width="118" /> | <img src="./docs/assets/readme/fe/creator-space.png" alt="Creator Space 게시물 및 댓글 화면" width="118" /> | <img src="./docs/assets/readme/fe/youtube-verification.png" alt="YouTube 구독 인증 화면" width="118" /> | <img src="./docs/assets/readme/fe/ai-quiz.png" alt="AI 퀴즈 응시 화면" width="118" /> |
+| <img src="./docs/assets/readme/fe/recommendations.png" alt="맞춤 크리에이터 추천 화면" width="142" /> | <img src="./docs/assets/readme/fe/creator-space.png" alt="Creator Space 게시물 및 댓글 화면" width="142" /> | <img src="./docs/assets/readme/fe/youtube-verification.png" alt="YouTube 구독 인증 화면" width="142" /> | <img src="./docs/assets/readme/fe/ai-quiz.png" alt="AI 퀴즈 응시 화면" width="142" /> |
 | 관심사 기반 추천·도킹 | 게시물·좋아요·댓글 | 구독 인증 이미지 제출 | 퀴즈 응시·보상 획득 |
 
 <br />

@@ -24,14 +24,14 @@
 
 | 미션·응모권 | 이벤트 응모 | 당첨 결과·알림 |
 | :---: | :---: | :---: |
-| <img src="./docs/assets/readme/fe/welcome-quest.png" alt="웰컴 퀘스트 및 출석 응모권 화면" width="142" /> | <img src="./docs/assets/readme/fe/event-entry.png" alt="이벤트 응모권 선택 화면" width="142" /> | <img src="./docs/assets/readme/fe/notifications.png" alt="당첨 및 응모권 지급 알림 화면" width="142" /> |
+| <img src="./docs/assets/readme/fe/welcome-quest.png" alt="웰컴 퀘스트 및 출석 응모권 화면" width="142" /><br />                                   | <img src="./docs/assets/readme/fe/event-entry.png" alt="이벤트 응모권 선택 화면" width="142" /><br />                                   | <img src="./docs/assets/readme/fe/notifications.png" alt="당첨 및 응모권 지급 알림 화면" width="142" /><br />                                   |
 | 웰컴 퀘스트·출석 미션<br />응모권 획득 | 응모권 종류·수량 선택<br />이벤트 응모 | 당첨 발표·응모권 지급<br />알림 확인 |
 
 ### 크리에이터·AI 기능
 
 | 맞춤 크리에이터 추천 | Creator Space · 게시물 | YouTube 구독 인증 미션 | AI 퀴즈 미션 |
 | :---: | :---: | :---: | :---: |
-| <img src="./docs/assets/readme/fe/recommendations.png" alt="맞춤 크리에이터 추천 화면" width="142" /> | <img src="./docs/assets/readme/fe/creator-space.png" alt="Creator Space 게시물 및 댓글 화면" width="142" /> | <img src="./docs/assets/readme/fe/youtube-verification.png" alt="YouTube 구독 인증 화면" width="142" /> | <img src="./docs/assets/readme/fe/ai-quiz.png" alt="AI 퀴즈 응시 화면" width="142" /> |
+| <img src="./docs/assets/readme/fe/recommendations.png" alt="맞춤 크리에이터 추천 화면" width="142" /><br />                                   | <img src="./docs/assets/readme/fe/creator-space.png" alt="Creator Space 게시물 및 댓글 화면" width="142" /><br />                                   | <img src="./docs/assets/readme/fe/youtube-verification.png" alt="YouTube 구독 인증 화면" width="142" /><br />                                   | <img src="./docs/assets/readme/fe/ai-quiz.png" alt="AI 퀴즈 응시 화면" width="142" /><br />                                   |
 | 관심사 기반 추천·도킹 | 게시물·좋아요·댓글 | 구독 인증 이미지 제출 | 퀴즈 응시·보상 획득 |
 
 <br />

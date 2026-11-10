@@ -8,10 +8,11 @@
     CKing의 사용자·크리에이터 서비스와 관리자 콘솔을 구현한 프론트엔드 저장소입니다.
   </p>
 
-  <p><a href="https://cking.co.kr"><img alt="서비스 바로가기" src="https://img.shields.io/badge/LIVE_SERVICE-cking.co.kr-E84383?style=for-the-badge&logo=googlechrome&logoColor=white" /></a></p>
+  <p><a href="https://cking.co.kr"><img alt="서비스 종료" src="https://img.shields.io/badge/SERVICE_ENDED-cking.co.kr-6B7280?style=for-the-badge&logo=googlechrome&logoColor=white" /></a></p>
   <p><a href="https://github.com/URECA-Cking/Cking-BE"><img alt="백엔드 저장소" src="https://img.shields.io/badge/BACKEND-Repository-282C3B?style=for-the-badge&logo=github&logoColor=white" /></a></p>
   <p><a href="https://github.com/URECA-Cking/Cking-Infra"><img alt="인프라 저장소" src="https://img.shields.io/badge/INFRASTRUCTURE-Repository-282C3B?style=for-the-badge&logo=github&logoColor=white" /></a></p>
   <p><a href="https://youtu.be/WEKKLaadHcM"><img alt="시연 영상" src="https://img.shields.io/badge/DEMO-YouTube-D62D52?style=for-the-badge&logo=youtube&logoColor=white" /></a></p>
+  <p>서비스는 종료되었습니다. 시연은 DEMO 영상에서 볼 수 있습니다.</p>
 </div>
 
 <br />
@@ -22,55 +23,15 @@
 
 ### 핵심 서비스
 
-| 미션·응모권 | 이벤트 응모 | 당첨 결과·알림 |
+|                  미⁠션⁠·⁠응⁠모⁠권                   |                  이⁠벤⁠트⁠ ⁠응⁠모                   |                당⁠첨⁠ ⁠결⁠과⁠·⁠알⁠림                |
 | :---: | :---: | :---: |
-| <img src="./docs/assets/readme/fe/welcome-quest.png" alt="웰컴 퀘스트 및 출석 응모권 화면" width="142" /><br />                                              | <img src="./docs/assets/readme/fe/event-entry.png" alt="이벤트 응모권 선택 화면" width="142" /><br />                                              | <img src="./docs/assets/readme/fe/notifications.png" alt="당첨 및 응모권 지급 알림 화면" width="142" /><br />                                              |
-| 웰컴 퀘스트·출석 미션<br />응모권 획득 | 응모권 종류·수량 선택<br />이벤트 응모 | 당첨 발표·응모권 지급<br />알림 확인 |
+| <img src="./docs/assets/readme/fe/welcome-quest.png" alt="웰컴 퀘스트 및 출석 응모권 화면" width="220" /> | <img src="./docs/assets/readme/fe/event-entry.png" alt="이벤트 응모권 선택 화면" width="220" /> | <img src="./docs/assets/readme/fe/notifications.png" alt="당첨 및 응모권 지급 알림 화면" width="220" /> |
 
 ### 크리에이터·AI 기능
 
-| 맞춤 크리에이터 추천 | Creator Space · 게시물 | YouTube 구독 인증 미션 | AI 퀴즈 미션 |
+|           맞⁠춤⁠ ⁠크⁠리⁠에⁠이⁠터⁠ ⁠추⁠천           |       C⁠r⁠e⁠a⁠t⁠o⁠r⁠ ⁠S⁠p⁠a⁠c⁠e⁠ ⁠·⁠ ⁠게⁠시⁠물       |       Y⁠o⁠u⁠T⁠u⁠b⁠e⁠ ⁠구⁠독⁠ ⁠인⁠증⁠ ⁠미⁠션        |                  A⁠I⁠ ⁠퀴⁠즈⁠ ⁠미⁠션                  |
 | :---: | :---: | :---: | :---: |
-| <img src="./docs/assets/readme/fe/recommendations.png" alt="맞춤 크리에이터 추천 화면" width="142" /><br />                                              | <img src="./docs/assets/readme/fe/creator-space.png" alt="Creator Space 게시물 및 댓글 화면" width="142" /><br />                                              | <img src="./docs/assets/readme/fe/youtube-verification.png" alt="YouTube 구독 인증 화면" width="142" /><br />                                              | <img src="./docs/assets/readme/fe/ai-quiz.png" alt="AI 퀴즈 응시 화면" width="142" /><br />                                              |
-| 관심사 기반 추천·도킹 | 게시물·좋아요·댓글 | 구독 인증 이미지 제출 | 퀴즈 응시·보상 획득 |
-
-<br />
-
-## 도메인별 화면 및 API
-
-화면에서 사용하는 **대표 API만** 정리했습니다. 일부 AI Quiz 운영 기능은 실제 BE 통합 검증이 별도로 필요합니다. 전체 연동 목록은 [FE API 사용 현황](docs/api-coverage.md), 요청·응답 계약은 [BE API 인덱스](https://github.com/URECA-Cking/Cking-BE/blob/develop/docs/api-index.md)를 참고하세요.
-
-### 팬 · 공통
-
-| 도메인 | 주요 화면·기능 | 대표 API |
-| :--- | :--- | :--- |
-| Auth | 소셜 로그인, 세션 복원 | `POST /api/auth/token`<br />`GET /api/me` |
-| Onboarding · Recommendation | 관심사 선택, 맞춤 추천, 도킹 | `GET /api/me/creator-recommendations`<br />`PUT /api/creators/{creatorId}/follow` |
-| Creator Space · Post | 스페이스 조회, 게시물·댓글 | `GET /api/creator-spaces/{slug}`<br />`GET /api/creators/{creatorId}/posts` |
-| Mission · Ticket | 웰컴 퀘스트·출석, 응모권 조회 | `GET /api/me/welcome-quest`<br />`GET /api/me/tickets` |
-| Event · Entry | 이벤트 목록·상세, 응모 | `GET /api/events`<br />`POST /api/events/{eventId}/entries` |
-| Winner · Notification | 당첨 내역, 알림 확인 | `GET /api/me/winners`<br />`GET /api/me/notifications` |
-| Quiz | 공개 퀴즈 조회·응시 | `GET /api/creators/{creatorId}/quizzes` |
-| Subscription Verification | YouTube 구독 인증 이미지 제출 | `POST /api/creators/{creatorId}/missions/{missionId}/subscription-verifications` |
-
-### 크리에이터
-
-| 도메인 | 주요 화면·기능 | 대표 API |
-| :--- | :--- | :--- |
-| Creator Application | 크리에이터 전환 신청·보완 | `POST /api/creator/applications` |
-| Creator Event | 이벤트 생성·수정, 승인 요청 | `POST /api/creator/events`<br />`POST /api/creator/events/{eventId}/approval-request` |
-| Calendar | 스페이스 일정 등록·수정 | `POST /api/creator/calendar/schedules` |
-| Creator Quiz | AI 퀴즈 생성·편집·게시 | `POST /api/creator/quizzes/generations` |
-
-### 관리자
-
-| 도메인 | 주요 화면·기능 | 대표 API |
-| :--- | :--- | :--- |
-| Creator Review · Status | 크리에이터 전환 심사·자격 관리 | `GET /api/admin/creator-applications`<br />`GET /api/admin/creators` |
-| Event Review | 이벤트 심사·운영 | `GET /api/admin/events/pending` |
-| Drawing · Redraw | 마감 확인, 추첨·검증·재추첨 | `POST /api/admin/events/{eventId}/drawings` |
-| Winner · Ticket | 당첨·수령, 응모권 잔액 관리 | `GET /api/admin/tickets/balance` |
-| Comment · Abuse | 댓글 신고·필터링, 이상 행동 검토 | `GET /api/admin/filtered-comments`<br />`GET /api/admin/abuse-detections` |
+| <img src="./docs/assets/readme/fe/recommendations.png" alt="맞춤 크리에이터 추천 화면" width="220" /> | <img src="./docs/assets/readme/fe/creator-space.png" alt="Creator Space 게시물 및 댓글 화면" width="220" /> | <img src="./docs/assets/readme/fe/youtube-verification.png" alt="YouTube 구독 인증 화면" width="220" /> | <img src="./docs/assets/readme/fe/ai-quiz.png" alt="AI 퀴즈 응시 화면" width="220" /> |
 
 <br />
 

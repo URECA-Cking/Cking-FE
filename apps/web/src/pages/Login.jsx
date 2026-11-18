@@ -49,7 +49,7 @@ export default function Login() {
           {/* 스플래시와 같은 몸통·왕관 2레이어. 첫 진입은 스플래시가 이 자리로 이어져 정지 상태로 두고,
               그 뒤(로그아웃 등)에 이 화면이 다시 뜰 때마다 왕관이 떨어진다. */}
           <span className={`relative block w-[232px] ${enter ? 'logo-enter splash-stack' : ''}`}>
-            <ThemedImage dark="/cking-logo-body.png" light="/cking-logo-body-light.png" alt="CKing" className={`w-full ${enter ? 'splash-body' : ''}`} />
+            <ThemedImage dark="/cking-logo-body.png" light="/cking-logo-body-light.png" alt="Cking" className={`w-full ${enter ? 'splash-body' : ''}`} />
             <img src="/cking-crown.png" alt="" className={`absolute inset-0 h-full w-full ${enter ? 'splash-crown' : ''}`} />
           </span>
         </h1>

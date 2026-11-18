@@ -1,11 +1,11 @@
 <div align="center">
-  <img src="./docs/assets/readme/fe/cking-logo.png" alt="CKing 로고" width="420" />
+  <img src="./docs/assets/readme/fe/cking-logo.png" alt="Cking 로고" width="420" />
 
-  <h3>크리에이터와 팬을 연결하는 참여형 플랫폼, CKing</h3>
+  <h3>크리에이터와 팬을 연결하는 참여형 플랫폼, Cking</h3>
 
   <p>
     크리에이터 탐색과 도킹부터 콘텐츠·미션 참여, 응모권 획득, 이벤트 응모와 당첨 결과 확인까지.<br />
-    CKing의 사용자·크리에이터 서비스와 관리자 콘솔을 구현한 프론트엔드 저장소입니다.
+    Cking의 사용자·크리에이터 서비스와 관리자 콘솔을 구현한 프론트엔드 저장소입니다.
   </p>
 
   <p><a href="https://cking.co.kr"><img alt="서비스 종료" src="https://img.shields.io/badge/SERVICE_ENDED-cking.co.kr-6B7280?style=for-the-badge&logo=googlechrome&logoColor=white" /></a></p>
@@ -49,7 +49,7 @@
 ## 프로젝트 구조
 
 ```text
-CKing-FE/
+Cking-FE/
 ├── apps/
 │   ├── web/                       # 팬·크리에이터 서비스 (Vite)
 │   │   ├── public/                # 정적 자산 · PWA manifest / service worker
@@ -79,7 +79,7 @@ Web과 Admin은 각각 라우팅·인증 상태·도메인 코드를 소유하�
 
 ### 1. 사전 준비
 
-Node.js 및 npm, 연동할 [CKing-BE](https://github.com/URECA-Cking/Cking-BE) 서버를 준비합니다.
+Node.js 및 npm, 연동할 [Cking-BE](https://github.com/URECA-Cking/Cking-BE) 서버를 준비합니다.
 
 ### 2. 환경변수 설정
 
